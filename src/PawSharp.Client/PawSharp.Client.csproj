@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>PawSharp.Client</RootNamespace>
+    <AssemblyName>PawSharp.Client</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
+    <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
+    <ProjectReference Include="..\PawSharp.Gateway\PawSharp.Gateway.csproj" />
+    <ProjectReference Include="..\PawSharp.Cache\PawSharp.Cache.csproj" />
+  </ItemGroup>
+
+</Project>
