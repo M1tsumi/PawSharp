@@ -1,5 +1,6 @@
 using Xunit;
 using PawSharp.Core.Entities;
+using System;
 
 namespace PawSharp.Core.Tests
 {
@@ -10,7 +11,7 @@ namespace PawSharp.Core.Tests
         {
             // Example Snowflake ID for a known date
             ulong snowflakeId = 175928847299117063; // Corresponds to 2016-04-30 11:18:25.796 UTC
-            var entity = new TestDiscordEntity(snowflakeId);
+            var entity = new TestDiscordEntity { Id = snowflakeId };
             
             // Expected: 2016-04-30 11:18:25.796 UTC
             var expected = new DateTimeOffset(2016, 4, 30, 11, 18, 25, 796, TimeSpan.Zero);
@@ -20,6 +21,5 @@ namespace PawSharp.Core.Tests
 
     internal class TestDiscordEntity : DiscordEntity
     {
-        public TestDiscordEntity(ulong id) : base(id) { }
     }
 }

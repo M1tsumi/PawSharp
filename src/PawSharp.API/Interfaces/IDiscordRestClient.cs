@@ -45,20 +45,29 @@ public interface IDiscordRestClient
     // User operations
     Task<User?> GetUserAsync(ulong userId);
     Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null);
+    Task<List<Guild>?> GetCurrentUserGuildsAsync(int limit = 200, ulong? before = null, ulong? after = null);
+    Task<bool> LeaveGuildAsync(ulong guildId);
     
     // Message operations
     Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request);
     Task<Message?> GetMessageAsync(ulong channelId, ulong messageId);
     Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request);
     Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId);
-    Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit = 50);
+    Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit = 50, ulong? around = null, ulong? before = null, ulong? after = null);
     Task<bool> BulkDeleteMessagesAsync(ulong channelId, List<ulong> messageIds);
+    Task<bool> PinMessageAsync(ulong channelId, ulong messageId);
+    Task<bool> UnpinMessageAsync(ulong channelId, ulong messageId);
+    Task<List<Message>?> GetPinnedMessagesAsync(ulong channelId);
+    Task<bool> TriggerTypingIndicatorAsync(ulong channelId);
     
     // Channel operations
     Task<Channel?> GetChannelAsync(ulong channelId);
     Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request);
     Task<bool> DeleteChannelAsync(ulong channelId);
     Task<Channel?> CreateGuildChannelAsync(ulong guildId, CreateChannelRequest request);
+    Task<List<Invite>?> GetChannelInvitesAsync(ulong channelId);
+    Task<Invite?> CreateChannelInviteAsync(ulong channelId, CreateInviteRequest request);
+    Task<bool> DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId);
     
     // Guild operations
     Task<Guild?> GetGuildAsync(ulong guildId, bool withCounts = false);
@@ -71,6 +80,10 @@ public interface IDiscordRestClient
     Task<GuildMember?> AddGuildMemberAsync(ulong guildId, ulong userId, AddGuildMemberRequest request);
     Task<GuildMember?> ModifyGuildMemberAsync(ulong guildId, ulong userId, ModifyGuildMemberRequest request);
     Task<bool> RemoveGuildMemberAsync(ulong guildId, ulong userId);
+    Task<List<Ban>?> GetGuildBansAsync(ulong guildId);
+    Task<Ban?> GetGuildBanAsync(ulong guildId, ulong userId);
+    Task<bool> CreateGuildBanAsync(ulong guildId, ulong userId, int? deleteMessageDays = null, string? reason = null);
+    Task<bool> RemoveGuildBanAsync(ulong guildId, ulong userId);
     
     // Role operations
     Task<List<Role>?> GetGuildRolesAsync(ulong guildId);

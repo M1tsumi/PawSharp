@@ -138,3 +138,15 @@ public class InteractionCallbackData
     public int? Flags { get; set; }
     public List<object>? Components { get; set; }
 }
+
+// Invite Request Models
+public class CreateInviteRequest
+{
+    public int? MaxAge { get; set; }
+    public int? MaxUses { get; set; }
+    public bool? Temporary { get; set; }
+    public bool? Unique { get; set; }
+    public int? TargetType { get; set; }
+    public ulong? TargetUserId { get; set; }
+    public ulong? TargetApplicationId { get; set; }
+}

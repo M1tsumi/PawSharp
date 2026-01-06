@@ -5,20 +5,31 @@ All notable changes to PawSharp will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Comprehensive README with honest project status assessment
-- Nullable reference type support across all projects
-- Fixed compilation errors in EventDispatcher
+- Expanded REST API coverage with 15+ new endpoints for users, messages, channels, and guilds
+- Added support for 9 new gateway events (TYPING_START, MESSAGE_REACTION_*, PRESENCE_UPDATE, etc.)
+- New entity models for Bans, Invites, and related structures
+- Enhanced message operations (pinning, typing indicators, advanced pagination)
+- Guild management features (ban/unban users, invite management)
+- Channel permission management
 
 ### Changed
-- Updated README to reflect actual implementation status
-- Clarified which features are working, partial, or not implemented
-- Added roadmap for v1.0 release
+- Updated feature documentation to reflect expanded API coverage
+
+## [0.5.0-alpha1] - 2026-01-05
+
+### Added
+- Official support declaration for v0.5.0-alpha1 with clear feature set
+- Comprehensive documentation of supported REST API endpoints
+- Clear distinction between supported and unsupported features
+- Updated README with stable alpha release information
+
+### Changed
+- Clarified project status as stable alpha release
+- Updated feature categorization to distinguish officially supported vs experimental features
 
 ### Fixed
-- Fixed Guild constructor issue (removed unnecessary constructor)
-- Fixed EventDispatcher syntax error (duplicate catch block)
-- Added #nullable enable to multiple entity and model files
-- Resolved 28 compilation errors
+- Resolved compilation warnings for nullable reference types
+- Improved documentation accuracy
 
 ### Known Issues
 - 61 nullable reference type warnings remain (mostly in interface files)

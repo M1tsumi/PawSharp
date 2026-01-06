@@ -85,6 +85,30 @@ public class DiscordRestClient : IDiscordRestClient
         return await PatchAsync("users/@me", content);
     }
     
+    public async Task<List<Guild>?> GetCurrentUserGuildsAsync(int limit = 200, ulong? before = null, ulong? after = null)
+    {
+        var queryParams = new List<string>();
+        if (limit != 200) queryParams.Add($"limit={limit}");
+        if (before.HasValue) queryParams.Add($"before={before.Value}");
+        if (after.HasValue) queryParams.Add($"after={after.Value}");
+        
+        var endpoint = "users/@me/guilds";
+        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
+        
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Guild>>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> LeaveGuildAsync(ulong guildId)
+    {
+        var response = await DeleteAsync($"users/@me/guilds/{guildId}");
+        return response.IsSuccessStatusCode;
+    }
+    
     // Message operations
     public async Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request)
     {
@@ -124,9 +148,14 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
     
-    public async Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit = 50)
+    public async Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit = 50, ulong? around = null, ulong? before = null, ulong? after = null)
     {
-        var response = await GetAsync($"channels/{channelId}/messages?limit={limit}");
+        var queryParams = new List<string> { $"limit={Math.Min(limit, 100)}" };
+        if (around.HasValue) queryParams.Add($"around={around.Value}");
+        else if (before.HasValue) queryParams.Add($"before={before.Value}");
+        else if (after.HasValue) queryParams.Add($"after={after.Value}");
+        
+        var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}");
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<Message>>();
@@ -139,6 +168,34 @@ public class DiscordRestClient : IDiscordRestClient
         var payload = new { messages = messageIds };
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         var response = await PostAsync($"channels/{channelId}/messages/bulk-delete", content);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> PinMessageAsync(ulong channelId, ulong messageId)
+    {
+        var response = await PutAsync($"channels/{channelId}/pins/{messageId}", null!);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> UnpinMessageAsync(ulong channelId, ulong messageId)
+    {
+        var response = await DeleteAsync($"channels/{channelId}/pins/{messageId}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<List<Message>?> GetPinnedMessagesAsync(ulong channelId)
+    {
+        var response = await GetAsync($"channels/{channelId}/pins");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Message>>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> TriggerTypingIndicatorAsync(ulong channelId)
+    {
+        var response = await PostAsync($"channels/{channelId}/typing", null!);
         return response.IsSuccessStatusCode;
     }
     
@@ -179,6 +236,33 @@ public class DiscordRestClient : IDiscordRestClient
             return await response.Content.ReadFromJsonAsync<Channel>();
         }
         return null;
+    }
+    
+    public async Task<List<Invite>?> GetChannelInvitesAsync(ulong channelId)
+    {
+        var response = await GetAsync($"channels/{channelId}/invites");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Invite>>();
+        }
+        return null;
+    }
+    
+    public async Task<Invite?> CreateChannelInviteAsync(ulong channelId, CreateInviteRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"channels/{channelId}/invites", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Invite>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId)
+    {
+        var response = await DeleteAsync($"channels/{channelId}/permissions/{overwriteId}");
+        return response.IsSuccessStatusCode;
     }
     
     // Guild operations
@@ -279,6 +363,40 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<bool> RemoveGuildMemberAsync(ulong guildId, ulong userId)
     {
         var response = await DeleteAsync($"guilds/{guildId}/members/{userId}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<List<Ban>?> GetGuildBansAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/bans");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Ban>>();
+        }
+        return null;
+    }
+    
+    public async Task<Ban?> GetGuildBanAsync(ulong guildId, ulong userId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/bans/{userId}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Ban>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> CreateGuildBanAsync(ulong guildId, ulong userId, int? deleteMessageDays = null, string? reason = null)
+    {
+        var payload = new { delete_message_days = deleteMessageDays, reason };
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"guilds/{guildId}/bans/{userId}", content);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> RemoveGuildBanAsync(ulong guildId, ulong userId)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/bans/{userId}");
         return response.IsSuccessStatusCode;
     }
     
