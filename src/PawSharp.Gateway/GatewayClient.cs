@@ -206,6 +206,33 @@ namespace PawSharp.Gateway
                     case "INTERACTION_CREATE":
                         _eventDispatcher.DispatchFromJson<InteractionCreateEvent>(eventType, eventData);
                         break;
+                    case "TYPING_START":
+                        _eventDispatcher.DispatchFromJson<TypingStartEvent>(eventType, eventData);
+                        break;
+                    case "MESSAGE_REACTION_ADD":
+                        _eventDispatcher.DispatchFromJson<MessageReactionAddEvent>(eventType, eventData);
+                        break;
+                    case "MESSAGE_REACTION_REMOVE":
+                        _eventDispatcher.DispatchFromJson<MessageReactionRemoveEvent>(eventType, eventData);
+                        break;
+                    case "MESSAGE_REACTION_REMOVE_ALL":
+                        _eventDispatcher.DispatchFromJson<MessageReactionRemoveAllEvent>(eventType, eventData);
+                        break;
+                    case "PRESENCE_UPDATE":
+                        _eventDispatcher.DispatchFromJson<PresenceUpdateEvent>(eventType, eventData);
+                        break;
+                    case "CHANNEL_PINS_UPDATE":
+                        _eventDispatcher.DispatchFromJson<ChannelPinsUpdateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_BAN_ADD":
+                        _eventDispatcher.DispatchFromJson<GuildBanAddEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_BAN_REMOVE":
+                        _eventDispatcher.DispatchFromJson<GuildBanRemoveEvent>(eventType, eventData);
+                        break;
+                    case "VOICE_STATE_UPDATE":
+                        _eventDispatcher.DispatchFromJson<VoiceStateUpdateEvent>(eventType, eventData);
+                        break;
                     default:
                         _logger.LogDebug($"Unhandled event type: {eventType}");
                         // Dispatch raw event for custom handling

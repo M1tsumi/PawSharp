@@ -4,31 +4,46 @@ A Discord API wrapper for .NET 8.0 focused on modularity and transparency. This 
 
 ## Current Status
 
-Version 0.5.0-alpha (Pre-release)
+Version 0.5.0-alpha1 (Pre-release)
 
-PawSharp works for basic to intermediate Discord bot applications, but there's still a lot of work to do. The core architecture is solid, but many features are either incomplete or haven't been tested thoroughly.
+PawSharp provides a stable foundation for basic to intermediate Discord bot applications. The core architecture is solid, and the officially supported features have been tested and are ready for alpha use.
 
-### What Works
+### Officially Supported Features (v0.5.0-alpha1)
 
+**Gateway & Events:**
 - Gateway connection with WebSocket and automatic heartbeat
-- Event handling for common events (READY, MESSAGE_CREATE, GUILD_CREATE, etc.)
-- REST API client with basic rate limiting
+- Event handling for core events: READY, MESSAGE_CREATE, MESSAGE_UPDATE, MESSAGE_DELETE, GUILD_CREATE, GUILD_UPDATE, GUILD_DELETE, CHANNEL_CREATE, CHANNEL_UPDATE, CHANNEL_DELETE, GUILD_MEMBER_ADD, GUILD_MEMBER_UPDATE, GUILD_MEMBER_REMOVE, INTERACTION_CREATE
+- Additional events: TYPING_START, MESSAGE_REACTION_ADD, MESSAGE_REACTION_REMOVE, MESSAGE_REACTION_REMOVE_ALL, PRESENCE_UPDATE, CHANNEL_PINS_UPDATE, GUILD_BAN_ADD, GUILD_BAN_REMOVE, VOICE_STATE_UPDATE
+
+**REST API Endpoints:**
+- **Users:** GetUser, ModifyCurrentUser, GetCurrentUserGuilds, LeaveGuild
+- **Messages:** CreateMessage, GetMessage, EditMessage, DeleteMessage, GetChannelMessages (with pagination), BulkDeleteMessages, PinMessage, UnpinMessage, GetPinnedMessages, TriggerTypingIndicator
+- **Channels:** GetChannel, ModifyChannel, DeleteChannel, CreateGuildChannel, GetChannelInvites, CreateChannelInvite, DeleteChannelPermission
+- **Guilds:** GetGuild, CreateGuild, ModifyGuild, DeleteGuild, GetGuildChannels, GetGuildMembers, GetGuildMember, AddGuildMember, ModifyGuildMember, RemoveGuildMember, GetGuildBans, GetGuildBan, CreateGuildBan, RemoveGuildBan
+- **Roles:** GetGuildRoles, CreateGuildRole, ModifyGuildRole, DeleteGuildRole, AddGuildMemberRole, RemoveGuildMemberRole
+- **Interactions:** CreateInteractionResponse, EditOriginalInteractionResponse, DeleteOriginalInteractionResponse
+- **Reactions:** CreateReaction, DeleteOwnReaction, DeleteUserReaction
+
+**Core Features:**
 - In-memory entity caching
 - Dependency injection support
-- Core entity models (Users, Guilds, Channels, Messages, Roles, Members)
+- Core entity models (Users, Guilds, Channels, Messages, Roles, Members, Bans, Invites)
 - Snowflake ID serialization
+- Basic rate limiting
 
-### Partially Working
+### Partially Implemented (Not Supported in v0.5.0-alpha1)
 
 - Sharding (exists but untested with large bots)
 - Advanced rate limiting (implemented but needs real-world testing)
-- Event dispatcher (works but error handling could be better)
+- Event dispatcher (works but error handling could be improved)
 - Slash command builders (response system incomplete)
 
-### Not Implemented
+### Not Implemented / Unsupported Features
+
+The following Discord API features are not implemented and will not work:
 
 - Voice support
-- Message components (buttons, select menus)
+- Message components (buttons, select menus, action rows)
 - Modals
 - Thread and forum operations
 - Auto-moderation API
@@ -37,6 +52,8 @@ PawSharp works for basic to intermediate Discord bot applications, but there's s
 - Webhook management
 - Audit logs
 - Comprehensive tests
+- Redis caching
+- Any other advanced Discord features not listed above
 
 ## Known Issues
 
@@ -224,9 +241,9 @@ Console.WriteLine($"Cached {entityCount} entities");
 
 ## Roadmap
 
-Short term (v0.6-0.7): Complete interaction handling, add proper error handling, write tests, improve reconnection logic
+Short term (v0.6-0.7): Complete interaction handling, add proper error handling, write comprehensive tests, improve reconnection logic, add sharding support
 
-Medium term (v0.8-0.9): Thread support, forum channels, webhooks, audit logs, modals, scheduled events, better sharding
+Medium term (v0.8-0.9): Thread support, forum channels, webhooks, audit logs, modals, scheduled events, better sharding, message components
 
 Long term (v1.0+): Voice support, auto-moderation, stage channels, Redis caching, performance optimizations, documentation site, NuGet release
 
@@ -300,4 +317,4 @@ Built with inspiration from Discord.NET and DSharpPlus. Thanks to the Discord AP
 
 ---
 
-Status: Alpha | Not Production Ready
+Status: Alpha 1 | Stable for Supported Features
