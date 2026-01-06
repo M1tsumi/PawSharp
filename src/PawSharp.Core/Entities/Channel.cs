@@ -154,5 +154,40 @@ public class Channel : DiscordEntity
     /// </summary>
     [JsonPropertyName("flags")]
     public int? Flags { get; set; }
-
+    
+    /// <summary>
+    /// The set of tags that can be used in a GUILD_FORUM channel.
+    /// </summary>
+    [JsonPropertyName("available_tags")]
+    public List<ForumTag>? AvailableTags { get; set; }
+    
+    /// <summary>
+    /// The IDs of the set of tags that have been applied to a thread in a GUILD_FORUM channel.
+    /// </summary>
+    [JsonPropertyName("applied_tags")]
+    public List<ulong>? AppliedTags { get; set; }
+    
+    /// <summary>
+    /// The emoji to show in the add reaction button on a thread in a GUILD_FORUM channel.
+    /// </summary>
+    [JsonPropertyName("default_reaction_emoji")]
+    public DefaultReaction? DefaultReactionEmoji { get; set; }
+    
+    /// <summary>
+    /// The initial rate_limit_per_user to set on newly created threads in a channel.
+    /// </summary>
+    [JsonPropertyName("default_thread_rate_limit_per_user")]
+    public int? DefaultThreadRateLimitPerUser { get; set; }
+    
+    /// <summary>
+    /// The default sort order type used to order posts in GUILD_FORUM channels.
+    /// </summary>
+    [JsonPropertyName("default_sort_order")]
+    public int? DefaultSortOrder { get; set; }
+    
+    /// <summary>
+    /// The default forum layout view used to display posts in GUILD_FORUM channels.
+    /// </summary>
+    [JsonPropertyName("default_forum_layout")]
+    public int? DefaultForumLayout { get; set; }
 }

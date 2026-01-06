@@ -10,7 +10,7 @@ public class CreateMessageRequest
 {
     public string? Content { get; set; }
     public List<Embed>? Embeds { get; set; }
-    public List<object>? Components { get; set; }
+    public List<MessageComponent>? Components { get; set; }
     public bool? Tts { get; set; }
     public object? AllowedMentions { get; set; }
     public object? MessageReference { get; set; }
@@ -20,7 +20,7 @@ public class EditMessageRequest
 {
     public string? Content { get; set; }
     public List<Embed>? Embeds { get; set; }
-    public List<object>? Components { get; set; }
+    public List<MessageComponent>? Components { get; set; }
 }
 
 // Channel Request Models
@@ -136,7 +136,7 @@ public class InteractionCallbackData
     public List<Embed>? Embeds { get; set; }
     public object? AllowedMentions { get; set; }
     public int? Flags { get; set; }
-    public List<object>? Components { get; set; }
+    public List<MessageComponent>? Components { get; set; }
 }
 
 // Invite Request Models
@@ -149,4 +149,89 @@ public class CreateInviteRequest
     public int? TargetType { get; set; }
     public ulong? TargetUserId { get; set; }
     public ulong? TargetApplicationId { get; set; }
+}
+
+// Message Component Models
+public abstract class MessageComponent
+{
+    public int Type { get; set; }
+}
+
+public class ActionRow : MessageComponent
+{
+    public ActionRow()
+    {
+        Type = 1; // ACTION_ROW
+    }
+    
+    public List<MessageComponent> Components { get; set; } = new();
+}
+
+public class Button : MessageComponent
+{
+    public Button()
+    {
+        Type = 2; // BUTTON
+    }
+    
+    public int Style { get; set; } // 1-5 (PRIMARY, SECONDARY, SUCCESS, DANGER, LINK)
+    public string? Label { get; set; }
+    public Emoji? Emoji { get; set; }
+    public string? CustomId { get; set; } // For non-link buttons
+    public string? Url { get; set; } // For link buttons
+    public bool? Disabled { get; set; }
+}
+
+public class SelectMenu : MessageComponent
+{
+    public SelectMenu()
+    {
+        Type = 3; // SELECT_MENU
+    }
+    
+    public string CustomId { get; set; } = string.Empty;
+    public List<SelectOption> Options { get; set; } = new();
+    public string? Placeholder { get; set; }
+    public int? MinValues { get; set; }
+    public int? MaxValues { get; set; }
+    public bool? Disabled { get; set; }
+}
+
+public class SelectOption
+{
+    public string Label { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public Emoji? Emoji { get; set; }
+    public bool? Default { get; set; }
+}
+
+// Slash Command Models
+public class CreateApplicationCommandRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public List<ApplicationCommandOption>? Options { get; set; }
+    public bool? DefaultPermission { get; set; }
+    public int? Type { get; set; }
+}
+
+// Thread/Forum Models
+public class CreateThreadRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public int? AutoArchiveDuration { get; set; }
+    public int Type { get; set; } // 10 = NEWS_THREAD, 11 = PUBLIC_THREAD, 12 = PRIVATE_THREAD
+    public bool? Invitable { get; set; }
+    public int? RateLimitPerUser { get; set; }
+}
+
+public class ModifyThreadRequest
+{
+    public string? Name { get; set; }
+    public bool? Archived { get; set; }
+    public int? AutoArchiveDuration { get; set; }
+    public bool? Locked { get; set; }
+    public bool? Invitable { get; set; }
+    public int? RateLimitPerUser { get; set; }
 }

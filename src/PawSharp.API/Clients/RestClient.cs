@@ -489,6 +489,258 @@ public class DiscordRestClient : IDiscordRestClient
         var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/{userId}");
         return response.IsSuccessStatusCode;
     }
+    
+    // Application Command operations
+    public async Task<List<ApplicationCommand>?> GetGlobalApplicationCommandsAsync(ulong applicationId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/commands");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommand?> CreateGlobalApplicationCommandAsync(ulong applicationId, CreateApplicationCommandRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"applications/{applicationId}/commands", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommand?> GetGlobalApplicationCommandAsync(ulong applicationId, ulong commandId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/commands/{commandId}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommand?> EditGlobalApplicationCommandAsync(ulong applicationId, ulong commandId, CreateApplicationCommandRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"applications/{applicationId}/commands/{commandId}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> DeleteGlobalApplicationCommandAsync(ulong applicationId, ulong commandId)
+    {
+        var response = await DeleteAsync($"applications/{applicationId}/commands/{commandId}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<List<ApplicationCommand>?> GetGuildApplicationCommandsAsync(ulong applicationId, ulong guildId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommand?> CreateGuildApplicationCommandAsync(ulong applicationId, ulong guildId, CreateApplicationCommandRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"applications/{applicationId}/guilds/{guildId}/commands", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommand?> GetGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommand?> EditGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId, CreateApplicationCommandRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> DeleteGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId)
+    {
+        var response = await DeleteAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<List<ApplicationCommand>?> BulkOverwriteGlobalApplicationCommandsAsync(ulong applicationId, List<CreateApplicationCommandRequest> commands)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(commands), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"applications/{applicationId}/commands", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
+        }
+        return null;
+    }
+    
+    public async Task<List<ApplicationCommand>?> BulkOverwriteGuildApplicationCommandsAsync(ulong applicationId, ulong guildId, List<CreateApplicationCommandRequest> commands)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(commands), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
+        }
+        return null;
+    }
+    
+    // Thread operations
+    public async Task<Channel?> CreateThreadAsync(ulong channelId, CreateThreadRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"channels/{channelId}/threads", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Channel>();
+        }
+        return null;
+    }
+    
+    public async Task<Channel?> CreateThreadFromMessageAsync(ulong channelId, ulong messageId, CreateThreadRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"channels/{channelId}/messages/{messageId}/threads", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Channel>();
+        }
+        return null;
+    }
+    
+    public async Task<Channel?> CreateThreadInForumAsync(ulong channelId, CreateThreadRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"channels/{channelId}/threads", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Channel>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> JoinThreadAsync(ulong channelId)
+    {
+        var response = await PutAsync($"channels/{channelId}/thread-members/@me", null!);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> AddThreadMemberAsync(ulong channelId, ulong userId)
+    {
+        var response = await PutAsync($"channels/{channelId}/thread-members/{userId}", null!);
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> LeaveThreadAsync(ulong channelId)
+    {
+        var response = await DeleteAsync($"channels/{channelId}/thread-members/@me");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> RemoveThreadMemberAsync(ulong channelId, ulong userId)
+    {
+        var response = await DeleteAsync($"channels/{channelId}/thread-members/{userId}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId)
+    {
+        var response = await GetAsync($"channels/{channelId}/thread-members/{userId}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ThreadMember>();
+        }
+        return null;
+    }
+    
+    public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId)
+    {
+        var response = await GetAsync($"channels/{channelId}/thread-members");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<ThreadMember>>();
+        }
+        return null;
+    }
+    
+    public async Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/threads/active");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Channel>>();
+        }
+        return null;
+    }
+    
+    public async Task<List<Channel>?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
+    {
+        var query = new List<string>();
+        if (before.HasValue) query.Add($"before={before.Value.ToUnixTimeSeconds()}");
+        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        var queryString = query.Any() ? "?" + string.Join("&", query) : "";
+        
+        var response = await GetAsync($"channels/{channelId}/threads/archived/public{queryString}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Channel>>();
+        }
+        return null;
+    }
+    
+    public async Task<List<Channel>?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
+    {
+        var query = new List<string>();
+        if (before.HasValue) query.Add($"before={before.Value.ToUnixTimeSeconds()}");
+        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        var queryString = query.Any() ? "?" + string.Join("&", query) : "";
+        
+        var response = await GetAsync($"channels/{channelId}/threads/archived/private{queryString}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Channel>>();
+        }
+        return null;
+    }
+    
+    public async Task<List<Channel>?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
+    {
+        var query = new List<string>();
+        if (before.HasValue) query.Add($"before={before.Value.ToUnixTimeSeconds()}");
+        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        var queryString = query.Any() ? "?" + string.Join("&", query) : "";
+        
+        var response = await GetAsync($"channels/{channelId}/users/@me/threads/archived/private{queryString}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Channel>>();
+        }
+        return null;
+    }
 
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content)
     {

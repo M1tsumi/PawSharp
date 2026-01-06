@@ -432,19 +432,22 @@ public class InteractionCreateEvent : GatewayEvent
     public ulong Id { get; set; }
     
     [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
     public ulong ApplicationId { get; set; }
     
     [JsonPropertyName("type")]
     public int Type { get; set; }
     
     [JsonPropertyName("data")]
-    public object? Data { get; set; }
+    public InteractionData? Data { get; set; }
     
     [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
     public ulong? GuildId { get; set; }
     
     [JsonPropertyName("channel_id")]
-    public ulong? ChannelId { get; set; }
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
     
     [JsonPropertyName("member")]
     public GuildMember? Member { get; set; }
@@ -460,6 +463,15 @@ public class InteractionCreateEvent : GatewayEvent
     
     [JsonPropertyName("message")]
     public Message? Message { get; set; }
+    
+    [JsonPropertyName("app_permissions")]
+    public string? AppPermissions { get; set; }
+    
+    [JsonPropertyName("locale")]
+    public string? Locale { get; set; }
+    
+    [JsonPropertyName("guild_locale")]
+    public string? GuildLocale { get; set; }
 }
 
 /// <summary>
@@ -778,4 +790,188 @@ public class ClientStatus
     
     [JsonPropertyName("web")]
     public string? Web { get; set; }
+}
+
+/// <summary>
+/// THREAD_CREATE event.
+/// </summary>
+public class ThreadCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+    
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+    
+    [JsonPropertyName("parent_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ParentId { get; set; }
+    
+    [JsonPropertyName("owner_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong OwnerId { get; set; }
+    
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+    
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+    
+    [JsonPropertyName("member_count")]
+    public int MemberCount { get; set; }
+    
+    [JsonPropertyName("message_count")]
+    public int MessageCount { get; set; }
+    
+    [JsonPropertyName("thread_metadata")]
+    public ThreadMetadata ThreadMetadata { get; set; } = null!;
+    
+    [JsonPropertyName("member")]
+    public ThreadMember? Member { get; set; }
+    
+    [JsonPropertyName("last_message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? LastMessageId { get; set; }
+    
+    [JsonPropertyName("rate_limit_per_user")]
+    public int? RateLimitPerUser { get; set; }
+    
+    [JsonPropertyName("flags")]
+    public int? Flags { get; set; }
+}
+
+/// <summary>
+/// THREAD_UPDATE event.
+/// </summary>
+public class ThreadUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+    
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+    
+    [JsonPropertyName("parent_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ParentId { get; set; }
+    
+    [JsonPropertyName("owner_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong OwnerId { get; set; }
+    
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+    
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+    
+    [JsonPropertyName("member_count")]
+    public int MemberCount { get; set; }
+    
+    [JsonPropertyName("message_count")]
+    public int MessageCount { get; set; }
+    
+    [JsonPropertyName("thread_metadata")]
+    public ThreadMetadata ThreadMetadata { get; set; } = null!;
+    
+    [JsonPropertyName("last_message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? LastMessageId { get; set; }
+    
+    [JsonPropertyName("rate_limit_per_user")]
+    public int? RateLimitPerUser { get; set; }
+    
+    [JsonPropertyName("flags")]
+    public int? Flags { get; set; }
+}
+
+/// <summary>
+/// THREAD_DELETE event.
+/// </summary>
+public class ThreadDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+    
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+    
+    [JsonPropertyName("parent_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ParentId { get; set; }
+    
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+}
+
+/// <summary>
+/// THREAD_LIST_SYNC event.
+/// </summary>
+public class ThreadListSyncEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+    
+    [JsonPropertyName("channel_ids")]
+    public List<ulong>? ChannelIds { get; set; }
+    
+    [JsonPropertyName("threads")]
+    public List<Channel> Threads { get; set; } = new();
+    
+    [JsonPropertyName("members")]
+    public List<ThreadMember> Members { get; set; } = new();
+}
+
+/// <summary>
+/// THREAD_MEMBER_UPDATE event.
+/// </summary>
+public class ThreadMemberUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+    
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+    
+    [JsonPropertyName("join_timestamp")]
+    public DateTimeOffset JoinTimestamp { get; set; }
+    
+    [JsonPropertyName("flags")]
+    public int Flags { get; set; }
+    
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+}
+
+/// <summary>
+/// THREAD_MEMBERS_UPDATE event.
+/// </summary>
+public class ThreadMembersUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+    
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+    
+    [JsonPropertyName("member_count")]
+    public int MemberCount { get; set; }
+    
+    [JsonPropertyName("added_members")]
+    public List<ThreadMember>? AddedMembers { get; set; }
+    
+    [JsonPropertyName("removed_member_ids")]
+    public List<ulong>? RemovedMemberIds { get; set; }
 }

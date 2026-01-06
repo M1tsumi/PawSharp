@@ -233,6 +233,24 @@ namespace PawSharp.Gateway
                     case "VOICE_STATE_UPDATE":
                         _eventDispatcher.DispatchFromJson<VoiceStateUpdateEvent>(eventType, eventData);
                         break;
+                    case "THREAD_CREATE":
+                        _eventDispatcher.DispatchFromJson<ThreadCreateEvent>(eventType, eventData);
+                        break;
+                    case "THREAD_UPDATE":
+                        _eventDispatcher.DispatchFromJson<ThreadUpdateEvent>(eventType, eventData);
+                        break;
+                    case "THREAD_DELETE":
+                        _eventDispatcher.DispatchFromJson<ThreadDeleteEvent>(eventType, eventData);
+                        break;
+                    case "THREAD_LIST_SYNC":
+                        _eventDispatcher.DispatchFromJson<ThreadListSyncEvent>(eventType, eventData);
+                        break;
+                    case "THREAD_MEMBER_UPDATE":
+                        _eventDispatcher.DispatchFromJson<ThreadMemberUpdateEvent>(eventType, eventData);
+                        break;
+                    case "THREAD_MEMBERS_UPDATE":
+                        _eventDispatcher.DispatchFromJson<ThreadMembersUpdateEvent>(eventType, eventData);
+                        break;
                     default:
                         _logger.LogDebug($"Unhandled event type: {eventType}");
                         // Dispatch raw event for custom handling
