@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <Authors>PawSharp Team</Authors>
+    <Company>PawSharp</Company>
+    <Description>A modular Discord API wrapper for .NET 8.0</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/M1tsumi/PawSharp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/M1tsumi/PawSharp</RepositoryUrl>
+    <PackageTags>discord api wrapper bot csharp dotnet</PackageTags>
+    <Version>0.1.0-alpha4</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+</Project>

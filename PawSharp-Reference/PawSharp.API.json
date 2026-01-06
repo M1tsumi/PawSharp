@@ -1,0 +1,145 @@
+{
+  "assembly": "PawSharp.API",
+  "source": "/home/quefep/Desktop/C#/PawSharp Planning/PawSharp/src/PawSharp.API/bin/Debug/net8.0/PawSharp.API.xml",
+  "members": [
+    {
+      "id": "T:PawSharp.API.Clients.DiscordRestClient",
+      "kind": "T",
+      "name": "PawSharp.API.Clients.DiscordRestClient",
+      "summary": "Implementation of Discord REST API client with rate limiting.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.API.Interfaces.IDiscordRestClient",
+      "kind": "T",
+      "name": "PawSharp.API.Interfaces.IDiscordRestClient",
+      "summary": "Interface for Discord REST API client.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.Interfaces.IDiscordRestClient.GetAsync(System.String)",
+      "kind": "M",
+      "name": "PawSharp.API.Interfaces.IDiscordRestClient.GetAsync(System.String)",
+      "summary": "Sends a GET request to the Discord API.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.Interfaces.IDiscordRestClient.PostAsync(System.String,System.Net.Http.HttpContent)",
+      "kind": "M",
+      "name": "PawSharp.API.Interfaces.IDiscordRestClient.PostAsync(System.String,System.Net.Http.HttpContent)",
+      "summary": "Sends a POST request to the Discord API.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.Interfaces.IDiscordRestClient.PutAsync(System.String,System.Net.Http.HttpContent)",
+      "kind": "M",
+      "name": "PawSharp.API.Interfaces.IDiscordRestClient.PutAsync(System.String,System.Net.Http.HttpContent)",
+      "summary": "Sends a PUT request to the Discord API.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.Interfaces.IDiscordRestClient.DeleteAsync(System.String)",
+      "kind": "M",
+      "name": "PawSharp.API.Interfaces.IDiscordRestClient.DeleteAsync(System.String)",
+      "summary": "Sends a DELETE request to the Discord API.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.Interfaces.IDiscordRestClient.PatchAsync(System.String,System.Net.Http.HttpContent)",
+      "kind": "M",
+      "name": "PawSharp.API.Interfaces.IDiscordRestClient.PatchAsync(System.String,System.Net.Http.HttpContent)",
+      "summary": "Sends a PATCH request to the Discord API.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.Interfaces.IDiscordRestClient.GetCurrentUserAsync",
+      "kind": "M",
+      "name": "PawSharp.API.Interfaces.IDiscordRestClient.GetCurrentUserAsync",
+      "summary": "Gets the current bot user information.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.API.RateLimit.AdvancedRateLimiter",
+      "kind": "T",
+      "name": "PawSharp.API.RateLimit.AdvancedRateLimiter",
+      "summary": "Advanced rate limiter with per-route bucket management.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.RateLimit.AdvancedRateLimiter.WaitForRateLimitAsync(System.String,System.String)",
+      "kind": "M",
+      "name": "PawSharp.API.RateLimit.AdvancedRateLimiter.WaitForRateLimitAsync(System.String,System.String)",
+      "summary": "Wait for rate limit clearance before executing a request.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": [
+        {
+          "name": "route",
+          "description": "The API route (e.g., \"POST /channels/{channel.id}/messages\")"
+        },
+        {
+          "name": "bucketHash",
+          "description": "The bucket hash from Discord's X-RateLimit-Bucket header"
+        }
+      ]
+    },
+    {
+      "id": "M:PawSharp.API.RateLimit.AdvancedRateLimiter.UpdateRateLimits(System.String,System.String,System.Nullable{System.Int32},System.Nullable{System.DateTimeOffset},System.Boolean)",
+      "kind": "M",
+      "name": "PawSharp.API.RateLimit.AdvancedRateLimiter.UpdateRateLimits(System.String,System.String,System.Nullable{System.Int32},System.Nullable{System.DateTimeOffset},System.Boolean)",
+      "summary": "Update rate limit information from response headers.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.API.RateLimit.AdvancedRateLimiter.MarkRequestComplete(System.String,System.String)",
+      "kind": "M",
+      "name": "PawSharp.API.RateLimit.AdvancedRateLimiter.MarkRequestComplete(System.String,System.String)",
+      "summary": "Mark a request as completed for a bucket.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.API.RateLimit.RateLimitBucket",
+      "kind": "T",
+      "name": "PawSharp.API.RateLimit.RateLimitBucket",
+      "summary": "Represents a single rate limit bucket.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    }
+  ]
+}

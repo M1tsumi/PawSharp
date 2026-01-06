@@ -2,13 +2,28 @@
 
 All notable changes to PawSharp will be documented in this file.
 
+## [0.5.0-alpha4] - 2026-01-06
+
+### Added
+- **Audit Logs REST API**: Implemented `GetGuildAuditLogsAsync` method with support for filtering by user ID, action type, before timestamp, and limit
+- **Auto Moderation REST API**: Full CRUD operations for auto moderation rules including list, get, create, modify, and delete endpoints
+- **Request Models**: Added `CreateAutoModerationRuleRequest` and `ModifyAutoModerationRuleRequest` models
+- **Unit Tests**: Added comprehensive unit tests for audit logs and auto moderation REST methods
+
+### Technical Details
+- Extended `IDiscordRestClient` interface with new audit log and auto moderation methods
+- Added request/response models for auto moderation in `ApiRequestModels.cs`
+- Maintained backwards compatibility with existing v0.5.0-alpha3 features
+- All new methods include proper async/await patterns and error handling
+
 ## [Unreleased]
 
-### Planned for v0.5.0-alpha4
-- REST API endpoints for webhooks, audit logs, scheduled events, and auto moderation
-- Gateway event handling for new entity types
-- Enhanced WebSocket connection reliability and session resumption
-- Comprehensive integration tests for new features
+### Planned for Future Releases
+- Gateway events: Support scheduled event lifecycle events (GUILD_SCHEDULED_EVENT_CREATE/UPDATE/DELETE and related user add/remove events) and auto-moderation action events; ensure `PawSharp.Gateway` dispatches these events and corresponding entities exist in `PawSharp.Core.Entities`. Acceptance: events are dispatched and the cache reflects updates.
+- WebSocket reliability & resume: Improve Identify/Resume handling, heartbeat ACK processing, invalid_session handling, and exponential backoff reconnect logic. Acceptance: `WebSocketConnection.cs` handles resume/identify per Discord Gateway spec and a simulated disconnect/resume test passes.
+- Rate limiting & retry: Ensure route-specific buckets, global rate-limit handling, and proper 429 Retry-After backoff using `AdvancedRateLimiter`. Acceptance: simulated 429 tests verify retries and respect Retry-After headers.
+- Tests & CI: Add opt-in integration tests for live Discord calls (enabled via env var), additional unit tests for new models/clients, and update CI to run unit tests by default. Acceptance: new tests under `tests/` and documentation for enabling live tests.
+- Docs & examples: Update `docs/`, `README.md`, and `examples/` with end-to-end examples for Webhooks, Scheduled Events, and Auto Moderation usage. Acceptance: at least one complete example demonstrates REST + Gateway flow for these features.
 
 ## [0.5.0-alpha3] - 2026-01-05
 

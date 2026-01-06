@@ -57,7 +57,7 @@
   <g>
     <rect x="420" y="210" width="180" height="50" rx="8" fill="rgba(255, 255, 255, 0.2)" stroke="white" stroke-width="2"/>
     <text x="510" y="245" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white" text-anchor="middle">
-      v0.5.0-alpha3
+      v0.5.0-alpha4
     </text>
   </g>
   

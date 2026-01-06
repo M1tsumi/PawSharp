@@ -741,6 +741,240 @@ public class DiscordRestClient : IDiscordRestClient
         }
         return null;
     }
+    
+    // Webhook operations
+    public async Task<Webhook?> CreateWebhookAsync(ulong channelId, CreateWebhookRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"channels/{channelId}/webhooks", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Webhook>();
+        }
+        return null;
+    }
+    
+    public async Task<List<Webhook>?> GetChannelWebhooksAsync(ulong channelId)
+    {
+        var response = await GetAsync($"channels/{channelId}/webhooks");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Webhook>>();
+        }
+        return null;
+    }
+    
+    public async Task<List<Webhook>?> GetGuildWebhooksAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/webhooks");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<Webhook>>();
+        }
+        return null;
+    }
+    
+    public async Task<Webhook?> GetWebhookAsync(ulong webhookId)
+    {
+        var response = await GetAsync($"webhooks/{webhookId}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Webhook>();
+        }
+        return null;
+    }
+    
+    public async Task<Webhook?> GetWebhookWithTokenAsync(ulong webhookId, string token)
+    {
+        var response = await GetAsync($"webhooks/{webhookId}/{token}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Webhook>();
+        }
+        return null;
+    }
+    
+    public async Task<Webhook?> ModifyWebhookAsync(ulong webhookId, ModifyWebhookRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"webhooks/{webhookId}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Webhook>();
+        }
+        return null;
+    }
+    
+    public async Task<Webhook?> ModifyWebhookWithTokenAsync(ulong webhookId, string token, ModifyWebhookRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"webhooks/{webhookId}/{token}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Webhook>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> DeleteWebhookAsync(ulong webhookId)
+    {
+        var response = await DeleteAsync($"webhooks/{webhookId}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<bool> DeleteWebhookWithTokenAsync(ulong webhookId, string token)
+    {
+        var response = await DeleteAsync($"webhooks/{webhookId}/{token}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<Message?> ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync(endpoint, content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Message>();
+        }
+        return null;
+    }
+    
+    // Scheduled Event operations
+    public async Task<GuildScheduledEvent?> CreateGuildScheduledEventAsync(ulong guildId, CreateGuildScheduledEventRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"guilds/{guildId}/scheduled-events", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>();
+        }
+        return null;
+    }
+    
+    public async Task<List<GuildScheduledEvent>?> GetGuildScheduledEventsAsync(ulong guildId, bool? withUserCount = null)
+    {
+        var query = withUserCount.HasValue ? $"?with_user_count={withUserCount.Value.ToString().ToLower()}" : "";
+        var response = await GetAsync($"guilds/{guildId}/scheduled-events{query}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<GuildScheduledEvent>>();
+        }
+        return null;
+    }
+    
+    public async Task<GuildScheduledEvent?> GetGuildScheduledEventAsync(ulong guildId, ulong eventId, bool? withUserCount = null)
+    {
+        var query = withUserCount.HasValue ? $"?with_user_count={withUserCount.Value.ToString().ToLower()}" : "";
+        var response = await GetAsync($"guilds/{guildId}/scheduled-events/{eventId}{query}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>();
+        }
+        return null;
+    }
+    
+    public async Task<GuildScheduledEvent?> ModifyGuildScheduledEventAsync(ulong guildId, ulong eventId, ModifyGuildScheduledEventRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/scheduled-events/{eventId}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> DeleteGuildScheduledEventAsync(ulong guildId, ulong eventId)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/scheduled-events/{eventId}");
+        return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<List<User>?> GetGuildScheduledEventUsersAsync(ulong guildId, ulong eventId, int? limit = null, bool? withMember = null, ulong? before = null, ulong? after = null)
+    {
+        var query = new List<string>();
+        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        if (withMember.HasValue) query.Add($"with_member={withMember.Value.ToString().ToLower()}");
+        if (before.HasValue) query.Add($"before={before.Value}");
+        if (after.HasValue) query.Add($"after={after.Value}");
+        var queryString = query.Any() ? "?" + string.Join("&", query) : "";
+        
+        var response = await GetAsync($"guilds/{guildId}/scheduled-events/{eventId}/users{queryString}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<User>>();
+        }
+        return null;
+    }
+    
+    // Audit Log operations
+    public async Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, int? limit = null)
+    {
+        var query = new List<string>();
+        if (userId.HasValue) query.Add($"user_id={userId.Value}");
+        if (actionType.HasValue) query.Add($"action_type={(int)actionType.Value}");
+        if (before.HasValue) query.Add($"before={before.Value}");
+        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        var queryString = query.Any() ? "?" + string.Join("&", query) : "";
+        
+        var response = await GetAsync($"guilds/{guildId}/audit-logs{queryString}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<AuditLog>();
+        }
+        return null;
+    }
+    
+    // Auto Moderation operations
+    public async Task<List<AutoModerationRule>?> ListAutoModerationRulesAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/auto-moderation/rules");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<AutoModerationRule>>();
+        }
+        return null;
+    }
+    
+    public async Task<AutoModerationRule?> GetAutoModerationRuleAsync(ulong guildId, ulong ruleId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/auto-moderation/rules/{ruleId}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<AutoModerationRule>();
+        }
+        return null;
+    }
+    
+    public async Task<AutoModerationRule?> CreateAutoModerationRuleAsync(ulong guildId, CreateAutoModerationRuleRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"guilds/{guildId}/auto-moderation/rules", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<AutoModerationRule>();
+        }
+        return null;
+    }
+    
+    public async Task<AutoModerationRule?> ModifyAutoModerationRuleAsync(ulong guildId, ulong ruleId, ModifyAutoModerationRuleRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/auto-moderation/rules/{ruleId}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<AutoModerationRule>();
+        }
+        return null;
+    }
+    
+    public async Task<bool> DeleteAutoModerationRuleAsync(ulong guildId, ulong ruleId)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/auto-moderation/rules/{ruleId}");
+        return response.IsSuccessStatusCode;
+    }
 
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content)
     {

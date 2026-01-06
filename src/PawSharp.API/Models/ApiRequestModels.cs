@@ -235,3 +235,80 @@ public class ModifyThreadRequest
     public bool? Invitable { get; set; }
     public int? RateLimitPerUser { get; set; }
 }
+
+// Webhook Request Models
+public class CreateWebhookRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Avatar { get; set; }
+}
+
+public class ModifyWebhookRequest
+{
+    public string? Name { get; set; }
+    public string? Avatar { get; set; }
+    public ulong? ChannelId { get; set; }
+}
+
+public class ExecuteWebhookRequest
+{
+    public string? Content { get; set; }
+    public List<Embed>? Embeds { get; set; }
+    public string? Username { get; set; }
+    public string? AvatarUrl { get; set; }
+    public bool? Tts { get; set; }
+    public List<MessageComponent>? Components { get; set; }
+}
+
+// Scheduled Event Request Models
+public class CreateGuildScheduledEventRequest
+{
+    public ulong ChannelId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public DateTimeOffset ScheduledStartTime { get; set; }
+    public DateTimeOffset? ScheduledEndTime { get; set; }
+    public int PrivacyLevel { get; set; } // 2 = GUILD_ONLY
+    public int EntityType { get; set; } // 1 = STAGE_INSTANCE, 2 = VOICE, 3 = EXTERNAL
+    public string? EntityMetadataLocation { get; set; } // For EXTERNAL
+    public string? Image { get; set; }
+}
+
+public class ModifyGuildScheduledEventRequest
+{
+    public ulong? ChannelId { get; set; }
+    public string? Name { get; set; }
+    public string? Description { get; set; }
+    public DateTimeOffset? ScheduledStartTime { get; set; }
+    public DateTimeOffset? ScheduledEndTime { get; set; }
+    public int? PrivacyLevel { get; set; }
+    public int? EntityType { get; set; }
+    public string? EntityMetadataLocation { get; set; }
+    public string? Image { get; set; }
+    public int? Status { get; set; } // 1 = SCHEDULED, 2 = ACTIVE, 3 = COMPLETED, 4 = CANCELLED
+}
+
+// Auto Moderation Request Models
+public class CreateAutoModerationRuleRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public int EventType { get; set; } // 1 = MESSAGE_SEND
+    public int TriggerType { get; set; } // 1 = KEYWORD, 3 = SPAM, etc.
+    public AutoModerationTriggerMetadata? TriggerMetadata { get; set; }
+    public List<AutoModerationAction>? Actions { get; set; }
+    public bool? Enabled { get; set; }
+    public List<ulong>? ExemptRoles { get; set; }
+    public List<ulong>? ExemptChannels { get; set; }
+}
+
+public class ModifyAutoModerationRuleRequest
+{
+    public string? Name { get; set; }
+    public int? EventType { get; set; }
+    public int? TriggerType { get; set; }
+    public AutoModerationTriggerMetadata? TriggerMetadata { get; set; }
+    public List<AutoModerationAction>? Actions { get; set; }
+    public bool? Enabled { get; set; }
+    public List<ulong>? ExemptRoles { get; set; }
+    public List<ulong>? ExemptChannels { get; set; }
+}

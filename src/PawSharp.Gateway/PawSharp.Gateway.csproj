@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>PawSharp.Gateway</RootNamespace>
     <AssemblyName>PawSharp.Gateway</AssemblyName>
+    <PackageId>PawSharp.Gateway</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>PawSharp.Interactions</RootNamespace>
     <AssemblyName>PawSharp.Interactions</AssemblyName>
+    <PackageId>PawSharp.Interactions</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

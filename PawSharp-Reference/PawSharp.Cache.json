@@ -1,0 +1,16 @@
+{
+  "assembly": "PawSharp.Cache",
+  "source": "/home/quefep/Desktop/C#/PawSharp Planning/PawSharp/src/PawSharp.Client/bin/Debug/net8.0/PawSharp.Cache.xml",
+  "members": [
+    {
+      "id": "T:PawSharp.Cache.Interfaces.IEntityCache",
+      "kind": "T",
+      "name": "PawSharp.Cache.Interfaces.IEntityCache",
+      "summary": "Interface for caching Discord entities.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    }
+  ]
+}
