@@ -4,6 +4,42 @@ All notable changes to PawSharp will be documented in this file.
 
 ## [Unreleased]
 
+### Planned for v0.5.0-alpha4
+- REST API endpoints for webhooks, audit logs, scheduled events, and auto moderation
+- Gateway event handling for new entity types
+- Enhanced WebSocket connection reliability and session resumption
+- Comprehensive integration tests for new features
+
+## [0.5.0-alpha3] - 2026-01-05
+
+### Added
+- **Webhook Support**: Complete webhook entity models with all webhook types, webhook events, and metadata
+- **Audit Log System**: Comprehensive audit log entities with all entry types, change tracking, and optional entries
+- **Scheduled Events**: Full guild scheduled event support with all privacy levels, entity types, and user subscriptions
+- **Auto Moderation**: Complete auto moderation rules, triggers, actions, and keyword preset types
+- **Stage Instances**: Stage instance management with privacy levels and discoverability settings
+- **Enhanced Invite System**: Complete invite entities with target types, stage instance data, and scheduled event integration
+- **Voice States**: Voice connection state tracking and user voice status management
+- **Presence System**: User presence, activities, and client status information with rich activity metadata
+- **Application Management**: Discord application entities with team support, install parameters, and OAuth2 integration
+- **Guild Templates**: Guild template system with snapshot data and guild configuration preservation
+- **Sticker Support**: Sticker and sticker pack entities with all format types and guild sticker management
+- **Soundboard Sounds**: Soundboard sound entities with emoji associations and availability tracking
+- **Monetization System**: Entitlement, SKU, and subscription entities for Discord marketplace integration
+- **OAuth2 Support**: OAuth2 application, token, and authorization information entities
+- **Guild Enums**: Missing guild-related enums (VerificationLevel, DefaultMessageNotificationLevel, ExplicitContentFilterLevel, SystemChannelFlags)
+
+### Changed
+- Enhanced entity model coverage to ~95% of Discord API v10 entities
+- Improved type safety across all new entity models with comprehensive nullable reference types
+- Added proper JSON serialization attributes and Snowflake converters for all new entities
+
+### Technical Details
+- Added 17 new entity files with complete Discord API v10 coverage
+- Implemented comprehensive enum definitions for all Discord API enumerations
+- Maintained backwards compatibility with existing v0.5.0-alpha2 features
+- All entities include proper XML documentation and serialization support
+
 ## [0.5.0-alpha2] - 2026-01-05
 
 ### Added
