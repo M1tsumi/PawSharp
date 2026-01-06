@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -102,4 +103,33 @@ public interface IDiscordRestClient
     Task<bool> CreateReactionAsync(ulong channelId, ulong messageId, string emoji);
     Task<bool> DeleteOwnReactionAsync(ulong channelId, ulong messageId, string emoji);
     Task<bool> DeleteUserReactionAsync(ulong channelId, ulong messageId, string emoji, ulong userId);
+    
+    // Application Command operations
+    Task<List<ApplicationCommand>?> GetGlobalApplicationCommandsAsync(ulong applicationId);
+    Task<ApplicationCommand?> CreateGlobalApplicationCommandAsync(ulong applicationId, CreateApplicationCommandRequest request);
+    Task<ApplicationCommand?> GetGlobalApplicationCommandAsync(ulong applicationId, ulong commandId);
+    Task<ApplicationCommand?> EditGlobalApplicationCommandAsync(ulong applicationId, ulong commandId, CreateApplicationCommandRequest request);
+    Task<bool> DeleteGlobalApplicationCommandAsync(ulong applicationId, ulong commandId);
+    Task<List<ApplicationCommand>?> GetGuildApplicationCommandsAsync(ulong applicationId, ulong guildId);
+    Task<ApplicationCommand?> CreateGuildApplicationCommandAsync(ulong applicationId, ulong guildId, CreateApplicationCommandRequest request);
+    Task<ApplicationCommand?> GetGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId);
+    Task<ApplicationCommand?> EditGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId, CreateApplicationCommandRequest request);
+    Task<bool> DeleteGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId);
+    Task<List<ApplicationCommand>?> BulkOverwriteGlobalApplicationCommandsAsync(ulong applicationId, List<CreateApplicationCommandRequest> commands);
+    Task<List<ApplicationCommand>?> BulkOverwriteGuildApplicationCommandsAsync(ulong applicationId, ulong guildId, List<CreateApplicationCommandRequest> commands);
+    
+    // Thread operations
+    Task<Channel?> CreateThreadAsync(ulong channelId, CreateThreadRequest request);
+    Task<Channel?> CreateThreadFromMessageAsync(ulong channelId, ulong messageId, CreateThreadRequest request);
+    Task<Channel?> CreateThreadInForumAsync(ulong channelId, CreateThreadRequest request);
+    Task<bool> JoinThreadAsync(ulong channelId);
+    Task<bool> AddThreadMemberAsync(ulong channelId, ulong userId);
+    Task<bool> LeaveThreadAsync(ulong channelId);
+    Task<bool> RemoveThreadMemberAsync(ulong channelId, ulong userId);
+    Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId);
+    Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId);
+    Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId);
+    Task<List<Channel>?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
+    Task<List<Channel>?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
+    Task<List<Channel>?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
 }
