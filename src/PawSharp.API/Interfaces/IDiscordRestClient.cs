@@ -132,4 +132,34 @@ public interface IDiscordRestClient
     Task<List<Channel>?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     Task<List<Channel>?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     Task<List<Channel>?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
+    
+    // Webhook operations
+    Task<Webhook?> CreateWebhookAsync(ulong channelId, CreateWebhookRequest request);
+    Task<List<Webhook>?> GetChannelWebhooksAsync(ulong channelId);
+    Task<List<Webhook>?> GetGuildWebhooksAsync(ulong guildId);
+    Task<Webhook?> GetWebhookAsync(ulong webhookId);
+    Task<Webhook?> GetWebhookWithTokenAsync(ulong webhookId, string token);
+    Task<Webhook?> ModifyWebhookAsync(ulong webhookId, ModifyWebhookRequest request);
+    Task<Webhook?> ModifyWebhookWithTokenAsync(ulong webhookId, string token, ModifyWebhookRequest request);
+    Task<bool> DeleteWebhookAsync(ulong webhookId);
+    Task<bool> DeleteWebhookWithTokenAsync(ulong webhookId, string token);
+    Task<Message?> ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId = null);
+    
+    // Scheduled Event operations
+    Task<GuildScheduledEvent?> CreateGuildScheduledEventAsync(ulong guildId, CreateGuildScheduledEventRequest request);
+    Task<List<GuildScheduledEvent>?> GetGuildScheduledEventsAsync(ulong guildId, bool? withUserCount = null);
+    Task<GuildScheduledEvent?> GetGuildScheduledEventAsync(ulong guildId, ulong eventId, bool? withUserCount = null);
+    Task<GuildScheduledEvent?> ModifyGuildScheduledEventAsync(ulong guildId, ulong eventId, ModifyGuildScheduledEventRequest request);
+    Task<bool> DeleteGuildScheduledEventAsync(ulong guildId, ulong eventId);
+    Task<List<User>?> GetGuildScheduledEventUsersAsync(ulong guildId, ulong eventId, int? limit = null, bool? withMember = null, ulong? before = null, ulong? after = null);
+    
+    // Audit Log operations
+    Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, int? limit = null);
+    
+    // Auto Moderation operations
+    Task<List<AutoModerationRule>?> ListAutoModerationRulesAsync(ulong guildId);
+    Task<AutoModerationRule?> GetAutoModerationRuleAsync(ulong guildId, ulong ruleId);
+    Task<AutoModerationRule?> CreateAutoModerationRuleAsync(ulong guildId, CreateAutoModerationRuleRequest request);
+    Task<AutoModerationRule?> ModifyAutoModerationRuleAsync(ulong guildId, ulong ruleId, ModifyAutoModerationRuleRequest request);
+    Task<bool> DeleteAutoModerationRuleAsync(ulong guildId, ulong ruleId);
 }

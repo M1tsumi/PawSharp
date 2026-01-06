@@ -1,0 +1,62 @@
+[
+  {
+    "assembly": "PawSharp.Core",
+    "file": "PawSharp.Core.json"
+  },
+  {
+    "assembly": "PawSharp.API",
+    "file": "PawSharp.API.json"
+  },
+  {
+    "assembly": "PawSharp.Cache",
+    "file": "PawSharp.Cache.json"
+  },
+  {
+    "assembly": "PawSharp.Core",
+    "file": "PawSharp.Core.json"
+  },
+  {
+    "assembly": "PawSharp.API",
+    "file": "PawSharp.API.json"
+  },
+  {
+    "assembly": "PawSharp.Cache",
+    "file": "PawSharp.Cache.json"
+  },
+  {
+    "assembly": "PawSharp.Core",
+    "file": "PawSharp.Core.json"
+  },
+  {
+    "assembly": "PawSharp.Gateway",
+    "file": "PawSharp.Gateway.json"
+  },
+  {
+    "assembly": "PawSharp.API",
+    "file": "PawSharp.API.json"
+  },
+  {
+    "assembly": "PawSharp.Cache",
+    "file": "PawSharp.Cache.json"
+  },
+  {
+    "assembly": "PawSharp.Core",
+    "file": "PawSharp.Core.json"
+  },
+  {
+    "assembly": "PawSharp.Gateway",
+    "file": "PawSharp.Gateway.json"
+  },
+  {
+    "assembly": "PawSharp.Client",
+    "file": "PawSharp.Client.json"
+  },
+  {
+    "assembly": "PawSharp.API",
+    "file": "PawSharp.API.json"
+  },
+  {
+    "assembly": "PawSharp.Core",
+    "file": "PawSharp.Core.json"
+  }
+]

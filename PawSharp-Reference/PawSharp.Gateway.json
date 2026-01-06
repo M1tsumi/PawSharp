@@ -1,0 +1,516 @@
+{
+  "assembly": "PawSharp.Gateway",
+  "source": "/home/quefep/Desktop/C#/PawSharp Planning/PawSharp/src/PawSharp.Client/bin/Debug/net8.0/PawSharp.Gateway.xml",
+  "members": [
+    {
+      "id": "M:PawSharp.Gateway.Events.EventDispatcher.On``1(System.String,System.Action{``0})",
+      "kind": "M",
+      "name": "PawSharp.Gateway.Events.EventDispatcher.On``1(System.String,System.Action{``0})",
+      "summary": "Register a typed event handler.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.Events.EventDispatcher.OnRaw(System.String,System.Action{System.String})",
+      "kind": "M",
+      "name": "PawSharp.Gateway.Events.EventDispatcher.OnRaw(System.String,System.Action{System.String})",
+      "summary": "Register a raw event handler for unparsed JSON.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.Events.EventDispatcher.Dispatch``1(System.String,``0,System.String)",
+      "kind": "M",
+      "name": "PawSharp.Gateway.Events.EventDispatcher.Dispatch``1(System.String,``0,System.String)",
+      "summary": "Dispatch a typed event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.Events.EventDispatcher.DispatchFromJson``1(System.String,System.String)",
+      "kind": "M",
+      "name": "PawSharp.Gateway.Events.EventDispatcher.DispatchFromJson``1(System.String,System.String)",
+      "summary": "Dispatch an event from raw JSON data.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GatewayEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GatewayEvent",
+      "summary": "Base class for all gateway events.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "P:PawSharp.Gateway.Events.GatewayEvent.RawJson",
+      "kind": "P",
+      "name": "PawSharp.Gateway.Events.GatewayEvent.RawJson",
+      "summary": "The raw JSON payload from Discord.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ReadyEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ReadyEvent",
+      "summary": "READY event - contains initial state information.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.MessageCreateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.MessageCreateEvent",
+      "summary": "MESSAGE_CREATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.MessageUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.MessageUpdateEvent",
+      "summary": "MESSAGE_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.MessageDeleteEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.MessageDeleteEvent",
+      "summary": "MESSAGE_DELETE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildCreateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildCreateEvent",
+      "summary": "GUILD_CREATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildUpdateEvent",
+      "summary": "GUILD_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildDeleteEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildDeleteEvent",
+      "summary": "GUILD_DELETE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ChannelCreateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ChannelCreateEvent",
+      "summary": "CHANNEL_CREATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ChannelUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ChannelUpdateEvent",
+      "summary": "CHANNEL_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ChannelDeleteEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ChannelDeleteEvent",
+      "summary": "CHANNEL_DELETE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildMemberAddEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildMemberAddEvent",
+      "summary": "GUILD_MEMBER_ADD event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildMemberUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildMemberUpdateEvent",
+      "summary": "GUILD_MEMBER_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildMemberRemoveEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildMemberRemoveEvent",
+      "summary": "GUILD_MEMBER_REMOVE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.InteractionCreateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.InteractionCreateEvent",
+      "summary": "INTERACTION_CREATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.TypingStartEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.TypingStartEvent",
+      "summary": "TYPING_START event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.MessageReactionAddEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.MessageReactionAddEvent",
+      "summary": "MESSAGE_REACTION_ADD event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.MessageReactionRemoveEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.MessageReactionRemoveEvent",
+      "summary": "MESSAGE_REACTION_REMOVE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.MessageReactionRemoveAllEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.MessageReactionRemoveAllEvent",
+      "summary": "MESSAGE_REACTION_REMOVE_ALL event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.PresenceUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.PresenceUpdateEvent",
+      "summary": "PRESENCE_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ChannelPinsUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ChannelPinsUpdateEvent",
+      "summary": "CHANNEL_PINS_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildBanAddEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildBanAddEvent",
+      "summary": "GUILD_BAN_ADD event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.GuildBanRemoveEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.GuildBanRemoveEvent",
+      "summary": "GUILD_BAN_REMOVE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.VoiceStateUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.VoiceStateUpdateEvent",
+      "summary": "VOICE_STATE_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.Activity",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.Activity",
+      "summary": "Represents an activity.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ActivityTimestamps",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ActivityTimestamps",
+      "summary": "Activity timestamps.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ActivityParty",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ActivityParty",
+      "summary": "Activity party.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ActivityAssets",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ActivityAssets",
+      "summary": "Activity assets.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ActivitySecrets",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ActivitySecrets",
+      "summary": "Activity secrets.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ActivityButton",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ActivityButton",
+      "summary": "Activity button.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ClientStatus",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ClientStatus",
+      "summary": "Client status.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ThreadCreateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ThreadCreateEvent",
+      "summary": "THREAD_CREATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ThreadUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ThreadUpdateEvent",
+      "summary": "THREAD_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ThreadDeleteEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ThreadDeleteEvent",
+      "summary": "THREAD_DELETE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ThreadListSyncEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ThreadListSyncEvent",
+      "summary": "THREAD_LIST_SYNC event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ThreadMemberUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ThreadMemberUpdateEvent",
+      "summary": "THREAD_MEMBER_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.Events.ThreadMembersUpdateEvent",
+      "kind": "T",
+      "name": "PawSharp.Gateway.Events.ThreadMembersUpdateEvent",
+      "summary": "THREAD_MEMBERS_UPDATE event.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "P:PawSharp.Gateway.GatewayClient.Events",
+      "kind": "P",
+      "name": "PawSharp.Gateway.GatewayClient.Events",
+      "summary": "Access the event dispatcher to register event handlers.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "T:PawSharp.Gateway.ShardManager",
+      "kind": "T",
+      "name": "PawSharp.Gateway.ShardManager",
+      "summary": "Manages multiple gateway shards for large bots.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "P:PawSharp.Gateway.ShardManager.ShardCount",
+      "kind": "P",
+      "name": "PawSharp.Gateway.ShardManager.ShardCount",
+      "summary": "Total number of shards.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.ShardManager.ConnectAllAsync",
+      "kind": "M",
+      "name": "PawSharp.Gateway.ShardManager.ConnectAllAsync",
+      "summary": "Connect all shards managed by this instance.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.ShardManager.DisconnectAllAsync",
+      "kind": "M",
+      "name": "PawSharp.Gateway.ShardManager.DisconnectAllAsync",
+      "summary": "Disconnect all shards.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.ShardManager.GetShard(System.Int32)",
+      "kind": "M",
+      "name": "PawSharp.Gateway.ShardManager.GetShard(System.Int32)",
+      "summary": "Get a specific shard by ID.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.ShardManager.GetAllShards",
+      "kind": "M",
+      "name": "PawSharp.Gateway.ShardManager.GetAllShards",
+      "summary": "Get all shards.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.ShardManager.GetShardIdForGuild(System.UInt64)",
+      "kind": "M",
+      "name": "PawSharp.Gateway.ShardManager.GetShardIdForGuild(System.UInt64)",
+      "summary": "Calculate which shard a guild belongs to.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Gateway.ShardManager.OnAllShards``1(System.String,System.Action{``0})",
+      "kind": "M",
+      "name": "PawSharp.Gateway.ShardManager.OnAllShards``1(System.String,System.Action{``0})",
+      "summary": "Register an event handler on all shards.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    }
+  ]
+}

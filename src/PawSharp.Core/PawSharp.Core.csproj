@@ -5,6 +5,7 @@
     <RootNamespace>PawSharp.Core</RootNamespace>
     <AssemblyName>PawSharp.Core</AssemblyName>
     <OutputType>Library</OutputType>
+    <PackageId>PawSharp.Core</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

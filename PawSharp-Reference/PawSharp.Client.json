@@ -1,0 +1,56 @@
+{
+  "assembly": "PawSharp.Client",
+  "source": "/home/quefep/Desktop/C#/PawSharp Planning/PawSharp/src/PawSharp.Client/bin/Debug/net8.0/PawSharp.Client.xml",
+  "members": [
+    {
+      "id": "T:PawSharp.Client.CacheManager",
+      "kind": "T",
+      "name": "PawSharp.Client.CacheManager",
+      "summary": "Automatically caches entities from gateway events.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "M:PawSharp.Client.CacheManager.SubscribeToGateway(PawSharp.Gateway.GatewayClient)",
+      "kind": "M",
+      "name": "PawSharp.Client.CacheManager.SubscribeToGateway(PawSharp.Gateway.GatewayClient)",
+      "summary": "Subscribe to gateway events and automatically cache entities.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "P:PawSharp.Client.DiscordClient.Gateway",
+      "kind": "P",
+      "name": "PawSharp.Client.DiscordClient.Gateway",
+      "summary": "Access the Gateway client for event handling.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "P:PawSharp.Client.DiscordClient.Rest",
+      "kind": "P",
+      "name": "PawSharp.Client.DiscordClient.Rest",
+      "summary": "Access the REST API client.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    },
+    {
+      "id": "P:PawSharp.Client.DiscordClient.Cache",
+      "kind": "P",
+      "name": "PawSharp.Client.DiscordClient.Cache",
+      "summary": "Access the entity cache.",
+      "remarks": "",
+      "returns": "",
+      "example": "",
+      "params": []
+    }
+  ]
+}
