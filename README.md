@@ -201,4 +201,4 @@ Apache License 2.0
 - [Discord Developer Portal](https://discord.com/developers/applications)
 
 
-**Status:** Alpha 4 | Still figuring things out | Entities mostly done | API endpoints next
+**Status:** Alpha 4 | REST API nearly complete | Gateway events & reliability next
