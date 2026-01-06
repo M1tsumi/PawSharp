@@ -4,16 +4,17 @@ A Discord API wrapper for .NET 8.0 focused on modularity and transparency. This 
 
 ## Current Status
 
-Version 0.5.0-alpha1 (Pre-release)
+Version 0.5.0-alpha2 (Pre-release)
 
-PawSharp provides a stable foundation for basic to intermediate Discord bot applications. The core architecture is solid, and the officially supported features have been tested and are ready for alpha use.
+PawSharp now provides comprehensive support for modern Discord features including message components, slash commands, and thread/forum operations. The library maintains backwards compatibility with v0.5.0-alpha1 while adding significant new functionality.
 
-### Officially Supported Features (v0.5.0-alpha1)
+### Officially Supported Features (v0.5.0-alpha2)
 
 **Gateway & Events:**
 - Gateway connection with WebSocket and automatic heartbeat
 - Event handling for core events: READY, MESSAGE_CREATE, MESSAGE_UPDATE, MESSAGE_DELETE, GUILD_CREATE, GUILD_UPDATE, GUILD_DELETE, CHANNEL_CREATE, CHANNEL_UPDATE, CHANNEL_DELETE, GUILD_MEMBER_ADD, GUILD_MEMBER_UPDATE, GUILD_MEMBER_REMOVE, INTERACTION_CREATE
 - Additional events: TYPING_START, MESSAGE_REACTION_ADD, MESSAGE_REACTION_REMOVE, MESSAGE_REACTION_REMOVE_ALL, PRESENCE_UPDATE, CHANNEL_PINS_UPDATE, GUILD_BAN_ADD, GUILD_BAN_REMOVE, VOICE_STATE_UPDATE
+- **NEW:** Thread events: THREAD_CREATE, THREAD_UPDATE, THREAD_DELETE, THREAD_LIST_SYNC, THREAD_MEMBER_UPDATE, THREAD_MEMBERS_UPDATE
 
 **REST API Endpoints:**
 - **Users:** GetUser, ModifyCurrentUser, GetCurrentUserGuilds, LeaveGuild
@@ -23,31 +24,23 @@ PawSharp provides a stable foundation for basic to intermediate Discord bot appl
 - **Roles:** GetGuildRoles, CreateGuildRole, ModifyGuildRole, DeleteGuildRole, AddGuildMemberRole, RemoveGuildMemberRole
 - **Interactions:** CreateInteractionResponse, EditOriginalInteractionResponse, DeleteOriginalInteractionResponse
 - **Reactions:** CreateReaction, DeleteOwnReaction, DeleteUserReaction
+- **NEW: Application Commands:** GetGlobalApplicationCommands, CreateGlobalApplicationCommand, GetGlobalApplicationCommand, EditGlobalApplicationCommand, DeleteGlobalApplicationCommand, GetGuildApplicationCommands, CreateGuildApplicationCommand, GetGuildApplicationCommand, EditGuildApplicationCommand, DeleteGuildApplicationCommand, BulkOverwriteGlobalApplicationCommands, BulkOverwriteGuildApplicationCommands
+- **NEW: Threads:** CreateThread, CreateThreadFromMessage, CreateThreadInForum, JoinThread, AddThreadMember, LeaveThread, RemoveThreadMember, GetThreadMember, GetThreadMembers, GetActiveThreads, GetPublicArchivedThreads, GetPrivateArchivedThreads, GetJoinedPrivateArchivedThreads
 
 **Core Features:**
 - In-memory entity caching
 - Dependency injection support
 - Core entity models (Users, Guilds, Channels, Messages, Roles, Members, Bans, Invites)
+- **NEW:** Message components (Buttons, Select Menus, Action Rows)
+- **NEW:** Slash commands and interactions with full type safety
+- **NEW:** Thread and forum entities with comprehensive metadata
+- **NEW:** Application command models with options and choices
 - Snowflake ID serialization
 - Basic rate limiting
 
-### Partially Implemented (Not Supported in v0.5.0-alpha1)
+### Backwards Compatibility
 
-- Sharding (exists but untested with large bots)
-- Advanced rate limiting (implemented but needs real-world testing)
-- Event dispatcher (works but error handling could be improved)
-- Slash command builders (response system incomplete)
-
-### Not Implemented / Unsupported Features
-
-The following Discord API features are not implemented and will not work:
-
-- Voice support
-- Message components (buttons, select menus, action rows)
-- Modals
-- Thread and forum operations
-- Auto-moderation API
-- Scheduled events
+v0.5.0-alpha2 maintains full backwards compatibility with v0.5.0-alpha1. All existing APIs and features continue to work as expected.
 - Stage channels
 - Webhook management
 - Audit logs
@@ -241,9 +234,9 @@ Console.WriteLine($"Cached {entityCount} entities");
 
 ## Roadmap
 
-Short term (v0.6-0.7): Complete interaction handling, add proper error handling, write comprehensive tests, improve reconnection logic, add sharding support
+Short term (v0.6-0.7): Complete interaction handling refinements, add proper error handling, write comprehensive tests, improve reconnection logic, add sharding support
 
-Medium term (v0.8-0.9): Thread support, forum channels, webhooks, audit logs, modals, scheduled events, better sharding, message components
+Medium term (v0.8-0.9): Webhooks, audit logs, modals, scheduled events, better sharding, voice gateway foundation
 
 Long term (v1.0+): Voice support, auto-moderation, stage channels, Redis caching, performance optimizations, documentation site, NuGet release
 
