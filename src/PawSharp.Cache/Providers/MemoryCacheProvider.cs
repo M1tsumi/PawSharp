@@ -17,6 +17,21 @@ namespace PawSharp.Cache.Providers
         private readonly ConcurrentDictionary<string, GuildMember> _members; // Key: guildId:userId
         private readonly ConcurrentDictionary<ulong, Role> _roles;
 
+        // Bounded caching configuration
+        private const int MaxCacheSize = 10000; // Maximum number of items in general cache
+        private const int MaxEntityCacheSize = 5000; // Maximum entities per type
+        private readonly object _cleanupLock = new object();
+        private DateTime _lastCleanup = DateTime.UtcNow;
+
+        // Statistics
+        public int CacheSize => _cache.Count;
+        public int GuildCacheSize => _guilds.Count;
+        public int ChannelCacheSize => _channels.Count;
+        public int UserCacheSize => _users.Count;
+        public int MessageCacheSize => _messages.Count;
+        public int MemberCacheSize => _members.Count;
+        public int RoleCacheSize => _roles.Count;
+
         public MemoryCacheProvider()
         {
             _cache = new ConcurrentDictionary<string, CacheItem>();
@@ -37,6 +52,12 @@ namespace PawSharp.Cache.Providers
         {
             var cacheItem = new CacheItem(value, expiration.HasValue ? DateTime.UtcNow.Add(expiration.Value) : (DateTime?)null);
             _cache[key] = cacheItem;
+
+            // Perform bounded caching cleanup if necessary
+            if (_cache.Count > MaxCacheSize)
+            {
+                PerformCleanup();
+            }
         }
 
         public object? Get(string key)
@@ -60,6 +81,58 @@ namespace PawSharp.Cache.Providers
             _cache.TryRemove(key, out _);
         }
 
+        private void EnforceEntityCacheBounds<TKey, TValue>(ConcurrentDictionary<TKey, TValue> cache, int maxSize)
+        {
+            if (cache.Count <= maxSize) return;
+
+            // Remove oldest entries (simple FIFO eviction)
+            var keysToRemove = cache.Keys.Take(cache.Count - maxSize).ToList();
+            foreach (var key in keysToRemove)
+            {
+                cache.TryRemove(key, out _);
+            }
+        }
+
+        private void PerformCleanup()
+        {
+            lock (_cleanupLock)
+            {
+                // Only perform cleanup if it's been more than 5 minutes since last cleanup
+                if ((DateTime.UtcNow - _lastCleanup).TotalMinutes < 5)
+                    return;
+
+                _lastCleanup = DateTime.UtcNow;
+
+                // Remove expired items first
+                var expiredKeys = _cache.Where(kvp => kvp.Value.IsExpired).Select(kvp => kvp.Key).ToList();
+                foreach (var key in expiredKeys)
+                {
+                    _cache.TryRemove(key, out _);
+                }
+
+                // If still over limit, remove oldest items (LRU approximation)
+                if (_cache.Count > MaxCacheSize)
+                {
+                    var itemsToRemove = _cache.Count - MaxCacheSize;
+                    var keysToRemove = _cache
+                        .OrderBy(kvp => kvp.Value.Expiration ?? DateTime.MaxValue)
+                        .Take(itemsToRemove)
+                        .Select(kvp => kvp.Key)
+                        .ToList();
+
+                    foreach (var key in keysToRemove)
+                    {
+                        _cache.TryRemove(key, out _);
+                    }
+                }
+            }
+        }
+
+        public bool Exists(string key)
+        {
+            return _cache.ContainsKey(key) && !_cache[key].IsExpired;
+        }
+
         public void Clear()
         {
             _cache.Clear();
@@ -71,15 +144,11 @@ namespace PawSharp.Cache.Providers
             _roles.Clear();
         }
 
-        public bool Exists(string key)
-        {
-            return _cache.ContainsKey(key) && !_cache[key].IsExpired;
-        }
-
         // Typed entity operations
         public void CacheUser(User user)
         {
             _users[user.Id] = user;
+            EnforceEntityCacheBounds(_users, MaxEntityCacheSize);
         }
 
         public User? GetUser(ulong userId)
@@ -90,6 +159,7 @@ namespace PawSharp.Cache.Providers
         public void CacheGuild(Guild guild)
         {
             _guilds[guild.Id] = guild;
+            EnforceEntityCacheBounds(_guilds, MaxEntityCacheSize);
         }
 
         public Guild? GetGuild(ulong guildId)
@@ -105,6 +175,7 @@ namespace PawSharp.Cache.Providers
         public void CacheChannel(Channel channel)
         {
             _channels[channel.Id] = channel;
+            EnforceEntityCacheBounds(_channels, MaxEntityCacheSize);
         }
 
         public Channel? GetChannel(ulong channelId)
@@ -120,13 +191,7 @@ namespace PawSharp.Cache.Providers
         public void CacheMessage(Message message)
         {
             _messages[message.Id] = message;
-            
-            // Keep only recent messages to prevent memory bloat
-            if (_messages.Count > 10000)
-            {
-                var oldestKey = _messages.OrderBy(m => m.Value.Timestamp).First().Key;
-                _messages.TryRemove(oldestKey, out _);
-            }
+            EnforceEntityCacheBounds(_messages, MaxEntityCacheSize);
         }
 
         public Message? GetMessage(ulong messageId)
@@ -146,6 +211,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"{guildId}:{member.User?.Id}";
             _members[key] = member;
+            EnforceEntityCacheBounds(_members, MaxEntityCacheSize);
             
             // Also cache the user
             if (member.User != null)
@@ -168,6 +234,7 @@ namespace PawSharp.Cache.Providers
         public void CacheRole(ulong guildId, Role role)
         {
             _roles[role.Id] = role;
+            EnforceEntityCacheBounds(_roles, MaxEntityCacheSize);
         }
 
         public Role? GetRole(ulong roleId)

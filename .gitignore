@@ -119,3 +119,4 @@ coverage*.info
 node_modules/
 npm-debug.log
 yarn-error.log
+ROADMAP.md
