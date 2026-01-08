@@ -11,7 +11,9 @@ using Microsoft.Extensions.Logging;
 using PawSharp.API.Interfaces;
 using PawSharp.API.Models;
 using PawSharp.Core.Entities;
+using PawSharp.Core.Exceptions;
 using PawSharp.Core.Models;
+using PawSharp.Core.Validation;
 
 namespace PawSharp.API.Clients;
 
@@ -87,6 +89,14 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<List<Guild>?> GetCurrentUserGuildsAsync(int limit = 200, ulong? before = null, ulong? after = null)
     {
+        // Validate input
+        if (limit < 1 || limit > 200)
+        {
+            throw new ValidationException("Limit must be between 1 and 200", nameof(limit), limit);
+        }
+        if (before.HasValue) SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+        if (after.HasValue) SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+
         var queryParams = new List<string>();
         if (limit != 200) queryParams.Add($"limit={limit}");
         if (before.HasValue) queryParams.Add($"before={before.Value}");
@@ -112,6 +122,22 @@ public class DiscordRestClient : IDiscordRestClient
     // Message operations
     public async Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request)
     {
+        // Validate input
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        ContentValidator.ValidateMessageContent(request.Content);
+
+        // Validate embeds if present
+        if (request.Embeds != null)
+        {
+            foreach (var embed in request.Embeds)
+            {
+                ContentValidator.ValidateEmbedTitle(embed.Title);
+                ContentValidator.ValidateEmbedDescription(embed.Description);
+                EmbedValidator.ValidateEmbedFieldCount(embed.Fields?.Count ?? 0);
+                EmbedValidator.ValidateEmbedHasContent(embed.Title, embed.Description, embed.Fields);
+            }
+        }
+
         var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
         var response = await PostAsync($"channels/{channelId}/messages", content);
         if (response.IsSuccessStatusCode)
@@ -133,6 +159,26 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request)
     {
+        // Validate input
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        if (request.Content != null)
+        {
+            ContentValidator.ValidateMessageContent(request.Content);
+        }
+
+        // Validate embeds if present
+        if (request.Embeds != null)
+        {
+            foreach (var embed in request.Embeds)
+            {
+                ContentValidator.ValidateEmbedTitle(embed.Title);
+                ContentValidator.ValidateEmbedDescription(embed.Description);
+                EmbedValidator.ValidateEmbedFieldCount(embed.Fields?.Count ?? 0);
+                EmbedValidator.ValidateEmbedHasContent(embed.Title, embed.Description, embed.Fields);
+            }
+        }
+
         var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
         var response = await PatchAsync($"channels/{channelId}/messages/{messageId}", content);
         if (response.IsSuccessStatusCode)
@@ -150,6 +196,16 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit = 50, ulong? around = null, ulong? before = null, ulong? after = null)
     {
+        // Validate input
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        if (limit < 1 || limit > 100)
+        {
+            throw new ValidationException("Limit must be between 1 and 100", nameof(limit), limit);
+        }
+        if (around.HasValue) SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+        if (before.HasValue) SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+        if (after.HasValue) SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+
         var queryParams = new List<string> { $"limit={Math.Min(limit, 100)}" };
         if (around.HasValue) queryParams.Add($"around={around.Value}");
         else if (before.HasValue) queryParams.Add($"before={before.Value}");
@@ -165,6 +221,17 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<bool> BulkDeleteMessagesAsync(ulong channelId, List<ulong> messageIds)
     {
+        // Validate input
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        if (messageIds == null || messageIds.Count == 0 || messageIds.Count > 100)
+        {
+            throw new ValidationException("Message IDs list must contain between 1 and 100 IDs", nameof(messageIds), messageIds?.Count ?? 0);
+        }
+        foreach (var messageId in messageIds)
+        {
+            SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageIds));
+        }
+
         var payload = new { messages = messageIds };
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         var response = await PostAsync($"channels/{channelId}/messages/bulk-delete", content);

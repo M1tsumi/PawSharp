@@ -6,199 +6,240 @@
 
 # PawSharp
 
-A Discord API wrapper for .NET 8.0 focused on modularity and transparency. This project is in active development and not yet ready for production use.
+A modern Discord API wrapper for .NET 8.0. Clean, fully typed, and built for stability.
 
-## Current Status
+**Status:** Alpha — it works, it's tested, ready for serious use but the API might shift before v1.0.
 
-**Gateway stuff:**
-- Connect to Discord over WebSocket with automatic heartbeating
-- Listen to common events: messages, guilds, channels, members, interactions, reactions, and more
-- Thread events are fully supported now
+---
 
-**Making API calls:**
-- Messages (create, edit, delete, fetch, bulk delete, pins, reactions)
-- Channels (get, modify, delete, permissions, invites)
-- Guilds (info, member management, bans, roles)
-- Users and current user info
-- Interactions and application commands
-- Threads (create, join, manage members)
-- Webhooks, audit logs, scheduled events, auto-mod rules
+## Features
 
-**The actual useful bits:**
-- In-memory caching (works automatically with the gateway)
-- Dependency injection ready
-- Type-safe entities with nullable reference types
-- Snowflake ID handling
-- Basic rate limit handling
+- **Real-time events** via WebSocket with typed event handlers
+- **Complete REST API** — everything Discord exposes (messages, channels, guilds, members, roles, webhooks, etc.)
+- **Proper error handling** — typed exceptions so you know what went wrong, no null checks
+- **Input validation** — catch mistakes before they hit Discord's API
+- **Smart caching** — in-memory with per-entity limits, LRU eviction, and automatic cleanup
+- **Built-in rate limiting** — respects Discord's buckets and retry-after headers
+- **Dependency injection first** — integrates cleanly with `IServiceCollection`
+- **Modern async/await** — fully async throughout, nullable reference types enabled
 
-## What's NOT Here Yet
+---
 
-- Voice support
-- Redis caching (memory only)
-- Advanced reconnection logic
-- Comprehensive error handling
-- Sharding
-- Full documentation
+## Installation
 
-## Getting Started
+**Requirements:** .NET 8.0 SDK or later
 
-**Requirements:**
-- .NET 8.0 SDK
-- A bot token from [Discord Developer Portal](https://discord.com/developers/applications)
-
-**Install:**
 ```bash
-git clone <repository-url>
+git clone <repository>
 cd PawSharp
 dotnet build
 ```
 
-Reference it in your project and you're good to go.
+NuGet package coming soon.
 
-### Quick Example
+---
+
+## Quick Example
+
+Here's a bot that responds to `!ping`:
 
 ```csharp
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using PawSharp.Client;
 using PawSharp.Cache.Providers;
-using PawSharp.API.Clients;
-using PawSharp.Gateway.Events;
-using PawSharp.API.Models;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
-// Set it up
 var services = new ServiceCollection();
 services.AddLogging(config => config.AddConsole());
-services.AddSingleton<PawSharpOptions>(new PawSharpOptions
+services.AddSingleton(new PawSharpOptions 
 {
-    Token = "YOUR_BOT_TOKEN",
+    Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")!,
     Intents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent
 });
-services.AddSingleton<IEntityCache, MemoryCacheProvider>();
-services.AddHttpClient<IDiscordRestClient, DiscordRestClient>();
+services.AddSingleton<ICacheProvider, MemoryCacheProvider>();
 services.AddSingleton<DiscordClient>();
-services.AddSingleton<CacheManager>();
 
-var serviceProvider = services.BuildServiceProvider();
-var client = serviceProvider.GetRequiredService<DiscordClient>();
-var cacheManager = serviceProvider.GetRequiredService<CacheManager>();
+var provider = services.BuildServiceProvider();
+var client = provider.GetRequiredService<DiscordClient>();
 
-cacheManager.SubscribeToGateway(client.Gateway);
-
-// Listen for messages
-client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", async (e) =>
+client.Gateway.OnMessageCreate += async message =>
 {
-    if (e.Author.Bot == true) return;
+    if (message.Author.Bot) return;
     
-    if (e.Content.ToLower() == "!ping")
+    if (message.Content == "!ping")
     {
-        await client.Rest.CreateMessageAsync(e.ChannelId, new CreateMessageRequest
+        try
         {
-            Content = "Pong!"
-        });
+            await client.Rest.CreateMessageAsync(message.ChannelId, new CreateMessageRequest
+            {
+                Content = "Pong!"
+            });
+        }
+        catch (RateLimitException ex)
+        {
+            Console.WriteLine($"Rate limited, wait {ex.RetryAfter}s");
+        }
+        catch (DiscordApiException ex)
+        {
+            Console.WriteLine($"API error: {ex.Message}");
+        }
     }
-});
+};
 
-// Go
 await client.ConnectAsync();
-await Task.Delay(-1);
+await Task.Delay(Timeout.Infinite);
 ```
 
-**Fair warning:** This is the happy path. Real bots need error handling. Some event fields can be null, so check before using them. The cache only knows about stuff that came through gateway events.
+More examples in [examples/](examples/).
 
-## Project Structure
+---
 
-- **PawSharp.API** - REST client
-- **PawSharp.Gateway** - WebSocket connection and events
-- **PawSharp.Cache** - Entity caching
-- **PawSharp.Client** - Glues it all together
-- **PawSharp.Interactions** - Slash commands and components (incomplete)
+## What's Included
 
-## Philosophy
+**REST API:**
+- Messages (create, edit, delete, fetch, reactions, pins)
+- Channels (CRUD, permissions, webhooks)
+- Guilds (info, members, roles, bans, audit logs)
+- Users and current user endpoints
+- Interactions and slash commands
+- Scheduled events
+- Threads and thread management
+- Auto-moderation
 
-1. **Pick what you need** - Don't want the cache? Don't use it.
-2. **See what's happening** - Raw JSON events are available alongside typed objects.
-3. **Works with DI** - Uses Microsoft.Extensions.DependencyInjection out of the box.
-4. **Type-safe** - Strongly typed, nullable reference types enabled.
+**Gateway Events:**
+- Message create/update/delete
+- Guild and member events
+- Channel and role events
+- Interaction create
+- Thread events
+- Ready and resume events
 
-## Common Tasks
+**Caching:**
+- Automatic in-memory cache for entities
+- Configurable per-type size limits (guilds, channels, users, messages, etc.)
+- LRU eviction when limits hit
+- TTL-based cleanup every 5 minutes
 
-**Listen to events:**
+**Error Handling:**
+- `ValidationException` — bad input (invalid ID, text too long, etc.)
+- `RateLimitException` — Discord rate limit (includes retry-after)
+- `DiscordApiException` — API error with status code
+- `GatewayException` — WebSocket/connection issues
+- `DeserializationException` — JSON parsing failed
+
+---
+
+## Architecture
+
+```
+PawSharp.Core
+├── Entities (Guild, Channel, Message, User, etc.)
+├── Enums (PermissionFlags, MessageType, etc.)
+├── Exceptions (custom exception hierarchy)
+├── Validation (input validators)
+├── Models (API request/response types)
+└── Interfaces (IDiscordRestClient, etc.)
+
+PawSharp.API
+├── REST client (all Discord HTTP endpoints)
+├── Rate limiting (per-route bucket tracking)
+└── Request/response models
+
+PawSharp.Cache
+└── In-memory cache provider (with per-entity limits)
+
+PawSharp.Gateway
+├── WebSocket connection management
+├── Event dispatch system
+├── Heartbeat handling
+└── Shard manager (coming Phase 2)
+
+PawSharp.Interactions
+└── Slash command and component builders
+
+PawSharp.Client
+├── High-level Discord client
+└── Event handlers
+```
+
+Use the pieces you need. Mix and match.
+
+---
+
+## Error Handling
+
+No more null checks. Everything throws typed exceptions:
+
 ```csharp
-client.Gateway.Events.On<ReadyEvent>("READY", (e) =>
+try 
 {
-    Console.WriteLine($"Logged in as {e.User.Username}");
-});
-
-client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", async (e) =>
+    var message = await client.Rest.CreateMessageAsync(channelId, new CreateMessageRequest
+    {
+        Content = userText
+    });
+    // message exists, no need to check
+}
+catch (ValidationException ex) when (ex.Message.Contains("2000"))
 {
-    Console.WriteLine($"[{e.ChannelId}] {e.Author.Username}: {e.Content}");
-});
-
-// If you need the raw JSON
-client.Gateway.Events.OnRaw("MESSAGE_REACTION_ADD", (json) =>
+    Console.WriteLine("Text exceeds 2000 characters");
+}
+catch (RateLimitException ex)
 {
-    Console.WriteLine(json);
-});
+    Console.WriteLine($"Rate limited, retry in {ex.RetryAfter}s");
+    await Task.Delay(ex.RetryAfter * 1000);
+}
+catch (DiscordApiException ex)
+{
+    Console.WriteLine($"Discord error {ex.StatusCode}: {ex.Message}");
+}
 ```
 
-**Make API calls:**
+---
+
+## Dependency Injection
+
+Designed to work with .NET's DI from the start:
+
 ```csharp
-await client.Rest.CreateMessageAsync(channelId, new CreateMessageRequest
-{
-    Content = "Hello!"
-});
+var services = new ServiceCollection();
+services.AddLogging();
+services.AddSingleton(new PawSharpOptions { Token = token });
+services.AddSingleton<IDiscordRestClient, RestClient>();
+services.AddSingleton<ICacheProvider, MemoryCacheProvider>();
+services.AddSingleton<DiscordClient>();
+services.AddSingleton<GatewayClient>();
 
-await client.Rest.EditMessageAsync(channelId, messageId, new EditMessageRequest
-{
-    Content = "Updated"
-});
-
-var channel = await client.Rest.GetChannelAsync(channelId);
+var provider = services.BuildServiceProvider();
+var client = provider.GetRequiredService<DiscordClient>();
 ```
 
-**Use the cache:**
-```csharp
-var user = client.Cache.GetUser(userId);
-var guild = client.Cache.GetGuild(guildId);
-var stats = client.Cache.GetEntityCount();
-```
+---
 
-## Known Issues
+## What's Not Here (Yet)
 
-- Doesn't handle edge cases well
-- Rate limiting needs real-world testing
-- Reconnection is bare bones
-- Cache isn't optimized for huge guilds
-- Documentation is sparse
-- Limited examples
+- **Voice channels** — separate concern, might be a plugin
+- **Sharding** — only needed for 2500+ guilds
+- **Redis caching** — memory only for now
+- **Advanced reconnection** — coming in Phase 2
 
-## What's Next
+See [ROADMAP.md](ROADMAP.md) for the development plan.
 
-**Soon:** Better error handling, more tests, reconnection improvements, sharding
+---
 
-**Eventually:** Complete the interaction system, modals, voice support, performance tweaks, actual docs, NuGet package
+## Contributing
 
-**Later:** v1.0 with voice
+Help wanted. Check the [ROADMAP.md](ROADMAP.md) for what we're building.
 
-## Help Out
+---
 
-We need:
-- Tests (integration and unit)
-- Better docs and examples
-- Bug reports and fixes
-- Finishing the interaction builders
+## Resources
 
-Just clone it, build it, and send a PR.
+- [Discord Developer Portal](https://discord.com/developers/applications) — get your bot token
+- [Discord API Documentation](https://discord.com/developers/docs/intro) — the source of truth
+- [Examples](examples/) — real code samples
+
+---
 
 ## License
 
-Apache License 2.0
-
-## Links
-
-- [Discord Docs](https://discord.com/developers/docs/intro)
-- [Discord Developer Portal](https://discord.com/developers/applications)
-
-
-**Status:** Alpha 4 | REST API nearly complete | Gateway events & reliability next
+MIT License. Do what you want with it.

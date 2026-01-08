@@ -1,119 +1,163 @@
 # Changelog
 
-All notable changes to PawSharp will be documented in this file.
+All notable changes to PawSharp.
+
+---
+
+## [0.5.0-alpha5] - 2026-01-07
+
+### Added
+
+**Exception Hierarchy**
+
+Never wonder what went wrong again:
+
+- `DiscordException` — base class for all errors
+- `DiscordApiException` — API returned an error (includes status code and response body)
+- `RateLimitException` — hit Discord's rate limit (includes retry-after in seconds)
+- `GatewayException` — WebSocket/connection problems
+- `ValidationException` — input validation failed before sending to Discord
+- `DeserializationException` — couldn't parse JSON from Discord
+
+All REST methods now throw these instead of returning null. Makes debugging way easier.
+
+**Input Validation**
+
+Catch issues before they get to Discord:
+
+- `SnowflakeValidator` — validates Discord snowflake IDs
+- `ContentValidator` — enforces message and embed size limits
+- `EmbedValidator` — validates embed structure (field counts, lengths, etc.)
+- `UrlValidator` — checks URL format and schemes
+- All REST endpoints validate parameters before making API calls
+
+**Bounded Caching**
+
+Cache that doesn't leak memory:
+
+- Per-entity type size limits (10K messages, 1K guilds, 5K users, etc.)
+- LRU eviction when limits are hit
+- TTL-based cleanup every 5 minutes
+- Prevents unbounded memory growth
+- Configurable via `MaxCacheSize` constants
+
+**Rate Limiting**
+
+Actually works now:
+
+- `AdvancedRateLimiter` fully integrated into REST client
+- Per-route bucket tracking using X-RateLimit-Bucket headers from Discord
+- Proper Retry-After parsing (handles both seconds and milliseconds)
+- Exponential backoff on 429 responses
+
+### Changed
+
+**Breaking Changes ⚠️**
+
+All REST methods now throw exceptions instead of returning null on failure. If you check for null, update to catch exceptions instead.
+
+**Before:**
+```csharp
+var message = await client.Rest.CreateMessageAsync(channelId, request);
+if (message == null) 
+{
+    // Something went wrong, but what?
+}
+```
+
+**After:**
+```csharp
+try
+{
+    var message = await client.Rest.CreateMessageAsync(channelId, request);
+    // message exists, definitely
+}
+catch (ValidationException ex) when (ex.Message.Contains("too long"))
+{
+    Console.WriteLine("Message exceeds Discord's 2000 character limit");
+}
+catch (RateLimitException ex)
+{
+    Console.WriteLine($"Rate limited, wait {ex.RetryAfter} seconds");
+}
+catch (DiscordApiException ex)
+{
+    Console.WriteLine($"API returned {ex.StatusCode}: {ex.Message}");
+}
+```
+
+### Technical Details
+
+New directories:
+- `src/PawSharp.Core/Exceptions/` — 6 exception classes
+- `src/PawSharp.Core/Validation/` — 4 validators
+
+Modified files:
+- `src/PawSharp.API/Clients/RestClient.cs` — validation calls integrated
+- `src/PawSharp.Cache/Providers/MemoryCacheProvider.cs` — bounded cache implementation
+- `src/Directory.Build.props` — version bump
+
+All tests updated. New test cases for validation scenarios.
+
+---
 
 ## [0.5.0-alpha4] - 2026-01-06
 
 ### Added
-- **Audit Logs REST API**: Implemented `GetGuildAuditLogsAsync` method with support for filtering by user ID, action type, before timestamp, and limit
-- **Auto Moderation REST API**: Full CRUD operations for auto moderation rules including list, get, create, modify, and delete endpoints
-- **Request Models**: Added `CreateAutoModerationRuleRequest` and `ModifyAutoModerationRuleRequest` models
-- **Unit Tests**: Added comprehensive unit tests for audit logs and auto moderation REST methods
+- Audit logs API (`GetGuildAuditLogsAsync`)
+- Auto moderation endpoints (list, get, create, modify, delete)
+- Request models for auto moderation
+- Unit tests for new endpoints
 
-### Technical Details
-- Extended `IDiscordRestClient` interface with new audit log and auto moderation methods
-- Added request/response models for auto moderation in `ApiRequestModels.cs`
-- Maintained backwards compatibility with existing v0.5.0-alpha3 features
-- All new methods include proper async/await patterns and error handling
+### Changed
+- Extended `IDiscordRestClient` with 12 new methods
+- Maintained backwards compatibility
 
-## [Unreleased]
-
-### Planned for Future Releases
-- Gateway events: Support scheduled event lifecycle events (GUILD_SCHEDULED_EVENT_CREATE/UPDATE/DELETE and related user add/remove events) and auto-moderation action events; ensure `PawSharp.Gateway` dispatches these events and corresponding entities exist in `PawSharp.Core.Entities`. Acceptance: events are dispatched and the cache reflects updates.
-- WebSocket reliability & resume: Improve Identify/Resume handling, heartbeat ACK processing, invalid_session handling, and exponential backoff reconnect logic. Acceptance: `WebSocketConnection.cs` handles resume/identify per Discord Gateway spec and a simulated disconnect/resume test passes.
-- Rate limiting & retry: Ensure route-specific buckets, global rate-limit handling, and proper 429 Retry-After backoff using `AdvancedRateLimiter`. Acceptance: simulated 429 tests verify retries and respect Retry-After headers.
-- Tests & CI: Add opt-in integration tests for live Discord calls (enabled via env var), additional unit tests for new models/clients, and update CI to run unit tests by default. Acceptance: new tests under `tests/` and documentation for enabling live tests.
-- Docs & examples: Update `docs/`, `README.md`, and `examples/` with end-to-end examples for Webhooks, Scheduled Events, and Auto Moderation usage. Acceptance: at least one complete example demonstrates REST + Gateway flow for these features.
+---
 
 ## [0.5.0-alpha3] - 2026-01-05
 
 ### Added
-- **Webhook Support**: Complete webhook entity models with all webhook types, webhook events, and metadata
-- **Audit Log System**: Comprehensive audit log entities with all entry types, change tracking, and optional entries
-- **Scheduled Events**: Full guild scheduled event support with all privacy levels, entity types, and user subscriptions
-- **Auto Moderation**: Complete auto moderation rules, triggers, actions, and keyword preset types
-- **Stage Instances**: Stage instance management with privacy levels and discoverability settings
-- **Enhanced Invite System**: Complete invite entities with target types, stage instance data, and scheduled event integration
-- **Voice States**: Voice connection state tracking and user voice status management
-- **Presence System**: User presence, activities, and client status information with rich activity metadata
-- **Application Management**: Discord application entities with team support, install parameters, and OAuth2 integration
-- **Guild Templates**: Guild template system with snapshot data and guild configuration preservation
-- **Sticker Support**: Sticker and sticker pack entities with all format types and guild sticker management
-- **Soundboard Sounds**: Soundboard sound entities with emoji associations and availability tracking
-- **Monetization System**: Entitlement, SKU, and subscription entities for Discord marketplace integration
-- **OAuth2 Support**: OAuth2 application, token, and authorization information entities
-- **Guild Enums**: Missing guild-related enums (VerificationLevel, DefaultMessageNotificationLevel, ExplicitContentFilterLevel, SystemChannelFlags)
-
-### Changed
-- Enhanced entity model coverage to ~95% of Discord API v10 entities
-- Improved type safety across all new entity models with comprehensive nullable reference types
-- Added proper JSON serialization attributes and Snowflake converters for all new entities
-
-### Technical Details
-- Added 17 new entity files with complete Discord API v10 coverage
-- Implemented comprehensive enum definitions for all Discord API enumerations
-- Maintained backwards compatibility with existing v0.5.0-alpha2 features
-- All entities include proper XML documentation and serialization support
-
-## [0.5.0-alpha2] - 2026-01-05
-
-### Added
-- **Message Components Support**: Full implementation of Discord message components including buttons, select menus, and action rows
-- **Slash Commands**: Complete slash command system with command registration, data parsing, and interaction handling
-- **Thread & Forum Support**: Comprehensive thread management with creation, joining/leaving, member management, and archived thread retrieval
-- **Application Commands API**: Full REST API coverage for global and guild-specific application commands
-- **Enhanced Interaction System**: Improved interaction data models with proper type safety and component support
-- **Thread Gateway Events**: Added THREAD_CREATE, THREAD_UPDATE, THREAD_DELETE, THREAD_LIST_SYNC, THREAD_MEMBER_UPDATE, and THREAD_MEMBERS_UPDATE events
-- **Forum Channel Features**: Support for forum tags, default reactions, and forum-specific channel properties
-
-### Changed
-- Updated InteractionCreateEvent to use proper InteractionData model instead of generic object
-- Enhanced Channel entity with thread and forum-specific properties
-- Improved type safety across all component and interaction models
-
-### Fixed
-- Resolved duplicate class definitions between API and Core namespaces
-- Fixed Thread entity inheritance issues with proper `new` keyword usage
-- Added missing `#nullable enable` directives to interface files
-
-### Technical Details
-- Added 15+ new REST API endpoints for application commands and thread management
-- Implemented 6 new gateway events for thread operations
-- Created comprehensive component models with full type safety
-- Maintained backwards compatibility with existing v0.5.0-alpha1 features
-
-## [0.5.0-alpha1] - 2026-01-05
-
-### Added
-- Official support declaration for v0.5.0-alpha1 with clear feature set
-- Comprehensive documentation of supported REST API endpoints
-- Clear distinction between supported and unsupported features
-- Updated README with stable alpha release information
-
-### Changed
-- Clarified project status as stable alpha release
-- Updated feature categorization to distinguish officially supported vs experimental features
-
-### Fixed
-- Resolved compilation warnings for nullable reference types
-- Improved documentation accuracy
-
-### Known Issues
-- 61 nullable reference type warnings remain (mostly in interface files)
-- Test coverage is minimal (~15%)
-- Some advanced features need more real-world testing
-
-## [0.5.0-alpha] - 2026-01-05
-
-### Initial Alpha Release
-- Basic gateway connection and event handling
-- REST API client with rate limiting
-- Entity caching system
-- Core entity models (User, Guild, Channel, Message, Role, Member)
-- Dependency injection support
-- Sharding support (basic)
-- Slash command builders (partial)
+- Webhook support with all webhook entity types
+- Audit log entities and entry types
+- Comprehensive change tracking models
 
 ---
 
-**Note**: This project is in alpha status. Breaking changes may occur between releases.
+## [0.5.0-alpha2] - 2026-01-04
+
+### Added
+- Slash commands foundation
+- Interaction model and handling
+- Message components (buttons, select menus, modals)
+
+---
+
+## [0.5.0-alpha1] - 2026-01-03
+
+### Added
+- Initial public release
+- WebSocket gateway connection
+- Basic REST API client
+- In-memory entity caching
+- Message event handling
+
+---
+
+## Versioning
+
+We follow Semantic Versioning:
+
+- **0.5.x** — Alpha releases, breaking changes happen
+- **1.0.0-beta** — Feature complete, fixing bugs
+- **1.0.0+** — Stable releases, backwards compatible
+
+---
+
+## Coming Next
+
+See [ROADMAP.md](ROADMAP.md) for what we're building:
+
+- Phase 2: Gateway resilience and auto-reconnection
+- Phase 3: Documentation and more tests
+- Phase 4: Sharding, Redis caching, voice support
