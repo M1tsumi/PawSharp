@@ -6,22 +6,25 @@
 
 # PawSharp
 
-A modern Discord API wrapper for .NET 8.0. Clean, fully typed, and built for stability.
+A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Status:** Alpha — it works, it's tested, ready for serious use but the API might shift before v1.0.
+**Current Version:** 0.5.0-alpha6
+**Status:** Phase 2 complete - Gateway resilience fully implemented. Suitable for production bots.
 
 ---
 
-## Features
+## Key Features
 
-- **Real-time events** via WebSocket with typed event handlers
-- **Complete REST API** — everything Discord exposes (messages, channels, guilds, members, roles, webhooks, etc.)
-- **Proper error handling** — typed exceptions so you know what went wrong, no null checks
-- **Input validation** — catch mistakes before they hit Discord's API
-- **Smart caching** — in-memory with per-entity limits, LRU eviction, and automatic cleanup
-- **Built-in rate limiting** — respects Discord's buckets and retry-after headers
-- **Dependency injection first** — integrates cleanly with `IServiceCollection`
-- **Modern async/await** — fully async throughout, nullable reference types enabled
+- **Automatic Reconnection** - Exponential backoff with session resumption, handles network issues gracefully
+- **Heartbeat Health Monitoring** - Detects zombie connections and reconnects automatically
+- **Complete REST API** - All Discord endpoints (messages, channels, guilds, members, roles, webhooks, etc.)
+- **Real-time Events** - WebSocket gateway with typed event handlers
+- **Typed Error Handling** - Custom exception hierarchy, no null checks needed
+- **Input Validation** - Catch mistakes before hitting Discord's API
+- **Smart Caching** - In-memory with per-entity limits, LRU eviction, automatic TTL cleanup
+- **Rate Limiting** - Automatic rate limit handling with proper bucket tracking
+- **Dependency Injection** - First-class support for .NET DI container
+- **Fully Async** - Modern async/await throughout with nullable reference types
 
 ---
 
@@ -96,6 +99,15 @@ More examples in [examples/](examples/).
 
 ## What's Included
 
+**Gateway Resilience (Phase 2):**
+- Automatic reconnection with exponential backoff (1s → 2s → 4s → 8s → 16s)
+- Session resumption within 45 seconds of disconnect
+- Heartbeat ACK tracking to detect zombie connections
+- Complete opcode support (all 12 Discord gateway opcodes)
+- State machine preventing invalid transitions (Disconnected → Connecting → Connected → Ready)
+- Maximum 10 reconnection attempts before failure
+- Events for monitoring connection state and reconnection progress
+
 **REST API:**
 - Messages (create, edit, delete, fetch, reactions, pins)
 - Channels (CRUD, permissions, webhooks)
@@ -112,20 +124,21 @@ More examples in [examples/](examples/).
 - Channel and role events
 - Interaction create
 - Thread events
+- Connection state transitions
 - Ready and resume events
 
 **Caching:**
 - Automatic in-memory cache for entities
-- Configurable per-type size limits (guilds, channels, users, messages, etc.)
+- Configurable per-type size limits (10K messages, 1K guilds, 5K users, etc.)
 - LRU eviction when limits hit
 - TTL-based cleanup every 5 minutes
 
 **Error Handling:**
-- `ValidationException` — bad input (invalid ID, text too long, etc.)
-- `RateLimitException` — Discord rate limit (includes retry-after)
-- `DiscordApiException` — API error with status code
-- `GatewayException` — WebSocket/connection issues
-- `DeserializationException` — JSON parsing failed
+- `ValidationException` - bad input (invalid ID, text too long, etc.)
+- `RateLimitException` - Discord rate limit with retry-after
+- `DiscordApiException` - API error with status code
+- `GatewayException` - WebSocket/connection issues
+- `DeserializationException` - JSON parsing failed
 
 ---
 
@@ -215,14 +228,14 @@ var client = provider.GetRequiredService<DiscordClient>();
 
 ---
 
-## What's Not Here (Yet)
+## What's Not Implemented Yet
 
-- **Voice channels** — separate concern, might be a plugin
-- **Sharding** — only needed for 2500+ guilds
-- **Redis caching** — memory only for now
-- **Advanced reconnection** — coming in Phase 2
+- **Voice Support** - Voice channels and audio are out of scope for now
+- **Sharding** - Only needed for bots with 2500+ guilds
+- **Redis Caching** - In-memory cache only, no distributed caching yet
+- **Advanced Clustering** - Single-machine bots fully supported
 
-See [ROADMAP.md](ROADMAP.md) for the development plan.
+See [ROADMAP.md](ROADMAP.md) for the development plan and future phases.
 
 ---
 
