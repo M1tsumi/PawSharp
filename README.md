@@ -8,8 +8,8 @@
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.5.0-alpha6
-**Status:** Phase 2 complete - Gateway resilience fully implemented. Suitable for production bots.
+**Current Version:** 0.5.0-alpha7
+**Status:** Phase 3 complete - Testing, documentation, and monitoring fully implemented. Suitable for production bots.
 
 ---
 
@@ -99,14 +99,14 @@ More examples in [examples/](examples/).
 
 ## What's Included
 
-**Gateway Resilience (Phase 2):**
-- Automatic reconnection with exponential backoff (1s → 2s → 4s → 8s → 16s)
+**Gateway Resilience:**
+- Automatic reconnection with exponential backoff (1s, 2s, 4s, 8s, 16s maximum)
 - Session resumption within 45 seconds of disconnect
-- Heartbeat ACK tracking to detect zombie connections
-- Complete opcode support (all 12 Discord gateway opcodes)
-- State machine preventing invalid transitions (Disconnected → Connecting → Connected → Ready)
-- Maximum 10 reconnection attempts before failure
-- Events for monitoring connection state and reconnection progress
+- Heartbeat ACK tracking to detect unhealthy connections
+- All 12 Discord gateway opcodes handled correctly
+- State machine preventing invalid state transitions
+- Maximum 10 reconnection attempts before giving up
+- Events for monitoring connection state and reconnection attempts
 
 **REST API:**
 - Messages (create, edit, delete, fetch, reactions, pins)
@@ -230,10 +230,10 @@ var client = provider.GetRequiredService<DiscordClient>();
 
 ## What's Not Implemented Yet
 
-- **Voice Support** - Voice channels and audio are out of scope for now
-- **Sharding** - Only needed for bots with 2500+ guilds
-- **Redis Caching** - In-memory cache only, no distributed caching yet
-- **Advanced Clustering** - Single-machine bots fully supported
+- Voice channels and audio support
+- Sharding (needed for bots in 2500+ guilds)
+- Redis caching (in-memory cache only)
+- Distributed clustering (single-machine bots fully supported)
 
 See [ROADMAP.md](ROADMAP.md) for the development plan and future phases.
 
