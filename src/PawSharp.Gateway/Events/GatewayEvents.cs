@@ -475,6 +475,90 @@ public class InteractionCreateEvent : GatewayEvent
 }
 
 /// <summary>
+/// Interaction data for slash commands and components.
+/// </summary>
+public class InteractionData
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong? Id { get; set; }
+    
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+    
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+    
+    [JsonPropertyName("resolved")]
+    public InteractionResolvedData? Resolved { get; set; }
+    
+    [JsonPropertyName("options")]
+    public List<ApplicationCommandInteractionDataOption>? Options { get; set; }
+    
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+    
+    [JsonPropertyName("target_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? TargetId { get; set; }
+    
+    [JsonPropertyName("custom_id")]
+    public string? CustomId { get; set; }
+    
+    [JsonPropertyName("component_type")]
+    public int? ComponentType { get; set; }
+    
+    [JsonPropertyName("values")]
+    public List<string>? Values { get; set; }
+}
+
+/// <summary>
+/// Resolved data for interactions.
+/// </summary>
+public class InteractionResolvedData
+{
+    [JsonPropertyName("users")]
+    public Dictionary<string, User>? Users { get; set; }
+    
+    [JsonPropertyName("members")]
+    public Dictionary<string, GuildMember>? Members { get; set; }
+    
+    [JsonPropertyName("roles")]
+    public Dictionary<string, Role>? Roles { get; set; }
+    
+    [JsonPropertyName("channels")]
+    public Dictionary<string, Channel>? Channels { get; set; }
+    
+    [JsonPropertyName("messages")]
+    public Dictionary<string, Message>? Messages { get; set; }
+    
+    [JsonPropertyName("attachments")]
+    public Dictionary<string, Attachment>? Attachments { get; set; }
+}
+
+/// <summary>
+/// Option data for application command interactions.
+/// </summary>
+public class ApplicationCommandInteractionDataOption
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+    
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+    
+    [JsonPropertyName("value")]
+    public object? Value { get; set; }
+    
+    [JsonPropertyName("options")]
+    public List<ApplicationCommandInteractionDataOption>? Options { get; set; }
+    
+    [JsonPropertyName("focused")]
+    public bool? Focused { get; set; }
+}
+
+/// <summary>
 /// TYPING_START event.
 /// </summary>
 public class TypingStartEvent : GatewayEvent
@@ -655,6 +739,21 @@ public class VoiceStateUpdateEvent : GatewayEvent
     
     [JsonPropertyName("request_to_speak_timestamp")]
     public DateTimeOffset? RequestToSpeakTimestamp { get; set; }
+}
+
+/// <summary>
+/// VOICE_SERVER_UPDATE event.
+/// </summary>
+public class VoiceServerUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("token")]
+    public string Token { get; set; } = string.Empty;
+    
+    [JsonPropertyName("guild_id")]
+    public ulong GuildId { get; set; }
+    
+    [JsonPropertyName("endpoint")]
+    public string Endpoint { get; set; } = string.Empty;
 }
 
 /// <summary>

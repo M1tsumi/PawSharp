@@ -27,6 +27,11 @@ public interface IPerformanceMetrics
     void RecordGatewayMessage(string opcodeName);
 
     /// <summary>
+    /// Records a gateway reconnection attempt.
+    /// </summary>
+    void RecordReconnection();
+
+    /// <summary>
     /// Gets current metrics summary.
     /// </summary>
     MetricsSummary GetSummary();
@@ -52,6 +57,7 @@ public class PerformanceMetrics : IPerformanceMetrics
     private long _totalCacheMisses;
     private long _totalGatewayMessages;
     private long _totalApiDurationMs;
+    private long _totalReconnections;
     
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
 
@@ -102,6 +108,11 @@ public class PerformanceMetrics : IPerformanceMetrics
         _gatewayOpcodes.AddOrUpdate(opcodeName, 1, (_, count) => count + 1);
     }
 
+    public void RecordReconnection()
+    {
+        _totalReconnections++;
+    }
+
     public MetricsSummary GetSummary()
     {
         long totalCacheOperations = _totalCacheHits + _totalCacheMisses;
@@ -126,7 +137,8 @@ public class PerformanceMetrics : IPerformanceMetrics
             
             // Gateway Metrics
             TotalGatewayMessages = _totalGatewayMessages,
-            GatewayOpcodes = _gatewayOpcodes.ToDictionary(x => x.Key, x => x.Value)
+            GatewayOpcodes = _gatewayOpcodes.ToDictionary(x => x.Key, x => x.Value),
+            TotalReconnections = _totalReconnections
         };
     }
 
@@ -141,6 +153,7 @@ public class PerformanceMetrics : IPerformanceMetrics
         _totalCacheMisses = 0;
         _totalGatewayMessages = 0;
         _totalApiDurationMs = 0;
+        _totalReconnections = 0;
         _uptime.Restart();
     }
 }
@@ -168,6 +181,7 @@ public class MetricsSummary
     // Gateway Metrics
     public long TotalGatewayMessages { get; set; }
     public Dictionary<string, long> GatewayOpcodes { get; set; } = new();
+    public long TotalReconnections { get; set; }
 }
 
 /// <summary>

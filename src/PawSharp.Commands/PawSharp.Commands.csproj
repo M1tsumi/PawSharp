@@ -2,15 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>PawSharp.Interactions</RootNamespace>
-    <AssemblyName>PawSharp.Interactions</AssemblyName>
-    <PackageId>PawSharp.Interactions</PackageId>
+    <RootNamespace>PawSharp.Commands</RootNamespace>
+    <AssemblyName>PawSharp.Commands</AssemblyName>
+    <PackageId>PawSharp.Commands</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
     <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
-    <ProjectReference Include="..\PawSharp.Gateway\PawSharp.Gateway.csproj" />
+    <ProjectReference Include="..\PawSharp.Client\PawSharp.Client.csproj" />
   </ItemGroup>
 
 </Project>

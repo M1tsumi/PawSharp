@@ -16,6 +16,7 @@ public class Message : DiscordEntity
     /// Id of the channel the message was sent in.
     /// </summary>
     [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
     public ulong ChannelId { get; set; }
     
     /// <summary>
@@ -376,6 +377,24 @@ public class Emoji
     [JsonPropertyName("animated")]
     public bool? Animated { get; set; }
     
-    [JsonPropertyName("available")]
-    public bool? Available { get; set; }
+}
+
+/// <summary>
+/// Represents allowed mentions in a message.
+/// </summary>
+public class AllowedMentions
+{
+    [JsonPropertyName("parse")]
+    public List<string>? Parse { get; set; }
+    
+    [JsonPropertyName("roles")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
+    public List<ulong>? Roles { get; set; }
+    
+    [JsonPropertyName("users")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
+    public List<ulong>? Users { get; set; }
+    
+    [JsonPropertyName("replied_user")]
+    public bool? RepliedUser { get; set; }
 }

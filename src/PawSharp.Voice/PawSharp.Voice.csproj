@@ -2,18 +2,21 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>PawSharp.Client</RootNamespace>
-    <AssemblyName>PawSharp.Client</AssemblyName>
-    <OutputType>Library</OutputType>
-    <PackageId>PawSharp.Client</PackageId>
+    <RootNamespace>PawSharp.Voice</RootNamespace>
+    <AssemblyName>PawSharp.Voice</AssemblyName>
+    <PackageId>PawSharp.Voice</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
     <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
     <ProjectReference Include="..\PawSharp.Gateway\PawSharp.Gateway.csproj" />
-    <ProjectReference Include="..\PawSharp.Cache\PawSharp.Cache.csproj" />
-    <ProjectReference Include="..\PawSharp.Interactions\PawSharp.Interactions.csproj" />
+    <ProjectReference Include="..\PawSharp.Client\PawSharp.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Concentus" Version="1.0.4" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 
 </Project>

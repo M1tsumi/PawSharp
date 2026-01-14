@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.Core.Models;
+using PawSharp.Core.Metrics;
 using PawSharp.Gateway.Connection;
 using PawSharp.Gateway.Events;
 using PawSharp.Gateway.Heartbeat;
@@ -16,6 +17,7 @@ namespace PawSharp.Gateway
     {
         private readonly PawSharpOptions _options;
         private readonly ILogger _logger;
+        private readonly IPerformanceMetrics _metrics;
         private readonly WebSocketConnection _webSocket;
         private HeartbeatManager _heartbeatManager;
         private readonly EventDispatcher _eventDispatcher;
@@ -42,14 +44,25 @@ namespace PawSharp.Gateway
         /// </summary>
         public event Func<Task> OnReconnectionFailed;
 
-        public GatewayClient(PawSharpOptions options, ILogger logger)
+        /// <summary>
+        /// Fired when a voice state update is received.
+        /// </summary>
+        public event Func<VoiceStateUpdateEvent, Task> VoiceStateUpdate;
+
+        /// <summary>
+        /// Fired when a voice server update is received.
+        /// </summary>
+        public event Func<VoiceServerUpdateEvent, Task> VoiceServerUpdate;
+
+        public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics metrics = null)
         {
             _options = options;
             _logger = logger;
+            _metrics = metrics;
             _webSocket = new WebSocketConnection();
             _heartbeatManager = new HeartbeatManager(41250, SendHeartbeatAsync, logger);
             _eventDispatcher = new EventDispatcher(logger);
-            _reconnectionManager = new ReconnectionManager(logger);
+            _reconnectionManager = new ReconnectionManager(logger, metrics);
             
             _reconnectionManager.OnReconnectionAttempt += async (attempt) =>
             {
@@ -436,6 +449,38 @@ namespace PawSharp.Gateway
             }
         }
 
+        /// <summary>
+        /// Sends a voice state update to the gateway.
+        /// </summary>
+        /// <param name="guildId">The guild ID.</param>
+        /// <param name="channelId">The channel ID to join (null to leave).</param>
+        /// <param name="selfMute">Whether to mute self.</param>
+        /// <param name="selfDeaf">Whether to deafen self.</param>
+        public async Task SendVoiceStateUpdateAsync(ulong guildId, ulong? channelId, bool selfMute, bool selfDeaf)
+        {
+            try
+            {
+                var voiceStatePayload = new
+                {
+                    op = 4,
+                    d = new
+                    {
+                        guild_id = guildId,
+                        channel_id = channelId,
+                        self_mute = selfMute,
+                        self_deaf = selfDeaf
+                    }
+                };
+                var json = JsonSerializer.Serialize(voiceStatePayload);
+                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                _logger.LogDebug($"Sent voice state update for guild {guildId}, channel {channelId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending voice state update");
+            }
+        }
+
         private async Task HandleDispatchEventAsync(string eventType, string eventData)
         {
             try
@@ -515,6 +560,25 @@ namespace PawSharp.Gateway
                         break;
                     case "VOICE_STATE_UPDATE":
                         _eventDispatcher.DispatchFromJson<VoiceStateUpdateEvent>(eventType, eventData);
+                        if (VoiceStateUpdate != null)
+                        {
+                            var voiceStateEvent = JsonSerializer.Deserialize<VoiceStateUpdateEvent>(eventData);
+                            if (voiceStateEvent != null)
+                            {
+                                await VoiceStateUpdate.Invoke(voiceStateEvent);
+                            }
+                        }
+                        break;
+                    case "VOICE_SERVER_UPDATE":
+                        _eventDispatcher.DispatchFromJson<VoiceServerUpdateEvent>(eventType, eventData);
+                        if (VoiceServerUpdate != null)
+                        {
+                            var voiceServerEvent = JsonSerializer.Deserialize<VoiceServerUpdateEvent>(eventData);
+                            if (voiceServerEvent != null)
+                            {
+                                await VoiceServerUpdate.Invoke(voiceServerEvent);
+                            }
+                        }
                         break;
                     case "THREAD_CREATE":
                         _eventDispatcher.DispatchFromJson<ThreadCreateEvent>(eventType, eventData);

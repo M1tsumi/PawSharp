@@ -11,6 +11,8 @@ using PawSharp.Core.Entities;
 using PawSharp.Core.Logging;
 using PawSharp.Core.Metrics;
 using PawSharp.Core.Models;
+using PawSharp.Gateway.Events;
+using PawSharp.Interactions;
 
 namespace PawSharp.Examples;
 
@@ -82,6 +84,9 @@ public class AdvancedExampleBot
         
         // Register commands
         RegisterCommands();
+
+        // Register interactions
+        RegisterInteractions();
 
         _logger.LogInformation("Bot initialized successfully");
     }
@@ -318,6 +323,65 @@ Created: {user.CreatedAt:g}";
         };
 
         _logger.LogInformation("Registered {CommandCount} commands", _commands.Count);
+    }
+
+    /// <summary>
+    /// Register slash commands and component handlers.
+    /// </summary>
+    private void RegisterInteractions()
+    {
+        // Register slash command: /ping
+        _client.Interactions.RegisterCommand("ping", async (interaction) =>
+        {
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                Data = new InteractionCallbackData
+                {
+                    Content = "Pong! 🏓"
+                }
+            };
+
+            await _client.Interactions.RespondAsync(interaction.Id, interaction.Token, response);
+        });
+
+        // Register slash command: /echo <text>
+        _client.Interactions.RegisterCommand("echo", async (interaction) =>
+        {
+            var text = interaction.Data?.Options?.FirstOrDefault()?.Value?.ToString();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                text = "You didn't provide any text to echo!";
+            }
+
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                Data = new InteractionCallbackData
+                {
+                    Content = text
+                }
+            };
+
+            await _client.Interactions.RespondAsync(interaction.Id, interaction.Token, response);
+        });
+
+        // Register component handler for a button
+        _client.Interactions.RegisterComponent("test_button", async (interaction) =>
+        {
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                Data = new InteractionCallbackData
+                {
+                    Content = "Button clicked! 🎉"
+                }
+            };
+
+            await _client.Interactions.RespondAsync(interaction.Id, interaction.Token, response);
+        });
+
+        _logger.LogInformation("Registered interaction handlers");
     }
 
     /// <summary>

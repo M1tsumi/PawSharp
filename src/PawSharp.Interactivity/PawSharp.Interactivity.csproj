@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>PawSharp.Interactivity</RootNamespace>
+    <AssemblyName>PawSharp.Interactivity</AssemblyName>
+    <PackageId>PawSharp.Interactivity</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
+    <ProjectReference Include="..\PawSharp.Client\PawSharp.Client.csproj" />
+  </ItemGroup>
+
+</Project>

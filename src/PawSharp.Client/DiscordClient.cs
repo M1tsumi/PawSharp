@@ -2,9 +2,12 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.API.Interfaces;
+using PawSharp.API.Clients;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Gateway;
+using PawSharp.Gateway.Events;
 using PawSharp.Core.Models;
+using PawSharp.Interactions;
 
 namespace PawSharp.Client
 {
@@ -15,6 +18,7 @@ namespace PawSharp.Client
         private readonly IDiscordRestClient _restClient;
         private readonly GatewayClient _gatewayClient;
         private readonly IEntityCache _cache;
+        private readonly InteractionHandler _interactionHandler;
 
         public DiscordClient(PawSharpOptions options, IEntityCache cache, ILogger<DiscordClient> logger, IDiscordRestClient restClient)
         {
@@ -24,6 +28,10 @@ namespace PawSharp.Client
             _restClient = restClient ?? throw new ArgumentNullException(nameof(restClient));
 
             _gatewayClient = new GatewayClient(options, logger);
+            _interactionHandler = new InteractionHandler((DiscordRestClient)_restClient);
+            
+            // Subscribe to interaction events
+            _gatewayClient.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", HandleInteractionAsync);
         }
 
         /// <summary>
@@ -40,6 +48,11 @@ namespace PawSharp.Client
         /// Access the entity cache.
         /// </summary>
         public IEntityCache Cache => _cache;
+        
+        /// <summary>
+        /// Access the interaction handler.
+        /// </summary>
+        public InteractionHandler Interactions => _interactionHandler;
 
         public async Task ConnectAsync()
         {
@@ -55,9 +68,14 @@ namespace PawSharp.Client
             _logger.LogInformation("Disconnected from Discord.");
         }
 
+        private async void HandleInteractionAsync(InteractionCreateEvent interaction)
+        {
+            await _interactionHandler.HandleInteractionAsync(interaction);
+        }
+
         public async Task SendMessageAsync(string channelId, string message)
         {
-            _logger.LogInformation($"Sending message to channel {channelId}: {message}");
+            _logger.LogInformation($"Sending message to channel {message}");
             // TODO: Implement typed method
             // await _restClient.SendMessageAsync(channelId, message);
         }
