@@ -8,8 +8,8 @@
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.5.0-alpha7
-**Status:** Phase 3 complete - Testing, documentation, and monitoring fully implemented. Suitable for production bots.
+**Current Version:** 0.5.0-alpha8
+**Status:** Phase 4 complete - Production hardening, benchmarks, and interaction support fully implemented.
 
 ---
 
@@ -228,9 +228,172 @@ var client = provider.GetRequiredService<DiscordClient>();
 
 ---
 
+## Interactions (Slash Commands & Components)
+
+PawSharp supports Discord's modern interaction system:
+
+```csharp
+// Register slash commands
+client.Interactions.RegisterCommand("ping", async interaction =>
+{
+    var response = new InteractionResponse
+    {
+        Type = (int)InteractionResponseType.ChannelMessageWithSource,
+        Data = new InteractionCallbackData
+        {
+            Content = "Pong! 🏓"
+        }
+    };
+    
+    await client.Interactions.RespondAsync(interaction.Id, interaction.Token, response);
+});
+
+// Register component handlers
+client.Interactions.RegisterComponent("my_button", async interaction =>
+{
+    // Handle button clicks
+    await client.Interactions.RespondAsync(interaction.Id, interaction.Token, 
+        new InteractionResponse { /* ... */ });
+});
+```
+
+---
+
+## Voice Support
+
+PawSharp includes comprehensive voice channel connectivity with professional-grade audio processing:
+
+```csharp
+using PawSharp.Voice;
+
+// Connect to a voice channel
+var voice = client.UseVoice();
+var connection = await voice.ConnectAsync(voiceChannel);
+
+// Start capturing from microphone and sending audio
+connection.StartCapture();
+
+// Play received audio through speakers
+await connection.PlayAudioAsync(receivedAudioData);
+
+// Clean up when done
+await connection.DisconnectAsync();
+```
+
+**Voice Features:**
+- WebSocket-based voice connections with Discord's voice gateway
+- Real-time microphone capture and speaker playback infrastructure
+- Voice state management and automatic server update handling
+- Audio processing framework ready for codec integration
+- Thread-safe voice operations with comprehensive error handling
+- Opus codec preparation ( Concentus library included, encoding/decoding framework in place )
+
+---
+
+## Interactivity Framework
+
+Build engaging interactive experiences with reactions, pagination, and user input collection:
+
+```csharp
+using PawSharp.Interactivity.Extensions;
+
+// Enable interactivity on your client
+var interactivity = client.UseInteractivity();
+
+// Create paginated content for long messages
+var pages = interactivity.GeneratePagesInEmbed(longText);
+await channel.SendPaginatedMessageAsync(user, pages);
+
+// Wait for a specific user reaction
+var result = await message.WaitForReactionAsync(user, "👍");
+if (!result.TimedOut)
+{
+    await message.RespondAsync("Thanks for the thumbs up!");
+}
+
+// Collect multiple reactions for polls
+var reactions = await message.CollectReactionsAsync(client, TimeSpan.FromMinutes(5));
+
+// Create interactive polls
+await message.CreatePollAsync("What's your favorite programming language?",
+    new[] { "C#", "Python", "JavaScript", "Rust" });
+```
+
+**Interactivity Features:**
+- Reaction waiting and collection with timeout support
+- Automatic pagination for large content
+- Poll creation with reaction-based voting
+- Message-based user input collection
+- Built-in cancellation and error handling
+
+---
+
+## Commands Framework
+
+Traditional message-based commands with clean, attribute-driven syntax:
+
+```csharp
+using PawSharp.Commands;
+
+// Enable commands with your preferred prefix
+var commands = client.UseCommands("!");
+
+// Create a command module
+public class UtilityCommands : BaseCommandModule
+{
+    [Command("ping")]
+    [Description("Check if the bot is responsive")]
+    public async Task PingAsync(CommandContext ctx)
+    {
+        await ctx.RespondAsync($"🏓 Pong! Latency: {DateTimeOffset.Now - ctx.Message.Timestamp:hh\\:mm\\:ss}");
+    }
+
+    [Command("userinfo")]
+    [Description("Get information about a user")]
+    public async Task UserInfoAsync(CommandContext ctx)
+    {
+        var user = ctx.Message.Author;
+        var embed = new Embed
+        {
+            Title = $"{user.Username}#{user.Discriminator}",
+            Fields = new List<EmbedField>
+            {
+                new() { Name = "ID", Value = user.Id.ToString(), Inline = true },
+                new() { Name = "Joined", Value = user.CreatedAt.ToString("R"), Inline = true }
+            }
+        };
+        await ctx.RespondAsync(embed);
+    }
+
+    [Command("say")]
+    [Description("Make the bot say something")]
+    public async Task SayAsync(CommandContext ctx)
+    {
+        if (string.IsNullOrWhiteSpace(ctx.RawArguments))
+        {
+            await ctx.RespondAsync("❌ What do you want me to say?");
+            return;
+        }
+        await ctx.RespondAsync(ctx.RawArguments);
+    }
+}
+
+// Register your command modules
+commands.RegisterModule(new UtilityCommands());
+```
+
+**Commands Features:**
+- Clean attribute-based command registration
+- Automatic argument parsing and validation
+- Built-in help system support
+- Command aliases and descriptions
+- Per-command execution hooks (before/after)
+- Guild and channel context awareness
+
+---
+
 ## What's Not Implemented Yet
 
-- Voice channels and audio support
 - Sharding (needed for bots in 2500+ guilds)
 - Redis caching (in-memory cache only)
 - Distributed clustering (single-machine bots fully supported)

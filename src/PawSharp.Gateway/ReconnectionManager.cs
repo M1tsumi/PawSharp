@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PawSharp.Core.Metrics;
 
 namespace PawSharp.Gateway;
 
@@ -14,6 +15,7 @@ public class ReconnectionManager
     private const int MaxBackoffMs = 16000; // 16 seconds
 
     private readonly ILogger _logger;
+    private readonly IPerformanceMetrics _metrics;
     private int _reconnectionAttempts;
     private int _currentBackoffMs;
 
@@ -27,9 +29,10 @@ public class ReconnectionManager
     /// </summary>
     public event Func<Task> OnReconnectionFailed;
 
-    public ReconnectionManager(ILogger logger)
+    public ReconnectionManager(ILogger logger, IPerformanceMetrics metrics = null)
     {
         _logger = logger;
+        _metrics = metrics;
         Reset();
     }
 
@@ -66,6 +69,8 @@ public class ReconnectionManager
 
         _reconnectionAttempts++;
         _logger.LogWarning($"Reconnection attempt {_reconnectionAttempts}/{MaxReconnectionAttempts} in {_currentBackoffMs}ms");
+
+        _metrics?.RecordReconnection();
 
         await Task.Delay(_currentBackoffMs);
 
