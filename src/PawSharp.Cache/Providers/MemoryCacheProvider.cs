@@ -16,6 +16,7 @@ namespace PawSharp.Cache.Providers
         private readonly ConcurrentDictionary<ulong, Message> _messages;
         private readonly ConcurrentDictionary<string, GuildMember> _members; // Key: guildId:userId
         private readonly ConcurrentDictionary<ulong, Role> _roles;
+        private readonly ConcurrentDictionary<ulong, Emoji> _emojis;
 
         // Bounded caching configuration
         private const int MaxCacheSize = 10000; // Maximum number of items in general cache
@@ -31,6 +32,7 @@ namespace PawSharp.Cache.Providers
         public int MessageCacheSize => _messages.Count;
         public int MemberCacheSize => _members.Count;
         public int RoleCacheSize => _roles.Count;
+        public int EmojiCacheSize => _emojis.Count;
 
         public MemoryCacheProvider()
         {
@@ -41,6 +43,7 @@ namespace PawSharp.Cache.Providers
             _messages = new ConcurrentDictionary<ulong, Message>();
             _members = new ConcurrentDictionary<string, GuildMember>();
             _roles = new ConcurrentDictionary<ulong, Role>();
+            _emojis = new ConcurrentDictionary<ulong, Emoji>();
         }
 
         public void Add(string key, object entity)
@@ -248,6 +251,26 @@ namespace PawSharp.Cache.Providers
             return guild?.Roles ?? Enumerable.Empty<Role>();
         }
 
+        public void CacheEmoji(ulong guildId, Emoji emoji)
+        {
+            if (emoji.Id.HasValue)
+            {
+                _emojis[emoji.Id.Value] = emoji;
+                EnforceEntityCacheBounds(_emojis, MaxEntityCacheSize);
+            }
+        }
+
+        public Emoji? GetEmoji(ulong emojiId)
+        {
+            return _emojis.TryGetValue(emojiId, out var emoji) ? emoji : null;
+        }
+
+        public IEnumerable<Emoji> GetGuildEmojis(ulong guildId)
+        {
+            var guild = GetGuild(guildId);
+            return guild?.Emojis ?? Enumerable.Empty<Emoji>();
+        }
+
         public void CacheGuildData(Guild guild)
         {
             // Cache the guild
@@ -279,6 +302,15 @@ namespace PawSharp.Cache.Providers
                     CacheRole(guild.Id, role);
                 }
             }
+            
+            // Cache all emojis
+            if (guild.Emojis != null)
+            {
+                foreach (var emoji in guild.Emojis)
+                {
+                    CacheEmoji(guild.Id, emoji);
+                }
+            }
         }
 
         public void RemoveGuild(ulong guildId)
@@ -298,6 +330,21 @@ namespace PawSharp.Cache.Providers
             {
                 _members.TryRemove(key, out _);
             }
+        }
+
+        public CacheStats GetCacheStats()
+        {
+            return new CacheStats
+            {
+                UserCount = _users.Count,
+                GuildCount = _guilds.Count,
+                ChannelCount = _channels.Count,
+                MessageCount = _messages.Count,
+                MemberCount = _members.Count,
+                RoleCount = _roles.Count,
+                EmojiCount = _emojis.Count,
+                MemoryUsage = GetMemoryUsage()
+            };
         }
 
         public int GetEntityCount()

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using PawSharp.API.Models;
 using PawSharp.Core.Entities;
@@ -19,9 +20,19 @@ public interface IDiscordRestClient
     Task<HttpResponseMessage> GetAsync(string endpoint);
     
     /// <summary>
+    /// Sends a GET request to the Discord API with audit log reason and cancellation support.
+    /// </summary>
+    Task<HttpResponseMessage> GetAsync(string endpoint, string? reason = null, CancellationToken cancellationToken = default);
+    
+    /// <summary>
     /// Sends a POST request to the Discord API.
     /// </summary>
     Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content);
+    
+    /// <summary>
+    /// Sends a POST request to the Discord API with audit log reason and cancellation support.
+    /// </summary>
+    Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Sends a PUT request to the Discord API.
@@ -29,14 +40,29 @@ public interface IDiscordRestClient
     Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content);
     
     /// <summary>
+    /// Sends a PUT request to the Discord API with audit log reason and cancellation support.
+    /// </summary>
+    Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default);
+    
+    /// <summary>
     /// Sends a DELETE request to the Discord API.
     /// </summary>
     Task<HttpResponseMessage> DeleteAsync(string endpoint);
     
     /// <summary>
+    /// Sends a DELETE request to the Discord API with audit log reason and cancellation support.
+    /// </summary>
+    Task<HttpResponseMessage> DeleteAsync(string endpoint, string? reason = null, CancellationToken cancellationToken = default);
+    
+    /// <summary>
     /// Sends a PATCH request to the Discord API.
     /// </summary>
     Task<HttpResponseMessage> PatchAsync(string endpoint, HttpContent content);
+    
+    /// <summary>
+    /// Sends a PATCH request to the Discord API with audit log reason and cancellation support.
+    /// </summary>
+    Task<HttpResponseMessage> PatchAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the current bot user information.
@@ -117,6 +143,12 @@ public interface IDiscordRestClient
     Task<bool> DeleteGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId);
     Task<List<ApplicationCommand>?> BulkOverwriteGlobalApplicationCommandsAsync(ulong applicationId, List<CreateApplicationCommandRequest> commands);
     Task<List<ApplicationCommand>?> BulkOverwriteGuildApplicationCommandsAsync(ulong applicationId, ulong guildId, List<CreateApplicationCommandRequest> commands);
+    
+    // Application Command Permissions operations
+    Task<List<ApplicationCommandPermissions>?> GetGuildApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId);
+    Task<ApplicationCommandPermissions?> GetApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId);
+    Task<ApplicationCommandPermissions?> EditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId, List<ApplicationCommandPermission> permissions);
+    Task<List<ApplicationCommandPermissions>?> BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions);
     
     // Thread operations
     Task<Channel?> CreateThreadAsync(ulong channelId, CreateThreadRequest request);

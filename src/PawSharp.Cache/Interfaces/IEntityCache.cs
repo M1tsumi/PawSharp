@@ -39,6 +39,10 @@ namespace PawSharp.Cache.Interfaces
         Role? GetRole(ulong roleId);
         IEnumerable<Role> GetGuildRoles(ulong guildId);
         
+        void CacheEmoji(ulong guildId, Emoji emoji);
+        Emoji? GetEmoji(ulong emojiId);
+        IEnumerable<Emoji> GetGuildEmojis(ulong guildId);
+        
         // Bulk operations
         void CacheGuildData(Guild guild);
         void RemoveGuild(ulong guildId);
@@ -46,5 +50,56 @@ namespace PawSharp.Cache.Interfaces
         // Cache statistics
         int GetEntityCount();
         long GetMemoryUsage();
+        
+        /// <summary>
+        /// Gets cache statistics including counts per entity type and memory usage.
+        /// </summary>
+        CacheStats GetCacheStats();
+    }
+
+    /// <summary>
+    /// Cache statistics information.
+    /// </summary>
+    public class CacheStats
+    {
+        /// <summary>
+        /// Number of users cached.
+        /// </summary>
+        public int UserCount { get; set; }
+        
+        /// <summary>
+        /// Number of guilds cached.
+        /// </summary>
+        public int GuildCount { get; set; }
+        
+        /// <summary>
+        /// Number of channels cached.
+        /// </summary>
+        public int ChannelCount { get; set; }
+        
+        /// <summary>
+        /// Number of messages cached.
+        /// </summary>
+        public int MessageCount { get; set; }
+        
+        /// <summary>
+        /// Number of guild members cached.
+        /// </summary>
+        public int MemberCount { get; set; }
+        
+        /// <summary>
+        /// Number of roles cached.
+        /// </summary>
+        public int RoleCount { get; set; }
+        
+        /// <summary>
+        /// Number of emojis cached.
+        /// </summary>
+        public int EmojiCount { get; set; }
+        
+        /// <summary>
+        /// Estimated memory usage in bytes.
+        /// </summary>
+        public long MemoryUsage { get; set; }
     }
 }

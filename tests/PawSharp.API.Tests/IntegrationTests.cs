@@ -14,6 +14,7 @@ using PawSharp.API.Clients;
 using PawSharp.API.Models;
 using PawSharp.Core.Entities;
 using PawSharp.Core.Models;
+using PawSharp.API.RateLimit;
 
 namespace PawSharp.API.Tests
 {
@@ -23,6 +24,7 @@ namespace PawSharp.API.Tests
         private readonly HttpClient _httpClient;
         private readonly PawSharpOptions _options;
         private readonly Mock<ILogger<DiscordRestClient>> _mockLogger;
+        private readonly Mock<IAdvancedRateLimiter> _mockRateLimiter;
         private readonly DiscordRestClient _restClient;
 
         public RestClientTests()
@@ -31,7 +33,10 @@ namespace PawSharp.API.Tests
             _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
             _options = new PawSharpOptions { Token = "test-token", ApiVersion = 10 };
             _mockLogger = new Mock<ILogger<DiscordRestClient>>();
-            _restClient = new DiscordRestClient(_httpClient, _options, _mockLogger.Object);
+            _mockRateLimiter = new Mock<IAdvancedRateLimiter>();
+            _mockRateLimiter.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>()))
+                .Returns(Task.CompletedTask);
+            _restClient = new DiscordRestClient(_httpClient, _options, _mockLogger.Object, _mockRateLimiter.Object);
         }
 
         [Fact]

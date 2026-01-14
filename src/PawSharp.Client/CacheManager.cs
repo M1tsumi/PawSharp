@@ -32,6 +32,7 @@ public class CacheManager
         gateway.Events.On<GuildCreateEvent>("GUILD_CREATE", HandleGuildCreate);
         gateway.Events.On<GuildUpdateEvent>("GUILD_UPDATE", HandleGuildUpdate);
         gateway.Events.On<GuildDeleteEvent>("GUILD_DELETE", HandleGuildDelete);
+        gateway.Events.On<GuildEmojisUpdateEvent>("GUILD_EMOJIS_UPDATE", HandleGuildEmojisUpdate);
         
         // Channel events
         gateway.Events.On<ChannelCreateEvent>("CHANNEL_CREATE", HandleChannelCreate);
@@ -91,6 +92,24 @@ public class CacheManager
     {
         _logger?.LogDebug($"Removing guild from cache: {e.Id}");
         _cache.RemoveGuild(e.Id);
+    }
+
+    private void HandleGuildEmojisUpdate(GuildEmojisUpdateEvent e)
+    {
+        _logger?.LogDebug($"Updating cached emojis for guild: {e.GuildId}");
+        
+        var guild = _cache.GetGuild(e.GuildId);
+        if (guild != null)
+        {
+            guild.Emojis = e.Emojis;
+            _cache.CacheGuild(guild);
+            
+            // Cache individual emojis
+            foreach (var emoji in e.Emojis)
+            {
+                _cache.CacheEmoji(e.GuildId, emoji);
+            }
+        }
     }
 
     private void HandleChannelCreate(ChannelCreateEvent e)

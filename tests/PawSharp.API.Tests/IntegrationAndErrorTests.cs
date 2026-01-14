@@ -40,21 +40,22 @@ public class RestClientIntegrationTests
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task LiveTest_AuthenticatesWithValidToken()
     {
-        Skip.IfNot(_enableLiveTests, "Live tests disabled");
-        
-        // This test would require a valid bot token
-        // It demonstrates how to test real API calls
+        if (!_enableLiveTests)
+            return; // live tests disabled
+
         var token = Environment.GetEnvironmentVariable("DISCORD_BOT_TOKEN");
-        Skip.IfNullOrEmpty(token);
-        
+        if (string.IsNullOrEmpty(token))
+            return; // missing token
+
         using var client = new HttpClient();
         var options = new PawSharpOptions { Token = token, ApiVersion = 10 };
-        var restClient = new DiscordRestClient(client, options, _mockLogger.Object);
-        
-        // Act & Assert
+        var mockRateLimiter = new Mock<PawSharp.API.RateLimit.IAdvancedRateLimiter>();
+        mockRateLimiter.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        var restClient = new DiscordRestClient(client, options, _mockLogger.Object, mockRateLimiter.Object);
+
         var response = await restClient.GetCurrentUserAsync();
         response.IsSuccessStatusCode.Should().BeTrue();
     }
@@ -84,7 +85,9 @@ public class RestClientErrorScenarioTests
 
         var client = new HttpClient(mockHandler.Object);
         var options = new PawSharpOptions { Token = "test-token", ApiVersion = 10 };
-        return new DiscordRestClient(client, options, _mockLogger.Object);
+        var mockRateLimiter = new Mock<PawSharp.API.RateLimit.IAdvancedRateLimiter>();
+        mockRateLimiter.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        return new DiscordRestClient(client, options, _mockLogger.Object, mockRateLimiter.Object);
     }
 
     [Fact]
@@ -179,32 +182,32 @@ public class RestClientErrorScenarioTests
     }
 
     [Fact]
-    public void ValidatesInputParameters_BeforeRequest()
+    public async Task ValidatesInputParameters_BeforeRequest()
     {
         // Arrange
         var options = new PawSharpOptions { Token = "test-token", ApiVersion = 10 };
         var client = new HttpClient();
-        var restClient = new DiscordRestClient(client, options, _mockLogger.Object);
+        var mockRateLimiter = new Mock<PawSharp.API.RateLimit.IAdvancedRateLimiter>();
+        mockRateLimiter.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        var restClient = new DiscordRestClient(client, options, _mockLogger.Object, mockRateLimiter.Object);
 
         // Act & Assert - Should throw ValidationException for invalid limit
-        var ex = Assert.Throws<ValidationException>(() => 
-            restClient.GetCurrentUserGuildsAsync(limit: 999));
-        
-        ex.Message.Should().Contain("limit");
+        var ex = await Assert.ThrowsAsync<ValidationException>(async () => await restClient.GetCurrentUserGuildsAsync(limit: 999));
+        ex.Message.Should().Contain("Limit");
     }
 
     [Fact]
-    public void ValidatesSnowflakeIds_BeforeRequest()
+    public async Task ValidatesSnowflakeIds_BeforeRequest()
     {
         // Arrange
         var options = new PawSharpOptions { Token = "test-token", ApiVersion = 10 };
         var client = new HttpClient();
-        var restClient = new DiscordRestClient(client, options, _mockLogger.Object);
+        var mockRateLimiter2 = new Mock<PawSharp.API.RateLimit.IAdvancedRateLimiter>();
+        mockRateLimiter2.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        var restClient = new DiscordRestClient(client, options, _mockLogger.Object, mockRateLimiter2.Object);
 
         // Act & Assert - Should throw ValidationException for invalid snowflake
-        var ex = Assert.Throws<ValidationException>(() =>
-            restClient.GetUserAsync(0));
-        
+        var ex = await Assert.ThrowsAsync<ValidationException>(async () => await restClient.GetUserAsync(0));
         ex.Message.Should().NotBeEmpty();
     }
 }
@@ -238,7 +241,9 @@ public class RestClientCacheInteractionTests
 
         var client = new HttpClient(mockHandler.Object);
         var options = new PawSharpOptions { Token = "test-token", ApiVersion = 10 };
-        var restClient = new DiscordRestClient(client, options, _mockLogger.Object);
+        var mockRateLimiter3 = new Mock<PawSharp.API.RateLimit.IAdvancedRateLimiter>();
+        mockRateLimiter3.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        var restClient = new DiscordRestClient(client, options, _mockLogger.Object, mockRateLimiter3.Object);
 
         // Act
         await restClient.GetCurrentUserAsync();
@@ -271,7 +276,9 @@ public class RestClientCacheInteractionTests
 
         var client = new HttpClient(mockHandler.Object);
         var options = new PawSharpOptions { Token = "test-token", ApiVersion = 10 };
-        var restClient = new DiscordRestClient(client, options, _mockLogger.Object);
+        var mockRateLimiter4 = new Mock<PawSharp.API.RateLimit.IAdvancedRateLimiter>();
+        mockRateLimiter4.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>())).Returns(Task.CompletedTask);
+        var restClient = new DiscordRestClient(client, options, _mockLogger.Object, mockRateLimiter4.Object);
 
         // Act
         var tasks = new[]

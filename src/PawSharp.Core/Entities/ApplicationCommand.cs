@@ -210,3 +210,71 @@ public enum ApplicationCommandOptionType
     Number = 10,
     Attachment = 11
 }
+
+/// <summary>
+/// Represents application command permissions for a guild.
+/// </summary>
+public class ApplicationCommandPermissions
+{
+    /// <summary>
+    /// ID of the command or the application ID.
+    /// </summary>
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+    
+    /// <summary>
+    /// ID of the application the command belongs to.
+    /// </summary>
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+    
+    /// <summary>
+    /// ID of the guild.
+    /// </summary>
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+    
+    /// <summary>
+    /// Permissions for the command in the guild.
+    /// </summary>
+    [JsonPropertyName("permissions")]
+    public List<ApplicationCommandPermission> Permissions { get; set; } = new();
+}
+
+/// <summary>
+/// Represents a single application command permission.
+/// </summary>
+public class ApplicationCommandPermission
+{
+    /// <summary>
+    /// ID of the role, user, or channel.
+    /// </summary>
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+    
+    /// <summary>
+    /// Role, user, or channel.
+    /// </summary>
+    [JsonPropertyName("type")]
+    public ApplicationCommandPermissionType Type { get; set; }
+    
+    /// <summary>
+    /// True to allow, false to disallow.
+    /// </summary>
+    [JsonPropertyName("permission")]
+    public bool Permission { get; set; }
+}
+
+/// <summary>
+/// Types of application command permissions.
+/// </summary>
+public enum ApplicationCommandPermissionType
+{
+    Role = 1,
+    User = 2,
+    Channel = 3
+}

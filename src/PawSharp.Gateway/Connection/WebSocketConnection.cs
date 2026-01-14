@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.IO.Compression;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -9,15 +11,25 @@ namespace PawSharp.Gateway.Connection
     public class WebSocketConnection
     {
         private readonly ClientWebSocket _webSocket;
+        private bool _useCompression;
 
-        public WebSocketConnection()
+        public WebSocketConnection(bool useCompression = false)
         {
             _webSocket = new ClientWebSocket();
+            _useCompression = useCompression;
+            
+            if (_useCompression)
+            {
+                // Request permessage-deflate extension
+                _webSocket.Options.AddSubProtocol("permessage-deflate");
+            }
         }
 
         public async Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
         {
             await _webSocket.ConnectAsync(uri, cancellationToken);
+            // Check if compression was negotiated
+            _useCompression = _webSocket.SubProtocol == "permessage-deflate";
         }
 
         public async Task DisconnectAsync(CancellationToken cancellationToken)
@@ -42,7 +54,20 @@ namespace PawSharp.Gateway.Connection
                 result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
-                    messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                    if (_useCompression && result.EndOfMessage)
+                    {
+                        // Decompress if compression is enabled
+                        using var compressedStream = new MemoryStream(buffer, 0, result.Count);
+                        using var deflateStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
+                        using var decompressedStream = new MemoryStream();
+                        await deflateStream.CopyToAsync(decompressedStream);
+                        var decompressedData = decompressedStream.ToArray();
+                        messageBuilder.Append(Encoding.UTF8.GetString(decompressedData));
+                    }
+                    else
+                    {
+                        messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                    }
                 }
                 else if (result.MessageType == WebSocketMessageType.Close)
                 {
@@ -55,5 +80,6 @@ namespace PawSharp.Gateway.Connection
         }
 
         public bool IsConnected => _webSocket.State == WebSocketState.Open;
+        public bool CompressionEnabled => _useCompression;
     }
 }

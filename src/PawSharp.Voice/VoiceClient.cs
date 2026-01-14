@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Core.Enums;
@@ -15,15 +16,23 @@ namespace PawSharp.Voice;
 public class VoiceClient
 {
     private readonly DiscordClient _discordClient;
+    private readonly ILogger _logger;
     private readonly ConcurrentDictionary<ulong, VoiceConnection> _connections = new();
+    private readonly ConcurrentDictionary<ulong, ReconnectionState> _reconnectionStates = new();
+
+    private const int MaxReconnectionAttempts = 5;
+    private const int InitialBackoffMs = 1000;
+    private const int MaxBackoffMs = 30000;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VoiceClient"/> class.
     /// </summary>
     /// <param name="discordClient">The Discord client.</param>
-    public VoiceClient(DiscordClient discordClient)
+    /// <param name="logger">The logger.</param>
+    public VoiceClient(DiscordClient discordClient, ILogger logger = null)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
         // Subscribe to voice events
         _discordClient.Gateway.VoiceStateUpdate += OnVoiceStateUpdate;
@@ -46,7 +55,7 @@ public class VoiceClient
         await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId, channel.Id, false, false);
 
         // Create connection
-        var connection = new VoiceConnection(_discordClient, channel);
+        var connection = new VoiceConnection(_discordClient, channel, channelId => _ = HandleConnectionFailureAsync(channelId));
         _connections[channel.Id] = connection;
 
         // Connect to voice
@@ -65,6 +74,52 @@ public class VoiceClient
         if (_connections.TryRemove(channel.Id, out var connection))
         {
             await connection.DisconnectAsync();
+            _reconnectionStates.TryRemove(channel.Id, out _);
+        }
+    }
+
+    /// <summary>
+    /// Handles voice connection failure and attempts reconnection.
+    /// </summary>
+    /// <param name="channelId">The channel ID.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    internal async Task HandleConnectionFailureAsync(ulong channelId)
+    {
+        if (!_connections.TryGetValue(channelId, out var connection))
+            return;
+
+        var state = _reconnectionStates.GetOrAdd(channelId, _ => new ReconnectionState());
+
+        if (state.IsReconnecting || state.Attempts >= MaxReconnectionAttempts)
+        {
+            _logger.LogWarning("Voice reconnection failed for channel {ChannelId} after {Attempts} attempts", channelId, state.Attempts);
+            await DisconnectAsync(connection.Channel);
+            return;
+        }
+
+        state.IsReconnecting = true;
+        state.Attempts++;
+        state.CurrentBackoffMs = Math.Min(state.CurrentBackoffMs == 0 ? InitialBackoffMs : state.CurrentBackoffMs * 2, MaxBackoffMs);
+        state.LastAttempt = DateTime.UtcNow;
+
+        _logger.LogInformation("Attempting voice reconnection for channel {ChannelId}, attempt {Attempt}/{MaxAttempts}, backoff {Backoff}ms",
+            channelId, state.Attempts, MaxReconnectionAttempts, state.CurrentBackoffMs);
+
+        await Task.Delay(state.CurrentBackoffMs);
+
+        try
+        {
+            // Attempt to reconnect
+            await connection.ConnectAsync();
+            state = new ReconnectionState(); // Reset on success
+            _reconnectionStates[channelId] = state;
+            _logger.LogInformation("Voice reconnection successful for channel {ChannelId}", channelId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Voice reconnection failed for channel {ChannelId}", channelId);
+            state.IsReconnecting = false;
+            await HandleConnectionFailureAsync(channelId); // Recursive retry
         }
     }
 
@@ -101,4 +156,12 @@ public class VoiceClient
             }
         }
     }
+}
+
+internal class ReconnectionState
+{
+    public int Attempts { get; set; }
+    public int CurrentBackoffMs { get; set; }
+    public bool IsReconnecting { get; set; }
+    public DateTime? LastAttempt { get; set; }
 }

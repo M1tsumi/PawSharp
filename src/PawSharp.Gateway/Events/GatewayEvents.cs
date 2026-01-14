@@ -239,6 +239,19 @@ public class GuildDeleteEvent : GatewayEvent
 }
 
 /// <summary>
+/// GUILD_EMOJIS_UPDATE event.
+/// </summary>
+public class GuildEmojisUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+    
+    [JsonPropertyName("emojis")]
+    public List<Emoji> Emojis { get; set; } = new();
+}
+
+/// <summary>
 /// CHANNEL_CREATE event.
 /// </summary>
 public class ChannelCreateEvent : GatewayEvent
