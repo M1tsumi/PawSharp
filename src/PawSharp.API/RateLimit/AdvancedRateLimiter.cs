@@ -9,7 +9,7 @@ namespace PawSharp.API.RateLimit;
 /// <summary>
 /// Advanced rate limiter with per-route bucket management.
 /// </summary>
-public class AdvancedRateLimiter
+public class AdvancedRateLimiter : IAdvancedRateLimiter
 {
     private readonly ConcurrentDictionary<string, RateLimitBucket> _buckets = new();
     private readonly SemaphoreSlim _globalLimitSemaphore = new(1, 1);

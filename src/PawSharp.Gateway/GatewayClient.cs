@@ -54,13 +54,23 @@ namespace PawSharp.Gateway
         /// </summary>
         public event Func<VoiceServerUpdateEvent, Task> VoiceServerUpdate;
 
+        /// <summary>
+        /// Fired when identify fails.
+        /// </summary>
+        public event Func<string, Task> OnIdentifyFailed;
+
+        /// <summary>
+        /// Fired when resume fails.
+        /// </summary>
+        public event Func<string, Task> OnResumeFailed;
+
         public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics metrics = null)
         {
             _options = options;
             _logger = logger;
             _metrics = metrics;
-            _webSocket = new WebSocketConnection();
-            _heartbeatManager = new HeartbeatManager(41250, SendHeartbeatAsync, logger);
+            _webSocket = new WebSocketConnection(_options.EnableCompression);
+            _heartbeatManager = new HeartbeatManager(41250, SendHeartbeatAsync, logger, _options.MaxMissedHeartbeatAcks);
             _eventDispatcher = new EventDispatcher(logger);
             _reconnectionManager = new ReconnectionManager(logger, metrics);
             
@@ -258,25 +268,34 @@ namespace PawSharp.Gateway
 
         private async Task SendIdentifyAsync()
         {
-            var identifyPayload = new
+            try
             {
-                op = 2, // Identify
-                d = new
+                var identifyPayload = new
                 {
-                    token = _options.Token,
-                    intents = (int)_options.Intents,
-                    properties = new
+                    op = 2, // Identify
+                    d = new
                     {
-                        os = "linux",
-                        browser = "pawsharp",
-                        device = "pawsharp"
+                        token = _options.Token,
+                        intents = (int)_options.Intents,
+                        properties = new
+                        {
+                            os = "linux",
+                            browser = "pawsharp",
+                            device = "pawsharp"
+                        }
                     }
-                }
-            };
+                };
 
-            var json = JsonSerializer.Serialize(identifyPayload);
-            await _webSocket.SendAsync(json, _cts.Token);
-            _logger.LogInformation("Sent identify payload.");
+                var json = JsonSerializer.Serialize(identifyPayload);
+                await _webSocket.SendAsync(json, _cts.Token);
+                _logger.LogInformation("Sent identify payload.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send identify payload");
+                OnIdentifyFailed?.Invoke($"Failed to send identify: {ex.Message}");
+                throw;
+            }
         }
 
         private async Task SendResumeAsync()
@@ -284,24 +303,34 @@ namespace PawSharp.Gateway
             if (!_resumeSessionId.HasValue || !_resumeSequence.HasValue)
             {
                 _logger.LogWarning("Cannot resume - missing session or sequence");
+                OnResumeFailed?.Invoke("Cannot resume - missing session or sequence");
                 await SendIdentifyAsync();
                 return;
             }
 
-            var resumePayload = new
+            try
             {
-                op = 6, // Resume
-                d = new
+                var resumePayload = new
                 {
-                    token = _options.Token,
-                    session_id = _resumeSessionId.Value.ToString(),
-                    seq = _resumeSequence.Value
-                }
-            };
+                    op = 6, // Resume
+                    d = new
+                    {
+                        token = _options.Token,
+                        session_id = _resumeSessionId.Value.ToString(),
+                        seq = _resumeSequence.Value
+                    }
+                };
 
-            var json = JsonSerializer.Serialize(resumePayload);
-            await _webSocket.SendAsync(json, _cts.Token);
-            _logger.LogInformation("Sent resume payload.");
+                var json = JsonSerializer.Serialize(resumePayload);
+                await _webSocket.SendAsync(json, _cts.Token);
+                _logger.LogInformation("Sent resume payload.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send resume payload");
+                OnResumeFailed?.Invoke($"Failed to send resume: {ex.Message}");
+                throw;
+            }
         }
 
         private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
@@ -385,9 +414,19 @@ namespace PawSharp.Gateway
                         _logger.LogDebug("Opcode 8 (Request Guild Members) should not be received from server");
                         break;
                     case 9: // Invalid Session — Auth/session failed
-                        _logger.LogError("Invalid session - clearing resume data and re-identifying");
-                        _resumeSessionId = null;
-                        _resumeSequence = null;
+                        bool resumable = d.TryGetProperty("d", out var resumableProp) && resumableProp.GetBoolean();
+                        string errorMsg = resumable 
+                            ? "Invalid session but resumable - will re-identify" 
+                            : "Invalid session - clearing resume data and re-identifying";
+                        _logger.LogError(errorMsg);
+                        
+                        if (!resumable)
+                        {
+                            _resumeSessionId = null;
+                            _resumeSequence = null;
+                        }
+                        
+                        OnIdentifyFailed?.Invoke(errorMsg);
                         await SendIdentifyAsync();
                         break;
                     case 10: // Hello — Server handshake
@@ -489,77 +528,80 @@ namespace PawSharp.Gateway
                 {
                     case "READY":
                         await HandleReadyEventAsync(eventData);
-                        _eventDispatcher.DispatchFromJson<ReadyEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ReadyEvent>(eventType, eventData);
                         break;
                     case "RESUMED":
                         _logger.LogInformation("Session resumed successfully");
                         await SetStateAsync(GatewayState.Ready);
                         break;
                     case "MESSAGE_CREATE":
-                        _eventDispatcher.DispatchFromJson<MessageCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageCreateEvent>(eventType, eventData);
                         break;
                     case "MESSAGE_UPDATE":
-                        _eventDispatcher.DispatchFromJson<MessageUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageUpdateEvent>(eventType, eventData);
                         break;
                     case "MESSAGE_DELETE":
-                        _eventDispatcher.DispatchFromJson<MessageDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageDeleteEvent>(eventType, eventData);
                         break;
                     case "GUILD_CREATE":
-                        _eventDispatcher.DispatchFromJson<GuildCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildCreateEvent>(eventType, eventData);
                         break;
                     case "GUILD_UPDATE":
-                        _eventDispatcher.DispatchFromJson<GuildUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildUpdateEvent>(eventType, eventData);
                         break;
                     case "GUILD_DELETE":
-                        _eventDispatcher.DispatchFromJson<GuildDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildDeleteEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_EMOJIS_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildEmojisUpdateEvent>(eventType, eventData);
                         break;
                     case "CHANNEL_CREATE":
-                        _eventDispatcher.DispatchFromJson<ChannelCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ChannelCreateEvent>(eventType, eventData);
                         break;
                     case "CHANNEL_UPDATE":
-                        _eventDispatcher.DispatchFromJson<ChannelUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ChannelUpdateEvent>(eventType, eventData);
                         break;
                     case "CHANNEL_DELETE":
-                        _eventDispatcher.DispatchFromJson<ChannelDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ChannelDeleteEvent>(eventType, eventData);
                         break;
                     case "GUILD_MEMBER_ADD":
-                        _eventDispatcher.DispatchFromJson<GuildMemberAddEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildMemberAddEvent>(eventType, eventData);
                         break;
                     case "GUILD_MEMBER_UPDATE":
-                        _eventDispatcher.DispatchFromJson<GuildMemberUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildMemberUpdateEvent>(eventType, eventData);
                         break;
                     case "GUILD_MEMBER_REMOVE":
-                        _eventDispatcher.DispatchFromJson<GuildMemberRemoveEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildMemberRemoveEvent>(eventType, eventData);
                         break;
                     case "INTERACTION_CREATE":
-                        _eventDispatcher.DispatchFromJson<InteractionCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<InteractionCreateEvent>(eventType, eventData);
                         break;
                     case "TYPING_START":
-                        _eventDispatcher.DispatchFromJson<TypingStartEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<TypingStartEvent>(eventType, eventData);
                         break;
                     case "MESSAGE_REACTION_ADD":
-                        _eventDispatcher.DispatchFromJson<MessageReactionAddEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageReactionAddEvent>(eventType, eventData);
                         break;
                     case "MESSAGE_REACTION_REMOVE":
-                        _eventDispatcher.DispatchFromJson<MessageReactionRemoveEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageReactionRemoveEvent>(eventType, eventData);
                         break;
                     case "MESSAGE_REACTION_REMOVE_ALL":
-                        _eventDispatcher.DispatchFromJson<MessageReactionRemoveAllEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageReactionRemoveAllEvent>(eventType, eventData);
                         break;
                     case "PRESENCE_UPDATE":
-                        _eventDispatcher.DispatchFromJson<PresenceUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<PresenceUpdateEvent>(eventType, eventData);
                         break;
                     case "CHANNEL_PINS_UPDATE":
-                        _eventDispatcher.DispatchFromJson<ChannelPinsUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ChannelPinsUpdateEvent>(eventType, eventData);
                         break;
                     case "GUILD_BAN_ADD":
-                        _eventDispatcher.DispatchFromJson<GuildBanAddEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildBanAddEvent>(eventType, eventData);
                         break;
                     case "GUILD_BAN_REMOVE":
-                        _eventDispatcher.DispatchFromJson<GuildBanRemoveEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildBanRemoveEvent>(eventType, eventData);
                         break;
                     case "VOICE_STATE_UPDATE":
-                        _eventDispatcher.DispatchFromJson<VoiceStateUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
                         if (VoiceStateUpdate != null)
                         {
                             var voiceStateEvent = JsonSerializer.Deserialize<VoiceStateUpdateEvent>(eventData);
@@ -570,7 +612,7 @@ namespace PawSharp.Gateway
                         }
                         break;
                     case "VOICE_SERVER_UPDATE":
-                        _eventDispatcher.DispatchFromJson<VoiceServerUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<VoiceServerUpdateEvent>(eventType, eventData);
                         if (VoiceServerUpdate != null)
                         {
                             var voiceServerEvent = JsonSerializer.Deserialize<VoiceServerUpdateEvent>(eventData);
@@ -581,22 +623,22 @@ namespace PawSharp.Gateway
                         }
                         break;
                     case "THREAD_CREATE":
-                        _eventDispatcher.DispatchFromJson<ThreadCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ThreadCreateEvent>(eventType, eventData);
                         break;
                     case "THREAD_UPDATE":
-                        _eventDispatcher.DispatchFromJson<ThreadUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ThreadUpdateEvent>(eventType, eventData);
                         break;
                     case "THREAD_DELETE":
-                        _eventDispatcher.DispatchFromJson<ThreadDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ThreadDeleteEvent>(eventType, eventData);
                         break;
                     case "THREAD_LIST_SYNC":
-                        _eventDispatcher.DispatchFromJson<ThreadListSyncEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ThreadListSyncEvent>(eventType, eventData);
                         break;
                     case "THREAD_MEMBER_UPDATE":
-                        _eventDispatcher.DispatchFromJson<ThreadMemberUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ThreadMemberUpdateEvent>(eventType, eventData);
                         break;
                     case "THREAD_MEMBERS_UPDATE":
-                        _eventDispatcher.DispatchFromJson<ThreadMembersUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ThreadMembersUpdateEvent>(eventType, eventData);
                         break;
                     default:
                         _logger.LogDebug($"Unhandled event type: {eventType}");

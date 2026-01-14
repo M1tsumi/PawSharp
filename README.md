@@ -1,17 +1,9 @@
-<div align="center">
-
-![PawSharp Banner](assets/pawsharp-banner.svg)
-
-</div>
-
 # PawSharp
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.5.0-alpha8
-**Status:** Phase 4 complete - Production hardening, benchmarks, and interaction support fully implemented.
-
----
+**Current Version:** 0.5.0-alpha9
+**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, and voice support fully implemented.
 
 ## Key Features
 

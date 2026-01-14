@@ -90,6 +90,38 @@ public class InteractionHandler
         var content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
         return await _restClient.PostAsync($"webhooks/{applicationId}/{interactionToken}", content);
     }
+
+    /// <summary>
+    /// Gets all application command permissions for a guild.
+    /// </summary>
+    public async Task<List<ApplicationCommandPermissions>?> GetGuildApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId)
+    {
+        return await _restClient.GetGuildApplicationCommandPermissionsAsync(applicationId, guildId);
+    }
+
+    /// <summary>
+    /// Gets permissions for a specific application command.
+    /// </summary>
+    public async Task<ApplicationCommandPermissions?> GetApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId)
+    {
+        return await _restClient.GetApplicationCommandPermissionsAsync(applicationId, guildId, commandId);
+    }
+
+    /// <summary>
+    /// Edits permissions for a specific application command.
+    /// </summary>
+    public async Task<ApplicationCommandPermissions?> EditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId, List<ApplicationCommandPermission> permissions)
+    {
+        return await _restClient.EditApplicationCommandPermissionsAsync(applicationId, guildId, commandId, permissions);
+    }
+
+    /// <summary>
+    /// Batch edits permissions for multiple application commands.
+    /// </summary>
+    public async Task<List<ApplicationCommandPermissions>?> BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions)
+    {
+        return await _restClient.BatchEditApplicationCommandPermissionsAsync(applicationId, guildId, permissions);
+    }
 }
 
 /// <summary>

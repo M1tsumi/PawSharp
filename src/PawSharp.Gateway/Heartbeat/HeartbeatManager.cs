@@ -15,7 +15,7 @@ namespace PawSharp.Gateway.Heartbeat
         
         private bool _ackReceived = true;
         private int _missedAcks = 0;
-        private const int MaxMissedAcks = 2; // If we miss 2 ACKs, connection is zombie
+        private readonly int _maxMissedAcks;
 
         /// <summary>
         /// Fired when a heartbeat is sent.
@@ -32,11 +32,12 @@ namespace PawSharp.Gateway.Heartbeat
         /// </summary>
         public event Func<Task> OnZombieConnection;
 
-        public HeartbeatManager(int heartbeatInterval, Func<Task> sendHeartbeat = null, ILogger logger = null)
+        public HeartbeatManager(int heartbeatInterval, Func<Task> sendHeartbeat = null, ILogger logger = null, int maxMissedAcks = 2)
         {
             _heartbeatInterval = heartbeatInterval;
             _sendHeartbeat = sendHeartbeat ?? (() => Task.CompletedTask);
             _logger = logger;
+            _maxMissedAcks = maxMissedAcks;
             _heartbeatTimer = new Timer(_heartbeatInterval);
             _heartbeatTimer.Elapsed += OnHeartbeatElapsed;
         }
@@ -44,7 +45,7 @@ namespace PawSharp.Gateway.Heartbeat
         /// <summary>
         /// Gets whether the connection is healthy based on ACK tracking.
         /// </summary>
-        public bool IsHealthy => _missedAcks < MaxMissedAcks;
+        public bool IsHealthy => _missedAcks < _maxMissedAcks;
 
         public void Start()
         {
@@ -80,7 +81,7 @@ namespace PawSharp.Gateway.Heartbeat
                 if (!_ackReceived)
                 {
                     _missedAcks++;
-                    _logger?.LogWarning($"Heartbeat ACK not received - missed {_missedAcks}/{MaxMissedAcks}");
+                    _logger?.LogWarning($"Heartbeat ACK not received - missed {_missedAcks}/{_maxMissedAcks}");
 
                     if (!IsHealthy)
                     {

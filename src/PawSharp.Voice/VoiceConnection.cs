@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Net.WebSockets;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Concentus.Structs;
@@ -19,11 +20,13 @@ public class VoiceConnection : IDisposable
 {
     private readonly DiscordClient _discordClient;
     private readonly Channel _channel;
+    private readonly Action<ulong>? _onConnectionFailed;
     private ClientWebSocket? _webSocket;
     private CancellationTokenSource? _cts;
     private Task? _receiveTask;
     private Task? _heartbeatTask;
     private bool _disposed;
+    private int _heartbeatInterval = 5000; // Default 5 seconds, updated from HELLO
 
     // Audio processing - Opus codec integration planned for future release
     // TODO: Implement Opus encoding/decoding when Concentus API is finalized
@@ -44,6 +47,11 @@ public class VoiceConnection : IDisposable
     public ulong ChannelId => _channel.Id;
 
     /// <summary>
+    /// Gets the voice channel.
+    /// </summary>
+    public Channel Channel => _channel;
+
+    /// <summary>
     /// Gets whether the connection is connected.
     /// </summary>
     public bool IsConnected => _webSocket?.State == WebSocketState.Open;
@@ -58,10 +66,12 @@ public class VoiceConnection : IDisposable
     /// </summary>
     /// <param name="discordClient">The Discord client.</param>
     /// <param name="channel">The voice channel.</param>
-    public VoiceConnection(DiscordClient discordClient, Channel channel)
+    /// <param name="onConnectionFailed">Callback for connection failures.</param>
+    public VoiceConnection(DiscordClient discordClient, Channel channel, Action<ulong>? onConnectionFailed = null)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
+        _onConnectionFailed = onConnectionFailed;
 
         // Initialize audio components
         InitializeAudio();
@@ -236,8 +246,17 @@ public class VoiceConnection : IDisposable
                 if (result.MessageType == WebSocketMessageType.Close)
                     break;
 
-                // Process received voice data
-                // This would handle incoming voice packets
+                if (result.MessageType == WebSocketMessageType.Text)
+                {
+                    // Handle JSON control messages
+                    var json = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    await HandleJsonMessageAsync(json);
+                }
+                else if (result.MessageType == WebSocketMessageType.Binary)
+                {
+                    // Handle voice data packets
+                    // This would process incoming voice packets
+                }
             }
         }
         catch (OperationCanceledException)
@@ -248,7 +267,43 @@ public class VoiceConnection : IDisposable
         {
             // Log error
             Console.WriteLine($"Voice receive error: {ex.Message}");
+            _onConnectionFailed?.Invoke(_channel.Id);
         }
+    }
+
+    private async Task HandleJsonMessageAsync(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("op", out var opProp))
+            {
+                var opCode = opProp.GetInt32();
+                switch (opCode)
+                {
+                    case 8: // HELLO
+                        if (root.TryGetProperty("d", out var data) &&
+                            data.TryGetProperty("heartbeat_interval", out var intervalProp))
+                        {
+                            _heartbeatInterval = intervalProp.GetInt32();
+                            Console.WriteLine($"Voice heartbeat interval set to: {_heartbeatInterval}ms");
+                        }
+                        break;
+                    case 9: // HEARTBEAT ACK
+                        // Handle heartbeat acknowledgment if needed
+                        break;
+                    // Add other op codes as needed
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error parsing voice JSON message: {ex.Message}");
+        }
+
+        await Task.CompletedTask;
     }
 
     private async Task HeartbeatLoopAsync()
@@ -260,13 +315,40 @@ public class VoiceConnection : IDisposable
         {
             while (!_cts.Token.IsCancellationRequested)
             {
-                // Send heartbeat (simplified)
-                await Task.Delay(5000, _cts.Token); // 5 second heartbeat
+                // Send heartbeat
+                await SendHeartbeatAsync();
+                await Task.Delay(_heartbeatInterval, _cts.Token);
             }
         }
         catch (OperationCanceledException)
         {
             // Expected when cancelling
+        }
+    }
+
+    private async Task SendHeartbeatAsync()
+    {
+        if (_webSocket == null || _webSocket.State != WebSocketState.Open)
+            return;
+
+        try
+        {
+            // Send heartbeat op code 3 with current timestamp
+            var heartbeatPayload = new
+            {
+                op = 3,
+                d = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(heartbeatPayload);
+            var buffer = System.Text.Encoding.UTF8.GetBytes(json);
+            var segment = new ArraySegment<byte>(buffer);
+
+            await _webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error sending voice heartbeat: {ex.Message}");
         }
     }
 

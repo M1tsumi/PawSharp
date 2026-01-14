@@ -113,6 +113,15 @@ public class CommandContext
 public abstract class BaseCommandModule
 {
     /// <summary>
+    /// Called during module registration for async initialization.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public virtual Task InitializeAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Called before command execution.
     /// </summary>
     /// <param name="ctx">The command context.</param>
@@ -245,6 +254,40 @@ public class Command
 }
 
 /// <summary>
+/// Represents information about a registered command.
+/// </summary>
+public class CommandInfo
+{
+    /// <summary>
+    /// Gets the command name.
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
+    /// Gets the command aliases.
+    /// </summary>
+    public IReadOnlyList<string> Aliases { get; }
+
+    /// <summary>
+    /// Gets the command description.
+    /// </summary>
+    public string? Description { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CommandInfo"/> class.
+    /// </summary>
+    /// <param name="name">The command name.</param>
+    /// <param name="aliases">The command aliases.</param>
+    /// <param name="description">The command description.</param>
+    public CommandInfo(string name, string[] aliases, string? description)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Aliases = aliases ?? Array.Empty<string>();
+        Description = description;
+    }
+}
+
+/// <summary>
 /// Main commands extension.
 /// </summary>
 public class CommandsExtension
@@ -320,6 +363,66 @@ public class CommandsExtension
         {
             _commands.Remove(kvp.Key);
         }
+    }
+
+    /// <summary>
+    /// Registers a command module asynchronously, allowing for async initialization.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="module">The command module to register.</param>
+    public async Task RegisterModuleAsync(DiscordClient client, BaseCommandModule module)
+    {
+        if (client == null)
+            throw new ArgumentNullException(nameof(client));
+        if (module == null)
+            throw new ArgumentNullException(nameof(module));
+
+        _client = client;
+
+        if (_client != null && !_commands.Any())
+        {
+            _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+        }
+
+        // Allow async initialization
+        await module.InitializeAsync();
+
+        var type = module.GetType();
+        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var method in methods)
+        {
+            var commandAttr = method.GetCustomAttribute<CommandAttribute>();
+            if (commandAttr == null)
+                continue;
+
+            var aliasesAttr = method.GetCustomAttribute<AliasesAttribute>();
+            var descriptionAttr = method.GetCustomAttribute<DescriptionAttribute>();
+
+            var aliases = aliasesAttr?.Aliases ?? Array.Empty<string>();
+            var description = descriptionAttr?.Description;
+
+            var command = new Command(commandAttr.Name, aliases, description, method, module);
+
+            _commands[commandAttr.Name] = command;
+            foreach (var alias in aliases)
+            {
+                _commands[alias] = command;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets a list of all registered commands.
+    /// </summary>
+    /// <returns>A list of registered command information.</returns>
+    public IReadOnlyList<CommandInfo> GetRegisteredCommands()
+    {
+        return _commands.Values
+            .Distinct()
+            .Select(c => new CommandInfo(c.Name, c.Aliases, c.Description))
+            .ToList()
+            .AsReadOnly();
     }
 
     private async void OnMessageCreate(MessageCreateEvent evt)

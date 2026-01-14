@@ -6,9 +6,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.API.Interfaces;
+using PawSharp.API.RateLimit;
 using PawSharp.API.Models;
 using PawSharp.Core.Entities;
 using PawSharp.Core.Exceptions;
@@ -25,13 +27,15 @@ public class DiscordRestClient : IDiscordRestClient
     private readonly HttpClient _httpClient;
     private readonly PawSharpOptions _options;
     private readonly ILogger<DiscordRestClient> _logger;
+    private readonly IAdvancedRateLimiter _rateLimiter;
     private DateTimeOffset _globalReset = DateTimeOffset.MinValue;
 
-    public DiscordRestClient(HttpClient httpClient, PawSharpOptions options, ILogger<DiscordRestClient> logger)
+    public DiscordRestClient(HttpClient httpClient, PawSharpOptions options, ILogger<DiscordRestClient> logger, IAdvancedRateLimiter rateLimiter)
     {
         _httpClient = httpClient;
         _options = options;
         _logger = logger;
+        _rateLimiter = rateLimiter;
         
         // Set base address and auth header
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
@@ -44,9 +48,19 @@ public class DiscordRestClient : IDiscordRestClient
         return await SendRequestAsync(HttpMethod.Get, endpoint, null);
     }
 
+    public async Task<HttpResponseMessage> GetAsync(string endpoint, string? reason = null, CancellationToken cancellationToken = default)
+    {
+        return await SendRequestAsync(HttpMethod.Get, endpoint, null, reason, cancellationToken);
+    }
+
     public async Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content)
     {
         return await SendRequestAsync(HttpMethod.Post, endpoint, content);
+    }
+
+    public async Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default)
+    {
+        return await SendRequestAsync(HttpMethod.Post, endpoint, content, reason, cancellationToken);
     }
 
     public async Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content)
@@ -54,14 +68,29 @@ public class DiscordRestClient : IDiscordRestClient
         return await SendRequestAsync(HttpMethod.Put, endpoint, content);
     }
 
+    public async Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default)
+    {
+        return await SendRequestAsync(HttpMethod.Put, endpoint, content, reason, cancellationToken);
+    }
+
     public async Task<HttpResponseMessage> DeleteAsync(string endpoint)
     {
         return await SendRequestAsync(HttpMethod.Delete, endpoint, null);
+    }
+
+    public async Task<HttpResponseMessage> DeleteAsync(string endpoint, string? reason = null, CancellationToken cancellationToken = default)
+    {
+        return await SendRequestAsync(HttpMethod.Delete, endpoint, null, reason, cancellationToken);
     }
     
     public async Task<HttpResponseMessage> PatchAsync(string endpoint, HttpContent content)
     {
         return await SendRequestAsync(HttpMethod.Patch, endpoint, content);
+    }
+
+    public async Task<HttpResponseMessage> PatchAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default)
+    {
+        return await SendRequestAsync(HttpMethod.Patch, endpoint, content, reason, cancellationToken);
     }
 
     public async Task<HttpResponseMessage> GetCurrentUserAsync()
@@ -676,6 +705,49 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
+    // Application Command Permissions operations
+    public async Task<List<ApplicationCommandPermissions>?> GetGuildApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands/permissions");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommandPermissions>>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommandPermissions?> GetApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}/permissions");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommandPermissions>();
+        }
+        return null;
+    }
+    
+    public async Task<ApplicationCommandPermissions?> EditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId, List<ApplicationCommandPermission> permissions)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(permissions), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}/permissions", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<ApplicationCommandPermissions>();
+        }
+        return null;
+    }
+    
+    public async Task<List<ApplicationCommandPermissions>?> BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(permissions), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands/permissions", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommandPermissions>>();
+        }
+        return null;
+    }
+    
     // Thread operations
     public async Task<Channel?> CreateThreadAsync(ulong channelId, CreateThreadRequest request)
     {
@@ -1043,7 +1115,7 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
-    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content)
+    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default)
     {
         // Global rate limit check
         if (DateTimeOffset.UtcNow < _globalReset)
@@ -1053,23 +1125,110 @@ public class DiscordRestClient : IDiscordRestClient
             await Task.Delay(delay);
         }
 
+        // Per-route rate limit coordination
+        string? bucketHash = null;
+        string route;
+        try
+        {
+            var path = endpoint.Split('?')[0];
+            route = $"{method.Method} {path}";
+            await _rateLimiter.WaitForRateLimitAsync(route);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Rate limiter wait failed, proceeding with request");
+            route = $"{method.Method} {endpoint.Split('?')[0]}";
+        }
+
         var request = new HttpRequestMessage(method, endpoint) { Content = content };
-        var response = await _httpClient.SendAsync(request);
+        
+        // Add audit log reason header if provided
+        if (!string.IsNullOrEmpty(reason))
+        {
+            request.Headers.Add("X-Audit-Log-Reason", Uri.EscapeDataString(reason));
+        }
+        
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        // Parse rate limit headers and update limiter
+        ParseAndUpdateRateLimits(response, route, ref bucketHash);
 
         // Handle rate limiting
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
             var retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(1);
             _logger.LogWarning("Rate limited, retrying after {RetryAfter}", retryAfter);
-            await Task.Delay(retryAfter);
-            return await SendRequestAsync(method, endpoint, content); // Retry
+            
+            // Update limiter with 429 info for bucket-aware retry
+            if (response.Headers.TryGetValues("X-RateLimit-Bucket", out var bucketValues))
+            {
+                bucketHash = bucketValues.FirstOrDefault();
+            }
+            var isGlobal = response.Headers.TryGetValues("X-RateLimit-Global", out var globalValues) && 
+                          bool.Parse(globalValues.FirstOrDefault() ?? "false");
+            _rateLimiter.UpdateRateLimits(route, bucketHash, 0, DateTimeOffset.UtcNow.Add(retryAfter), isGlobal);
+            
+            // Wait for rate limiter to allow retry
+            await _rateLimiter.WaitForRateLimitAsync(route, bucketHash);
+            
+            return await SendRequestAsync(method, endpoint, content, reason, cancellationToken); // Retry
         }
 
-        if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalValues) && bool.Parse(globalValues.FirstOrDefault() ?? "false"))
+        // Mark request as complete
+        _rateLimiter.MarkRequestComplete(route, bucketHash);
+
+        if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalVals) && bool.Parse(globalVals.FirstOrDefault() ?? "false"))
         {
             _globalReset = DateTimeOffset.UtcNow.AddSeconds(double.Parse(response.Headers.GetValues("Retry-After").First()));
         }
 
         return response;
+    }
+
+    private void ParseAndUpdateRateLimits(HttpResponseMessage response, string route, ref string? bucketHash)
+    {
+        try
+        {
+            string? bucket = null;
+            int? remaining = null;
+            DateTimeOffset? resetAt = null;
+            bool isGlobal = false;
+
+            if (response.Headers.TryGetValues("X-RateLimit-Bucket", out var bucketValues))
+            {
+                bucket = bucketValues.FirstOrDefault();
+                bucketHash = bucket;
+            }
+
+            if (response.Headers.TryGetValues("X-RateLimit-Remaining", out var remainingValues))
+            {
+                if (int.TryParse(remainingValues.FirstOrDefault(), out var rem))
+                {
+                    remaining = rem;
+                }
+            }
+
+            if (response.Headers.TryGetValues("X-RateLimit-Reset", out var resetValues))
+            {
+                if (double.TryParse(resetValues.FirstOrDefault(), out var resetTimestamp))
+                {
+                    resetAt = DateTimeOffset.FromUnixTimeSeconds((long)resetTimestamp);
+                }
+            }
+
+            if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalValues))
+            {
+                isGlobal = bool.Parse(globalValues.FirstOrDefault() ?? "false");
+            }
+
+            if (remaining.HasValue || resetAt.HasValue || isGlobal)
+            {
+                _rateLimiter.UpdateRateLimits(route, bucket, remaining, resetAt, isGlobal);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse rate limit headers");
+        }
     }
 }

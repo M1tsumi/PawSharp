@@ -4,107 +4,178 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.5.0-alpha9] - January 14, 2026
+
+Production hardening release with infrastructure improvements, better reliability, and enhanced developer experience.
+
+### New Features
+
+**Gateway Reliability**
+- Added zlib compression support with automatic negotiation
+- Configurable missed heartbeat acknowledgment limits
+- Better error reporting in identify/resume flow
+- GUILD_EMOJIS_UPDATE event handling
+
+**REST Client Improvements**
+- Integrated AdvancedRateLimiter for per-route bucket management
+- Configurable request timeouts and cancellation support
+- Audit log reason header support
+- Improved 429 handling using rate limiter data
+
+**Cache Enhancements**
+- Emoji caching with CacheEmoji() and GetGuildEmojis() methods
+- CacheStats class for monitoring and statistics
+- Bounds enforcement for emoji cache in MemoryCacheProvider
+- GUILD_EMOJIS_UPDATE event integration
+
+**Event System**
+- EventDispatcher converted to async with middleware support
+- Use() method for registering middleware functions
+- IDisposable event subscriptions with cleanup
+- DispatchRawAsync() for raw JSON dispatching
+- Enhanced error handling and logging
+
+**Application Command Permissions**
+- Added permission models: ApplicationCommandPermissions, ApplicationCommandPermission, ApplicationCommandPermissionType
+- Permission management endpoints: GetGuildApplicationCommandPermissionsAsync, GetApplicationCommandPermissionsAsync, EditApplicationCommandPermissionsAsync, BatchEditApplicationCommandPermissionsAsync
+- Helper methods in InteractionHandler
+
+**Commands Framework**
+- RegisterModuleAsync() method for async module initialization
+- InitializeAsync() in BaseCommandModule for custom setup
+- GetRegisteredCommands() returning CommandInfo list
+- Enhanced async command registration
+
+**Voice**
+- VoiceConnection now uses dynamic heartbeat intervals from HELLO
+- Voice reconnection with exponential backoff (1s-30s, max 5 attempts)
+- Automatic reconnection on connection failures
+- Improved voice connection reliability
+
+### Technical Improvements
+
+**Configuration**
+- EnableCompression boolean in PawSharpOptions
+- MaxMissedHeartbeatAcks (default: 3) in PawSharpOptions
+- CacheOptions.MaxEmojisPerGuild (default: 100) in PawSharpOptions
+
+**API Changes**
+- EventDispatcher.DispatchFromJson() -> DispatchFromJsonAsync()
+- EventDispatcher.On() returns IDisposable
+- EventDispatcher.Use() for middleware
+- RestClient methods support timeout and reason parameters
+
+**Event Handling**
+- GuildEmojisUpdateEvent class
+- Async event dispatching throughout
+- Middleware execution for all events
+
+### Bug Fixes
+- Fixed nullable Emoji.Id handling in cache
+- Resolved Span compatibility issues in WebSocket compression
+- Fixed EventSubscription scoping and async signatures
+
+---
+
 ## [0.5.0-alpha8] - January 14, 2026
 
-PawSharp now matches DSharpPlus feature coverage with production-ready voice, interactivity, and command frameworks. This release transforms PawSharp from a basic Discord API wrapper into a comprehensive, enterprise-grade library ready for complex bot development.
+This release adds voice, interactivity, and commands frameworks, bringing PawSharp to feature parity with established Discord libraries.
 
-### ✨ New Features
+### New Features
 
-**🎤 Voice Infrastructure**
-- Complete voice channel connectivity framework with WebSocket communication
-- Audio capture and playback infrastructure using NAudio library
-- Voice state management and server update event handling
-- Opus codec preparation with Concentus library integration framework
-- Thread-safe voice operations with comprehensive error handling
-- Real-time audio pipeline ready for encoding/decoding implementation
+**Voice Infrastructure**
+- WebSocket-based voice channel connectivity
+- Audio capture and playback using NAudio
+- Voice state and server update event handling
+- Opus codec integration with Concentus
+- Thread-safe voice operations with error handling
+- Real-time audio pipeline framework
 
-**🎮 Interactive Experience Framework**
-- Reaction-based interactivity with timeout and cancellation support
-- Automatic pagination for large content with customizable page sizes
-- Poll creation system with reaction-based voting
-- Message collection utilities for user input gathering
-- Built-in interactivity extensions for channels and messages
-- Event-driven architecture integrated with PawSharp's EventDispatcher
+**Interactive Experience Framework**
+- Reaction-based interactivity with timeout support
+- Automatic pagination for large content
+- Poll creation with reaction-based voting
+- Message collection utilities for user input
+- Built-in interactivity extensions
+- Event-driven architecture integration
 
-**💬 Traditional Commands System**
-- Clean, attribute-based command registration (`[Command]`, `[Aliases]`, `[Description]`)
+**Traditional Commands System**
+- Attribute-based command registration (`[Command]`, `[Aliases]`, `[Description]`)
 - Automatic command parsing with argument extraction
-- `CommandContext` providing rich execution context (user, channel, guild, message)
+- `CommandContext` providing execution context (user, channel, guild, message)
 - Modular command organization with `BaseCommandModule`
-- Built-in command execution hooks (before/after execution)
-- Guild and channel-aware command processing
+- Command execution hooks (before/after)
+- Guild and channel-aware processing
 
-**🔧 Interaction Support (Slash Commands & Components)**
-- Added `PawSharp.Interactions` namespace with comprehensive interaction handling
-- Implemented `InteractionHandler` class for managing slash commands and component interactions
-- Added interaction data models: `InteractionCreateEvent`, `InteractionData`, `InteractionResolvedData`, `ApplicationCommandInteractionDataOption`
-- Integrated interaction handling into `DiscordClient` with automatic event routing
-- Added `AllowedMentions` entity for proper message formatting
-- Updated `Message.cs` with `SnowflakeJsonConverter` for channel_id field
-- Added interaction response methods: `RespondAsync`, `EditResponseAsync`, `FollowupAsync`
-- Updated AdvancedExample.cs with interaction registration examples
+**Interaction Support (Slash Commands & Components)**
+- Added `PawSharp.Interactions` namespace
+- `InteractionHandler` class for slash commands and components
+- Interaction data models: `InteractionCreateEvent`, `InteractionData`, `InteractionResolvedData`, `ApplicationCommandInteractionDataOption`
+- Integrated interaction handling in `DiscordClient`
+- `AllowedMentions` entity for message formatting
+- Updated `Message.cs` with `SnowflakeJsonConverter`
+- Interaction response methods: `RespondAsync`, `EditResponseAsync`, `FollowupAsync`
+- Updated examples with interaction registration
 
-### 🔧 Technical Improvements
+### Technical Improvements
 
 **Voice Implementation Details:**
-- WebSocket voice connection framework with heartbeat and state management
+- WebSocket voice connection with heartbeat and state management
 - Audio buffer management with 20ms latency optimization
-- NAudio integration for microphone capture and speaker playback
-- Voice state and server update event handling infrastructure
-- Audio data pipeline ready for encoding/decoding implementation
-- Resource cleanup and disposal for all audio components
+- NAudio integration for microphone and speaker
+- Voice state/server update event infrastructure
+- Audio data pipeline for encoding/decoding
+- Resource cleanup and disposal
 
 **Interactivity Architecture:**
-- EventDispatcher integration for reaction and message events
-- Task-based asynchronous operations with cancellation support
+- EventDispatcher integration for reactions and messages
+- Task-based async operations with cancellation
 - Timeout handling with `CancellationTokenSource` and `TaskCompletionSource`
-- Thread-safe reaction collection and user interaction tracking
-- Extension method pattern for seamless integration
+- Thread-safe reaction collection and user tracking
+- Extension method pattern
 
 **Commands Framework:**
 - Reflection-based command discovery and registration
-- Parameter parsing with support for quoted arguments
-- Context-aware command execution with full Discord entity access
-- Error handling for command execution failures
-- Modular design supporting multiple command modules per bot
+- Parameter parsing with quoted argument support
+- Context-aware execution with Discord entity access
+- Error handling for command failures
+- Modular design for multiple command modules
 
 **Performance & Quality**
-- All benchmarks passing with excellent performance metrics
+- All benchmarks passing
 - JSON deserialization: ~785ns
 - Cache lookups: ~2.7ns
 - Rate limiting: ~23ns
 - Documentation generated for 36 assemblies
-- Build succeeds with only expected nullable reference warnings
+- Build succeeds with expected nullable warnings
 
-### 📦 Dependencies Added
+### Dependencies Added
 
 - **Concentus 1.0.4**: Cross-platform Opus audio codec
 - **NAudio 2.2.1**: .NET audio library for capture/playback
 
-### 🏗️ Architecture Updates
+### Architecture Updates
 
-- Updated `PawSharp.Client` to reference all new modules
-- Maintained backward compatibility with existing code
-- Consistent API design patterns across all new features
-- Comprehensive integration testing with existing test suite
+- Updated `PawSharp.Client` to reference new modules
+- Maintained backward compatibility
+- Consistent API design patterns
+- Integration testing with existing suite
 
-### 📚 Documentation Updates
+### Documentation Updates
 
-- Updated main README with detailed usage examples for all new features
-- Added voice connection examples with audio capture/playback
-- Enhanced interactivity examples with real-world use cases
-- Comprehensive commands framework documentation with multiple examples
+- Updated main README with usage examples
+- Added voice connection examples
+- Enhanced interactivity examples
+- Comprehensive commands documentation
 
-### 🎯 Feature Parity Achieved
+### Feature Parity Achieved
 
 PawSharp now provides equivalent functionality to DSharpPlus for:
 - Voice channel connections and audio streaming
-- Interactive command systems with reactions and pagination
-- Traditional message-based command frameworks
-- Professional-grade audio processing and codec support
+- Interactive systems with reactions and pagination
+- Traditional message-based commands
+- Audio processing and codec support
 - Modern slash commands and component interactions
-
-This release positions PawSharp as a serious competitor to established Discord libraries while maintaining its focus on modern .NET development practices, comprehensive error handling, and production-ready reliability.
 
 ---
 
