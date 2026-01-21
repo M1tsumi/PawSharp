@@ -1087,3 +1087,35 @@ public class ThreadMembersUpdateEvent : GatewayEvent
     [JsonPropertyName("removed_member_ids")]
     public List<ulong>? RemovedMemberIds { get; set; }
 }
+
+/// <summary>
+/// Base class for shard-related events.
+/// </summary>
+public abstract class ShardEvent : GatewayEvent
+{
+    /// <summary>
+    /// The shard ID that triggered this event.
+    /// </summary>
+    public int ShardId { get; set; }
+}
+
+/// <summary>
+/// Fired when a shard connects.
+/// </summary>
+public class ShardConnectedEvent : ShardEvent
+{
+}
+
+/// <summary>
+/// Fired when a shard disconnects.
+/// </summary>
+public class ShardDisconnectedEvent : ShardEvent
+{
+}
+
+/// <summary>
+/// Fired when a shard fails.
+/// </summary>
+public class ShardFailedEvent : ShardEvent
+{
+}

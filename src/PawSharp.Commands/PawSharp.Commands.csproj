@@ -5,12 +5,25 @@
     <RootNamespace>PawSharp.Commands</RootNamespace>
     <AssemblyName>PawSharp.Commands</AssemblyName>
     <PackageId>PawSharp.Commands</PackageId>
+    <Version>0.5.0-alpha10</Version>
+    <Authors>PawSharp Team</Authors>
+    <Company>PawSharp</Company>
+    <Description>Command framework for PawSharp with attribute-based commands and slash command support.</Description>
+    <PackageTags>discord;api;bot;wrapper;commands;slash-commands</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/your-org/PawSharp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
     <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
     <ProjectReference Include="..\PawSharp.Client\PawSharp.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

@@ -6,6 +6,15 @@
     <AssemblyName>PawSharp.Client</AssemblyName>
     <OutputType>Library</OutputType>
     <PackageId>PawSharp.Client</PackageId>
+    <Version>0.5.0-alpha10</Version>
+    <Authors>PawSharp Team</Authors>
+    <Company>PawSharp</Company>
+    <Description>Main Discord client for PawSharp with unified API, gateway, and caching.</Description>
+    <PackageTags>discord;api;bot;wrapper;client</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/your-org/PawSharp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +23,10 @@
     <ProjectReference Include="..\PawSharp.Gateway\PawSharp.Gateway.csproj" />
     <ProjectReference Include="..\PawSharp.Cache\PawSharp.Cache.csproj" />
     <ProjectReference Include="..\PawSharp.Interactions\PawSharp.Interactions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

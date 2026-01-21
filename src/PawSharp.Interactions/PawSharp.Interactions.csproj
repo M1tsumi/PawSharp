@@ -5,12 +5,25 @@
     <RootNamespace>PawSharp.Interactions</RootNamespace>
     <AssemblyName>PawSharp.Interactions</AssemblyName>
     <PackageId>PawSharp.Interactions</PackageId>
+    <Version>0.5.0-alpha10</Version>
+    <Authors>PawSharp Team</Authors>
+    <Company>PawSharp</Company>
+    <Description>Interaction handlers for PawSharp including slash commands and component interactions.</Description>
+    <PackageTags>discord;api;bot;wrapper;interactions;slash-commands;components</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/your-org/PawSharp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
     <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
     <ProjectReference Include="..\PawSharp.Gateway\PawSharp.Gateway.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

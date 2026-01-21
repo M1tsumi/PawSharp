@@ -5,11 +5,29 @@
     <RootNamespace>PawSharp.Cache</RootNamespace>
     <AssemblyName>PawSharp.Cache</AssemblyName>
     <PackageId>PawSharp.Cache</PackageId>
+    <Version>0.5.0-alpha10</Version>
+    <Authors>PawSharp Team</Authors>
+    <Company>PawSharp</Company>
+    <Description>Caching providers for PawSharp with in-memory and pluggable cache implementations.</Description>
+    <PackageTags>discord;api;bot;wrapper;cache;caching</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/your-org/PawSharp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
     <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="2.7.33" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
   </ItemGroup>
 
 </Project>

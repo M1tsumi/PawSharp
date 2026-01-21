@@ -19,7 +19,7 @@ PawSharp.Voice provides complete voice channel support for Discord bots, featuri
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Voice --version 0.5.0-alpha9
+dotnet add package PawSharp.Voice --version 0.5.0-alpha10
 ```
 
 ## 🚀 Quick Start

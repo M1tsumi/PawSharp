@@ -2,11 +2,12 @@
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.5.0-alpha9
-**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, and voice support fully implemented.
+**Current Version:** 0.5.0-alpha10
+**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. Complete documentation and examples available.
 
 ## Key Features
 
+- **Sharding Support** - Multi-shard management with automatic reconnection, status monitoring, and event aggregation
 - **Automatic Reconnection** - Exponential backoff with session resumption, handles network issues gracefully
 - **Heartbeat Health Monitoring** - Detects zombie connections and reconnects automatically
 - **Complete REST API** - All Discord endpoints (messages, channels, guilds, members, roles, webhooks, etc.)
@@ -24,13 +25,46 @@ A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automat
 
 **Requirements:** .NET 8.0 SDK or later
 
+### NuGet Packages
+
+Install the packages you need:
+
+```bash
+# Core functionality
+dotnet add package PawSharp.Core
+
+# REST API client
+dotnet add package PawSharp.API
+
+# Gateway and events
+dotnet add package PawSharp.Gateway
+
+# Caching providers
+dotnet add package PawSharp.Cache
+
+# Unified client (includes all above)
+dotnet add package PawSharp.Client
+
+# Command framework
+dotnet add package PawSharp.Commands
+
+# Slash commands and interactions
+dotnet add package PawSharp.Interactions
+
+# Interactivity (pagination, polls)
+dotnet add package PawSharp.Interactivity
+
+# Voice support (experimental)
+dotnet add package PawSharp.Voice
+```
+
+### From Source
+
 ```bash
 git clone <repository>
 cd PawSharp
 dotnet build
 ```
-
-NuGet package coming soon.
 
 ---
 
@@ -120,10 +154,11 @@ More examples in [examples/](examples/).
 - Ready and resume events
 
 **Caching:**
-- Automatic in-memory cache for entities
+- In-memory and Redis distributed cache providers
+- Automatic cache for entities with gateway synchronization
 - Configurable per-type size limits (10K messages, 1K guilds, 5K users, etc.)
 - LRU eviction when limits hit
-- TTL-based cleanup every 5 minutes
+- TTL-based cleanup and statistics tracking
 
 **Error Handling:**
 - `ValidationException` - bad input (invalid ID, text too long, etc.)
@@ -386,9 +421,8 @@ commands.RegisterModule(new UtilityCommands());
 
 ## What's Not Implemented Yet
 
-- Sharding (needed for bots in 2500+ guilds)
-- Redis caching (in-memory cache only)
-- Distributed clustering (single-machine bots fully supported)
+- Distributed clustering (single-machine and sharded bots fully supported)
+- Advanced voice features (basic voice connectivity implemented)
 
 See [ROADMAP.md](ROADMAP.md) for the development plan and future phases.
 
