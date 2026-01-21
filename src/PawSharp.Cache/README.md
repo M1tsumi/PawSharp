@@ -1,11 +1,12 @@
 # PawSharp.Cache
 
-High-performance in-memory caching with automatic invalidation and statistics.
+High-performance caching with in-memory and distributed Redis support for Discord entities.
 
-PawSharp.Cache provides intelligent caching for Discord entities with automatic updates from gateway events, configurable limits, and comprehensive monitoring. Built for high-throughput bot applications.
+PawSharp.Cache provides intelligent caching for Discord entities with automatic updates from gateway events, configurable limits, and comprehensive monitoring. Built for high-throughput bot applications with support for both local in-memory and distributed Redis caching.
 
 ## Features
 
+- **Multiple Cache Providers**: In-memory and Redis distributed caching
 - Automatic caching from gateway events
 - Configurable per-entity type limits
 - LRU eviction when limits are reached
@@ -18,15 +19,21 @@ PawSharp.Cache provides intelligent caching for Discord entities with automatic 
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Cache --version 0.5.0-alpha9
+# Core caching functionality
+dotnet add package PawSharp.Cache --version 0.5.0-alpha10
+
+# For Redis support
+dotnet add package StackExchange.Redis --version 2.7.33
 ```
 
 ## 🚀 Quick Start
 
-```csharp
-using PawSharp.Cache;
+### In-Memory Caching
 
-// Create cache provider
+```csharp
+using PawSharp.Cache.Providers;
+
+// Create in-memory cache provider
 var cache = new MemoryCacheProvider(new CacheOptions
 {
     MaxGuilds = 1000,
@@ -35,12 +42,72 @@ var cache = new MemoryCacheProvider(new CacheOptions
 });
 
 // Cache entities
-await cache.CacheGuildAsync(guild);
-await cache.CacheUserAsync(user);
+cache.CacheGuild(guild);
+cache.CacheUser(user);
 
 // Retrieve from cache
-var cachedGuild = await cache.GetGuildAsync(guildId);
-var cachedUser = await cache.GetUserAsync(userId);
+var cachedGuild = cache.GetGuild(guildId);
+var cachedUser = cache.GetUser(userId);
+```
+
+### Redis Distributed Caching
+
+```csharp
+using PawSharp.Cache.Providers;
+using Microsoft.Extensions.Options;
+
+// Configure Redis options
+var redisOptions = Options.Create(new RedisCacheOptions
+{
+    ConnectionString = "localhost:6379",
+    Password = "your-redis-password", // optional
+    Database = 0,
+    DefaultExpiry = TimeSpan.FromHours(1)
+});
+
+// Create Redis cache provider
+var cache = new RedisCacheProvider(redisOptions);
+
+// Or use connection string directly
+var cache = new RedisCacheProvider("localhost:6379,password=your-password");
+
+// Use same interface as in-memory cache
+cache.CacheGuild(guild);
+var cachedGuild = cache.GetGuild(guildId);
+```
+
+### Dependency Injection Setup
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+
+// Register in-memory cache
+services.AddSingleton<IEntityCache>(provider =>
+{
+    var options = new CacheOptions { MaxGuilds = 1000 };
+    return new MemoryCacheProvider(options);
+});
+
+// Register Redis cache
+services.AddSingleton<IEntityCache>(provider =>
+{
+    var options = Options.Create(new RedisCacheOptions
+    {
+        ConnectionString = "localhost:6379"
+    });
+    return new RedisCacheProvider(options);
+});
+
+// Inject into your services
+public class MyBotService
+{
+    private readonly IEntityCache _cache;
+
+    public MyBotService(IEntityCache cache)
+    {
+        _cache = cache;
+    }
+}
 ```
 
 ## 📋 Cache Configuration

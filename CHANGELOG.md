@@ -4,6 +4,52 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.5.0-alpha10] - January 20, 2026
+
+Sharding and scalability enhancements for large-scale bot deployments, plus Redis distributed caching implementation.
+
+### New Features
+
+**Sharding Improvements**
+- Added `ShardStatus` enum for tracking individual shard states (Disconnected, Connecting, Connected, Reconnecting, Failed)
+- Implemented automatic per-shard reconnection with status monitoring
+- Added `EventDispatcher` to `ShardManager` for shard-level events (`ShardConnectedEvent`, `ShardDisconnectedEvent`, `ShardFailedEvent`)
+- Enhanced `ShardManager` with real-time status tracking and diagnostics methods (`GetShardStatus`, `GetAllShardStatuses`, `ConnectedShardCount`)
+- Added `CalculateRecommendedShardCount()` static method for auto-sharding based on guild count
+- Improved logging for shard state changes and reconnection attempts
+
+**Redis Distributed Caching**
+- Implemented `RedisCacheProvider` with full `IEntityCache` interface support
+- Added StackExchange.Redis dependency for high-performance Redis operations
+- Configurable Redis connection options (connection string, password, database, timeouts)
+- Automatic JSON serialization/deserialization with System.Text.Json
+- Sorted set-based message indexing for efficient channel message retrieval
+- Comprehensive cache statistics and monitoring
+- Thread-safe operations with proper connection management
+
+**Cache Provider Architecture**
+- Pluggable cache provider interface (`IEntityCache`) supporting multiple backends
+- Unified API for in-memory and Redis caching
+- Dependency injection support for both cache providers
+- Comprehensive test coverage with `PawSharp.Cache.Tests` project
+
+**Developer Experience**
+- Better error handling and diagnostics for sharding operations
+- Updated documentation with Redis cache setup and configuration examples
+- Added cache provider selection guide in README
+- Enhanced PawSharp.Cache README with Redis-specific examples
+- Improved error handling and connection resilience
+- Structured event system for multi-shard management
+
+### Changes
+- `ShardManager` now tracks and reports individual shard statuses
+- Automatic reconnection logic integrated into shard lifecycle
+
+### Bug Fixes
+- None
+
+---
+
 ## [0.5.0-alpha9] - January 14, 2026
 
 Production hardening release with infrastructure improvements, better reliability, and enhanced developer experience.

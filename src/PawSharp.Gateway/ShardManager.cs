@@ -5,24 +5,38 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.Core.Models;
+using PawSharp.Core.Enums;
 using PawSharp.Gateway.Events;
 
 namespace PawSharp.Gateway;
 
 /// <summary>
 /// Manages multiple gateway shards for large bots.
+/// Provides automatic shard distribution, reconnection, status monitoring, and event aggregation.
 /// </summary>
 public class ShardManager
 {
     private readonly Dictionary<int, GatewayClient> _shards = new();
+    private readonly Dictionary<int, ShardStatus> _shardStatuses = new();
     private readonly PawSharpOptions _options;
     private readonly ILogger _logger;
+    private readonly EventDispatcher _eventDispatcher = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ShardManager"/> class.
+    /// </summary>
+    /// <param name="options">The PawSharp configuration options including shard settings.</param>
+    /// <param name="logger">The logger instance for diagnostic output.</param>
     public ShardManager(PawSharpOptions options, ILogger logger)
     {
         _options = options;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Event dispatcher for multi-shard events.
+    /// </summary>
+    public EventDispatcher Events => _eventDispatcher;
 
     /// <summary>
     /// Total number of shards.
@@ -40,6 +54,10 @@ public class ShardManager
         {
             var shard = new GatewayClient(_options, _logger);
             _shards[i] = shard;
+            _shardStatuses[i] = ShardStatus.Disconnected;
+            
+            // Subscribe to state changes
+            shard.OnStateChanged += async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState);
             
             await shard.ConnectAsync();
             
@@ -54,6 +72,63 @@ public class ShardManager
     }
 
     /// <summary>
+    /// Handles shard state changes and triggers reconnection if needed.
+    /// </summary>
+    private async Task OnShardStateChangedAsync(int shardId, GatewayState oldState, GatewayState newState)
+    {
+        var newStatus = MapGatewayStateToShardStatus(newState);
+        _shardStatuses[shardId] = newStatus;
+        
+        _logger.LogInformation($"Shard {shardId} state changed from {oldState} to {newState} (status: {newStatus})");
+        
+        // Dispatch shard events
+        if (newState == GatewayState.Ready && oldState != GatewayState.Ready)
+        {
+            await _eventDispatcher.DispatchAsync("SHARD_CONNECTED", new ShardConnectedEvent { ShardId = shardId });
+        }
+        else if (newState == GatewayState.Disconnected && oldState != GatewayState.Disconnected)
+        {
+            await _eventDispatcher.DispatchAsync("SHARD_DISCONNECTED", new ShardDisconnectedEvent { ShardId = shardId });
+        }
+        else if (newState == GatewayState.Failed)
+        {
+            await _eventDispatcher.DispatchAsync("SHARD_FAILED", new ShardFailedEvent { ShardId = shardId });
+        }
+        
+        if (newState == GatewayState.Failed)
+        {
+            _logger.LogWarning($"Shard {shardId} failed. Attempting reconnection...");
+            await ReconnectShardAsync(shardId);
+        }
+    }
+
+    /// <summary>
+    /// Reconnects a specific shard.
+    /// </summary>
+    public async Task ReconnectShardAsync(int shardId)
+    {
+        if (!_shards.TryGetValue(shardId, out var shard))
+        {
+            _logger.LogError($"Shard {shardId} not found for reconnection.");
+            return;
+        }
+
+        _shardStatuses[shardId] = ShardStatus.Reconnecting;
+        _logger.LogInformation($"Reconnecting shard {shardId}...");
+        
+        try
+        {
+            await shard.DisconnectAsync();
+            await shard.ConnectAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to reconnect shard {shardId}.");
+            _shardStatuses[shardId] = ShardStatus.Failed;
+        }
+    }
+
+    /// <summary>
     /// Disconnect all shards.
     /// </summary>
     public async Task DisconnectAllAsync()
@@ -64,6 +139,7 @@ public class ShardManager
         await Task.WhenAll(tasks);
 
         _shards.Clear();
+        _shardStatuses.Clear();
         _logger.LogInformation("All shards disconnected!");
     }
 
@@ -76,11 +152,28 @@ public class ShardManager
     }
 
     /// <summary>
-    /// Get all shards.
+    /// Get the status of a specific shard.
     /// </summary>
-    public IEnumerable<GatewayClient> GetAllShards()
+    public ShardStatus GetShardStatus(int shardId)
     {
-        return _shards.Values;
+        return _shardStatuses.TryGetValue(shardId, out var status) ? status : ShardStatus.Disconnected;
+    }
+
+    /// <summary>
+    /// Get statuses of all shards.
+    /// </summary>
+    public Dictionary<int, ShardStatus> GetAllShardStatuses()
+    {
+        return new Dictionary<int, ShardStatus>(_shardStatuses);
+    }
+
+    /// <summary>
+    /// Calculate recommended shard count based on guild count.
+    /// Discord recommends approximately 1000 guilds per shard.
+    /// </summary>
+    public static int CalculateRecommendedShardCount(int guildCount)
+    {
+        return Math.Max(1, (int)Math.Ceiling(guildCount / 1000.0));
     }
 
     /// <summary>
@@ -100,5 +193,21 @@ public class ShardManager
         {
             shard.Events.On(eventName, handler);
         }
+    }
+
+    /// <summary>
+    /// Maps a GatewayState to a ShardStatus.
+    /// </summary>
+    private static ShardStatus MapGatewayStateToShardStatus(GatewayState state)
+    {
+        return state switch
+        {
+            GatewayState.Disconnected => ShardStatus.Disconnected,
+            GatewayState.Connecting => ShardStatus.Connecting,
+            GatewayState.Connected => ShardStatus.Connected,
+            GatewayState.Ready => ShardStatus.Connected,
+            GatewayState.Failed => ShardStatus.Failed,
+            _ => ShardStatus.Disconnected
+        };
     }
 }

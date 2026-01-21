@@ -19,7 +19,7 @@ PawSharp.Commands provides a clean, extensible command system for Discord bots. 
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Commands --version 0.5.0-alpha9
+dotnet add package PawSharp.Commands --version 0.5.0-alpha10
 ```
 
 ## 🚀 Quick Start

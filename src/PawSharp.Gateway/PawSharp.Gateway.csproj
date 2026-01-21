@@ -5,12 +5,25 @@
     <RootNamespace>PawSharp.Gateway</RootNamespace>
     <AssemblyName>PawSharp.Gateway</AssemblyName>
     <PackageId>PawSharp.Gateway</PackageId>
+    <Version>0.5.0-alpha10</Version>
+    <Authors>PawSharp Team</Authors>
+    <Company>PawSharp</Company>
+    <Description>WebSocket gateway client for PawSharp with sharding, reconnection, and event handling.</Description>
+    <PackageTags>discord;api;bot;wrapper;gateway;websocket;sharding</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/your-org/PawSharp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
     <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
     <ProjectReference Include="..\PawSharp.Cache\PawSharp.Cache.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
