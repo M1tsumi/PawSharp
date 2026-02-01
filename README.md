@@ -68,6 +68,33 @@ dotnet build
 
 ---
 
+## 📁 Project Structure
+
+PawSharp is organized into modular packages for flexibility:
+
+### Core Packages
+- **`PawSharp.Core`** - Base entities, enums, exceptions, interfaces, models, serialization, and validation
+- **`PawSharp.API`** - REST API client with automatic rate limiting and error handling
+- **`PawSharp.Gateway`** - WebSocket gateway client with event handling and reconnection logic
+- **`PawSharp.Cache`** - Caching abstractions and providers (memory, Redis)
+- **`PawSharp.Client`** - Unified client combining API, Gateway, and Cache functionality
+
+### Extension Packages
+- **`PawSharp.Commands`** - Traditional command framework with prefix-based commands
+- **`PawSharp.Interactions`** - Slash commands, buttons, select menus, and interaction handling
+- **`PawSharp.Interactivity`** - Interactive components like paginators and polls
+- **`PawSharp.Voice`** - Voice connection and audio handling (experimental)
+
+### Supporting Components
+- **`src/`** - Source code for all packages
+- **`tests/`** - Unit and integration tests
+- **`examples/`** - Sample applications and usage patterns
+- **`docs/`** - Documentation and guides
+- **`tools/`** - Build and documentation tools
+- **`nupkgs/`** - Published NuGet packages
+
+---
+
 ## Quick Example
 
 Here's a bot that responds to `!ping`:
