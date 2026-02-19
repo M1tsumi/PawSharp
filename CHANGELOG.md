@@ -4,6 +4,76 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.5.0-alpha11] - 2025
+
+Gateway event coverage, DI hardening, interaction routing, REST endpoint parity, and cache sync improvements.
+
+### New Features
+
+**DI Hardening**
+- Introduced `IGatewayClient` interface enabling constructor injection and unit-test mocking of the gateway
+- Added `AddPawSharp()` `IServiceCollection` extension for single-call bot DI setup (`PawSharpServiceCollectionExtensions`)
+- `DiscordClient` now accepts injected `IGatewayClient` instead of constructing `GatewayClient` internally
+- `CacheManager.SubscribeToGateway` updated to accept `IGatewayClient`
+
+**Missing Gateway Events (alpha11)**
+- Added 8 new event classes: `GuildRoleCreateEvent`, `GuildRoleUpdateEvent`, `GuildRoleDeleteEvent`, `GuildMembersChunkEvent`, `GuildStickersUpdateEvent`, `MessageReactionRemoveEmojiEvent`, `GuildIntegrationsUpdateEvent`, `UserUpdateEvent`
+- All new events dispatched in `GatewayClient.HandleDispatchEventAsync`
+
+**Cache-Gateway Sync**
+- `CacheManager` now subscribes to and handles all new role/sticker/thread/user-update events
+- Guild role additions/updates/deletions are reflected in both the guild entity and the flat roles cache
+- Guild stickers list is kept consistent on `GUILD_STICKERS_UPDATE`
+- Thread channels cached and evicted on `THREAD_CREATE`/`THREAD_UPDATE`/`THREAD_DELETE`
+- Self-user fields refreshed on `USER_UPDATE`
+
+**REST Endpoint Parity**
+- Added Stage Instance endpoints: Create, Get, Modify, Delete
+- Added Sticker endpoints: Get, GetNitroStickerPacks, GetGuildStickers, GetGuildSticker, CreateGuildSticker (multipart), ModifyGuildSticker, DeleteGuildSticker
+- Added `CreateDmAsync`, `CrosspostMessageAsync`, `EditChannelPermissionsAsync`
+- Added `GetGatewayBotAsync` returning `GatewayBotInfo` with `SessionStartLimit`
+- Added `GetVoiceRegionsAsync`, `GetGuildVoiceRegionsAsync`
+- Added `GetCurrentUserConnectionsAsync` returning `List<UserConnection>`
+- New entity classes: `GatewayBotInfo`, `SessionStartLimit`, `VoiceRegion`, `UserConnection`
+
+**Interaction Handler (alpha11)**
+- `InteractionHandler` constructor now accepts `IDiscordRestClient` (was `DiscordRestClient`)
+- Added `RegisterAutocomplete`, `RegisterUserContextMenu`, `RegisterMessageContextMenu`
+- `HandleInteractionAsync` routes on typed `InteractionType` enum (no more magic integers)
+- Autocomplete handler auto-responds with `ApplicationCommandAutocompleteResult`
+- Added `ModalBuilder` fluent builder (`WithCustomId`, `WithTitle`, `AddTextInput`, `Build`, `BuildResponse`)
+- Added `InteractionType`, `InteractionResponseType` enums
+
+**Event Model Improvements**
+- `GuildCreateEvent.ToGuild()` now maps all available fields: `Splash`, `Banner`, `Description`, `VanityUrlCode`, `PremiumTier`, `PremiumSubscriptionCount`, `MemberCount`, `ApproximateMemberCount`, `PreferredLocale`, `Stickers`
+- `ChannelCreateEvent`/`ChannelUpdateEvent.ToChannel()` now maps all available fields: `Position`, `Topic`, `Nsfw`, `Bitrate`, `UserLimit`, `RateLimitPerUser`, `ParentId`, `LastMessageId`, `RtcRegion`, `LastPinTimestamp`
+
+**ShardManager**
+- Added `ConnectedShardCount` property (number of shards in `Connected` state)
+- Added `CalculateRecommendedShardCountAsync()` — queries `GET /gateway/bot` to get Discord's recommended shard count; falls back to local heuristic if REST client is unavailable
+- `ShardManager` constructor accepts optional `IDiscordRestClient` parameter
+
+**DiscordClient Convenience API**
+- `SendMessageAsync(ulong channelId, string content)` and `SendMessageAsync(ulong channelId, CreateMessageRequest)` delegates to REST
+- `GetCurrentUserAsync()` returns typed `User?`
+- 8 typed event helper methods: `OnMessageCreated`, `OnMessageUpdated`, `OnMessageDeleted`, `OnGuildAvailable`, `OnGuildMemberJoined`, `OnGuildMemberLeft`, `OnInteractionCreated`, `OnReady`
+
+**Test Coverage**
+- New `PawSharp.Interactions.Tests` project — 8 tests covering slash commands, components, autocomplete, context menus, modal submit routing
+- `PawSharp.API.Tests` — 9 new tests for all alpha11 REST endpoints (Stage Instance, Sticker, DM, GatewayBot, VoiceRegions, Crosspost, Channel Permissions, User Connections)
+- `PawSharp.Gateway.Tests` — 9 new tests for alpha11 gateway event deserialization and `EventDispatcher` routing
+
+### Changes
+- `Version` bumped from `0.5.0-alpha8` to `0.5.0-alpha11` in `Directory.Build.props`
+- `PawSharp.Client.csproj` now explicitly references `Microsoft.Extensions.DependencyInjection` 8.0.0
+- `IGatewayClient` exposes `VoiceStateUpdate`, `VoiceServerUpdate` events and `SendVoiceStateUpdateAsync` for use by `VoiceClient`
+
+### Bug Fixes
+- Fixed `RestClient.SendRequestAsync` method signature corruption caused by a previous code generation artifact
+- Removed duplicate `ApplicationCommandType` enum definition (existed in both `PawSharp.Interactions.Models` and `InteractionHandler.cs`)
+
+---
+
 ## [0.5.0-alpha10] - January 20, 2026
 
 Sharding and scalability enhancements for large-scale bot deployments, plus Redis distributed caching implementation.

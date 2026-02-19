@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PawSharp.API.Interfaces;
 using PawSharp.Core.Models;
 using PawSharp.Core.Enums;
 using PawSharp.Gateway.Events;
@@ -21,16 +22,19 @@ public class ShardManager
     private readonly PawSharpOptions _options;
     private readonly ILogger _logger;
     private readonly EventDispatcher _eventDispatcher = new();
+    private readonly IDiscordRestClient? _restClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShardManager"/> class.
     /// </summary>
     /// <param name="options">The PawSharp configuration options including shard settings.</param>
     /// <param name="logger">The logger instance for diagnostic output.</param>
-    public ShardManager(PawSharpOptions options, ILogger logger)
+    /// <param name="restClient">Optional REST client used by <see cref="CalculateRecommendedShardCountAsync"/>.</param>
+    public ShardManager(PawSharpOptions options, ILogger logger, IDiscordRestClient? restClient = null)
     {
         _options = options;
         _logger = logger;
+        _restClient = restClient;
     }
 
     /// <summary>
@@ -42,6 +46,12 @@ public class ShardManager
     /// Total number of shards.
     /// </summary>
     public int ShardCount => _options.ShardCount;
+
+    /// <summary>
+    /// Number of shards currently in the <see cref="ShardStatus.Connected"/> state.
+    /// </summary>
+    public int ConnectedShardCount =>
+        _shardStatuses.Values.Count(s => s == ShardStatus.Connected);
 
     /// <summary>
     /// Connect all shards managed by this instance.
@@ -174,6 +184,31 @@ public class ShardManager
     public static int CalculateRecommendedShardCount(int guildCount)
     {
         return Math.Max(1, (int)Math.Ceiling(guildCount / 1000.0));
+    }
+
+    /// <summary>
+    /// Queries Discord's <c>GET /gateway/bot</c> endpoint and returns the recommended shard count.
+    /// Falls back to <see cref="CalculateRecommendedShardCount"/> with the configured guild count
+    /// when no REST client is available.
+    /// </summary>
+    public async Task<int> CalculateRecommendedShardCountAsync()
+    {
+        if (_restClient != null)
+        {
+            try
+            {
+                var info = await _restClient.GetGatewayBotAsync();
+                if (info != null && info.Shards > 0)
+                    return info.Shards;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to retrieve recommended shard count from Discord; using fallback.");
+            }
+        }
+
+        // Fallback: use local guild-count heuristic from options
+        return CalculateRecommendedShardCount(_options.Shards);
     }
 
     /// <summary>

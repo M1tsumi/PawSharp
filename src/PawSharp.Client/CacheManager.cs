@@ -1,6 +1,8 @@
 #nullable enable
 using Microsoft.Extensions.Logging;
 using PawSharp.Cache.Interfaces;
+using PawSharp.Core.Entities;
+using PawSharp.Core.Enums;
 using PawSharp.Gateway;
 using PawSharp.Gateway.Events;
 
@@ -23,7 +25,7 @@ public class CacheManager
     /// <summary>
     /// Subscribe to gateway events and automatically cache entities.
     /// </summary>
-    public void SubscribeToGateway(GatewayClient gateway)
+    public void SubscribeToGateway(IGatewayClient gateway)
     {
         // READY event
         gateway.Events.On<ReadyEvent>("READY", HandleReady);
@@ -48,6 +50,22 @@ public class CacheManager
         gateway.Events.On<GuildMemberAddEvent>("GUILD_MEMBER_ADD", HandleGuildMemberAdd);
         gateway.Events.On<GuildMemberUpdateEvent>("GUILD_MEMBER_UPDATE", HandleGuildMemberUpdate);
         gateway.Events.On<GuildMemberRemoveEvent>("GUILD_MEMBER_REMOVE", HandleGuildMemberRemove);
+
+        // Role events
+        gateway.Events.On<GuildRoleCreateEvent>("GUILD_ROLE_CREATE", HandleGuildRoleCreate);
+        gateway.Events.On<GuildRoleUpdateEvent>("GUILD_ROLE_UPDATE", HandleGuildRoleUpdate);
+        gateway.Events.On<GuildRoleDeleteEvent>("GUILD_ROLE_DELETE", HandleGuildRoleDelete);
+
+        // Sticker events
+        gateway.Events.On<GuildStickersUpdateEvent>("GUILD_STICKERS_UPDATE", HandleGuildStickersUpdate);
+
+        // Thread events (treated as channels in the cache)
+        gateway.Events.On<ThreadCreateEvent>("THREAD_CREATE", HandleThreadCreate);
+        gateway.Events.On<ThreadUpdateEvent>("THREAD_UPDATE", HandleThreadUpdate);
+        gateway.Events.On<ThreadDeleteEvent>("THREAD_DELETE", HandleThreadDelete);
+
+        // User events
+        gateway.Events.On<UserUpdateEvent>("USER_UPDATE", HandleUserUpdate);
         
         _logger?.LogInformation("Cache manager subscribed to gateway events");
     }
@@ -206,5 +224,122 @@ public class CacheManager
     {
         _logger?.LogDebug($"Removing guild member from cache: {e.User.Id} from guild {e.GuildId}");
         _cache.Remove($"member:{e.GuildId}:{e.User.Id}");
+    }
+
+    // ── Role handlers ─────────────────────────────────────────────────────────
+
+    private void HandleGuildRoleCreate(GuildRoleCreateEvent e)
+    {
+        _logger?.LogDebug($"Caching new role: {e.Role.Name} ({e.Role.Id}) in guild {e.GuildId}");
+        _cache.CacheRole(e.GuildId, e.Role);
+
+        var guild = _cache.GetGuild(e.GuildId);
+        if (guild != null)
+        {
+            guild.Roles ??= new();
+            guild.Roles.RemoveAll(r => r.Id == e.Role.Id);
+            guild.Roles.Add(e.Role);
+            _cache.CacheGuild(guild);
+        }
+    }
+
+    private void HandleGuildRoleUpdate(GuildRoleUpdateEvent e)
+    {
+        _logger?.LogDebug($"Updating cached role: {e.Role.Id} in guild {e.GuildId}");
+        _cache.CacheRole(e.GuildId, e.Role);
+
+        var guild = _cache.GetGuild(e.GuildId);
+        if (guild != null)
+        {
+            guild.Roles ??= new();
+            var idx = guild.Roles.FindIndex(r => r.Id == e.Role.Id);
+            if (idx >= 0)
+                guild.Roles[idx] = e.Role;
+            else
+                guild.Roles.Add(e.Role);
+            _cache.CacheGuild(guild);
+        }
+    }
+
+    private void HandleGuildRoleDelete(GuildRoleDeleteEvent e)
+    {
+        _logger?.LogDebug($"Removing role from cache: {e.RoleId} from guild {e.GuildId}");
+        _cache.Remove($"role:{e.RoleId}");
+
+        var guild = _cache.GetGuild(e.GuildId);
+        if (guild != null)
+        {
+            guild.Roles?.RemoveAll(r => r.Id == e.RoleId);
+            _cache.CacheGuild(guild);
+        }
+    }
+
+    // ── Sticker handler ───────────────────────────────────────────────────────
+
+    private void HandleGuildStickersUpdate(GuildStickersUpdateEvent e)
+    {
+        _logger?.LogDebug($"Updating cached stickers for guild: {e.GuildId}");
+
+        var guild = _cache.GetGuild(e.GuildId);
+        if (guild != null)
+        {
+            guild.Stickers = e.Stickers;
+            _cache.CacheGuild(guild);
+        }
+    }
+
+    // ── Thread handlers (threads are cached as channels) ─────────────────────
+
+    private void HandleThreadCreate(ThreadCreateEvent e)
+    {
+        _logger?.LogDebug($"Caching thread: {e.Name} ({e.Id})");
+        _cache.CacheChannel(new Channel
+        {
+            Id = e.Id,
+            Type = (ChannelType)e.Type,
+            GuildId = e.GuildId,
+            ParentId = e.ParentId,
+            OwnerId = e.OwnerId,
+            Name = e.Name,
+            LastMessageId = e.LastMessageId,
+            RateLimitPerUser = e.RateLimitPerUser
+        });
+    }
+
+    private void HandleThreadUpdate(ThreadUpdateEvent e)
+    {
+        _logger?.LogDebug($"Updating cached thread: {e.Id}");
+        _cache.CacheChannel(new Channel
+        {
+            Id = e.Id,
+            Type = (ChannelType)e.Type,
+            GuildId = e.GuildId,
+            ParentId = e.ParentId,
+            OwnerId = e.OwnerId,
+            Name = e.Name,
+            LastMessageId = e.LastMessageId,
+            RateLimitPerUser = e.RateLimitPerUser
+        });
+    }
+
+    private void HandleThreadDelete(ThreadDeleteEvent e)
+    {
+        _logger?.LogDebug($"Removing thread from cache: {e.Id}");
+        _cache.Remove($"channel:{e.Id}");
+    }
+
+    // ── User handler ──────────────────────────────────────────────────────────
+
+    private void HandleUserUpdate(UserUpdateEvent e)
+    {
+        _logger?.LogDebug($"Updating bot user in cache: {e.Id}");
+        var existing = _cache.GetUser(e.Id);
+        if (existing != null)
+        {
+            existing.Username = e.Username;
+            existing.Discriminator = e.Discriminator;
+            existing.Avatar = e.Avatar;
+            _cache.CacheUser(existing);
+        }
     }
 }

@@ -12,7 +12,7 @@ public class DiscordApiException : DiscordException
     /// <summary>
     /// Gets the HTTP status code returned by the Discord API.
     /// </summary>
-    public HttpStatusCode StatusCode { get; }
+    public int StatusCode { get; }
 
     /// <summary>
     /// Gets the error code from Discord's API response, if available.
@@ -32,6 +32,17 @@ public class DiscordApiException : DiscordException
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordApiException"/> class.
     /// </summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="statusCode">The HTTP status code as an integer.</param>
+    public DiscordApiException(string message, int statusCode)
+        : base(message)
+    {
+        StatusCode = statusCode;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DiscordApiException"/> class.
+    /// </summary>
     /// <param name="statusCode">The HTTP status code returned by Discord.</param>
     /// <param name="message">The error message.</param>
     /// <param name="errorCode">The Discord API error code, if available.</param>
@@ -40,7 +51,7 @@ public class DiscordApiException : DiscordException
     public DiscordApiException(HttpStatusCode statusCode, string message, int? errorCode = null, string? apiErrorMessage = null, int? retryAfter = null)
         : base(message)
     {
-        StatusCode = statusCode;
+        StatusCode = (int)statusCode;
         ErrorCode = errorCode;
         ApiErrorMessage = apiErrorMessage;
         RetryAfter = retryAfter;
@@ -55,6 +66,6 @@ public class DiscordApiException : DiscordException
     public DiscordApiException(HttpStatusCode statusCode, string message, Exception innerException)
         : base(message, innerException)
     {
-        StatusCode = statusCode;
+        StatusCode = (int)statusCode;
     }
 }

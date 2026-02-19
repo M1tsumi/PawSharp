@@ -1115,6 +1115,170 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
+    // Stage Instance operations
+    public async Task<StageInstance?> CreateStageInstanceAsync(CreateStageInstanceRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync("stage-instances", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<StageInstance>();
+        return null;
+    }
+
+    public async Task<StageInstance?> GetStageInstanceAsync(ulong channelId)
+    {
+        var response = await GetAsync($"stage-instances/{channelId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<StageInstance>();
+        return null;
+    }
+
+    public async Task<StageInstance?> ModifyStageInstanceAsync(ulong channelId, ModifyStageInstanceRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"stage-instances/{channelId}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<StageInstance>();
+        return null;
+    }
+
+    public async Task<bool> DeleteStageInstanceAsync(ulong channelId)
+    {
+        var response = await DeleteAsync($"stage-instances/{channelId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    // Sticker operations
+    public async Task<Sticker?> GetStickerAsync(ulong stickerId)
+    {
+        var response = await GetAsync($"stickers/{stickerId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Sticker>();
+        return null;
+    }
+
+    public async Task<List<StickerPack>?> GetNitroStickerPacksAsync()
+    {
+        var response = await GetAsync("sticker-packs");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<StickerPack>>();
+        return null;
+    }
+
+    public async Task<List<Sticker>?> GetGuildStickersAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/stickers");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<Sticker>>();
+        return null;
+    }
+
+    public async Task<Sticker?> GetGuildStickerAsync(ulong guildId, ulong stickerId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/stickers/{stickerId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Sticker>();
+        return null;
+    }
+
+    public async Task<Sticker?> CreateGuildStickerAsync(ulong guildId, CreateGuildStickerRequest request)
+    {
+        // Sticker creation requires multipart/form-data with the file bytes
+        using var formContent = new MultipartFormDataContent();
+        formContent.Add(new StringContent(request.Name), "name");
+        formContent.Add(new StringContent(request.Description), "description");
+        formContent.Add(new StringContent(request.Tags), "tags");
+        if (request.FileData != null && request.FileName != null)
+        {
+            var fileBytes = new ByteArrayContent(request.FileData);
+            fileBytes.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                request.ContentType ?? "image/png");
+            formContent.Add(fileBytes, "file", request.FileName);
+        }
+        var response = await PostAsync($"guilds/{guildId}/stickers", formContent);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Sticker>();
+        return null;
+    }
+
+    public async Task<Sticker?> ModifyGuildStickerAsync(ulong guildId, ulong stickerId, ModifyGuildStickerRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/stickers/{stickerId}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Sticker>();
+        return null;
+    }
+
+    public async Task<bool> DeleteGuildStickerAsync(ulong guildId, ulong stickerId)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/stickers/{stickerId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    // DM operations
+    public async Task<Channel?> CreateDmAsync(ulong recipientId)
+    {
+        var payload = new { recipient_id = recipientId };
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var response = await PostAsync("users/@me/channels", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Channel>();
+        return null;
+    }
+
+    // Gateway Bot info
+    public async Task<GatewayBotInfo?> GetGatewayBotAsync()
+    {
+        var response = await GetAsync("gateway/bot");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GatewayBotInfo>();
+        return null;
+    }
+
+    // Voice Region operations
+    public async Task<List<VoiceRegion>?> GetVoiceRegionsAsync()
+    {
+        var response = await GetAsync("voice/regions");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>();
+        return null;
+    }
+
+    public async Task<List<VoiceRegion>?> GetGuildVoiceRegionsAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/regions");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>();
+        return null;
+    }
+
+    // Message crosspost
+    public async Task<Message?> CrosspostMessageAsync(ulong channelId, ulong messageId)
+    {
+        var response = await PostAsync($"channels/{channelId}/messages/{messageId}/crosspost", null!);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    // Channel permission overwrites
+    public async Task<bool> EditChannelPermissionsAsync(ulong channelId, ulong overwriteId, EditChannelPermissionsRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"channels/{channelId}/permissions/{overwriteId}", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    // Current user connections
+    public async Task<List<UserConnection>?> GetCurrentUserConnectionsAsync()
+    {
+        var response = await GetAsync("users/@me/connections");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<UserConnection>>();
+        return null;
+    }
+
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default)
     {
         // Global rate limit check

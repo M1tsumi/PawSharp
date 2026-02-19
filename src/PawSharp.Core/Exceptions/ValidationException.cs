@@ -19,6 +19,11 @@ public class ValidationException : DiscordException
     public object? InvalidValue { get; }
 
     /// <summary>
+    /// Gets the invalid value that was provided. Alias for <see cref="InvalidValue"/>.
+    /// </summary>
+    public object? Value => InvalidValue;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="ValidationException"/> class.
     /// </summary>
     /// <param name="message">The error message.</param>

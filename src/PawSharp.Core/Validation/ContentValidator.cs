@@ -44,7 +44,7 @@ public static class ContentValidator
     {
         if (string.IsNullOrEmpty(content))
         {
-            return; // Empty content is allowed
+            throw new ValidationException("Message content cannot be empty.", parameterName, content);
         }
 
         if (content.Length > MaxMessageLength)
@@ -141,6 +141,39 @@ public static class ContentValidator
                 $"Embed field value exceeds maximum length of {MaxEmbedFieldValueLength} characters (current: {value.Length}).",
                 parameterName,
                 value.Length);
+        }
+    }
+
+    /// <summary>
+    /// Validates a generic embed dictionary, ensuring it is not null.
+    /// </summary>
+    /// <param name="embed">The embed dictionary to validate.</param>
+    /// <exception cref="ValidationException">Thrown when the embed is null.</exception>
+    public static void ValidateEmbedContent(System.Collections.Generic.IDictionary<string, object>? embed)
+    {
+        if (embed is null)
+        {
+            throw new ValidationException("Embed content cannot be null.", "embed", null);
+        }
+    }
+
+    /// <summary>
+    /// Validates that a string is an absolute HTTP/HTTPS URL.
+    /// </summary>
+    /// <param name="url">The URL to validate.</param>
+    /// <param name="parameterName">The name of the parameter being validated.</param>
+    /// <exception cref="ValidationException">Thrown when the string is not a valid URL.</exception>
+    public static void ValidateUrl(string? url, string parameterName = "url")
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new ValidationException("URL cannot be empty.", parameterName, url);
+        }
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ValidationException($"'{url}' is not a valid URL. Must be an absolute http or https URI.", parameterName, url);
         }
     }
 }

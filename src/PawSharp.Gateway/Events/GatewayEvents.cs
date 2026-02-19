@@ -170,6 +170,36 @@ public class GuildCreateEvent : GatewayEvent
     
     [JsonPropertyName("icon")]
     public string? Icon { get; set; }
+
+    [JsonPropertyName("splash")]
+    public string? Splash { get; set; }
+
+    [JsonPropertyName("banner")]
+    public string? Banner { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("vanity_url_code")]
+    public string? VanityUrlCode { get; set; }
+
+    [JsonPropertyName("premium_tier")]
+    public int PremiumTier { get; set; }
+
+    [JsonPropertyName("premium_subscription_count")]
+    public int? PremiumSubscriptionCount { get; set; }
+
+    [JsonPropertyName("member_count")]
+    public int? MemberCount { get; set; }
+
+    [JsonPropertyName("approximate_member_count")]
+    public int? ApproximateMemberCount { get; set; }
+
+    [JsonPropertyName("approximate_presence_count")]
+    public int? ApproximatePresenceCount { get; set; }
+
+    [JsonPropertyName("preferred_locale")]
+    public string PreferredLocale { get; set; } = "en-US";
     
     [JsonPropertyName("owner_id")]
     public ulong OwnerId { get; set; }
@@ -179,6 +209,9 @@ public class GuildCreateEvent : GatewayEvent
     
     [JsonPropertyName("emojis")]
     public List<Emoji> Emojis { get; set; } = new();
+
+    [JsonPropertyName("stickers")]
+    public List<Sticker>? Stickers { get; set; }
     
     [JsonPropertyName("channels")]
     public List<Channel> Channels { get; set; } = new();
@@ -196,9 +229,19 @@ public class GuildCreateEvent : GatewayEvent
             Id = Id,
             Name = Name,
             Icon = Icon,
+            Splash = Splash,
+            Banner = Banner,
+            Description = Description,
+            VanityUrlCode = VanityUrlCode,
+            PremiumTier = PremiumTier,
+            PremiumSubscriptionCount = PremiumSubscriptionCount,
+            ApproximateMemberCount = ApproximateMemberCount ?? MemberCount,
+            ApproximatePresenceCount = ApproximatePresenceCount,
+            PreferredLocale = PreferredLocale,
             OwnerId = OwnerId,
             Roles = Roles,
             Emojis = Emojis,
+            Stickers = Stickers,
             Channels = Channels,
             Members = Members,
             Unavailable = Unavailable
@@ -268,17 +311,58 @@ public class ChannelCreateEvent : GatewayEvent
     
     [JsonPropertyName("name")]
     public string? Name { get; set; }
+
+    [JsonPropertyName("position")]
+    public int? Position { get; set; }
+
+    [JsonPropertyName("topic")]
+    public string? Topic { get; set; }
+
+    [JsonPropertyName("nsfw")]
+    public bool? Nsfw { get; set; }
+
+    [JsonPropertyName("bitrate")]
+    public int? Bitrate { get; set; }
+
+    [JsonPropertyName("user_limit")]
+    public int? UserLimit { get; set; }
+
+    [JsonPropertyName("rate_limit_per_user")]
+    public int? RateLimitPerUser { get; set; }
+
+    [JsonPropertyName("parent_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? ParentId { get; set; }
+
+    [JsonPropertyName("last_message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? LastMessageId { get; set; }
+
+    [JsonPropertyName("rtc_region")]
+    public string? RtcRegion { get; set; }
+
+    [JsonPropertyName("last_pin_timestamp")]
+    public DateTimeOffset? LastPinTimestamp { get; set; }
     
     public Channel ToChannel()
     {
-        var channel = new Channel
+        return new Channel
         {
             Id = Id,
             Type = (Core.Enums.ChannelType)Type,
             GuildId = GuildId,
-            Name = Name
+            Name = Name,
+            Position = Position,
+            Topic = Topic,
+            Nsfw = Nsfw,
+            Bitrate = Bitrate,
+            UserLimit = UserLimit,
+            RateLimitPerUser = RateLimitPerUser,
+            ParentId = ParentId,
+            LastMessageId = LastMessageId,
+            RtcRegion = RtcRegion,
+            LastPinTimestamp = LastPinTimestamp
         };
-        return channel;
     }
 }
 
@@ -299,17 +383,58 @@ public class ChannelUpdateEvent : GatewayEvent
     
     [JsonPropertyName("name")]
     public string? Name { get; set; }
+
+    [JsonPropertyName("position")]
+    public int? Position { get; set; }
+
+    [JsonPropertyName("topic")]
+    public string? Topic { get; set; }
+
+    [JsonPropertyName("nsfw")]
+    public bool? Nsfw { get; set; }
+
+    [JsonPropertyName("bitrate")]
+    public int? Bitrate { get; set; }
+
+    [JsonPropertyName("user_limit")]
+    public int? UserLimit { get; set; }
+
+    [JsonPropertyName("rate_limit_per_user")]
+    public int? RateLimitPerUser { get; set; }
+
+    [JsonPropertyName("parent_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? ParentId { get; set; }
+
+    [JsonPropertyName("last_message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? LastMessageId { get; set; }
+
+    [JsonPropertyName("rtc_region")]
+    public string? RtcRegion { get; set; }
+
+    [JsonPropertyName("last_pin_timestamp")]
+    public DateTimeOffset? LastPinTimestamp { get; set; }
     
     public Channel ToChannel()
     {
-        var channel = new Channel
+        return new Channel
         {
             Id = Id,
             Type = (Core.Enums.ChannelType)Type,
             GuildId = GuildId,
-            Name = Name
+            Name = Name,
+            Position = Position,
+            Topic = Topic,
+            Nsfw = Nsfw,
+            Bitrate = Bitrate,
+            UserLimit = UserLimit,
+            RateLimitPerUser = RateLimitPerUser,
+            ParentId = ParentId,
+            LastMessageId = LastMessageId,
+            RtcRegion = RtcRegion,
+            LastPinTimestamp = LastPinTimestamp
         };
-        return channel;
     }
 }
 
@@ -333,14 +458,13 @@ public class ChannelDeleteEvent : GatewayEvent
     
     public Channel ToChannel()
     {
-        var channel = new Channel
+        return new Channel
         {
             Id = Id,
             Type = (Core.Enums.ChannelType)Type,
             GuildId = GuildId,
             Name = Name
         };
-        return channel;
     }
 }
 
@@ -1118,4 +1242,143 @@ public class ShardDisconnectedEvent : ShardEvent
 /// </summary>
 public class ShardFailedEvent : ShardEvent
 {
+}
+
+// ── New events added in alpha11 ───────────────────────────────────────────────
+
+/// <summary>
+/// GUILD_ROLE_CREATE event — fired when a role is created in a guild.
+/// </summary>
+public class GuildRoleCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("role")]
+    public Role Role { get; set; } = null!;
+}
+
+/// <summary>
+/// GUILD_ROLE_UPDATE event — fired when a role is updated in a guild.
+/// </summary>
+public class GuildRoleUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("role")]
+    public Role Role { get; set; } = null!;
+}
+
+/// <summary>
+/// GUILD_ROLE_DELETE event — fired when a role is deleted from a guild.
+/// </summary>
+public class GuildRoleDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("role_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong RoleId { get; set; }
+}
+
+/// <summary>
+/// GUILD_MEMBERS_CHUNK event — sent in response to opcode 8 (Request Guild Members).
+/// </summary>
+public class GuildMembersChunkEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("members")]
+    public List<GuildMember> Members { get; set; } = new();
+
+    [JsonPropertyName("chunk_index")]
+    public int ChunkIndex { get; set; }
+
+    [JsonPropertyName("chunk_count")]
+    public int ChunkCount { get; set; }
+
+    [JsonPropertyName("not_found")]
+    public List<ulong>? NotFound { get; set; }
+
+    [JsonPropertyName("nonce")]
+    public string? Nonce { get; set; }
+}
+
+/// <summary>
+/// GUILD_STICKERS_UPDATE event — fired when a guild's sticker list changes.
+/// </summary>
+public class GuildStickersUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("stickers")]
+    public List<Sticker> Stickers { get; set; } = new();
+}
+
+/// <summary>
+/// MESSAGE_REACTION_REMOVE_EMOJI event — fired when all reactions for a specific emoji are removed.
+/// </summary>
+public class MessageReactionRemoveEmojiEvent : GatewayEvent
+{
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("message_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong MessageId { get; set; }
+
+    [JsonPropertyName("emoji")]
+    public Emoji Emoji { get; set; } = null!;
+}
+
+/// <summary>
+/// GUILD_INTEGRATIONS_UPDATE event — fired when a guild's integrations are updated.
+/// </summary>
+public class GuildIntegrationsUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+}
+
+/// <summary>
+/// USER_UPDATE event — fired when the bot user's own settings change.
+/// </summary>
+public class UserUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("username")]
+    public string Username { get; set; } = string.Empty;
+
+    [JsonPropertyName("discriminator")]
+    public string Discriminator { get; set; } = string.Empty;
+
+    [JsonPropertyName("avatar")]
+    public string? Avatar { get; set; }
+
+    [JsonPropertyName("bot")]
+    public bool? Bot { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    [JsonPropertyName("verified")]
+    public bool? Verified { get; set; }
 }

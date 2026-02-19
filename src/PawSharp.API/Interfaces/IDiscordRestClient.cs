@@ -194,4 +194,38 @@ public interface IDiscordRestClient
     Task<AutoModerationRule?> CreateAutoModerationRuleAsync(ulong guildId, CreateAutoModerationRuleRequest request);
     Task<AutoModerationRule?> ModifyAutoModerationRuleAsync(ulong guildId, ulong ruleId, ModifyAutoModerationRuleRequest request);
     Task<bool> DeleteAutoModerationRuleAsync(ulong guildId, ulong ruleId);
+
+    // Stage Instance operations
+    Task<StageInstance?> CreateStageInstanceAsync(CreateStageInstanceRequest request);
+    Task<StageInstance?> GetStageInstanceAsync(ulong channelId);
+    Task<StageInstance?> ModifyStageInstanceAsync(ulong channelId, ModifyStageInstanceRequest request);
+    Task<bool> DeleteStageInstanceAsync(ulong channelId);
+
+    // Sticker operations
+    Task<Sticker?> GetStickerAsync(ulong stickerId);
+    Task<List<StickerPack>?> GetNitroStickerPacksAsync();
+    Task<List<Sticker>?> GetGuildStickersAsync(ulong guildId);
+    Task<Sticker?> GetGuildStickerAsync(ulong guildId, ulong stickerId);
+    Task<Sticker?> CreateGuildStickerAsync(ulong guildId, CreateGuildStickerRequest request);
+    Task<Sticker?> ModifyGuildStickerAsync(ulong guildId, ulong stickerId, ModifyGuildStickerRequest request);
+    Task<bool> DeleteGuildStickerAsync(ulong guildId, ulong stickerId);
+
+    // DM operations
+    Task<Channel?> CreateDmAsync(ulong recipientId);
+
+    // Gateway Bot info
+    Task<GatewayBotInfo?> GetGatewayBotAsync();
+
+    // Voice Region operations
+    Task<List<VoiceRegion>?> GetVoiceRegionsAsync();
+    Task<List<VoiceRegion>?> GetGuildVoiceRegionsAsync(ulong guildId);
+
+    // Message crosspost
+    Task<Message?> CrosspostMessageAsync(ulong channelId, ulong messageId);
+
+    // Channel permission overwrites
+    Task<bool> EditChannelPermissionsAsync(ulong channelId, ulong overwriteId, EditChannelPermissionsRequest request);
+
+    // Current user connections
+    Task<List<UserConnection>?> GetCurrentUserConnectionsAsync();
 }

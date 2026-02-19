@@ -137,6 +137,45 @@ public class InteractionCallbackData
     public object? AllowedMentions { get; set; }
     public int? Flags { get; set; }
     public List<MessageComponent>? Components { get; set; }
+    /// <summary>
+    /// Autocomplete result choices. Only used with ApplicationCommandAutocompleteResult responses.
+    /// </summary>
+    public List<AutocompleteChoice>? Choices { get; set; }
+    /// <summary>
+    /// Title of the modal. Only used with Modal responses.
+    /// </summary>
+    public string? Title { get; set; }
+    /// <summary>
+    /// Custom ID of the modal. Only used with Modal responses.
+    /// </summary>
+    public string? CustomId { get; set; }
+}
+
+/// <summary>
+/// Represents one autocomplete suggestion choice returned to Discord.
+/// </summary>
+public class AutocompleteChoice
+{
+    public string Name { get; set; } = string.Empty;
+    public object Value { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Represents a text input component within a modal.
+/// </summary>
+public class TextInput : MessageComponent
+{
+    public TextInput() { Type = 4; }
+
+    public string CustomId { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    /// <summary>1 = SHORT, 2 = PARAGRAPH</summary>
+    public int Style { get; set; } = 1;
+    public bool Required { get; set; } = true;
+    public string? Placeholder { get; set; }
+    public int? MinLength { get; set; }
+    public int? MaxLength { get; set; }
+    public string? Value { get; set; }
 }
 
 // Invite Request Models
@@ -311,4 +350,58 @@ public class ModifyAutoModerationRuleRequest
     public bool? Enabled { get; set; }
     public List<ulong>? ExemptRoles { get; set; }
     public List<ulong>? ExemptChannels { get; set; }
+}
+
+// Stage Instance Request Models
+public class CreateStageInstanceRequest
+{
+    /// <summary>The id of the Stage channel.</summary>
+    public ulong ChannelId { get; set; }
+    /// <summary>The topic of the Stage instance (1-120 characters).</summary>
+    public string Topic { get; set; } = string.Empty;
+    /// <summary>1 = PUBLIC, 2 = GUILD_ONLY. Defaults to GUILD_ONLY.</summary>
+    public int? PrivacyLevel { get; set; }
+    /// <summary>Notify @everyone that a Stage instance has started.</summary>
+    public bool? SendStartNotification { get; set; }
+    /// <summary>The id of the scheduled event associated with this Stage instance.</summary>
+    public ulong? GuildScheduledEventId { get; set; }
+}
+
+public class ModifyStageInstanceRequest
+{
+    public string? Topic { get; set; }
+    public int? PrivacyLevel { get; set; }
+}
+
+// Sticker Request Models
+public class CreateGuildStickerRequest
+{
+    /// <summary>Name of the sticker (2-30 characters).</summary>
+    public string Name { get; set; } = string.Empty;
+    /// <summary>Description of the sticker (empty or 2-100 characters).</summary>
+    public string Description { get; set; } = string.Empty;
+    /// <summary>Autocomplete/suggestion tags for the sticker (max 200 characters, comma-separated).</summary>
+    public string Tags { get; set; } = string.Empty;
+    /// <summary>The sticker file bytes. Must be uploaded as multipart/form-data.</summary>
+    public byte[]? FileData { get; set; }
+    public string? FileName { get; set; }
+    public string? ContentType { get; set; }
+}
+
+public class ModifyGuildStickerRequest
+{
+    public string? Name { get; set; }
+    public string? Description { get; set; }
+    public string? Tags { get; set; }
+}
+
+// Channel Permission Overwrite Request Model
+public class EditChannelPermissionsRequest
+{
+    /// <summary>The bitwise value of all allowed permissions.</summary>
+    public string? Allow { get; set; }
+    /// <summary>The bitwise value of all disallowed permissions.</summary>
+    public string? Deny { get; set; }
+    /// <summary>0 = role, 1 = member.</summary>
+    public int Type { get; set; }
 }

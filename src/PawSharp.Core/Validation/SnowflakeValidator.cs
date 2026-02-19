@@ -19,15 +19,7 @@ public static class SnowflakeValidator
     {
         if (snowflake == 0)
         {
-            throw new ValidationException($"Snowflake ID cannot be zero.", parameterName, snowflake);
-        }
-
-        // Discord Snowflake IDs are 64-bit integers, so any non-zero value is technically valid
-        // However, we can add additional validation for reasonable ranges if needed
-        // Discord Snowflake IDs started around 2015, so they should be > 1000000000000000000
-        if (snowflake < 1000000000000000000UL)
-        {
-            throw new ValidationException($"Snowflake ID appears to be invalid (too small).", parameterName, snowflake);
+            throw new ValidationException($"Snowflake ID must be a valid Snowflake (non-zero).", parameterName, snowflake);
         }
     }
 
