@@ -224,6 +224,12 @@ public class Guild : DiscordEntity
     public List<Channel>? Channels { get; set; }
     
     /// <summary>
+    /// Custom guild stickers.
+    /// </summary>
+    [JsonPropertyName("stickers")]
+    public List<Sticker>? Stickers { get; set; }
+    
+    /// <summary>
     /// Members in the guild.
     /// </summary>
     [JsonPropertyName("members")]

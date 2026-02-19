@@ -58,6 +58,9 @@ artifacts/
 # ReSharper
 _ReSharper*/
 *.[Rr]e[Ss]harper
+
+# Locally built NuGet packages
+nupkgs/
 *.DotSettings.user
 
 # JetBrains Rider

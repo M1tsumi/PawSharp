@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using PawSharp.API;
 using PawSharp.API.Clients;
+using PawSharp.API.Interfaces;
 using PawSharp.API.Models;
 using PawSharp.Gateway;
 using PawSharp.Gateway.Events;
@@ -16,15 +17,18 @@ using PawSharp.Core.Entities;
 namespace PawSharp.Interactions;
 
 /// <summary>
-/// Handles Discord interactions (slash commands, components).
+/// Handles Discord interactions (slash commands, components, autocomplete, context menus).
 /// </summary>
 public class InteractionHandler
 {
-    private readonly DiscordRestClient _restClient;
+    private readonly IDiscordRestClient _restClient;
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _commandHandlers = new();
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _componentHandlers = new();
+    private readonly Dictionary<string, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>>> _autocompleteHandlers = new();
+    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _userContextMenuHandlers = new();
+    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _messageContextMenuHandlers = new();
 
-    public InteractionHandler(DiscordRestClient restClient)
+    public InteractionHandler(IDiscordRestClient restClient)
     {
         _restClient = restClient;
     }
@@ -46,23 +50,94 @@ public class InteractionHandler
     }
 
     /// <summary>
-    /// Handles an interaction event.
+    /// Registers an autocomplete handler for a command. The handler returns a list of choices
+    /// which will be sent back to Discord automatically.
+    /// </summary>
+    public void RegisterAutocomplete(string commandName, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>> handler)
+    {
+        _autocompleteHandlers[commandName] = handler;
+    }
+
+    /// <summary>
+    /// Registers a user context menu command handler (right-click on a user).
+    /// </summary>
+    public void RegisterUserContextMenu(string name, Func<InteractionCreateEvent, Task> handler)
+    {
+        _userContextMenuHandlers[name] = handler;
+    }
+
+    /// <summary>
+    /// Registers a message context menu command handler (right-click on a message).
+    /// </summary>
+    public void RegisterMessageContextMenu(string name, Func<InteractionCreateEvent, Task> handler)
+    {
+        _messageContextMenuHandlers[name] = handler;
+    }
+
+    /// <summary>
+    /// Handles an interaction event by routing to the appropriate registered handler.
     /// </summary>
     public async Task HandleInteractionAsync(InteractionCreateEvent interaction)
     {
-        if (interaction.Type == 2) // APPLICATION_COMMAND
+        switch ((InteractionType)interaction.Type)
         {
-            if (interaction.Data?.Name != null && _commandHandlers.TryGetValue(interaction.Data.Name, out var handler))
-            {
-                await handler(interaction);
-            }
+            case InteractionType.ApplicationCommand:
+                await HandleApplicationCommandAsync(interaction);
+                break;
+
+            case InteractionType.MessageComponent:
+                if (interaction.Data?.CustomId != null &&
+                    _componentHandlers.TryGetValue(interaction.Data.CustomId, out var componentHandler))
+                {
+                    await componentHandler(interaction);
+                }
+                break;
+
+            case InteractionType.ApplicationCommandAutocomplete:
+                if (interaction.Data?.Name != null &&
+                    _autocompleteHandlers.TryGetValue(interaction.Data.Name, out var autocompleteHandler))
+                {
+                    var choices = await autocompleteHandler(interaction);
+                    var response = new InteractionResponse
+                    {
+                        Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                        Data = new InteractionCallbackData { Choices = choices }
+                    };
+                    await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+                }
+                break;
+
+            case InteractionType.ModalSubmit:
+                if (interaction.Data?.CustomId != null &&
+                    _componentHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
+                {
+                    await modalHandler(interaction);
+                }
+                break;
         }
-        else if (interaction.Type == 3) // MESSAGE_COMPONENT
+    }
+
+    private async Task HandleApplicationCommandAsync(InteractionCreateEvent interaction)
+    {
+        if (interaction.Data?.Name == null) return;
+
+        // Route by application command type: CHAT_INPUT=1, USER=2, MESSAGE=3
+        switch (interaction.Data.Type)
         {
-            if (interaction.Data?.CustomId != null && _componentHandlers.TryGetValue(interaction.Data.CustomId, out var handler))
-            {
-                await handler(interaction);
-            }
+            case (int)PawSharp.Interactions.Models.ApplicationCommandType.User:
+                if (_userContextMenuHandlers.TryGetValue(interaction.Data.Name, out var userHandler))
+                    await userHandler(interaction);
+                break;
+
+            case (int)PawSharp.Interactions.Models.ApplicationCommandType.Message:
+                if (_messageContextMenuHandlers.TryGetValue(interaction.Data.Name, out var messageHandler))
+                    await messageHandler(interaction);
+                break;
+
+            default: // CHAT_INPUT (1) or unrecognised — fall through to slash command handlers
+                if (_commandHandlers.TryGetValue(interaction.Data.Name, out var slashHandler))
+                    await slashHandler(interaction);
+                break;
         }
     }
 
@@ -122,6 +197,18 @@ public class InteractionHandler
     {
         return await _restClient.BatchEditApplicationCommandPermissionsAsync(applicationId, guildId, permissions);
     }
+}
+
+/// <summary>
+/// Discord interaction types.
+/// </summary>
+public enum InteractionType
+{
+    Ping = 1,
+    ApplicationCommand = 2,
+    MessageComponent = 3,
+    ApplicationCommandAutocomplete = 4,
+    ModalSubmit = 5
 }
 
 /// <summary>

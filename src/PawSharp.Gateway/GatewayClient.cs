@@ -13,7 +13,7 @@ using PawSharp.Gateway.Heartbeat;
 
 namespace PawSharp.Gateway
 {
-    public class GatewayClient
+    public class GatewayClient : IGatewayClient
     {
         private readonly PawSharpOptions _options;
         private readonly ILogger _logger;
@@ -599,6 +599,30 @@ namespace PawSharp.Gateway
                         break;
                     case "GUILD_BAN_REMOVE":
                         await _eventDispatcher.DispatchFromJsonAsync<GuildBanRemoveEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_ROLE_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildRoleCreateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_ROLE_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildRoleUpdateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_ROLE_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildRoleDeleteEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_MEMBERS_CHUNK":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildMembersChunkEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_STICKERS_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildStickersUpdateEvent>(eventType, eventData);
+                        break;
+                    case "MESSAGE_REACTION_REMOVE_EMOJI":
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageReactionRemoveEmojiEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_INTEGRATIONS_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildIntegrationsUpdateEvent>(eventType, eventData);
+                        break;
+                    case "USER_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<UserUpdateEvent>(eventType, eventData);
                         break;
                     case "VOICE_STATE_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);

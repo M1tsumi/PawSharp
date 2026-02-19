@@ -14,6 +14,11 @@ public class DeserializationException : DiscordException
     public string? RawJson { get; }
 
     /// <summary>
+    /// Gets the raw JSON string that failed to deserialize. Alias for <see cref="RawJson"/>.
+    /// </summary>
+    public string? JsonContent => RawJson;
+
+    /// <summary>
     /// Gets the target type that was being deserialized to.
     /// </summary>
     public Type? TargetType { get; }
@@ -25,6 +30,17 @@ public class DeserializationException : DiscordException
     public DeserializationException(string message)
         : base(message)
     {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DeserializationException"/> class with the raw JSON that failed.
+    /// </summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="jsonContent">The raw JSON string that failed to deserialize.</param>
+    public DeserializationException(string message, string jsonContent)
+        : base(message)
+    {
+        RawJson = jsonContent;
     }
 
     /// <summary>
