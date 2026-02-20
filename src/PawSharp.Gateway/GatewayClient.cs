@@ -624,8 +624,7 @@ namespace PawSharp.Gateway
                     case "USER_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<UserUpdateEvent>(eventType, eventData);
                         break;
-                    case "VOICE_STATE_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
+                    case "VOICE_STATE_UPDATE":                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
                         if (VoiceStateUpdate != null)
                         {
                             var voiceStateEvent = JsonSerializer.Deserialize<VoiceStateUpdateEvent>(eventData);
@@ -663,6 +662,94 @@ namespace PawSharp.Gateway
                         break;
                     case "THREAD_MEMBERS_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<ThreadMembersUpdateEvent>(eventType, eventData);
+                        break;
+                    // alpha12 events ─────────────────────────────────────────
+                    case "GUILD_SCHEDULED_EVENT_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildScheduledEventCreateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SCHEDULED_EVENT_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildScheduledEventUpdateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SCHEDULED_EVENT_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildScheduledEventDeleteEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SCHEDULED_EVENT_USER_ADD":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildScheduledEventUserAddEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SCHEDULED_EVENT_USER_REMOVE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildScheduledEventUserRemoveEvent>(eventType, eventData);
+                        break;
+                    case "AUTO_MODERATION_RULE_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<AutoModerationRuleCreateEvent>(eventType, eventData);
+                        break;
+                    case "AUTO_MODERATION_RULE_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<AutoModerationRuleUpdateEvent>(eventType, eventData);
+                        break;
+                    case "AUTO_MODERATION_RULE_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<AutoModerationRuleDeleteEvent>(eventType, eventData);
+                        break;
+                    case "AUTO_MODERATION_ACTION_EXECUTION":
+                        await _eventDispatcher.DispatchFromJsonAsync<AutoModerationActionExecutionEvent>(eventType, eventData);
+                        break;
+                    case "STAGE_INSTANCE_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceCreateEvent>(eventType, eventData);
+                        break;
+                    case "STAGE_INSTANCE_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceUpdateEvent>(eventType, eventData);
+                        break;
+                    case "STAGE_INSTANCE_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceDeleteEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_AUDIT_LOG_ENTRY_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAuditLogEntryCreateEvent>(eventType, eventData);
+                        break;
+                    case "ENTITLEMENT_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<EntitlementCreateEvent>(eventType, eventData);
+                        break;
+                    case "ENTITLEMENT_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<EntitlementUpdateEvent>(eventType, eventData);
+                        break;
+                    case "ENTITLEMENT_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<EntitlementDeleteEvent>(eventType, eventData);
+                        break;
+                    case "MESSAGE_POLL_VOTE_ADD":
+                        await _eventDispatcher.DispatchFromJsonAsync<MessagePollVoteAddEvent>(eventType, eventData);
+                        break;
+                    case "MESSAGE_POLL_VOTE_REMOVE":
+                        await _eventDispatcher.DispatchFromJsonAsync<MessagePollVoteRemoveEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SOUNDBOARD_SOUND_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundCreateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SOUNDBOARD_SOUND_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundUpdateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SOUNDBOARD_SOUND_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundDeleteEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_SOUNDBOARD_SOUNDS_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundsUpdateEvent>(eventType, eventData);
+                        break;
+                    case "SUBSCRIPTION_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionCreateEvent>(eventType, eventData);
+                        break;
+                    case "SUBSCRIPTION_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionUpdateEvent>(eventType, eventData);
+                        break;
+                    case "SUBSCRIPTION_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionDeleteEvent>(eventType, eventData);
+                        break;
+                    case "MESSAGE_DELETE_BULK":
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageDeleteBulkEvent>(eventType, eventData);
+                        break;
+                    case "INVITE_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<InviteCreateEvent>(eventType, eventData);
+                        break;
+                    case "INVITE_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<InviteDeleteEvent>(eventType, eventData);
+                        break;
+                    case "WEBHOOKS_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<WebhooksUpdateEvent>(eventType, eventData);
                         break;
                     default:
                         _logger.LogDebug($"Unhandled event type: {eventType}");

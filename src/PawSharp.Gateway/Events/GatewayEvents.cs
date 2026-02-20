@@ -1382,3 +1382,717 @@ public class UserUpdateEvent : GatewayEvent
     [JsonPropertyName("verified")]
     public bool? Verified { get; set; }
 }
+
+// ── New events added in alpha12 ───────────────────────────────────────────────
+
+/// <summary>
+/// GUILD_SCHEDULED_EVENT_CREATE event.
+/// </summary>
+public class GuildScheduledEventCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
+
+    [JsonPropertyName("creator")]
+    public User? Creator { get; set; }
+}
+
+/// <summary>
+/// GUILD_SCHEDULED_EVENT_UPDATE event.
+/// </summary>
+public class GuildScheduledEventUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
+}
+
+/// <summary>
+/// GUILD_SCHEDULED_EVENT_DELETE event.
+/// </summary>
+public class GuildScheduledEventDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// GUILD_SCHEDULED_EVENT_USER_ADD event — fired when a user subscribes to an event.
+/// </summary>
+public class GuildScheduledEventUserAddEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_scheduled_event_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildScheduledEventId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+}
+
+/// <summary>
+/// GUILD_SCHEDULED_EVENT_USER_REMOVE event — fired when a user unsubscribes from an event.
+/// </summary>
+public class GuildScheduledEventUserRemoveEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_scheduled_event_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildScheduledEventId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+}
+
+/// <summary>
+/// AUTO_MODERATION_RULE_CREATE event.
+/// </summary>
+public class AutoModerationRuleCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("trigger_type")]
+    public int TriggerType { get; set; }
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+}
+
+/// <summary>
+/// AUTO_MODERATION_RULE_UPDATE event.
+/// </summary>
+public class AutoModerationRuleUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("trigger_type")]
+    public int TriggerType { get; set; }
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+}
+
+/// <summary>
+/// AUTO_MODERATION_RULE_DELETE event.
+/// </summary>
+public class AutoModerationRuleDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// AUTO_MODERATION_ACTION_EXECUTION event — fired when any rule action is executed.
+/// </summary>
+public class AutoModerationActionExecutionEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("action")]
+    public AutoModerationActionObject Action { get; set; } = null!;
+
+    [JsonPropertyName("rule_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong RuleId { get; set; }
+
+    [JsonPropertyName("rule_trigger_type")]
+    public int RuleTriggerType { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? ChannelId { get; set; }
+
+    [JsonPropertyName("message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? MessageId { get; set; }
+
+    [JsonPropertyName("alert_system_message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? AlertSystemMessageId { get; set; }
+
+    [JsonPropertyName("content")]
+    public string? Content { get; set; }
+
+    [JsonPropertyName("matched_keyword")]
+    public string? MatchedKeyword { get; set; }
+
+    [JsonPropertyName("matched_content")]
+    public string? MatchedContent { get; set; }
+}
+
+/// <summary>
+/// Embedded action for AUTO_MODERATION_ACTION_EXECUTION.
+/// </summary>
+public class AutoModerationActionObject
+{
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public object? Metadata { get; set; }
+}
+
+/// <summary>
+/// STAGE_INSTANCE_CREATE event.
+/// </summary>
+public class StageInstanceCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("topic")]
+    public string Topic { get; set; } = string.Empty;
+
+    [JsonPropertyName("privacy_level")]
+    public int PrivacyLevel { get; set; }
+
+    [JsonPropertyName("discoverable_disabled")]
+    public bool? DiscoverableDisabled { get; set; }
+
+    [JsonPropertyName("guild_scheduled_event_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildScheduledEventId { get; set; }
+}
+
+/// <summary>
+/// STAGE_INSTANCE_UPDATE event.
+/// </summary>
+public class StageInstanceUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("topic")]
+    public string Topic { get; set; } = string.Empty;
+
+    [JsonPropertyName("privacy_level")]
+    public int PrivacyLevel { get; set; }
+}
+
+/// <summary>
+/// STAGE_INSTANCE_DELETE event.
+/// </summary>
+public class StageInstanceDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+}
+
+/// <summary>
+/// GUILD_AUDIT_LOG_ENTRY_CREATE event — fired when an audit log entry is created.
+/// </summary>
+public class GuildAuditLogEntryCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("action_type")]
+    public int ActionType { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? UserId { get; set; }
+
+    [JsonPropertyName("target_id")]
+    public string? TargetId { get; set; }
+
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("changes")]
+    public List<object>? Changes { get; set; }
+
+    [JsonPropertyName("options")]
+    public object? Options { get; set; }
+}
+
+/// <summary>
+/// ENTITLEMENT_CREATE event — fired when a user subscribes to an SKU.
+/// </summary>
+public class EntitlementCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("sku_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong SkuId { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? UserId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    [JsonPropertyName("deleted")]
+    public bool Deleted { get; set; }
+
+    [JsonPropertyName("starts_at")]
+    public DateTimeOffset? StartsAt { get; set; }
+
+    [JsonPropertyName("ends_at")]
+    public DateTimeOffset? EndsAt { get; set; }
+}
+
+/// <summary>
+/// ENTITLEMENT_UPDATE event — fired when a user's subscription renews.
+/// </summary>
+public class EntitlementUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("sku_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong SkuId { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? UserId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    [JsonPropertyName("starts_at")]
+    public DateTimeOffset? StartsAt { get; set; }
+
+    [JsonPropertyName("ends_at")]
+    public DateTimeOffset? EndsAt { get; set; }
+}
+
+/// <summary>
+/// ENTITLEMENT_DELETE event — fired when a user's entitlement is deleted (not expiry).
+/// </summary>
+public class EntitlementDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("sku_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong SkuId { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? UserId { get; set; }
+}
+
+/// <summary>
+/// MESSAGE_POLL_VOTE_ADD event — fired when a user votes in a poll.
+/// </summary>
+public class MessagePollVoteAddEvent : GatewayEvent
+{
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("message_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong MessageId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("answer_id")]
+    public int AnswerId { get; set; }
+}
+
+/// <summary>
+/// MESSAGE_POLL_VOTE_REMOVE event — fired when a user retracts a poll vote.
+/// </summary>
+public class MessagePollVoteRemoveEvent : GatewayEvent
+{
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("message_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong MessageId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("answer_id")]
+    public int AnswerId { get; set; }
+}
+
+/// <summary>
+/// GUILD_SOUNDBOARD_SOUND_CREATE event.
+/// </summary>
+public class GuildSoundboardSoundCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("sound_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong SoundId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("volume")]
+    public double Volume { get; set; }
+
+    [JsonPropertyName("emoji_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? EmojiId { get; set; }
+
+    [JsonPropertyName("emoji_name")]
+    public string? EmojiName { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("available")]
+    public bool Available { get; set; }
+}
+
+/// <summary>
+/// GUILD_SOUNDBOARD_SOUND_UPDATE event.
+/// </summary>
+public class GuildSoundboardSoundUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("sound_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong SoundId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("volume")]
+    public double Volume { get; set; }
+
+    [JsonPropertyName("emoji_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? EmojiId { get; set; }
+
+    [JsonPropertyName("emoji_name")]
+    public string? EmojiName { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("available")]
+    public bool Available { get; set; }
+}
+
+/// <summary>
+/// GUILD_SOUNDBOARD_SOUND_DELETE event.
+/// </summary>
+public class GuildSoundboardSoundDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("sound_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong SoundId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+}
+
+/// <summary>
+/// GUILD_SOUNDBOARD_SOUNDS_UPDATE event — fired when multiple soundboard sounds are updated.
+/// </summary>
+public class GuildSoundboardSoundsUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("soundboard_sounds")]
+    public List<SoundboardSound> SoundboardSounds { get; set; } = new();
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+}
+
+/// <summary>
+/// SUBSCRIPTION_CREATE event — fired when a subscription is created.
+/// </summary>
+public class SubscriptionCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    [JsonPropertyName("sku_ids")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
+    public List<ulong> SkuIds { get; set; } = new();
+
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
+
+    [JsonPropertyName("current_period_start")]
+    public DateTimeOffset CurrentPeriodStart { get; set; }
+
+    [JsonPropertyName("current_period_end")]
+    public DateTimeOffset CurrentPeriodEnd { get; set; }
+}
+
+/// <summary>
+/// SUBSCRIPTION_UPDATE event — fired when a subscription is updated.
+/// </summary>
+public class SubscriptionUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    [JsonPropertyName("sku_ids")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
+    public List<ulong> SkuIds { get; set; } = new();
+
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
+
+    [JsonPropertyName("current_period_start")]
+    public DateTimeOffset CurrentPeriodStart { get; set; }
+
+    [JsonPropertyName("current_period_end")]
+    public DateTimeOffset CurrentPeriodEnd { get; set; }
+}
+
+/// <summary>
+/// SUBSCRIPTION_DELETE event — fired when a subscription is deleted.
+/// </summary>
+public class SubscriptionDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+}
+
+/// <summary>
+/// MESSAGE_DELETE_BULK event — fired when multiple messages are deleted at once.
+/// </summary>
+public class MessageDeleteBulkEvent : GatewayEvent
+{
+    [JsonPropertyName("ids")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
+    public List<ulong> Ids { get; set; } = new();
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+}
+
+/// <summary>
+/// INVITE_CREATE event.
+/// </summary>
+public class InviteCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("inviter")]
+    public User? Inviter { get; set; }
+
+    [JsonPropertyName("max_age")]
+    public int MaxAge { get; set; }
+
+    [JsonPropertyName("max_uses")]
+    public int MaxUses { get; set; }
+
+    [JsonPropertyName("target_type")]
+    public int? TargetType { get; set; }
+
+    [JsonPropertyName("target_user")]
+    public User? TargetUser { get; set; }
+
+    [JsonPropertyName("temporary")]
+    public bool Temporary { get; set; }
+
+    [JsonPropertyName("uses")]
+    public int Uses { get; set; }
+}
+
+/// <summary>
+/// INVITE_DELETE event.
+/// </summary>
+public class InviteDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// WEBHOOKS_UPDATE event — fired when a channel's webhooks change.
+/// </summary>
+public class WebhooksUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("channel_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+}
