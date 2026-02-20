@@ -103,12 +103,22 @@ public enum GatewayIntents : uint
     /// Auto-moderation execution events.
     /// </summary>
     AutoModerationExecution = 1 << 21,
-    
+
+    /// <summary>
+    /// Guild poll vote events (MESSAGE_POLL_VOTE_ADD, MESSAGE_POLL_VOTE_REMOVE).
+    /// </summary>
+    GuildMessagePolls = 1 << 24,
+
+    /// <summary>
+    /// Direct message poll vote events (MESSAGE_POLL_VOTE_ADD, MESSAGE_POLL_VOTE_REMOVE in DMs).
+    /// </summary>
+    DirectMessagePolls = 1 << 25,
+
     /// <summary>
     /// All non-privileged intents.
     /// </summary>
-    AllNonPrivileged = Guilds | GuildModeration | GuildEmojisAndStickers | GuildIntegrations | GuildWebhooks | GuildInvites | GuildVoiceStates | GuildMessages | GuildMessageReactions | GuildMessageTyping | DirectMessages | DirectMessageReactions | DirectMessageTyping | GuildScheduledEvents | AutoModerationConfiguration | AutoModerationExecution,
-    
+    AllNonPrivileged = Guilds | GuildModeration | GuildEmojisAndStickers | GuildIntegrations | GuildWebhooks | GuildInvites | GuildVoiceStates | GuildMessages | GuildMessageReactions | GuildMessageTyping | DirectMessages | DirectMessageReactions | DirectMessageTyping | GuildScheduledEvents | AutoModerationConfiguration | AutoModerationExecution | GuildMessagePolls | DirectMessagePolls,
+
     /// <summary>
     /// All intents (including privileged).
     /// </summary>
