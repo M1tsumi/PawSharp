@@ -101,6 +101,7 @@ public class DiscordRestClient : IDiscordRestClient
     // User operations
     public async Task<User?> GetUserAsync(ulong userId)
     {
+        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"users/{userId}");
         if (response.IsSuccessStatusCode)
         {
@@ -1497,7 +1498,9 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default)
+    private const int MaxRateLimitRetries = 5;
+
+    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default, int retryCount = 0)
     {
         // Global rate limit check
         if (DateTimeOffset.UtcNow < _globalReset)
@@ -1552,8 +1555,14 @@ public class DiscordRestClient : IDiscordRestClient
             
             // Wait for rate limiter to allow retry
             await _rateLimiter.WaitForRateLimitAsync(route, bucketHash);
-            
-            return await SendRequestAsync(method, endpoint, content, reason, cancellationToken); // Retry
+
+            if (retryCount >= MaxRateLimitRetries)
+            {
+                _logger.LogError("Rate limit retry limit ({Max}) exceeded for {Method} {Endpoint}", MaxRateLimitRetries, method, endpoint);
+                return response; // Return the 429 response rather than looping forever
+            }
+
+            return await SendRequestAsync(method, endpoint, content, reason, cancellationToken, retryCount + 1); // Retry
         }
 
         // Mark request as complete
