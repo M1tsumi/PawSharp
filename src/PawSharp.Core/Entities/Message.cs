@@ -157,6 +157,12 @@ public class Message : DiscordEntity
     [JsonPropertyName("guild_id")]
     [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
     public ulong? GuildId { get; set; }
+
+    /// <summary>
+    /// A poll attached to this message.
+    /// </summary>
+    [JsonPropertyName("poll")]
+    public Poll? Poll { get; set; }
 }
 
 /// <summary>

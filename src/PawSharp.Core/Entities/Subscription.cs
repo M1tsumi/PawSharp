@@ -22,12 +22,14 @@ public class Subscription : DiscordEntity
     /// List of SKUs subscribed to.
     /// </summary>
     [JsonPropertyName("sku_ids")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
     public List<ulong> SkuIds { get; set; } = new();
     
     /// <summary>
     /// List of entitlements granted for this subscription.
     /// </summary>
     [JsonPropertyName("entitlement_ids")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
     public List<ulong> EntitlementIds { get; set; } = new();
     
     /// <summary>
