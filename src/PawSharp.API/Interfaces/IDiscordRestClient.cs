@@ -228,4 +228,44 @@ public interface IDiscordRestClient
 
     // Current user connections
     Task<List<UserConnection>?> GetCurrentUserConnectionsAsync();
+
+    // Guild member search
+    Task<List<GuildMember>?> SearchGuildMembersAsync(ulong guildId, string query, int? limit = null);
+
+    // Modify current member (e.g. nick)
+    Task<GuildMember?> ModifyCurrentMemberAsync(ulong guildId, string? nick);
+
+    // Poll operations
+    Task<List<User>?> GetAnswerVotersAsync(ulong channelId, ulong messageId, int answerId, int? limit = null, ulong? after = null);
+    Task<Message?> EndPollAsync(ulong channelId, ulong messageId);
+
+    // SKU operations
+    Task<List<Sku>?> ListSkusAsync(ulong applicationId);
+
+    // Entitlement operations
+    Task<List<Entitlement>?> ListEntitlementsAsync(ulong applicationId, ulong? userId = null, List<ulong>? skuIds = null, ulong? before = null, ulong? after = null, int? limit = null, ulong? guildId = null, bool? excludeEnded = null);
+    Task<Entitlement?> GetEntitlementAsync(ulong applicationId, ulong entitlementId);
+    Task<Entitlement?> CreateTestEntitlementAsync(ulong applicationId, CreateTestEntitlementRequest request);
+    Task<bool> DeleteTestEntitlementAsync(ulong applicationId, ulong entitlementId);
+    Task<bool> ConsumeEntitlementAsync(ulong applicationId, ulong entitlementId);
+
+    // Subscription operations
+    Task<List<Subscription>?> ListSkuSubscriptionsAsync(ulong skuId, ulong? before = null, ulong? after = null, int? limit = null, ulong? userId = null);
+    Task<Subscription?> GetSkuSubscriptionAsync(ulong skuId, ulong subscriptionId);
+
+    // Soundboard operations
+    Task<List<SoundboardSound>?> ListDefaultSoundboardSoundsAsync();
+    Task<List<SoundboardSound>?> ListGuildSoundboardSoundsAsync(ulong guildId);
+    Task<SoundboardSound?> GetGuildSoundboardSoundAsync(ulong guildId, ulong soundId);
+    Task<SoundboardSound?> CreateGuildSoundboardSoundAsync(ulong guildId, CreateGuildSoundboardSoundRequest request);
+    Task<SoundboardSound?> ModifyGuildSoundboardSoundAsync(ulong guildId, ulong soundId, ModifyGuildSoundboardSoundRequest request);
+    Task<bool> DeleteGuildSoundboardSoundAsync(ulong guildId, ulong soundId);
+
+    // Guild Onboarding operations
+    Task<GuildOnboarding?> GetGuildOnboardingAsync(ulong guildId);
+    Task<GuildOnboarding?> ModifyGuildOnboardingAsync(ulong guildId, ModifyGuildOnboardingRequest request);
+
+    // Application Role Connection Metadata
+    Task<List<ApplicationRoleConnectionMetadata>?> GetApplicationRoleConnectionMetadataAsync(ulong applicationId);
+    Task<List<ApplicationRoleConnectionMetadata>?> UpdateApplicationRoleConnectionMetadataAsync(ulong applicationId, List<ApplicationRoleConnectionMetadata> records);
 }
