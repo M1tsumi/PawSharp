@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using PawSharp.Core.Entities;
 
 namespace PawSharp.API.Models;
@@ -14,6 +15,8 @@ public class CreateMessageRequest
     public bool? Tts { get; set; }
     public object? AllowedMentions { get; set; }
     public object? MessageReference { get; set; }
+    /// <summary>A poll to include with this message.</summary>
+    public CreatePollRequest? Poll { get; set; }
 }
 
 public class EditMessageRequest
@@ -404,4 +407,120 @@ public class EditChannelPermissionsRequest
     public string? Deny { get; set; }
     /// <summary>0 = role, 1 = member.</summary>
     public int Type { get; set; }
+}
+
+// ── Alpha12 request models ────────────────────────────────────────────────────
+
+// Poll Request Models
+public class CreatePollRequest
+{
+    /// <summary>The question of the poll. Only text is supported.</summary>
+    public PollMediaRequest Question { get; set; } = null!;
+    /// <summary>Each of the answers available in the poll (max 10).</summary>
+    public List<PollAnswerRequest> Answers { get; set; } = new();
+    /// <summary>Number of hours the poll should be open for, up to 32 days (768 hours).</summary>
+    public int Duration { get; set; }
+    /// <summary>Whether a user can select multiple answers.</summary>
+    public bool AllowMultiselect { get; set; }
+    /// <summary>The layout type of the poll. Defaults to Default (1).</summary>
+    public int? LayoutType { get; set; }
+}
+
+public class PollMediaRequest
+{
+    public string? Text { get; set; }
+    public object? Emoji { get; set; }
+}
+
+public class PollAnswerRequest
+{
+    public PollMediaRequest PollMedia { get; set; } = null!;
+}
+
+// Test Entitlement Request Models
+public class CreateTestEntitlementRequest
+{
+    /// <summary>ID of the SKU to grant the entitlement to.</summary>
+    public ulong SkuId { get; set; }
+    /// <summary>ID of the guild or user to grant the entitlement to.</summary>
+    public ulong OwnerId { get; set; }
+    /// <summary>1 = guild, 2 = user.</summary>
+    public int OwnerType { get; set; }
+}
+
+// Soundboard Request Models
+public class CreateGuildSoundboardSoundRequest
+{
+    /// <summary>Name of the soundboard sound (2-32 characters).</summary>
+    public string Name { get; set; } = string.Empty;
+    /// <summary>The mp3, ogg, or aac sound file data (base64 encoded), max 512KB.</summary>
+    public string Sound { get; set; } = string.Empty;
+    /// <summary>Volume of the soundboard sound (0 to 1). Defaults to 1.</summary>
+    public double? Volume { get; set; }
+    /// <summary>The id of the custom emoji for the soundboard sound.</summary>
+    public ulong? EmojiId { get; set; }
+    /// <summary>The unicode character of a standard emoji for the soundboard sound.</summary>
+    public string? EmojiName { get; set; }
+}
+
+public class ModifyGuildSoundboardSoundRequest
+{
+    /// <summary>Name of the soundboard sound (2-32 characters).</summary>
+    public string? Name { get; set; }
+    /// <summary>Volume of the soundboard sound (0 to 1).</summary>
+    public double? Volume { get; set; }
+    /// <summary>The id of the custom emoji for the soundboard sound.</summary>
+    public ulong? EmojiId { get; set; }
+    /// <summary>The unicode character of a standard emoji for the soundboard sound.</summary>
+    public string? EmojiName { get; set; }
+}
+
+// Guild Onboarding Request Models
+public class ModifyGuildOnboardingRequest
+{
+    /// <summary>Prompts shown during onboarding and in customize community.</summary>
+    public List<OnboardingPromptRequest>? Prompts { get; set; }
+    /// <summary>Channel IDs that members get opted into automatically.</summary>
+    public List<ulong>? DefaultChannelIds { get; set; }
+    /// <summary>Whether onboarding is enabled in the guild.</summary>
+    public bool? Enabled { get; set; }
+    /// <summary>Current mode of onboarding.</summary>
+    public int? Mode { get; set; }
+}
+
+public class OnboardingPromptRequest
+{
+    public ulong? Id { get; set; }
+    public int Type { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public List<OnboardingPromptOptionRequest> Options { get; set; } = new();
+    public bool SingleSelect { get; set; }
+    public bool Required { get; set; }
+    public bool InOnboarding { get; set; }
+}
+
+public class OnboardingPromptOptionRequest
+{
+    public ulong? Id { get; set; }
+    public List<ulong>? ChannelIds { get; set; }
+    public List<ulong>? RoleIds { get; set; }
+    public object? Emoji { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+}
+
+// ── Internal response wrapper types ──────────────────────────────────────────
+
+/// <summary>Wraps Discord's poll answer voters response { "users": [...] }.</summary>
+public class PollVotersResponse
+{
+    [JsonPropertyName("users")]
+    public List<User>? Users { get; set; }
+}
+
+/// <summary>Wraps Discord's guild soundboard sounds response { "items": [...] }.</summary>
+public class GuildSoundboardSoundsResponse
+{
+    [JsonPropertyName("items")]
+    public List<SoundboardSound>? Items { get; set; }
 }

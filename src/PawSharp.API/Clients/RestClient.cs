@@ -1279,6 +1279,224 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    // ── Alpha12 endpoints ─────────────────────────────────────────────────────
+
+    // Guild member search
+    public async Task<List<GuildMember>?> SearchGuildMembersAsync(ulong guildId, string query, int? limit = null)
+    {
+        var queryParams = new List<string> { $"query={Uri.EscapeDataString(query)}" };
+        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
+        var response = await GetAsync($"guilds/{guildId}/members/search?{string.Join("&", queryParams)}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<GuildMember>>();
+        return null;
+    }
+
+    // Modify current member
+    public async Task<GuildMember?> ModifyCurrentMemberAsync(ulong guildId, string? nick)
+    {
+        var payload = new { nick };
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/members/@me", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildMember>();
+        return null;
+    }
+
+    // Poll operations
+    public async Task<List<User>?> GetAnswerVotersAsync(ulong channelId, ulong messageId, int answerId, int? limit = null, ulong? after = null)
+    {
+        var queryParams = new List<string>();
+        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
+        if (after.HasValue) queryParams.Add($"after={after.Value}");
+        var endpoint = $"channels/{channelId}/polls/{messageId}/answers/{answerId}";
+        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<PollVotersResponse>();
+            return result?.Users;
+        }
+        return null;
+    }
+
+    public async Task<Message?> EndPollAsync(ulong channelId, ulong messageId)
+    {
+        var response = await PostAsync($"channels/{channelId}/polls/{messageId}/expire", new StringContent("{}", Encoding.UTF8, "application/json"));
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    // SKU operations
+    public async Task<List<Sku>?> ListSkusAsync(ulong applicationId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/skus");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<Sku>>();
+        return null;
+    }
+
+    // Entitlement operations
+    public async Task<List<Entitlement>?> ListEntitlementsAsync(ulong applicationId, ulong? userId = null, List<ulong>? skuIds = null, ulong? before = null, ulong? after = null, int? limit = null, ulong? guildId = null, bool? excludeEnded = null)
+    {
+        var queryParams = new List<string>();
+        if (userId.HasValue) queryParams.Add($"user_id={userId.Value}");
+        if (skuIds?.Any() == true) queryParams.Add($"sku_ids={string.Join(",", skuIds)}");
+        if (before.HasValue) queryParams.Add($"before={before.Value}");
+        if (after.HasValue) queryParams.Add($"after={after.Value}");
+        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
+        if (guildId.HasValue) queryParams.Add($"guild_id={guildId.Value}");
+        if (excludeEnded.HasValue) queryParams.Add($"exclude_ended={excludeEnded.Value.ToString().ToLower()}");
+        var endpoint = $"applications/{applicationId}/entitlements";
+        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<Entitlement>>();
+        return null;
+    }
+
+    public async Task<Entitlement?> GetEntitlementAsync(ulong applicationId, ulong entitlementId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/entitlements/{entitlementId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Entitlement>();
+        return null;
+    }
+
+    public async Task<Entitlement?> CreateTestEntitlementAsync(ulong applicationId, CreateTestEntitlementRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"applications/{applicationId}/entitlements", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Entitlement>();
+        return null;
+    }
+
+    public async Task<bool> DeleteTestEntitlementAsync(ulong applicationId, ulong entitlementId)
+    {
+        var response = await DeleteAsync($"applications/{applicationId}/entitlements/{entitlementId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> ConsumeEntitlementAsync(ulong applicationId, ulong entitlementId)
+    {
+        var response = await PostAsync($"applications/{applicationId}/entitlements/{entitlementId}/consume", new StringContent("{}", Encoding.UTF8, "application/json"));
+        return response.IsSuccessStatusCode;
+    }
+
+    // Subscription operations
+    public async Task<List<Subscription>?> ListSkuSubscriptionsAsync(ulong skuId, ulong? before = null, ulong? after = null, int? limit = null, ulong? userId = null)
+    {
+        var queryParams = new List<string>();
+        if (before.HasValue) queryParams.Add($"before={before.Value}");
+        if (after.HasValue) queryParams.Add($"after={after.Value}");
+        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
+        if (userId.HasValue) queryParams.Add($"user_id={userId.Value}");
+        var endpoint = $"skus/{skuId}/subscriptions";
+        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<Subscription>>();
+        return null;
+    }
+
+    public async Task<Subscription?> GetSkuSubscriptionAsync(ulong skuId, ulong subscriptionId)
+    {
+        var response = await GetAsync($"skus/{skuId}/subscriptions/{subscriptionId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Subscription>();
+        return null;
+    }
+
+    // Soundboard operations
+    public async Task<List<SoundboardSound>?> ListDefaultSoundboardSoundsAsync()
+    {
+        var response = await GetAsync("soundboard-default-sounds");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<SoundboardSound>>();
+        return null;
+    }
+
+    public async Task<List<SoundboardSound>?> ListGuildSoundboardSoundsAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/soundboard-sounds");
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<GuildSoundboardSoundsResponse>();
+            return result?.Items;
+        }
+        return null;
+    }
+
+    public async Task<SoundboardSound?> GetGuildSoundboardSoundAsync(ulong guildId, ulong soundId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/soundboard-sounds/{soundId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<SoundboardSound>();
+        return null;
+    }
+
+    public async Task<SoundboardSound?> CreateGuildSoundboardSoundAsync(ulong guildId, CreateGuildSoundboardSoundRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"guilds/{guildId}/soundboard-sounds", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<SoundboardSound>();
+        return null;
+    }
+
+    public async Task<SoundboardSound?> ModifyGuildSoundboardSoundAsync(ulong guildId, ulong soundId, ModifyGuildSoundboardSoundRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/soundboard-sounds/{soundId}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<SoundboardSound>();
+        return null;
+    }
+
+    public async Task<bool> DeleteGuildSoundboardSoundAsync(ulong guildId, ulong soundId)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/soundboard-sounds/{soundId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    // Guild Onboarding operations
+    public async Task<GuildOnboarding?> GetGuildOnboardingAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/onboarding");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildOnboarding>();
+        return null;
+    }
+
+    public async Task<GuildOnboarding?> ModifyGuildOnboardingAsync(ulong guildId, ModifyGuildOnboardingRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"guilds/{guildId}/onboarding", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildOnboarding>();
+        return null;
+    }
+
+    // Application Role Connection Metadata
+    public async Task<List<ApplicationRoleConnectionMetadata>?> GetApplicationRoleConnectionMetadataAsync(ulong applicationId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/role-connections/metadata");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>();
+        return null;
+    }
+
+    public async Task<List<ApplicationRoleConnectionMetadata>?> UpdateApplicationRoleConnectionMetadataAsync(ulong applicationId, List<ApplicationRoleConnectionMetadata> records)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(records), Encoding.UTF8, "application/json");
+        var response = await PutAsync($"applications/{applicationId}/role-connections/metadata", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>();
+        return null;
+    }
+
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default)
     {
         // Global rate limit check
