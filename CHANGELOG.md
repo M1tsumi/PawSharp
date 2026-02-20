@@ -4,6 +4,99 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.5.0-alpha12] - February 20, 2026
+
+Full Discord API v10 coverage across REST and Gateway — polls, monetization, soundboard, onboarding, role connections, and 28 previously-missing gateway events.
+
+### New Features
+
+**Polls API**
+- New `Poll`, `PollMedia`, `PollAnswer`, `PollResults`, `PollAnswerCount`, and `PollLayoutType` entity types in `PawSharp.Core`
+- `Message.Poll` property — messages can now carry an attached poll
+- `CreateMessageRequest.Poll` field — send a poll with a new message via `CreatePollRequest` / `PollMediaRequest` / `PollAnswerRequest`
+- `GetAnswerVotersAsync(channelId, messageId, answerId, limit?, after?)` — paginated list of users who voted on an answer
+- `EndPollAsync(channelId, messageId)` — immediately expire a poll and return the final message
+
+**New Gateway Intents (alpha12)**
+- `GatewayIntents.GuildMessagePolls` (1 << 24) — guild poll vote events
+- `GatewayIntents.DirectMessagePolls` (1 << 25) — DM poll vote events
+- `AllNonPrivileged` and `All` composite flags updated to include both new intents
+
+**Monetization (SKUs, Entitlements, Subscriptions)**
+- `ListSkusAsync(applicationId)` — list all SKUs for an application
+- `ListEntitlementsAsync` — paginated with full filter support (userId, skuIds, before, after, limit, guildId, excludeEnded)
+- `GetEntitlementAsync(applicationId, entitlementId)`
+- `CreateTestEntitlementAsync` / `DeleteTestEntitlementAsync` — test entitlement management
+- `ConsumeEntitlementAsync` — mark a consumable entitlement as consumed
+- `ListSkuSubscriptionsAsync` / `GetSkuSubscriptionAsync` — read subscription records for a SKU
+
+**Soundboard API**
+- `ListDefaultSoundboardSoundsAsync()` — Discord's built-in default sounds
+- `ListGuildSoundboardSoundsAsync(guildId)` — all custom sounds for a guild
+- `GetGuildSoundboardSoundAsync(guildId, soundId)`
+- `CreateGuildSoundboardSoundAsync` / `ModifyGuildSoundboardSoundAsync` / `DeleteGuildSoundboardSoundAsync`
+- New request models: `CreateGuildSoundboardSoundRequest`, `ModifyGuildSoundboardSoundRequest`
+
+**Guild Onboarding API**
+- New `GuildOnboarding`, `OnboardingPrompt`, `OnboardingPromptOption`, `OnboardingMode`, `OnboardingPromptType` entity types
+- `GetGuildOnboardingAsync(guildId)`
+- `ModifyGuildOnboardingAsync(guildId, request)` — update prompts, default channels, mode, and enabled flag
+- New request models: `ModifyGuildOnboardingRequest`, `OnboardingPromptRequest`, `OnboardingPromptOptionRequest`
+
+**Application Role Connection Metadata**
+- New `ApplicationRoleConnectionMetadata` and `ApplicationRoleConnectionMetadataType` entity types
+- `GetApplicationRoleConnectionMetadataAsync(applicationId)`
+- `UpdateApplicationRoleConnectionMetadataAsync(applicationId, records)` — PUT up to 5 metadata records
+
+**Guild Member Improvements**
+- `SearchGuildMembersAsync(guildId, query, limit?)` — search guild members by username/nickname
+- `ModifyCurrentMemberAsync(guildId, nick)` — update the bot's own nickname in a guild
+
+**28 New Gateway Events (alpha12)**
+
+| Event | Class |
+|---|---|
+| `GUILD_SCHEDULED_EVENT_CREATE` | `GuildScheduledEventCreateEvent` |
+| `GUILD_SCHEDULED_EVENT_UPDATE` | `GuildScheduledEventUpdateEvent` |
+| `GUILD_SCHEDULED_EVENT_DELETE` | `GuildScheduledEventDeleteEvent` |
+| `GUILD_SCHEDULED_EVENT_USER_ADD` | `GuildScheduledEventUserAddEvent` |
+| `GUILD_SCHEDULED_EVENT_USER_REMOVE` | `GuildScheduledEventUserRemoveEvent` |
+| `AUTO_MODERATION_RULE_CREATE` | `AutoModerationRuleCreateEvent` |
+| `AUTO_MODERATION_RULE_UPDATE` | `AutoModerationRuleUpdateEvent` |
+| `AUTO_MODERATION_RULE_DELETE` | `AutoModerationRuleDeleteEvent` |
+| `AUTO_MODERATION_ACTION_EXECUTION` | `AutoModerationActionExecutionEvent` |
+| `STAGE_INSTANCE_CREATE` | `StageInstanceCreateEvent` |
+| `STAGE_INSTANCE_UPDATE` | `StageInstanceUpdateEvent` |
+| `STAGE_INSTANCE_DELETE` | `StageInstanceDeleteEvent` |
+| `GUILD_AUDIT_LOG_ENTRY_CREATE` | `GuildAuditLogEntryCreateEvent` |
+| `ENTITLEMENT_CREATE` | `EntitlementCreateEvent` |
+| `ENTITLEMENT_UPDATE` | `EntitlementUpdateEvent` |
+| `ENTITLEMENT_DELETE` | `EntitlementDeleteEvent` |
+| `MESSAGE_POLL_VOTE_ADD` | `MessagePollVoteAddEvent` |
+| `MESSAGE_POLL_VOTE_REMOVE` | `MessagePollVoteRemoveEvent` |
+| `GUILD_SOUNDBOARD_SOUND_CREATE` | `GuildSoundboardSoundCreateEvent` |
+| `GUILD_SOUNDBOARD_SOUND_UPDATE` | `GuildSoundboardSoundUpdateEvent` |
+| `GUILD_SOUNDBOARD_SOUND_DELETE` | `GuildSoundboardSoundDeleteEvent` |
+| `GUILD_SOUNDBOARD_SOUNDS_UPDATE` | `GuildSoundboardSoundsUpdateEvent` |
+| `SUBSCRIPTION_CREATE` | `SubscriptionCreateEvent` |
+| `SUBSCRIPTION_UPDATE` | `SubscriptionUpdateEvent` |
+| `SUBSCRIPTION_DELETE` | `SubscriptionDeleteEvent` |
+| `MESSAGE_DELETE_BULK` | `MessageDeleteBulkEvent` |
+| `INVITE_CREATE` | `InviteCreateEvent` |
+| `INVITE_DELETE` | `InviteDeleteEvent` |
+| `WEBHOOKS_UPDATE` | `WebhooksUpdateEvent` |
+
+All 28 events are fully wired in `GatewayClient.HandleDispatchEventAsync`.
+
+### Changes
+- `Version` bumped from `0.5.0-alpha11` to `0.5.0-alpha12` in `Directory.Build.props`
+- `GatewayIntents.AllNonPrivileged` now includes `GuildMessagePolls` and `DirectMessagePolls`
+
+### Notes
+- Voice integration intentionally excluded — see `PawSharp.Voice` for optional voice support
+
+---
+
 ## [0.5.0-alpha11] - 2025
 
 Gateway event coverage, DI hardening, interaction routing, REST endpoint parity, and cache sync improvements.
