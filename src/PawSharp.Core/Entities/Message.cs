@@ -122,16 +122,16 @@ public class Message : DiscordEntity
     public object? Application { get; set; }
     
     /// <summary>
-    /// Message components like buttons.
+    /// Interactive components attached to this message (buttons, select menus, etc.).
     /// </summary>
     [JsonPropertyName("components")]
-    public List<object>? Components { get; set; }
+    public List<MessageComponent>? Components { get; set; }
     
     /// <summary>
     /// Message flags combined as a bitfield.
     /// </summary>
     [JsonPropertyName("flags")]
-    public int? Flags { get; set; }
+    public MessageFlags? Flags { get; set; }
     
     /// <summary>
     /// The message associated with the message_reference.

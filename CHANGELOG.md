@@ -4,6 +4,81 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.5.0-alpha13] - February 22, 2026
+
+Developer Experience & API Completeness — typed message components, a fluent embed builder, missing REST endpoints (reactions, invites, guild templates, widget/welcome-screen controls), and a full set of presence and channel flag enums.
+
+### New Features
+
+**Typed Message Component Hierarchy**
+- New `MessageComponent` abstract base class with polymorphic JSON converter (`MessageComponentJsonConverter`) in `PawSharp.Core.Entities`
+- Concrete types: `ActionRow`, `Button`, `SelectMenu` / `StringSelectMenu`, `UserSelectMenu`, `RoleSelectMenu`, `MentionableSelectMenu`, `ChannelSelectMenu`, `TextInput`, `UnknownComponent`
+- `SelectOption` and `SelectDefaultValue` supporting types
+- `ComponentType` enum (ActionRow=1 … ChannelSelect=8), `ButtonStyle` enum (Primary=1 … Premium=6), `TextInputStyle` enum (Short=1, Paragraph=2)
+- `Message.Components` is now `List<MessageComponent>?` — previously `List<object>?`
+
+**EmbedBuilder**
+- New fluent `EmbedBuilder` in `PawSharp.Core.Builders`
+- Methods: `WithTitle`, `WithDescription`, `WithUrl`, `WithColor(int)`, `WithColor(r,g,b)`, `WithTimestamp()`, `WithTimestamp(DateTimeOffset)`, `WithFooter`, `WithImage`, `WithThumbnail`, `WithAuthor`, `AddField`, `Build()`
+- Enforces Discord limits at build-time: title ≤ 256, description ≤ 4 096, ≤ 25 fields, field name ≤ 256, field value ≤ 1 024, footer ≤ 2 048, author name ≤ 256
+- `Build()` throws `InvalidOperationException` if no visible content is set
+
+**New Flags Enums**
+- `MessageFlags` `[Flags]` enum: Crossposted, IsCrosspost, SuppressEmbeds, SourceMessageDeleted, Urgent, HasThread, Ephemeral, Loading, FailedToMentionSomeRoles, SuppressNotifications, IsVoiceMessage
+- `ChannelFlags` `[Flags]` enum: Pinned, RequireTag, HideMediaDownloadOptions
+- `AttachmentFlags` `[Flags]` enum: IsRemix
+- `GuildMemberFlags` `[Flags]` enum: DidRejoin, CompletedOnboarding, BypassesVerification, StartedOnboarding, IsGuest, StartedHomeActions, CompletedHomeActions, AutomodQuarantinedUsername, DmSettingsUpsellAcknowledged
+- `Message.Flags` is now `MessageFlags?` — previously `int?`
+
+**New REST Endpoints**
+- `GetReactionsAsync(channelId, messageId, emoji, type?, after?, limit?)` — paginated reaction user list with optional type filter and cursor pagination
+- `FollowAnnouncementChannelAsync(channelId, webhookChannelId) → FollowedChannel` — POST `channels/{id}/followers`
+- `GetGuildPreviewAsync(guildId) → GuildPreview` — public preview for discoverable guilds
+- `GetGuildWidgetSettingsAsync(guildId) → GuildWidgetSettings`
+- `ModifyGuildWidgetAsync(guildId, request) → GuildWidgetSettings`
+- `GetGuildVanityUrlAsync(guildId) → VanityUrl`
+- `GetGuildWelcomeScreenAsync(guildId) → WelcomeScreen`
+- `ModifyGuildWelcomeScreenAsync(guildId, request) → WelcomeScreen`
+- `ModifyGuildChannelPositionsAsync(guildId, positions) → bool`
+- `ModifyGuildRolePositionsAsync(guildId, positions) → List<Role>`
+- `GetInviteAsync(code, withCounts?, withExpiration?, guildScheduledEventId?) → Invite`
+- `DeleteInviteAsync(code, reason?) → bool`
+- Guild Templates (7 methods): `GetGuildTemplatesAsync`, `GetGuildTemplateAsync`, `CreateGuildFromTemplateAsync`, `CreateGuildTemplateAsync`, `SyncGuildTemplateAsync`, `ModifyGuildTemplateAsync`, `DeleteGuildTemplateAsync`
+
+**New Entity Types**
+- `GuildPreview` — Id, Name, Icon, Splash, DiscoverySplash, Emojis, Features, ApproximateMemberCount, ApproximatePresenceCount, Description, Stickers
+- `GuildWidgetSettings` — Enabled, ChannelId
+- `WelcomeScreen` — Description, `List<WelcomeScreenChannel>`
+- `WelcomeScreenChannel` — ChannelId, Description, EmojiId, EmojiName
+- `FollowedChannel` — ChannelId, WebhookId
+- `VanityUrl` — Code, Uses
+
+**New Request Models**
+- `CreateGuildTemplateRequest`, `ModifyGuildTemplateRequest`, `CreateGuildFromTemplateRequest`
+- `ModifyGuildWidgetRequest`
+- `ModifyGuildWelcomeScreenRequest`, `WelcomeScreenChannelRequest`
+- `ModifyChannelPositionRequest` (Id, Position, LockPermissions, ParentId)
+- `ModifyRolePositionRequest` (Id, Position)
+
+### Changes
+
+- **`Message.Components`** — type changed from `List<object>?` to `List<MessageComponent>?`; deserializes automatically via `MessageComponentJsonConverter`
+- **`Message.Flags`** — type changed from `int?` to `MessageFlags?`
+- **`ModalBuilder.AddTextInput`** — `style` parameter changed from `int` (defaulting to `1`) to `TextInputStyle` (defaulting to `TextInputStyle.Short`); provides compile-time safety
+- Component model classes (`MessageComponent`, `ActionRow`, `Button`, `SelectMenu`, `SelectOption`, `TextInput`) have been moved from `PawSharp.API.Models` to `PawSharp.Core.Entities`; the `PawSharp.Core.Entities` namespace is already re-exported from `PawSharp.API` so existing code referencing the old namespace may need a `using` update
+
+### Breaking Changes
+
+| Symbol | Before | After |
+|---|---|---|
+| `Message.Components` | `List<object>?` | `List<MessageComponent>?` |
+| `Message.Flags` | `int?` | `MessageFlags?` |
+| `ModalBuilder.AddTextInput(…, style, …)` | `int style = 1` | `TextInputStyle style = TextInputStyle.Short` |
+| `TextInput.Style` | `int` | `TextInputStyle` |
+| Component models namespace | `PawSharp.API.Models` | `PawSharp.Core.Entities` |
+
+---
+
 ## [0.5.0-alpha12] - February 20, 2026
 
 Full Discord API v10 coverage across REST and Gateway — polls, monetization, soundboard, onboarding, role connections, and 28 previously-missing gateway events.
