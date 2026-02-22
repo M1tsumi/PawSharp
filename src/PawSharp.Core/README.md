@@ -13,11 +13,14 @@ PawSharp.Core provides the fundamental data models and entities that represent D
 - Input validation and data integrity checks
 - Thread-safe, immutable models for shared data
 - Additional properties and helper methods for common operations
+- Typed message component hierarchy with polymorphic JSON deserialization
+- Fluent `EmbedBuilder` with Discord limit enforcement
+- `MessageFlags`, `ChannelFlags`, `AttachmentFlags`, `GuildMemberFlags` bitfield enums
 
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Core --version 0.5.0-alpha10
+dotnet add package PawSharp.Core --version 0.5.0-alpha13
 ```
 
 ## 🚀 Quick Start
@@ -48,9 +51,15 @@ string json = System.Text.Json.JsonSerializer.Serialize(user);
 - `User` - Discord users with avatar handling
 - `Guild` - Servers with member counts and features
 - `Channel` - All channel types (text, voice, DM, etc.)
-- `Message` - Rich message content with embeds and attachments
+- `Message` - Rich message content with embeds, attachments, and typed components
 - `Member` - Guild members with roles and permissions
 - `Role` - Guild roles with permissions and colors
+
+### Component Models (alpha13)
+- `MessageComponent` / `ActionRow` / `Button` / `SelectMenu` / `TextInput` - fully typed hierarchy
+- `ComponentType`, `ButtonStyle`, `TextInputStyle` enums
+- `SelectOption`, `SelectDefaultValue` supporting types
+- `GuildPreview`, `GuildWidgetSettings`, `WelcomeScreen`, `FollowedChannel`, `VanityUrl` entities
 
 ### Advanced Models
 - `Interaction` - Slash commands and component interactions
@@ -59,9 +68,13 @@ string json = System.Text.Json.JsonSerializer.Serialize(user);
 - `Invite` - Guild and channel invites
 - `Emoji` - Custom and unicode emojis
 
+### Builders
+- `EmbedBuilder` - Fluent builder for `Embed` objects; enforces all Discord character and field-count limits at build time
+
 ### Utility Types
 - `Snowflake` - Discord's ID system
 - `Permissions` - Permission bitfields
+- `MessageFlags`, `ChannelFlags`, `AttachmentFlags`, `GuildMemberFlags` - typed flag enums
 - `Color` - Role and embed colors
 - `Timestamp` - Discord timestamp handling
 

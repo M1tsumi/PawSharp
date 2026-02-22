@@ -18,7 +18,7 @@ PawSharp.Client is the main entry point for Discord bot development with PawShar
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Client --version 0.5.0-alpha10
+dotnet add package PawSharp.Client --version 0.5.0-alpha13
 ```
 
 ## 🚀 Quick Start
