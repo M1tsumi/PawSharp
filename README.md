@@ -2,8 +2,8 @@
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.5.0-alpha11
-**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. Complete documentation and examples available.
+**Current Version:** 0.5.0-alpha13
+**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. Alpha13 adds typed message components, a fluent EmbedBuilder, new flags enums, and 20 additional REST endpoints. Complete documentation and examples available.
 
 ## Key Features
 
@@ -18,6 +18,8 @@ A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automat
 - **Rate Limiting** - Automatic rate limit handling with proper bucket tracking
 - **Dependency Injection** - First-class support for .NET DI container
 - **Fully Async** - Modern async/await throughout with nullable reference types
+- **Typed Components** - Fully typed message component hierarchy (buttons, select menus, text inputs) with polymorphic JSON deserialization
+- **EmbedBuilder** - Fluent builder with Discord limit enforcement for constructing embeds
 
 ---
 
@@ -163,13 +165,15 @@ More examples in [examples/](examples/).
 
 **REST API:**
 - Messages (create, edit, delete, fetch, reactions, pins)
-- Channels (CRUD, permissions, webhooks)
-- Guilds (info, members, roles, bans, audit logs)
+- Channels (CRUD, permissions, webhooks, announcement follows)
+- Guilds (info, members, roles, bans, audit logs, preview, widget, vanity URL, welcome screen, channel/role position reorder)
 - Users and current user endpoints
 - Interactions and slash commands
 - Scheduled events
 - Threads and thread management
 - Auto-moderation
+- Invites (get with counts/expiration, delete)
+- Guild Templates (list, get, create from template, sync, modify, delete)
 
 **Gateway Events:**
 - Message create/update/delete
@@ -200,11 +204,12 @@ More examples in [examples/](examples/).
 
 ```
 PawSharp.Core
-├── Entities (Guild, Channel, Message, User, etc.)
-├── Enums (PermissionFlags, MessageType, etc.)
+├── Entities (Guild, Channel, Message, User, components, etc.)
+├── Enums (PermissionFlags, MessageType, MessageFlags, ChannelFlags, etc.)
 ├── Exceptions (custom exception hierarchy)
 ├── Validation (input validators)
 ├── Models (API request/response types)
+├── Builders (EmbedBuilder)
 └── Interfaces (IDiscordRestClient, etc.)
 
 PawSharp.API

@@ -13,11 +13,13 @@ PawSharp.Interactions provides a complete framework for handling Discord's moder
 - Modal dialog handling
 - Type-safe interaction data parsing
 - Permission checking for commands
+- Fully typed component hierarchy — `ActionRow`, `Button`, `SelectMenu` variants, `TextInput`
+- `ModalBuilder` with fluent `AddTextInput(label, customId, TextInputStyle, …)` API
 
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Interactions --version 0.5.0-alpha10
+dotnet add package PawSharp.Interactions --version 0.5.0-alpha13
 ```
 
 ## Quick Start
@@ -117,6 +119,61 @@ interactions.OnInteractionCreate += async (interaction) =>
         }
     }
 };
+```
+
+## Modal Dialogs
+
+```csharp
+// Build a modal using the fluent ModalBuilder
+var modal = new ModalBuilder()
+    .WithCustomId("feedback_modal")
+    .WithTitle("Share your feedback")
+    .AddTextInput("Your name",     "name_input",     TextInputStyle.Short,     placeholder: "Jane Doe")
+    .AddTextInput("Your feedback", "feedback_input",  TextInputStyle.Paragraph, minLength: 10, maxLength: 500)
+    .Build();
+
+await interaction.RespondWithModalAsync(modal);
+```
+
+> **Note (alpha13 breaking change):** `AddTextInput` now accepts `TextInputStyle` instead of `int` for the `style` parameter.
+> Replace `style: 1` / `style: 2` with `TextInputStyle.Short` / `TextInputStyle.Paragraph`.
+
+## EmbedBuilder
+
+```csharp
+using PawSharp.Core.Builders;
+
+var embed = new EmbedBuilder()
+    .WithTitle("Result")
+    .WithDescription("Operation completed successfully.")
+    .WithColor(0x57F287) // green
+    .AddField("Duration", "42 ms", inline: true)
+    .WithFooter("PawSharp")
+    .WithTimestamp()
+    .Build();
+
+await interaction.RespondAsync(embed: embed);
+```
+
+## Typed Components
+
+Components received in interactions are now fully typed:
+
+```csharp
+// Message.Components is List<MessageComponent>? — deserializes automatically
+foreach (var row in message.Components ?? [])
+{
+    if (row is ActionRow actionRow)
+    {
+        foreach (var component in actionRow.Components)
+        {
+            if (component is Button btn)
+                Console.WriteLine($"Button: {btn.Label} ({btn.Style})");
+            else if (component is SelectMenu menu)
+                Console.WriteLine($"Select: {menu.CustomId}, options: {menu.Options.Count}");
+        }
+    }
+}
 ```
 
 ## Response Types

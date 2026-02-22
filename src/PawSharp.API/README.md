@@ -18,7 +18,7 @@ PawSharp.API provides a complete, production-ready REST client for Discord's API
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.API --version 0.5.0-alpha10
+dotnet add package PawSharp.API --version 0.5.0-alpha13
 ```
 
 ## 🚀 Quick Start
@@ -69,6 +69,14 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `GetGuildBanAsync(ulong guildId, ulong userId)` - Get ban details
 - `CreateGuildBanAsync(ulong guildId, ulong userId, int? deleteMessageDays, string? reason)` - Ban user
 - `RemoveGuildBanAsync(ulong guildId, ulong userId)` - Unban user
+- `GetGuildPreviewAsync(ulong guildId)` - Get public discoverable guild preview
+- `GetGuildWidgetSettingsAsync(ulong guildId)` - Get widget settings
+- `ModifyGuildWidgetAsync(ulong guildId, ModifyGuildWidgetRequest request)` - Modify widget
+- `GetGuildVanityUrlAsync(ulong guildId)` - Get vanity invite URL and use count
+- `GetGuildWelcomeScreenAsync(ulong guildId)` - Get welcome screen
+- `ModifyGuildWelcomeScreenAsync(ulong guildId, ModifyGuildWelcomeScreenRequest request)` - Modify welcome screen
+- `ModifyGuildChannelPositionsAsync(ulong guildId, IEnumerable<ModifyChannelPositionRequest> positions)` - Reorder channels
+- `ModifyGuildRolePositionsAsync(ulong guildId, IEnumerable<ModifyRolePositionRequest> positions)` - Reorder roles
 
 ### 👥 Guild Roles
 - `GetGuildRolesAsync(ulong guildId)` - Get all guild roles
@@ -86,6 +94,7 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `GetChannelInvitesAsync(ulong channelId)` - Get channel invites
 - `CreateChannelInviteAsync(ulong channelId, CreateInviteRequest request)` - Create invite
 - `DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId)` - Delete permission
+- `FollowAnnouncementChannelAsync(ulong channelId, ulong webhookChannelId)` - Follow announcement channel
 
 ### 📝 Messages
 - `CreateMessageAsync(ulong channelId, CreateMessageRequest request)` - Send message
@@ -103,6 +112,20 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `CreateReactionAsync(ulong channelId, ulong messageId, string emoji)` - Add reaction
 - `DeleteOwnReactionAsync(ulong channelId, ulong messageId, string emoji)` - Remove own reaction
 - `DeleteUserReactionAsync(ulong channelId, ulong messageId, string emoji, ulong userId)` - Remove user reaction
+- `GetReactionsAsync(ulong channelId, ulong messageId, string emoji, int? type, ulong? after, int? limit)` - Get users who reacted
+
+### 🔗 Invites
+- `GetInviteAsync(string inviteCode, bool? withCounts, bool? withExpiration, ulong? guildScheduledEventId)` - Get invite details
+- `DeleteInviteAsync(string inviteCode, string? reason)` - Delete an invite
+
+### 📄 Guild Templates
+- `GetGuildTemplatesAsync(ulong guildId)` - List all templates for a guild
+- `GetGuildTemplateAsync(string templateCode)` - Get a template by code
+- `CreateGuildFromTemplateAsync(string templateCode, CreateGuildFromTemplateRequest request)` - Create guild from template
+- `CreateGuildTemplateAsync(ulong guildId, CreateGuildTemplateRequest request)` - Create a template from guild
+- `SyncGuildTemplateAsync(ulong guildId, string templateCode)` - Sync template with current guild state
+- `ModifyGuildTemplateAsync(ulong guildId, string templateCode, ModifyGuildTemplateRequest request)` - Modify template metadata
+- `DeleteGuildTemplateAsync(ulong guildId, string templateCode)` - Delete a template
 
 ### ⚡ Interactions
 - `CreateInteractionResponseAsync(ulong interactionId, string interactionToken, InteractionResponse response)` - Respond to interaction
