@@ -268,4 +268,43 @@ public interface IDiscordRestClient
     // Application Role Connection Metadata
     Task<List<ApplicationRoleConnectionMetadata>?> GetApplicationRoleConnectionMetadataAsync(ulong applicationId);
     Task<List<ApplicationRoleConnectionMetadata>?> UpdateApplicationRoleConnectionMetadataAsync(ulong applicationId, List<ApplicationRoleConnectionMetadata> records);
+
+    // ── Alpha13 additions ─────────────────────────────────────────────────────
+
+    // Reaction query (GET reactions on a message)
+    Task<List<User>?> GetReactionsAsync(ulong channelId, ulong messageId, string emoji, int? type = null, ulong? after = null, int? limit = null);
+
+    // Announcement channel follow
+    Task<FollowedChannel?> FollowAnnouncementChannelAsync(ulong channelId, ulong webhookChannelId);
+
+    // Guild preview
+    Task<GuildPreview?> GetGuildPreviewAsync(ulong guildId);
+
+    // Guild widget
+    Task<GuildWidgetSettings?> GetGuildWidgetSettingsAsync(ulong guildId);
+    Task<GuildWidgetSettings?> ModifyGuildWidgetAsync(ulong guildId, ModifyGuildWidgetRequest request);
+
+    // Guild vanity URL
+    Task<VanityUrl?> GetGuildVanityUrlAsync(ulong guildId);
+
+    // Guild welcome screen
+    Task<WelcomeScreen?> GetGuildWelcomeScreenAsync(ulong guildId);
+    Task<WelcomeScreen?> ModifyGuildWelcomeScreenAsync(ulong guildId, ModifyGuildWelcomeScreenRequest request);
+
+    // Guild channel / role position reorder
+    Task<bool> ModifyGuildChannelPositionsAsync(ulong guildId, IEnumerable<ModifyChannelPositionRequest> positions);
+    Task<List<Role>?> ModifyGuildRolePositionsAsync(ulong guildId, IEnumerable<ModifyRolePositionRequest> positions);
+
+    // Invite lookup and deletion
+    Task<Invite?> GetInviteAsync(string inviteCode, bool? withCounts = null, bool? withExpiration = null, ulong? guildScheduledEventId = null);
+    Task<bool> DeleteInviteAsync(string inviteCode, string? reason = null);
+
+    // Guild Templates
+    Task<List<GuildTemplate>?> GetGuildTemplatesAsync(ulong guildId);
+    Task<GuildTemplate?> GetGuildTemplateAsync(string templateCode);
+    Task<Guild?> CreateGuildFromTemplateAsync(string templateCode, CreateGuildFromTemplateRequest request);
+    Task<GuildTemplate?> CreateGuildTemplateAsync(ulong guildId, CreateGuildTemplateRequest request);
+    Task<GuildTemplate?> SyncGuildTemplateAsync(ulong guildId, string templateCode);
+    Task<GuildTemplate?> ModifyGuildTemplateAsync(ulong guildId, string templateCode, ModifyGuildTemplateRequest request);
+    Task<GuildTemplate?> DeleteGuildTemplateAsync(ulong guildId, string templateCode);
 }

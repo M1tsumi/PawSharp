@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using PawSharp.API.Models;
+using PawSharp.Core.Entities;
 
 namespace PawSharp.Interactions.Builders;
 
@@ -45,7 +46,7 @@ public class ModalBuilder
     public ModalBuilder AddTextInput(
         string label,
         string customId,
-        int style = 1,
+        TextInputStyle style = TextInputStyle.Short,
         bool required = true,
         string? placeholder = null,
         int? minLength = null,
@@ -53,10 +54,10 @@ public class ModalBuilder
     {
         var input = new TextInput
         {
-            Label = label,
-            CustomId = customId,
-            Style = style,
-            Required = required,
+            Label     = label,
+            CustomId  = customId,
+            Style     = style,
+            Required  = required,
             Placeholder = placeholder,
             MinLength = minLength,
             MaxLength = maxLength

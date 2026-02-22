@@ -1,0 +1,306 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace PawSharp.Core.Entities;
+
+// ── Component Type Enums ─────────────────────────────────────────────────────
+
+/// <summary>The type of a message component.</summary>
+public enum ComponentType
+{
+    ActionRow          = 1,
+    Button             = 2,
+    StringSelect       = 3,
+    TextInput          = 4,
+    UserSelect         = 5,
+    RoleSelect         = 6,
+    MentionableSelect  = 7,
+    ChannelSelect      = 8,
+}
+
+/// <summary>Visual style of a button component.</summary>
+public enum ButtonStyle
+{
+    Primary   = 1,
+    Secondary = 2,
+    Success   = 3,
+    Danger    = 4,
+    Link      = 5,
+    Premium   = 6,
+}
+
+/// <summary>Text input style for modal components.</summary>
+public enum TextInputStyle
+{
+    Short     = 1,
+    Paragraph = 2,
+}
+
+// ── Polymorphic JSON Converter ────────────────────────────────────────────────
+
+/// <summary>
+/// Dispatches deserialization of message components to the correct concrete type
+/// based on the <c>type</c> integer discriminator field.
+/// </summary>
+public sealed class MessageComponentJsonConverter : JsonConverter<MessageComponent>
+{
+    public override MessageComponent? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var doc = JsonDocument.ParseValue(ref reader);
+        var root = doc.RootElement;
+
+        if (!root.TryGetProperty("type", out var typeProp))
+            return null;
+
+        var raw  = root.GetRawText();
+        var type = typeProp.GetInt32();
+
+        return (ComponentType)type switch
+        {
+            ComponentType.ActionRow         => JsonSerializer.Deserialize<ActionRow>(raw, options),
+            ComponentType.Button            => JsonSerializer.Deserialize<Button>(raw, options),
+            ComponentType.StringSelect      => JsonSerializer.Deserialize<SelectMenu>(raw, options),
+            ComponentType.TextInput         => JsonSerializer.Deserialize<TextInput>(raw, options),
+            ComponentType.UserSelect        => JsonSerializer.Deserialize<UserSelectMenu>(raw, options),
+            ComponentType.RoleSelect        => JsonSerializer.Deserialize<RoleSelectMenu>(raw, options),
+            ComponentType.MentionableSelect => JsonSerializer.Deserialize<MentionableSelectMenu>(raw, options),
+            ComponentType.ChannelSelect     => JsonSerializer.Deserialize<ChannelSelectMenu>(raw, options),
+            _                               => JsonSerializer.Deserialize<UnknownComponent>(raw, options),
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, MessageComponent value, JsonSerializerOptions options)
+        => JsonSerializer.Serialize(writer, value, value.GetType(), options);
+}
+
+// ── Base ─────────────────────────────────────────────────────────────────────
+
+/// <summary>Base class for all Discord message component types.</summary>
+[JsonConverter(typeof(MessageComponentJsonConverter))]
+public abstract class MessageComponent
+{
+    /// <summary>Component type discriminator.</summary>
+    [JsonPropertyName("type")]
+    public ComponentType Type { get; set; }
+}
+
+// ── ActionRow ─────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Container component. Holds up to 5 non-ActionRow components.
+/// </summary>
+public class ActionRow : MessageComponent
+{
+    public ActionRow() => Type = ComponentType.ActionRow;
+
+    /// <summary>Child components (Buttons, select menus, or text inputs).</summary>
+    [JsonPropertyName("components")]
+    public List<MessageComponent> Components { get; set; } = new();
+}
+
+// ── Button ────────────────────────────────────────────────────────────────────
+
+/// <summary>Interactive button component.</summary>
+public class Button : MessageComponent
+{
+    public Button() => Type = ComponentType.Button;
+
+    /// <summary>Button visual style.</summary>
+    [JsonPropertyName("style")]
+    public ButtonStyle Style { get; set; }
+
+    /// <summary>Text that appears on the button (max 80 characters).</summary>
+    [JsonPropertyName("label")]
+    public string? Label { get; set; }
+
+    /// <summary>Partial emoji to display on the button.</summary>
+    [JsonPropertyName("emoji")]
+    public Emoji? Emoji { get; set; }
+
+    /// <summary>
+    /// Developer-defined identifier used in interaction payloads (max 100 char).
+    /// Required for non-link and non-premium buttons.
+    /// </summary>
+    [JsonPropertyName("custom_id")]
+    public string? CustomId { get; set; }
+
+    /// <summary>URL opened when the button is clicked. Required for Link buttons.</summary>
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
+
+    /// <summary>SKU ID for Premium buttons.</summary>
+    [JsonPropertyName("sku_id")]
+    public ulong? SkuId { get; set; }
+
+    /// <summary>Whether the button is currently disabled.</summary>
+    [JsonPropertyName("disabled")]
+    public bool? Disabled { get; set; }
+}
+
+// ── Select Menu base ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// Shared properties for all select menu variants.
+/// </summary>
+public abstract class SelectMenuBase : MessageComponent
+{
+    /// <summary>Developer-defined identifier (max 100 characters).</summary>
+    [JsonPropertyName("custom_id")]
+    public string CustomId { get; set; } = string.Empty;
+
+    /// <summary>Placeholder text when nothing is selected (max 150 characters).</summary>
+    [JsonPropertyName("placeholder")]
+    public string? Placeholder { get; set; }
+
+    /// <summary>Minimum number of items that must be chosen (0–25). Default 1.</summary>
+    [JsonPropertyName("min_values")]
+    public int? MinValues { get; set; }
+
+    /// <summary>Maximum number of items that can be chosen (1–25). Default 1.</summary>
+    [JsonPropertyName("max_values")]
+    public int? MaxValues { get; set; }
+
+    /// <summary>Whether the select menu is currently disabled.</summary>
+    [JsonPropertyName("disabled")]
+    public bool? Disabled { get; set; }
+
+    /// <summary>Default selected values for auto-populated select menus.</summary>
+    [JsonPropertyName("default_values")]
+    public List<SelectDefaultValue>? DefaultValues { get; set; }
+}
+
+// ── String Select ─────────────────────────────────────────────────────────────
+
+/// <summary>
+/// String-based select menu (type 3). Also aliased as <see cref="StringSelectMenu"/>.
+/// </summary>
+public class SelectMenu : SelectMenuBase
+{
+    public SelectMenu() => Type = ComponentType.StringSelect;
+
+    /// <summary>Choices available in this menu (max 25).</summary>
+    [JsonPropertyName("options")]
+    public List<SelectOption> Options { get; set; } = new();
+}
+
+/// <summary>Alias for <see cref="SelectMenu"/> for clarity.</summary>
+public class StringSelectMenu : SelectMenu
+{
+    public StringSelectMenu() { }
+}
+
+// ── Auto-populated Select Menus ───────────────────────────────────────────────
+
+/// <summary>Select from users in the guild (type 5).</summary>
+public class UserSelectMenu : SelectMenuBase
+{
+    public UserSelectMenu() => Type = ComponentType.UserSelect;
+}
+
+/// <summary>Select from roles in the guild (type 6).</summary>
+public class RoleSelectMenu : SelectMenuBase
+{
+    public RoleSelectMenu() => Type = ComponentType.RoleSelect;
+}
+
+/// <summary>Select from users and roles in the guild (type 7).</summary>
+public class MentionableSelectMenu : SelectMenuBase
+{
+    public MentionableSelectMenu() => Type = ComponentType.MentionableSelect;
+}
+
+/// <summary>Select from channels in the guild (type 8).</summary>
+public class ChannelSelectMenu : SelectMenuBase
+{
+    public ChannelSelectMenu() => Type = ComponentType.ChannelSelect;
+
+    /// <summary>Specific channel types to include in the list.</summary>
+    [JsonPropertyName("channel_types")]
+    public List<int>? ChannelTypes { get; set; }
+}
+
+// ── TextInput ─────────────────────────────────────────────────────────────────
+
+/// <summary>Text input component used inside modal dialogs (type 4).</summary>
+public class TextInput : MessageComponent
+{
+    public TextInput() => Type = ComponentType.TextInput;
+
+    /// <summary>Developer-defined identifier (max 100 characters).</summary>
+    [JsonPropertyName("custom_id")]
+    public string CustomId { get; set; } = string.Empty;
+
+    /// <summary>Whether the input is single-line (Short) or multi-line (Paragraph).</summary>
+    [JsonPropertyName("style")]
+    public TextInputStyle Style { get; set; } = TextInputStyle.Short;
+
+    /// <summary>Label above the text input (max 45 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Minimum input length (0–4000).</summary>
+    [JsonPropertyName("min_length")]
+    public int? MinLength { get; set; }
+
+    /// <summary>Maximum input length (1–4000).</summary>
+    [JsonPropertyName("max_length")]
+    public int? MaxLength { get; set; }
+
+    /// <summary>Whether this component is required. Defaults to true.</summary>
+    [JsonPropertyName("required")]
+    public bool? Required { get; set; }
+
+    /// <summary>Pre-filled value for the text input (max 4000 characters).</summary>
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+
+    /// <summary>Placeholder text when the input is empty (max 100 characters).</summary>
+    [JsonPropertyName("placeholder")]
+    public string? Placeholder { get; set; }
+}
+
+// ── Unknown Component ─────────────────────────────────────────────────────────
+
+/// <summary>Fallback for component types not yet known to this library.</summary>
+public class UnknownComponent : MessageComponent { }
+
+// ── Shared Sub-objects ────────────────────────────────────────────────────────
+
+/// <summary>One option shown inside a string select menu.</summary>
+public class SelectOption
+{
+    /// <summary>User-facing name (max 100 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Developer-defined value returned in the interaction payload (max 100 characters).</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Additional description shown beneath the label (max 100 characters).</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Partial emoji rendered alongside the label.</summary>
+    [JsonPropertyName("emoji")]
+    public Emoji? Emoji { get; set; }
+
+    /// <summary>Whether this option is pre-selected by default.</summary>
+    [JsonPropertyName("default")]
+    public bool? Default { get; set; }
+}
+
+/// <summary>Default value for auto-populated select menus.</summary>
+public class SelectDefaultValue
+{
+    /// <summary>Snowflake ID of the default user/role/channel.</summary>
+    [JsonPropertyName("id")]
+    public ulong Id { get; set; }
+
+    /// <summary>Type of the default value: "user", "role", or "channel".</summary>
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+}

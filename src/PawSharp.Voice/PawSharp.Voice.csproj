@@ -5,7 +5,7 @@
     <RootNamespace>PawSharp.Voice</RootNamespace>
     <AssemblyName>PawSharp.Voice</AssemblyName>
     <PackageId>PawSharp.Voice</PackageId>
-    <Version>0.5.0-alpha11</Version>
+    <Version>0.5.0-alpha13</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Voice support for PawSharp (experimental - basic voice connection and heartbeat).</Description>

@@ -1498,6 +1498,190 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    // ── Alpha13 additions ─────────────────────────────────────────────────────
+
+    // Reaction query
+    public async Task<List<User>?> GetReactionsAsync(ulong channelId, ulong messageId, string emoji, int? type = null, ulong? after = null, int? limit = null)
+    {
+        var query = new List<string>();
+        if (type.HasValue) query.Add($"type={type.Value}");
+        if (after.HasValue) query.Add($"after={after.Value}");
+        if (limit.HasValue) query.Add($"limit={limit.Value}");
+
+        var endpoint = $"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}";
+        if (query.Count > 0) endpoint += "?" + string.Join("&", query);
+
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<User>>();
+        return null;
+    }
+
+    // Announcement channel follow
+    public async Task<FollowedChannel?> FollowAnnouncementChannelAsync(ulong channelId, ulong webhookChannelId)
+    {
+        var payload = new { webhook_channel_id = webhookChannelId };
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"channels/{channelId}/followers", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<FollowedChannel>();
+        return null;
+    }
+
+    // Guild preview
+    public async Task<GuildPreview?> GetGuildPreviewAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/preview");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildPreview>();
+        return null;
+    }
+
+    // Guild widget
+    public async Task<GuildWidgetSettings?> GetGuildWidgetSettingsAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/widget");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>();
+        return null;
+    }
+
+    public async Task<GuildWidgetSettings?> ModifyGuildWidgetAsync(ulong guildId, ModifyGuildWidgetRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/widget", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>();
+        return null;
+    }
+
+    // Guild vanity URL
+    public async Task<VanityUrl?> GetGuildVanityUrlAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/vanity-url");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<VanityUrl>();
+        return null;
+    }
+
+    // Guild welcome screen
+    public async Task<WelcomeScreen?> GetGuildWelcomeScreenAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/welcome-screen");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<WelcomeScreen>();
+        return null;
+    }
+
+    public async Task<WelcomeScreen?> ModifyGuildWelcomeScreenAsync(ulong guildId, ModifyGuildWelcomeScreenRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/welcome-screen", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<WelcomeScreen>();
+        return null;
+    }
+
+    // Guild channel / role position reorder
+    public async Task<bool> ModifyGuildChannelPositionsAsync(ulong guildId, IEnumerable<ModifyChannelPositionRequest> positions)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(positions), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/channels", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<List<Role>?> ModifyGuildRolePositionsAsync(ulong guildId, IEnumerable<ModifyRolePositionRequest> positions)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(positions), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/roles", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<Role>>();
+        return null;
+    }
+
+    // Invite lookup and deletion
+    public async Task<Invite?> GetInviteAsync(string inviteCode, bool? withCounts = null, bool? withExpiration = null, ulong? guildScheduledEventId = null)
+    {
+        var query = new List<string>();
+        if (withCounts.HasValue)        query.Add($"with_counts={withCounts.Value.ToString().ToLower()}");
+        if (withExpiration.HasValue)    query.Add($"with_expiration={withExpiration.Value.ToString().ToLower()}");
+        if (guildScheduledEventId.HasValue) query.Add($"guild_scheduled_event_id={guildScheduledEventId.Value}");
+
+        var endpoint = $"invites/{Uri.EscapeDataString(inviteCode)}";
+        if (query.Count > 0) endpoint += "?" + string.Join("&", query);
+
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Invite>();
+        return null;
+    }
+
+    public async Task<bool> DeleteInviteAsync(string inviteCode, string? reason = null)
+    {
+        var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason);
+        return response.IsSuccessStatusCode;
+    }
+
+    // Guild Templates
+    public async Task<List<GuildTemplate>?> GetGuildTemplatesAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/templates");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<GuildTemplate>>();
+        return null;
+    }
+
+    public async Task<GuildTemplate?> GetGuildTemplateAsync(string templateCode)
+    {
+        var response = await GetAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        return null;
+    }
+
+    public async Task<Guild?> CreateGuildFromTemplateAsync(string templateCode, CreateGuildFromTemplateRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Guild>();
+        return null;
+    }
+
+    public async Task<GuildTemplate?> CreateGuildTemplateAsync(ulong guildId, CreateGuildTemplateRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PostAsync($"guilds/{guildId}/templates", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        return null;
+    }
+
+    public async Task<GuildTemplate?> SyncGuildTemplateAsync(ulong guildId, string templateCode)
+    {
+        var response = await PutAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", null!);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        return null;
+    }
+
+    public async Task<GuildTemplate?> ModifyGuildTemplateAsync(ulong guildId, string templateCode, ModifyGuildTemplateRequest request)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var response = await PatchAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        return null;
+    }
+
+    public async Task<GuildTemplate?> DeleteGuildTemplateAsync(ulong guildId, string templateCode)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        return null;
+    }
+
     private const int MaxRateLimitRetries = 5;
 
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default, int retryCount = 0)

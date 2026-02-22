@@ -163,24 +163,6 @@ public class AutocompleteChoice
     public object Value { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// Represents a text input component within a modal.
-/// </summary>
-public class TextInput : MessageComponent
-{
-    public TextInput() { Type = 4; }
-
-    public string CustomId { get; set; } = string.Empty;
-    public string Label { get; set; } = string.Empty;
-    /// <summary>1 = SHORT, 2 = PARAGRAPH</summary>
-    public int Style { get; set; } = 1;
-    public bool Required { get; set; } = true;
-    public string? Placeholder { get; set; }
-    public int? MinLength { get; set; }
-    public int? MaxLength { get; set; }
-    public string? Value { get; set; }
-}
-
 // Invite Request Models
 public class CreateInviteRequest
 {
@@ -191,61 +173,6 @@ public class CreateInviteRequest
     public int? TargetType { get; set; }
     public ulong? TargetUserId { get; set; }
     public ulong? TargetApplicationId { get; set; }
-}
-
-// Message Component Models
-public abstract class MessageComponent
-{
-    public int Type { get; set; }
-}
-
-public class ActionRow : MessageComponent
-{
-    public ActionRow()
-    {
-        Type = 1; // ACTION_ROW
-    }
-    
-    public List<MessageComponent> Components { get; set; } = new();
-}
-
-public class Button : MessageComponent
-{
-    public Button()
-    {
-        Type = 2; // BUTTON
-    }
-    
-    public int Style { get; set; } // 1-5 (PRIMARY, SECONDARY, SUCCESS, DANGER, LINK)
-    public string? Label { get; set; }
-    public Emoji? Emoji { get; set; }
-    public string? CustomId { get; set; } // For non-link buttons
-    public string? Url { get; set; } // For link buttons
-    public bool? Disabled { get; set; }
-}
-
-public class SelectMenu : MessageComponent
-{
-    public SelectMenu()
-    {
-        Type = 3; // SELECT_MENU
-    }
-    
-    public string CustomId { get; set; } = string.Empty;
-    public List<SelectOption> Options { get; set; } = new();
-    public string? Placeholder { get; set; }
-    public int? MinValues { get; set; }
-    public int? MaxValues { get; set; }
-    public bool? Disabled { get; set; }
-}
-
-public class SelectOption
-{
-    public string Label { get; set; } = string.Empty;
-    public string Value { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public Emoji? Emoji { get; set; }
-    public bool? Default { get; set; }
 }
 
 // Slash Command Models
@@ -523,4 +450,88 @@ public class GuildSoundboardSoundsResponse
 {
     [JsonPropertyName("items")]
     public List<SoundboardSound>? Items { get; set; }
+}
+
+// ── Alpha13 request models ────────────────────────────────────────────────────
+
+// Guild Template Request Models
+
+public class CreateGuildTemplateRequest
+{
+    /// <summary>Name of the template (1-100 characters).</summary>
+    public string Name { get; set; } = string.Empty;
+    /// <summary>Description for the template (0-120 characters).</summary>
+    public string? Description { get; set; }
+}
+
+public class ModifyGuildTemplateRequest
+{
+    /// <summary>New name for the template (1-100 characters).</summary>
+    public string? Name { get; set; }
+    /// <summary>New description for the template (0-120 characters).</summary>
+    public string? Description { get; set; }
+}
+
+public class CreateGuildFromTemplateRequest
+{
+    /// <summary>Name of the guild (2-100 characters).</summary>
+    public string Name { get; set; } = string.Empty;
+    /// <summary>Base64-encoded 128x128 image for the guild icon.</summary>
+    public string? Icon { get; set; }
+}
+
+// Guild Widget / Welcome Screen Request Models
+
+public class ModifyGuildWidgetRequest
+{
+    /// <summary>Whether the widget is enabled.</summary>
+    public bool? Enabled { get; set; }
+    /// <summary>The widget channel ID, or null to remove.</summary>
+    public ulong? ChannelId { get; set; }
+}
+
+public class ModifyGuildWelcomeScreenRequest
+{
+    /// <summary>Whether the welcome screen is enabled.</summary>
+    public bool? Enabled { get; set; }
+    /// <summary>Channels shown in the welcome screen (max 5).</summary>
+    public List<WelcomeScreenChannelRequest>? WelcomeChannels { get; set; }
+    /// <summary>The server description shown in the welcome screen.</summary>
+    public string? Description { get; set; }
+}
+
+public class WelcomeScreenChannelRequest
+{
+    /// <summary>The channel ID to feature.</summary>
+    public ulong ChannelId { get; set; }
+    /// <summary>Description of the channel (max 42 characters).</summary>
+    public string Description { get; set; } = string.Empty;
+    /// <summary>ID of a custom emoji to display, or null for a unicode emoji.</summary>
+    public ulong? EmojiId { get; set; }
+    /// <summary>Unicode character of a standard emoji, or null for a custom emoji.</summary>
+    public string? EmojiName { get; set; }
+}
+
+// Channel / Role Position Request Models
+
+/// <summary>Used to reorder channels within a guild (PATCH /guilds/{id}/channels).</summary>
+public class ModifyChannelPositionRequest
+{
+    /// <summary>Channel ID.</summary>
+    public ulong Id { get; set; }
+    /// <summary>New sort position (null to leave unchanged).</summary>
+    public int? Position { get; set; }
+    /// <summary>Syncs the permission overwrites with the new parent category. Only applicable to non-category channels.</summary>
+    public bool? LockPermissions { get; set; }
+    /// <summary>The new parent category for a channel.</summary>
+    public ulong? ParentId { get; set; }
+}
+
+/// <summary>Used to reorder roles within a guild (PATCH /guilds/{id}/roles).</summary>
+public class ModifyRolePositionRequest
+{
+    /// <summary>Role ID.</summary>
+    public ulong Id { get; set; }
+    /// <summary>New sort position.</summary>
+    public int? Position { get; set; }
 }
