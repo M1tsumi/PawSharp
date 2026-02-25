@@ -1,4 +1,4 @@
-# PawSharp.Voice
+﻿# PawSharp.Voice
 
 Professional-grade voice channel connectivity with automatic reconnection and dynamic heartbeat management.
 
@@ -19,7 +19,7 @@ PawSharp.Voice provides complete voice channel support for Discord bots, featuri
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Voice --version 0.5.0-alpha13
+dotnet add package PawSharp.Voice --version 0.6.0-alpha1
 ```
 
 ## 🚀 Quick Start

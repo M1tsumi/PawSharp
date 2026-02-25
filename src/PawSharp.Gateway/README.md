@@ -1,4 +1,4 @@
-# PawSharp.Gateway
+﻿# PawSharp.Gateway
 
 Robust WebSocket gateway client with automatic reconnection and event handling.
 
@@ -19,7 +19,7 @@ PawSharp.Gateway provides the WebSocket connection to Discord's Gateway, handlin
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Gateway --version 0.5.0-alpha13
+dotnet add package PawSharp.Gateway --version 0.6.0-alpha1
 ```
 
 ## 🚀 Quick Start

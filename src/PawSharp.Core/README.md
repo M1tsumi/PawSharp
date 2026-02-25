@@ -1,4 +1,4 @@
-# PawSharp.Core
+﻿# PawSharp.Core
 
 Core entities and models for the PawSharp Discord API wrapper.
 
@@ -20,7 +20,7 @@ PawSharp.Core provides the fundamental data models and entities that represent D
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Core --version 0.5.0-alpha13
+dotnet add package PawSharp.Core --version 0.6.0-alpha1
 ```
 
 ## 🚀 Quick Start

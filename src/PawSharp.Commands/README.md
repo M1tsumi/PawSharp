@@ -1,4 +1,4 @@
-# PawSharp.Commands
+﻿# PawSharp.Commands
 
 Modern command framework for Discord bots with attribute-based registration and async support.
 
@@ -19,7 +19,7 @@ PawSharp.Commands provides a clean, extensible command system for Discord bots. 
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Commands --version 0.5.0-alpha13
+dotnet add package PawSharp.Commands --version 0.6.0-alpha1
 ```
 
 ## 🚀 Quick Start

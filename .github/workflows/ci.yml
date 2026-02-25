@@ -3,31 +3,92 @@ name: CI
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'assets/**'
   pull_request:
     branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'assets/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+
+  # ── Build & Test ─────────────────────────────────────────────────────────────
   build:
+    name: Build & Test (.NET ${{ matrix.dotnet }})
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        dotnet: [ '8.0.x' ]
+
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
+      - name: Setup .NET ${{ matrix.dotnet }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Restore
+        run: dotnet restore PawSharp.sln
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+      - name: Build
+        run: dotnet build PawSharp.sln -c Release --no-restore --nologo
 
-    - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      - name: Test
+        run: dotnet test PawSharp.sln -c Release --no-build --nologo --verbosity normal
 
-  release-prep:
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.dotnet }}
+          path: test-results/
+
+  # ── Pack preview (on main only) ───────────────────────────────────────────────
+  pack-preview:
+    name: Pack NuGet Preview
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore PawSharp.sln
+
+      - name: Build
+        run: dotnet build PawSharp.sln -c Release --no-restore --nologo
+
+      - name: Pack
+        run: dotnet pack PawSharp.sln -c Release --no-build --nologo --output ./nupkgs
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs-preview-${{ github.run_number }}
+          path: nupkgs/*.nupkg
+          retention-days: 14
+
+  # ── Documentation (on main only) ─────────────────────────────────────────────
+  docs:
+    name: Build & Deploy Documentation
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -35,38 +96,31 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-    - name: Setup DocFX
-      run: |
-        dotnet tool install -g docfx
-        export PATH="$PATH:$HOME/.dotnet/tools"
+      - name: Restore & Build for DocFX
+        run: |
+          dotnet restore PawSharp.sln
+          dotnet build PawSharp.sln -c Release --no-restore --nologo
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+      - name: Generate Documentation
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          docfx metadata
+          docfx build
 
-    - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal
-
-    - name: Generate Documentation
-      run: |
-        export PATH="$PATH:$HOME/.dotnet/tools"
-        docfx metadata
-        docfx build
-
-    - name: Pack NuGet packages
-      run: dotnet pack --configuration Release --no-build --output ./nupkgs
-
-    - name: Deploy Documentation
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./_site
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          commit_message: "docs: auto-publish from ${{ github.sha }}"

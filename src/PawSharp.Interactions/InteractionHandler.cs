@@ -158,10 +158,36 @@ public class InteractionHandler
     }
 
     /// <summary>
-    /// Follows up with an additional message.
+    /// Follows up with an additional message. Returns the created Message.
     /// </summary>
+    public async Task<Message?> CreateFollowupAsync(string applicationId, string interactionToken, CreateMessageRequest request)
+    {
+        return await _restClient.CreateFollowupMessageAsync(applicationId, interactionToken, request);
+    }
+
+    /// <summary>
+    /// Edits a previously sent follow-up message.
+    /// </summary>
+    public async Task<Message?> EditFollowupAsync(string applicationId, string interactionToken, ulong messageId, EditMessageRequest request)
+    {
+        return await _restClient.EditFollowupMessageAsync(applicationId, interactionToken, messageId, request);
+    }
+
+    /// <summary>
+    /// Deletes a follow-up message.
+    /// </summary>
+    public async Task<bool> DeleteFollowupAsync(string applicationId, string interactionToken, ulong messageId)
+    {
+        return await _restClient.DeleteFollowupMessageAsync(applicationId, interactionToken, messageId);
+    }
+
+    /// <summary>
+    /// Follows up with an additional message (legacy overload using InteractionCallbackData).
+    /// </summary>
+    [Obsolete("Use CreateFollowupAsync(applicationId, interactionToken, CreateMessageRequest) instead.")]
     public async Task<HttpResponseMessage> FollowupAsync(string applicationId, string interactionToken, InteractionCallbackData data)
     {
+        // InteractionCallbackData has [JsonPropertyName] attributes ensuring correct snake_case output.
         var content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
         return await _restClient.PostAsync($"webhooks/{applicationId}/{interactionToken}", content);
     }
