@@ -751,6 +751,18 @@ namespace PawSharp.Gateway
                     case "WEBHOOKS_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<WebhooksUpdateEvent>(eventType, eventData);
                         break;
+                    case "APPLICATION_COMMAND_PERMISSIONS_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<ApplicationCommandPermissionsUpdateEvent>(eventType, eventData);
+                        break;
+                    case "INTEGRATION_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationCreateEvent>(eventType, eventData);
+                        break;
+                    case "INTEGRATION_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationUpdateEvent>(eventType, eventData);
+                        break;
+                    case "INTEGRATION_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationDeleteEvent>(eventType, eventData);
+                        break;
                     default:
                         _logger.LogDebug($"Unhandled event type: {eventType}");
                         break;

@@ -82,6 +82,13 @@ token.txt
 .env.local
 **/DonotCommitGITIGNORE/**
 
+# Local developer policy notes (intentionally not tracked)
+policy.txt
+
+# Testing Bot — local development harness, not part of the public library
+Testing Bot/
+"Testing Bot/"
+
 # OS files
 .DS_Store
 Thumbs.db

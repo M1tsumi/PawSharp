@@ -17,6 +17,14 @@ public class CreateMessageRequest
     public object? MessageReference { get; set; }
     /// <summary>A poll to include with this message.</summary>
     public CreatePollRequest? Poll { get; set; }
+    /// <summary>Message flags combined as a bitfield (SUPPRESS_EMBEDS=4, SUPPRESS_NOTIFICATIONS=4096).</summary>
+    public int? Flags { get; set; }
+    /// <summary>IDs of up to 3 stickers in the server to send in the message.</summary>
+    public List<ulong>? StickerIds { get; set; }
+    /// <summary>Can be used to verify a message was sent (up to 25 characters).</summary>
+    public string? Nonce { get; set; }
+    /// <summary>If true, the nonce is checked for uniqueness in the past few minutes.</summary>
+    public bool? EnforceNonce { get; set; }
 }
 
 public class EditMessageRequest
@@ -128,29 +136,53 @@ public class ModifyRoleRequest
 // Interaction Response Models
 public class InteractionResponse
 {
+    [System.Text.Json.Serialization.JsonPropertyName("type")]
     public int Type { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("data")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public InteractionCallbackData? Data { get; set; }
 }
 
 public class InteractionCallbackData
 {
+    [System.Text.Json.Serialization.JsonPropertyName("tts")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public bool? Tts { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("content")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Content { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("embeds")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<Embed>? Embeds { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("allowed_mentions")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public object? AllowedMentions { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("flags")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? Flags { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("components")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<MessageComponent>? Components { get; set; }
-    /// <summary>
-    /// Autocomplete result choices. Only used with ApplicationCommandAutocompleteResult responses.
-    /// </summary>
+
+    /// <summary>Autocomplete result choices. Only used with ApplicationCommandAutocompleteResult responses.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("choices")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<AutocompleteChoice>? Choices { get; set; }
-    /// <summary>
-    /// Title of the modal. Only used with Modal responses.
-    /// </summary>
+
+    /// <summary>Title of the modal. Only used with Modal responses.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("title")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Title { get; set; }
-    /// <summary>
-    /// Custom ID of the modal. Only used with Modal responses.
-    /// </summary>
+
+    /// <summary>Custom ID of the modal. Only used with Modal responses.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("custom_id")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? CustomId { get; set; }
 }
 
@@ -161,6 +193,31 @@ public class AutocompleteChoice
 {
     public string Name { get; set; } = string.Empty;
     public object Value { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Interaction callback types for responding to interactions.
+/// </summary>
+public enum InteractionCallbackType
+{
+    /// <summary>ACK a Ping.</summary>
+    Pong = 1,
+    /// <summary>Respond to an interaction with a message.</summary>
+    ChannelMessageWithSource = 4,
+    /// <summary>ACK an interaction and edit a response later, the user sees a loading state.</summary>
+    DeferredChannelMessageWithSource = 5,
+    /// <summary>For components, ACK an interaction and edit the original message later; the user does not see a loading state.</summary>
+    DeferredUpdateMessage = 6,
+    /// <summary>For components, edit the message the component was attached to.</summary>
+    UpdateMessage = 7,
+    /// <summary>Respond to an autocomplete interaction with suggested choices.</summary>
+    ApplicationCommandAutocompleteResult = 8,
+    /// <summary>Respond to an interaction with a popup modal.</summary>
+    Modal = 9,
+    /// <summary>Deprecated. Respond to an interaction with an upgrade button.</summary>
+    PremiumRequired = 10,
+    /// <summary>Launch the Activity associated with the app. Only for apps with Activities enabled.</summary>
+    LaunchActivity = 12
 }
 
 // Invite Request Models
@@ -181,8 +238,23 @@ public class CreateApplicationCommandRequest
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public List<ApplicationCommandOption>? Options { get; set; }
+    /// <summary>Deprecated. Use DefaultMemberPermissions instead.</summary>
     public bool? DefaultPermission { get; set; }
     public int? Type { get; set; }
+    /// <summary>Localization dictionary for the name field.</summary>
+    public Dictionary<string, string>? NameLocalizations { get; set; }
+    /// <summary>Localization dictionary for the description field.</summary>
+    public Dictionary<string, string>? DescriptionLocalizations { get; set; }
+    /// <summary>Set of permissions represented as a bit set. Set to "0" to disable for everyone by default.</summary>
+    public string? DefaultMemberPermissions { get; set; }
+    /// <summary>Deprecated(use Contexts instead); whether the command is available in DMs with the app.</summary>
+    public bool? DmPermission { get; set; }
+    /// <summary>Installation context(s) where the command is available (0 = GUILD_INSTALL, 1 = USER_INSTALL).</summary>
+    public List<int>? IntegrationTypes { get; set; }
+    /// <summary>Interaction context(s) where the command can be used (0 = GUILD, 1 = BOT_DM, 2 = PRIVATE_CHANNEL).</summary>
+    public List<int>? Contexts { get; set; }
+    /// <summary>Whether the command is age-restricted.</summary>
+    public bool? Nsfw { get; set; }
 }
 
 // Thread/Forum Models
@@ -534,4 +606,145 @@ public class ModifyRolePositionRequest
     public ulong Id { get; set; }
     /// <summary>New sort position.</summary>
     public int? Position { get; set; }
+}
+
+// ── Emoji Request / Response Models ──────────────────────────────────────────
+
+/// <summary>POST /guilds/{guild.id}/emojis — create a guild emoji.</summary>
+public class CreateGuildEmojiRequest
+{
+    /// <summary>Name for the emoji.</summary>
+    public string Name { get; set; } = string.Empty;
+    /// <summary>Base64 encoded image (data:image/png;base64,...). Max 256 KB.</summary>
+    public string Image { get; set; } = string.Empty;
+    /// <summary>Roles allowed to use this emoji. Empty means available to everyone.</summary>
+    public List<ulong>? Roles { get; set; }
+}
+
+/// <summary>PATCH /guilds/{guild.id}/emojis/{emoji.id} — modify a guild emoji.</summary>
+public class ModifyGuildEmojiRequest
+{
+    public string? Name { get; set; }
+    public List<ulong>? Roles { get; set; }
+}
+
+/// <summary>POST /applications/{application.id}/emojis — create an application emoji.</summary>
+public class CreateApplicationEmojiRequest
+{
+    public string Name { get; set; } = string.Empty;
+    /// <summary>Base64 encoded image (data:image/png;base64,...). Max 256 KB.</summary>
+    public string Image { get; set; } = string.Empty;
+}
+
+/// <summary>PATCH /applications/{application.id}/emojis/{emoji.id} — modify an application emoji.</summary>
+public class ModifyApplicationEmojiRequest
+{
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>Response wrapper for GET /applications/{application.id}/emojis.</summary>
+public class ApplicationEmojiListResponse
+{
+    [JsonPropertyName("items")]
+    public List<Emoji>? Items { get; set; }
+}
+
+// ── Application Management ────────────────────────────────────────────────────
+
+/// <summary>PATCH /applications/@me — edit the current application.</summary>
+public class EditCurrentApplicationRequest
+{
+    public string? CustomInstallUrl { get; set; }
+    public string? Description { get; set; }
+    public string? RoleConnectionsVerificationUrl { get; set; }
+    public string? InteractionsEndpointUrl { get; set; }
+    public int? Flags { get; set; }
+    /// <summary>Base64 encoded icon image data (data:image/png;base64,...).</summary>
+    public string? Icon { get; set; }
+    /// <summary>Base64 encoded cover image data.</summary>
+    public string? CoverImage { get; set; }
+    public List<string>? Tags { get; set; }
+    public string? EventWebhooksUrl { get; set; }
+    /// <summary>1 = disabled, 2 = enabled.</summary>
+    public int? EventWebhooksStatus { get; set; }
+    public List<string>? EventWebhooksTypes { get; set; }
+}
+
+// ── Guild Prune ───────────────────────────────────────────────────────────────
+
+/// <summary>Returned by GET and POST /guilds/{id}/prune.</summary>
+public class GuildPruneResult
+{
+    [JsonPropertyName("pruned")]
+    public int? Pruned { get; set; }
+}
+
+/// <summary>POST /guilds/{id}/prune — begin guild prune.</summary>
+public class BeginGuildPruneRequest
+{
+    public int? Days { get; set; }
+    public bool? ComputePruneCount { get; set; }
+    public List<ulong>? IncludeRoles { get; set; }
+}
+
+// ── Bulk Ban ──────────────────────────────────────────────────────────────────
+
+/// <summary>POST /guilds/{id}/bulk-ban — ban up to 200 users.</summary>
+public class BulkGuildBanRequest
+{
+    public List<ulong> UserIds { get; set; } = new();
+    /// <summary>Number of seconds to delete messages for (0–604800). Default 0.</summary>
+    public int? DeleteMessageSeconds { get; set; }
+}
+
+/// <summary>Response object from POST /guilds/{id}/bulk-ban.</summary>
+public class BulkGuildBanResponse
+{
+    public List<ulong> BannedUsers { get; set; } = new();
+    public List<ulong> FailedUsers { get; set; } = new();
+}
+
+// ── Guild Incident Actions ────────────────────────────────────────────────────
+
+/// <summary>PUT /guilds/{id}/incident-actions — modify guild incident actions.</summary>
+public class ModifyGuildIncidentActionsRequest
+{
+    public DateTimeOffset? InvitesDisabledUntil { get; set; }
+    public DateTimeOffset? DmsDisabledUntil { get; set; }
+}
+
+// ── Guild Integration ─────────────────────────────────────────────────────────
+
+/// <summary>Minimal representation of a guild integration returned by GET /guilds/{id}/integrations.</summary>
+public class GuildIntegration
+{
+    [JsonPropertyName("id")]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("syncing")]
+    public bool? Syncing { get; set; }
+
+    [JsonPropertyName("role_id")]
+    public ulong? RoleId { get; set; }
+
+    [JsonPropertyName("expire_behavior")]
+    public int? ExpireBehavior { get; set; }
+
+    [JsonPropertyName("expire_grace_period")]
+    public int? ExpireGracePeriod { get; set; }
+
+    [JsonPropertyName("user")]
+    public User? User { get; set; }
+
+    [JsonPropertyName("application_id")]
+    public ulong? ApplicationId { get; set; }
 }

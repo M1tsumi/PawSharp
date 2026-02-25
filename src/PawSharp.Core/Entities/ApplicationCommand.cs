@@ -79,6 +79,30 @@ public class ApplicationCommand : DiscordEntity
     [JsonPropertyName("version")]
     [JsonConverter(typeof(SnowflakeJsonConverter))]
     public ulong Version { get; set; }
+
+    /// <summary>
+    /// Localization dictionary for the name field.
+    /// </summary>
+    [JsonPropertyName("name_localizations")]
+    public Dictionary<string, string>? NameLocalizations { get; set; }
+
+    /// <summary>
+    /// Localization dictionary for the description field.
+    /// </summary>
+    [JsonPropertyName("description_localizations")]
+    public Dictionary<string, string>? DescriptionLocalizations { get; set; }
+
+    /// <summary>
+    /// Installation context(s) where the command is available.
+    /// </summary>
+    [JsonPropertyName("integration_types")]
+    public List<int>? IntegrationTypes { get; set; }
+
+    /// <summary>
+    /// Interaction context(s) where the command can be used.
+    /// </summary>
+    [JsonPropertyName("contexts")]
+    public List<int>? Contexts { get; set; }
 }
 
 /// <summary>
@@ -157,6 +181,24 @@ public class ApplicationCommandOption
     /// </summary>
     [JsonPropertyName("autocomplete")]
     public bool? Autocomplete { get; set; }
+
+    /// <summary>
+    /// Localization dictionary for the name field.
+    /// </summary>
+    [JsonPropertyName("name_localizations")]
+    public Dictionary<string, string>? NameLocalizations { get; set; }
+
+    /// <summary>
+    /// Localization dictionary for the description field.
+    /// </summary>
+    [JsonPropertyName("description_localizations")]
+    public Dictionary<string, string>? DescriptionLocalizations { get; set; }
+
+    /// <summary>
+    /// Whether this option was the focused option in an autocomplete interaction.
+    /// </summary>
+    [JsonPropertyName("focused")]
+    public bool? Focused { get; set; }
 }
 
 /// <summary>
@@ -190,7 +232,9 @@ public enum ApplicationCommandType
 {
     ChatInput = 1,
     User = 2,
-    Message = 3
+    Message = 3,
+    /// <summary>Entry point command for launching Activities.</summary>
+    PrimaryEntryPoint = 4
 }
 
 /// <summary>

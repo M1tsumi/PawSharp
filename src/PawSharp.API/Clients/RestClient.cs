@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,23 @@ namespace PawSharp.API.Clients;
 /// </summary>
 public class DiscordRestClient : IDiscordRestClient
 {
+    /// <summary>
+    /// Shared serializer options: Discord's REST API requires lowercase snake_case field names.
+    /// Using JsonNamingPolicy.SnakeCaseLower means C# properties like "GuildId" become
+    /// "guild_id" automatically, even without [JsonPropertyName] on every request model.
+    /// Null values are omitted to keep payloads minimal.
+    /// </summary>
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy        = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
+        NumberHandling              = JsonNumberHandling.AllowReadingFromString
+    };
+
+    /// <summary>Wraps an object as a UTF-8 JSON <see cref="StringContent"/> using Discord-compatible serializer options.</summary>
+    private static StringContent JsonContent(object obj)
+        => new(JsonSerializer.Serialize(obj, _jsonOptions), Encoding.UTF8, "application/json");
+
     private readonly HttpClient _httpClient;
     private readonly PawSharpOptions _options;
     private readonly ILogger<DiscordRestClient> _logger;
@@ -113,7 +131,7 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null)
     {
         var payload = new { username, avatar };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var content = JsonContent(payload);
         return await PatchAsync("users/@me", content);
     }
     
@@ -154,7 +172,13 @@ public class DiscordRestClient : IDiscordRestClient
     {
         // Validate input
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
-        ContentValidator.ValidateMessageContent(request.Content);
+
+        // Content is optional when embeds, components, or a poll are present.
+        // Only validate the text when it is explicitly supplied.
+        if (request.Content != null)
+        {
+            ContentValidator.ValidateMessageContent(request.Content);
+        }
 
         // Validate embeds if present
         if (request.Embeds != null)
@@ -168,7 +192,7 @@ public class DiscordRestClient : IDiscordRestClient
             }
         }
 
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/messages", content);
         if (response.IsSuccessStatusCode)
         {
@@ -209,7 +233,7 @@ public class DiscordRestClient : IDiscordRestClient
             }
         }
 
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"channels/{channelId}/messages/{messageId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -263,7 +287,7 @@ public class DiscordRestClient : IDiscordRestClient
         }
 
         var payload = new { messages = messageIds };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var content = JsonContent(payload);
         var response = await PostAsync($"channels/{channelId}/messages/bulk-delete", content);
         return response.IsSuccessStatusCode;
     }
@@ -309,7 +333,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"channels/{channelId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -326,7 +350,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Channel?> CreateGuildChannelAsync(ulong guildId, CreateChannelRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/channels", content);
         if (response.IsSuccessStatusCode)
         {
@@ -347,7 +371,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Invite?> CreateChannelInviteAsync(ulong channelId, CreateInviteRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/invites", content);
         if (response.IsSuccessStatusCode)
         {
@@ -379,7 +403,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Guild?> CreateGuildAsync(CreateGuildRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync("guilds", content);
         if (response.IsSuccessStatusCode)
         {
@@ -390,7 +414,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Guild?> ModifyGuildAsync(ulong guildId, ModifyGuildRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -437,7 +461,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<GuildMember?> AddGuildMemberAsync(ulong guildId, ulong userId, AddGuildMemberRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PutAsync($"guilds/{guildId}/members/{userId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -448,7 +472,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<GuildMember?> ModifyGuildMemberAsync(ulong guildId, ulong userId, ModifyGuildMemberRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/members/{userId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -486,7 +510,7 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<bool> CreateGuildBanAsync(ulong guildId, ulong userId, int? deleteMessageDays = null, string? reason = null)
     {
         var payload = new { delete_message_days = deleteMessageDays, reason };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var content = JsonContent(payload);
         var response = await PutAsync($"guilds/{guildId}/bans/{userId}", content);
         return response.IsSuccessStatusCode;
     }
@@ -510,7 +534,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Role?> CreateGuildRoleAsync(ulong guildId, CreateRoleRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/roles", content);
         if (response.IsSuccessStatusCode)
         {
@@ -521,7 +545,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Role?> ModifyGuildRoleAsync(ulong guildId, ulong roleId, ModifyRoleRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/roles/{roleId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -551,14 +575,14 @@ public class DiscordRestClient : IDiscordRestClient
     // Interaction operations
     public async Task<bool> CreateInteractionResponseAsync(ulong interactionId, string interactionToken, InteractionResponse response)
     {
-        var content = new StringContent(JsonSerializer.Serialize(response), Encoding.UTF8, "application/json");
+        var content = JsonContent(response);
         var httpResponse = await PostAsync($"interactions/{interactionId}/{interactionToken}/callback", content);
         return httpResponse.IsSuccessStatusCode;
     }
     
     public async Task<HttpResponseMessage> EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         return await PatchAsync($"webhooks/{applicationId}/{interactionToken}/messages/@original", content);
     }
     
@@ -600,7 +624,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<ApplicationCommand?> CreateGlobalApplicationCommandAsync(ulong applicationId, CreateApplicationCommandRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"applications/{applicationId}/commands", content);
         if (response.IsSuccessStatusCode)
         {
@@ -621,7 +645,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<ApplicationCommand?> EditGlobalApplicationCommandAsync(ulong applicationId, ulong commandId, CreateApplicationCommandRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"applications/{applicationId}/commands/{commandId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -648,7 +672,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<ApplicationCommand?> CreateGuildApplicationCommandAsync(ulong applicationId, ulong guildId, CreateApplicationCommandRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"applications/{applicationId}/guilds/{guildId}/commands", content);
         if (response.IsSuccessStatusCode)
         {
@@ -669,7 +693,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<ApplicationCommand?> EditGuildApplicationCommandAsync(ulong applicationId, ulong guildId, ulong commandId, CreateApplicationCommandRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -686,7 +710,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<List<ApplicationCommand>?> BulkOverwriteGlobalApplicationCommandsAsync(ulong applicationId, List<CreateApplicationCommandRequest> commands)
     {
-        var content = new StringContent(JsonSerializer.Serialize(commands), Encoding.UTF8, "application/json");
+        var content = JsonContent(commands);
         var response = await PutAsync($"applications/{applicationId}/commands", content);
         if (response.IsSuccessStatusCode)
         {
@@ -697,7 +721,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<List<ApplicationCommand>?> BulkOverwriteGuildApplicationCommandsAsync(ulong applicationId, ulong guildId, List<CreateApplicationCommandRequest> commands)
     {
-        var content = new StringContent(JsonSerializer.Serialize(commands), Encoding.UTF8, "application/json");
+        var content = JsonContent(commands);
         var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands", content);
         if (response.IsSuccessStatusCode)
         {
@@ -729,7 +753,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<ApplicationCommandPermissions?> EditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId, List<ApplicationCommandPermission> permissions)
     {
-        var content = new StringContent(JsonSerializer.Serialize(permissions), Encoding.UTF8, "application/json");
+        var content = JsonContent(permissions);
         var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}/permissions", content);
         if (response.IsSuccessStatusCode)
         {
@@ -740,7 +764,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<List<ApplicationCommandPermissions>?> BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions)
     {
-        var content = new StringContent(JsonSerializer.Serialize(permissions), Encoding.UTF8, "application/json");
+        var content = JsonContent(permissions);
         var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands/permissions", content);
         if (response.IsSuccessStatusCode)
         {
@@ -752,7 +776,7 @@ public class DiscordRestClient : IDiscordRestClient
     // Thread operations
     public async Task<Channel?> CreateThreadAsync(ulong channelId, CreateThreadRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/threads", content);
         if (response.IsSuccessStatusCode)
         {
@@ -763,7 +787,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Channel?> CreateThreadFromMessageAsync(ulong channelId, ulong messageId, CreateThreadRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/messages/{messageId}/threads", content);
         if (response.IsSuccessStatusCode)
         {
@@ -774,7 +798,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Channel?> CreateThreadInForumAsync(ulong channelId, CreateThreadRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/threads", content);
         if (response.IsSuccessStatusCode)
         {
@@ -885,7 +909,7 @@ public class DiscordRestClient : IDiscordRestClient
     // Webhook operations
     public async Task<Webhook?> CreateWebhookAsync(ulong channelId, CreateWebhookRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/webhooks", content);
         if (response.IsSuccessStatusCode)
         {
@@ -936,7 +960,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Webhook?> ModifyWebhookAsync(ulong webhookId, ModifyWebhookRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"webhooks/{webhookId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -947,7 +971,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Webhook?> ModifyWebhookWithTokenAsync(ulong webhookId, string token, ModifyWebhookRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"webhooks/{webhookId}/{token}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -972,7 +996,7 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var endpoint = $"webhooks/{webhookId}/{token}";
         if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync(endpoint, content);
         if (response.IsSuccessStatusCode)
         {
@@ -984,7 +1008,7 @@ public class DiscordRestClient : IDiscordRestClient
     // Scheduled Event operations
     public async Task<GuildScheduledEvent?> CreateGuildScheduledEventAsync(ulong guildId, CreateGuildScheduledEventRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/scheduled-events", content);
         if (response.IsSuccessStatusCode)
         {
@@ -1017,7 +1041,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<GuildScheduledEvent?> ModifyGuildScheduledEventAsync(ulong guildId, ulong eventId, ModifyGuildScheduledEventRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/scheduled-events/{eventId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -1090,7 +1114,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<AutoModerationRule?> CreateAutoModerationRuleAsync(ulong guildId, CreateAutoModerationRuleRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/auto-moderation/rules", content);
         if (response.IsSuccessStatusCode)
         {
@@ -1101,7 +1125,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<AutoModerationRule?> ModifyAutoModerationRuleAsync(ulong guildId, ulong ruleId, ModifyAutoModerationRuleRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/auto-moderation/rules/{ruleId}", content);
         if (response.IsSuccessStatusCode)
         {
@@ -1119,7 +1143,7 @@ public class DiscordRestClient : IDiscordRestClient
     // Stage Instance operations
     public async Task<StageInstance?> CreateStageInstanceAsync(CreateStageInstanceRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync("stage-instances", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<StageInstance>();
@@ -1136,7 +1160,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<StageInstance?> ModifyStageInstanceAsync(ulong channelId, ModifyStageInstanceRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"stage-instances/{channelId}", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<StageInstance>();
@@ -1204,7 +1228,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<Sticker?> ModifyGuildStickerAsync(ulong guildId, ulong stickerId, ModifyGuildStickerRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/stickers/{stickerId}", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<Sticker>();
@@ -1221,7 +1245,7 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<Channel?> CreateDmAsync(ulong recipientId)
     {
         var payload = new { recipient_id = recipientId };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var content = JsonContent(payload);
         var response = await PostAsync("users/@me/channels", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<Channel>();
@@ -1266,7 +1290,7 @@ public class DiscordRestClient : IDiscordRestClient
     // Channel permission overwrites
     public async Task<bool> EditChannelPermissionsAsync(ulong channelId, ulong overwriteId, EditChannelPermissionsRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PutAsync($"channels/{channelId}/permissions/{overwriteId}", content);
         return response.IsSuccessStatusCode;
     }
@@ -1297,7 +1321,7 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<GuildMember?> ModifyCurrentMemberAsync(ulong guildId, string? nick)
     {
         var payload = new { nick };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var content = JsonContent(payload);
         var response = await PatchAsync($"guilds/{guildId}/members/@me", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<GuildMember>();
@@ -1367,7 +1391,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<Entitlement?> CreateTestEntitlementAsync(ulong applicationId, CreateTestEntitlementRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"applications/{applicationId}/entitlements", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<Entitlement>();
@@ -1440,7 +1464,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<SoundboardSound?> CreateGuildSoundboardSoundAsync(ulong guildId, CreateGuildSoundboardSoundRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/soundboard-sounds", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<SoundboardSound>();
@@ -1449,7 +1473,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<SoundboardSound?> ModifyGuildSoundboardSoundAsync(ulong guildId, ulong soundId, ModifyGuildSoundboardSoundRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/soundboard-sounds/{soundId}", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<SoundboardSound>();
@@ -1473,7 +1497,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<GuildOnboarding?> ModifyGuildOnboardingAsync(ulong guildId, ModifyGuildOnboardingRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PutAsync($"guilds/{guildId}/onboarding", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<GuildOnboarding>();
@@ -1491,7 +1515,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<List<ApplicationRoleConnectionMetadata>?> UpdateApplicationRoleConnectionMetadataAsync(ulong applicationId, List<ApplicationRoleConnectionMetadata> records)
     {
-        var content = new StringContent(JsonSerializer.Serialize(records), Encoding.UTF8, "application/json");
+        var content = JsonContent(records);
         var response = await PutAsync($"applications/{applicationId}/role-connections/metadata", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>();
@@ -1521,7 +1545,7 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<FollowedChannel?> FollowAnnouncementChannelAsync(ulong channelId, ulong webhookChannelId)
     {
         var payload = new { webhook_channel_id = webhookChannelId };
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var content = JsonContent(payload);
         var response = await PostAsync($"channels/{channelId}/followers", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<FollowedChannel>();
@@ -1548,7 +1572,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<GuildWidgetSettings?> ModifyGuildWidgetAsync(ulong guildId, ModifyGuildWidgetRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/widget", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>();
@@ -1575,7 +1599,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<WelcomeScreen?> ModifyGuildWelcomeScreenAsync(ulong guildId, ModifyGuildWelcomeScreenRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/welcome-screen", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<WelcomeScreen>();
@@ -1585,14 +1609,14 @@ public class DiscordRestClient : IDiscordRestClient
     // Guild channel / role position reorder
     public async Task<bool> ModifyGuildChannelPositionsAsync(ulong guildId, IEnumerable<ModifyChannelPositionRequest> positions)
     {
-        var content = new StringContent(JsonSerializer.Serialize(positions), Encoding.UTF8, "application/json");
+        var content = JsonContent(positions);
         var response = await PatchAsync($"guilds/{guildId}/channels", content);
         return response.IsSuccessStatusCode;
     }
 
     public async Task<List<Role>?> ModifyGuildRolePositionsAsync(ulong guildId, IEnumerable<ModifyRolePositionRequest> positions)
     {
-        var content = new StringContent(JsonSerializer.Serialize(positions), Encoding.UTF8, "application/json");
+        var content = JsonContent(positions);
         var response = await PatchAsync($"guilds/{guildId}/roles", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<List<Role>>();
@@ -1641,7 +1665,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<Guild?> CreateGuildFromTemplateAsync(string templateCode, CreateGuildFromTemplateRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<Guild>();
@@ -1650,7 +1674,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<GuildTemplate?> CreateGuildTemplateAsync(ulong guildId, CreateGuildTemplateRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/templates", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
@@ -1667,7 +1691,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<GuildTemplate?> ModifyGuildTemplateAsync(ulong guildId, string templateCode, ModifyGuildTemplateRequest request)
     {
-        var content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+        var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
@@ -1680,6 +1704,278 @@ public class DiscordRestClient : IDiscordRestClient
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
         return null;
+    }
+
+    // ── OAuth2 endpoints ─────────────────────────────────────────────────────
+
+    public async Task<Application?> GetCurrentBotApplicationInfoAsync()
+    {
+        var response = await GetAsync("oauth2/applications/@me");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Application>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<OAuth2Info?> GetCurrentAuthorizationInfoAsync()
+    {
+        var response = await GetAsync("oauth2/@me");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<OAuth2Info>(_jsonOptions);
+        return null;
+    }
+
+    // ── Interaction follow-up message endpoints ───────────────────────────────
+
+    public async Task<Message?> CreateFollowupMessageAsync(string applicationId, string interactionToken, CreateMessageRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync($"webhooks/{applicationId}/{interactionToken}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Message?> GetFollowupMessageAsync(string applicationId, string interactionToken, ulong messageId)
+    {
+        var response = await GetAsync($"webhooks/{applicationId}/{interactionToken}/messages/{messageId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Message?> EditFollowupMessageAsync(string applicationId, string interactionToken, ulong messageId, EditMessageRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync($"webhooks/{applicationId}/{interactionToken}/messages/{messageId}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<bool> DeleteFollowupMessageAsync(string applicationId, string interactionToken, ulong messageId)
+    {
+        var response = await DeleteAsync($"webhooks/{applicationId}/{interactionToken}/messages/{messageId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    // ── Application Management ────────────────────────────────────────────────
+
+    public async Task<Application?> GetCurrentApplicationAsync()
+    {
+        var response = await GetAsync("applications/@me");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Application>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Application?> EditCurrentApplicationAsync(EditCurrentApplicationRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync("applications/@me", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Application>(_jsonOptions);
+        return null;
+    }
+
+    // ── Guild Emoji Operations ────────────────────────────────────────────────
+
+    public async Task<List<Emoji>?> ListGuildEmojisAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/emojis");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<Emoji>>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Emoji?> GetGuildEmojiAsync(ulong guildId, ulong emojiId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/emojis/{emojiId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Emoji?> CreateGuildEmojiAsync(ulong guildId, CreateGuildEmojiRequest request, string? reason = null)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync($"guilds/{guildId}/emojis", content, reason);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Emoji?> ModifyGuildEmojiAsync(ulong guildId, ulong emojiId, ModifyGuildEmojiRequest request, string? reason = null)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}/emojis/{emojiId}", content, reason);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<bool> DeleteGuildEmojiAsync(ulong guildId, ulong emojiId, string? reason = null)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/emojis/{emojiId}", reason);
+        return response.IsSuccessStatusCode;
+    }
+
+    // ── Application Emoji Operations ──────────────────────────────────────────
+
+    public async Task<List<Emoji>?> ListApplicationEmojisAsync(ulong applicationId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/emojis");
+        if (response.IsSuccessStatusCode)
+        {
+            var wrapper = await response.Content.ReadFromJsonAsync<ApplicationEmojiListResponse>(_jsonOptions);
+            return wrapper?.Items;
+        }
+        return null;
+    }
+
+    public async Task<Emoji?> GetApplicationEmojiAsync(ulong applicationId, ulong emojiId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/emojis/{emojiId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Emoji?> CreateApplicationEmojiAsync(ulong applicationId, CreateApplicationEmojiRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync($"applications/{applicationId}/emojis", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Emoji?> ModifyApplicationEmojiAsync(ulong applicationId, ulong emojiId, ModifyApplicationEmojiRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync($"applications/{applicationId}/emojis/{emojiId}", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<bool> DeleteApplicationEmojiAsync(ulong applicationId, ulong emojiId)
+    {
+        var response = await DeleteAsync($"applications/{applicationId}/emojis/{emojiId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    // ── Guild Integration Operations ──────────────────────────────────────────
+
+    public async Task<List<GuildIntegration>?> GetGuildIntegrationsAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/integrations");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<GuildIntegration>>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<bool> DeleteGuildIntegrationAsync(ulong guildId, ulong integrationId, string? reason = null)
+    {
+        var response = await DeleteAsync($"guilds/{guildId}/integrations/{integrationId}", reason);
+        return response.IsSuccessStatusCode;
+    }
+
+    // ── Guild Invite Operations ───────────────────────────────────────────────
+
+    public async Task<List<Invite>?> GetGuildInvitesAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/invites");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<Invite>>(_jsonOptions);
+        return null;
+    }
+
+    // ── Guild Prune Operations ────────────────────────────────────────────────
+
+    public async Task<GuildPruneResult?> GetGuildPruneCountAsync(ulong guildId, int? days = null, List<ulong>? includeRoles = null)
+    {
+        var query = new List<string>();
+        if (days.HasValue) query.Add($"days={days.Value}");
+        if (includeRoles is { Count: > 0 })
+            query.Add("include_roles=" + string.Join(",", includeRoles));
+        var endpoint = $"guilds/{guildId}/prune" + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildPruneResult>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<GuildPruneResult?> BeginGuildPruneAsync(ulong guildId, BeginGuildPruneRequest request, string? reason = null)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync($"guilds/{guildId}/prune", content, reason);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildPruneResult>(_jsonOptions);
+        return null;
+    }
+
+    // ── Bulk Ban ──────────────────────────────────────────────────────────────
+
+    public async Task<BulkGuildBanResponse?> BulkGuildBanAsync(ulong guildId, BulkGuildBanRequest request, string? reason = null)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync($"guilds/{guildId}/bulk-ban", content, reason);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<BulkGuildBanResponse>(_jsonOptions);
+        return null;
+    }
+
+    // ── Guild Role Extras ─────────────────────────────────────────────────────
+
+    public async Task<Role?> GetGuildRoleAsync(ulong guildId, ulong roleId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/roles/{roleId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Role>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<Dictionary<string, int>?> GetGuildRoleMemberCountsAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/roles/member-counts");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(_jsonOptions);
+        return null;
+    }
+
+    // ── Guild Incident Actions ────────────────────────────────────────────────
+
+    public async Task<object?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PutAsync($"guilds/{guildId}/incident-actions", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<ModifyGuildIncidentActionsRequest>(_jsonOptions);
+        return null;
+    }
+
+    // ── Current User Guild Member ─────────────────────────────────────────────
+
+    public async Task<GuildMember?> GetCurrentUserGuildMemberAsync(ulong guildId)
+    {
+        var response = await GetAsync($"users/@me/guilds/{guildId}/member");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildMember>(_jsonOptions);
+        return null;
+    }
+
+    // ── Reaction Extras ───────────────────────────────────────────────────────
+
+    public async Task<bool> DeleteAllReactionsAsync(ulong channelId, ulong messageId)
+    {
+        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions");
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteAllReactionsForEmojiAsync(ulong channelId, ulong messageId, string emoji)
+    {
+        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}");
+        return response.IsSuccessStatusCode;
     }
 
     private const int MaxRateLimitRetries = 5;

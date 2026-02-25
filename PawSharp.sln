@@ -34,6 +34,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PawSharp.Gateway.Tests", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PawSharp.Benchmarks", "tests\PawSharp.Benchmarks\PawSharp.Benchmarks.csproj", "{881C6A5A-DBE8-4B32-9B01-FC908C497083}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestingBot", "Testing Bot\TestingBot.csproj", "{7A0C845D-33DF-432F-AF2D-2324E9CD2A11}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -100,6 +102,10 @@ Global
 		{881C6A5A-DBE8-4B32-9B01-FC908C497083}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{881C6A5A-DBE8-4B32-9B01-FC908C497083}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{881C6A5A-DBE8-4B32-9B01-FC908C497083}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A0C845D-33DF-432F-AF2D-2324E9CD2A11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A0C845D-33DF-432F-AF2D-2324E9CD2A11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A0C845D-33DF-432F-AF2D-2324E9CD2A11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A0C845D-33DF-432F-AF2D-2324E9CD2A11}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{FD9C0DAD-191F-4BD9-AF7D-9608E0139593} = {563639E8-B3B9-45C5-9305-B3D861C4A2FB}
