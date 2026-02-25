@@ -1,6 +1,115 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to PawSharp are documented here.
+
+---
+
+## [0.6.0-alpha1] - Unreleased
+
+Full Discord API surface coverage: emoji CRUD, application management, extended guild endpoints, gateway integration events, and a type-safe option value extension for slash commands.
+
+### New Features
+
+**Emoji REST Endpoints**
+- `ListGuildEmojisAsync(guildId)` → `GET /guilds/{id}/emojis`
+- `GetGuildEmojiAsync(guildId, emojiId)` → `GET /guilds/{id}/emojis/{emoji.id}`
+- `CreateGuildEmojiAsync(guildId, request, reason?)` → `POST /guilds/{id}/emojis`
+- `ModifyGuildEmojiAsync(guildId, emojiId, request, reason?)` → `PATCH /guilds/{id}/emojis/{emoji.id}`
+- `DeleteGuildEmojiAsync(guildId, emojiId, reason?)` → `DELETE /guilds/{id}/emojis/{emoji.id}`
+- `ListApplicationEmojisAsync(applicationId)` → `GET /applications/{id}/emojis` (unwraps `{ "items": [...] }`)
+- `GetApplicationEmojiAsync(applicationId, emojiId)` → `GET /applications/{id}/emojis/{emoji.id}`
+- `CreateApplicationEmojiAsync(applicationId, request)` → `POST /applications/{id}/emojis`
+- `ModifyApplicationEmojiAsync(applicationId, emojiId, request)` → `PATCH /applications/{id}/emojis/{emoji.id}`
+- `DeleteApplicationEmojiAsync(applicationId, emojiId)` → `DELETE /applications/{id}/emojis/{emoji.id}`
+
+**New Request/Response Models**
+- `CreateGuildEmojiRequest` — `name`, `image` (base64), `roles`
+- `ModifyGuildEmojiRequest` — `name?`, `roles?`
+- `CreateApplicationEmojiRequest` — `name`, `image`
+- `ModifyApplicationEmojiRequest` — `name`
+- `ApplicationEmojiListResponse` — response wrapper for application emoji list endpoint
+- `EditCurrentApplicationRequest` — `description`, `icon`, `cover_image`, `tags`, `interactions_endpoint_url`, `event_webhooks_url`, `event_webhooks_status`, `event_webhooks_types`, `flags`, `role_connections_verification_url`, `custom_install_url`
+- `GuildPruneResult` — `pruned` count returned by prune endpoints
+- `BeginGuildPruneRequest` — `days?`, `compute_prune_count?`, `include_roles?`
+- `BulkGuildBanRequest` — `user_ids`, `delete_message_seconds?`
+- `BulkGuildBanResponse` — `banned_users`, `failed_users`
+- `ModifyGuildIncidentActionsRequest` — `invites_disabled_until?`, `dms_disabled_until?`
+- `GuildIntegration` — minimal integration object returned by `GET /guilds/{id}/integrations`
+
+**Application Management REST Endpoints**
+- `GetCurrentApplicationAsync()` → `GET /applications/@me` — returns the current application object
+- `EditCurrentApplicationAsync(request)` → `PATCH /applications/@me` — edits the current application
+
+**Extended Guild REST Endpoints**
+- `GetGuildInvitesAsync(guildId)` → `GET /guilds/{id}/invites`
+- `GetGuildIntegrationsAsync(guildId)` → `GET /guilds/{id}/integrations`
+- `DeleteGuildIntegrationAsync(guildId, integrationId, reason?)` → `DELETE /guilds/{id}/integrations/{id}`
+- `GetGuildPruneCountAsync(guildId, days?, includeRoles?)` → `GET /guilds/{id}/prune`
+- `BeginGuildPruneAsync(guildId, request, reason?)` → `POST /guilds/{id}/prune`
+- `BulkGuildBanAsync(guildId, request, reason?)` → `POST /guilds/{id}/bulk-ban`
+- `GetGuildRoleAsync(guildId, roleId)` → `GET /guilds/{id}/roles/{role.id}`
+- `GetGuildRoleMemberCountsAsync(guildId)` → `GET /guilds/{id}/roles/member-counts`
+- `ModifyGuildIncidentActionsAsync(guildId, request)` → `PUT /guilds/{id}/incident-actions`
+- `GetCurrentUserGuildMemberAsync(guildId)` → `GET /users/@me/guilds/{guild.id}/member`
+
+**Extended Reaction REST Endpoints**
+- `DeleteAllReactionsAsync(channelId, messageId)` → `DELETE /channels/{id}/messages/{id}/reactions`
+- `DeleteAllReactionsForEmojiAsync(channelId, messageId, emoji)` → `DELETE /channels/{id}/messages/{id}/reactions/{emoji}`
+
+**New Gateway Events**
+- `APPLICATION_COMMAND_PERMISSIONS_UPDATE` → dispatched as `ApplicationCommandPermissionsUpdateEvent` (id, applicationId, guildId, permissions)
+- `INTEGRATION_CREATE` → dispatched as `IntegrationCreateEvent` (id, guildId, name, type, enabled, applicationId?)
+- `INTEGRATION_UPDATE` → dispatched as `IntegrationUpdateEvent` (id, guildId, name, type, enabled, applicationId?)
+- `INTEGRATION_DELETE` → dispatched as `IntegrationDeleteEvent` (id, guildId, applicationId?)
+
+**`InteractionExtensions` helper (`PawSharp.Interactions.Extensions`)**
+- `interaction.GetOptionValue<T>(name)` — type-safe extraction of a slash command option value by name; supports `string`, `bool`, `int`, `long`, `ulong`, `double`, `float`, and any JSON-deserializable type
+- `options.GetOptionValue<T>(name)` — overload for subcommand option lists
+- `interaction.FindOption(name)` — returns the raw `ApplicationCommandInteractionDataOption` for advanced access
+
+---
+
+## [0.5.0-alpha14] - Unreleased
+
+Application Command completeness, OAuth2 REST endpoints, interaction follow-up messages, resolved data in interactions, and Testing Bot demonstrations of string/integer options and deferred responses.
+
+### New Features
+
+**Application Command Localization & Contexts**
+- `ApplicationCommand` entity: added `NameLocalizations`, `DescriptionLocalizations`, `IntegrationTypes`, `Contexts`
+- `ApplicationCommandOption` entity: added `NameLocalizations`, `DescriptionLocalizations`, `Focused` (for autocomplete)
+- `ApplicationCommandType` enum: added `PrimaryEntryPoint = 4` (for Activities)
+- `CreateApplicationCommandRequest` model: added `NameLocalizations`, `DescriptionLocalizations`, `DefaultMemberPermissions`, `DmPermission`, `IntegrationTypes`, `Contexts`, `Nsfw` — full parity with Discord's Create/Edit Application Command endpoints
+
+**OAuth2 REST Endpoints**
+- `GetCurrentBotApplicationInfoAsync()` → `GET /oauth2/applications/@me` — returns the bot's `Application` object
+- `GetCurrentAuthorizationInfoAsync()` → `GET /oauth2/@me` — returns `OAuth2Info` with `application`, `scopes`, `expires`, `user`
+
+**Interaction Follow-Up Messages**
+- `CreateFollowupMessageAsync(applicationId, token, CreateMessageRequest)` → `POST /webhooks/{id}/{token}`
+- `GetFollowupMessageAsync(applicationId, token, messageId)` → `GET /webhooks/{id}/{token}/messages/{msg_id}`
+- `EditFollowupMessageAsync(applicationId, token, messageId, EditMessageRequest)` → `PATCH /webhooks/{id}/{token}/messages/{msg_id}`
+- `DeleteFollowupMessageAsync(applicationId, token, messageId)` → `DELETE /webhooks/{id}/{token}/messages/{msg_id}`
+- `InteractionHandler` convenience wrappers: `CreateFollowupAsync`, `EditFollowupAsync`, `DeleteFollowupAsync` (old `FollowupAsync` marked `[Obsolete]`)
+
+**Resolved Interaction Data**
+- New `ResolvedData` class with `Users`, `Members`, `Roles`, `Channels`, `Messages`, `Attachments` dictionaries
+- `InteractionData.Resolved` property — enables USER, ROLE, CHANNEL, MENTIONABLE, ATTACHMENT option types to return actual objects
+- `InteractionData.Components` property added for modal submit data
+
+**`InteractionCallbackType` Enum (`PawSharp.API.Models`)**
+- `Pong = 1`, `ChannelMessageWithSource = 4`, `DeferredChannelMessageWithSource = 5`, `DeferredUpdateMessage = 6`, `UpdateMessage = 7`, `ApplicationCommandAutocompleteResult = 8`, `Modal = 9`, `PremiumRequired = 10`, `LaunchActivity = 12`
+
+**`CreateMessageRequest` Enhancements**
+- Added `Flags` (int?) — supports `SUPPRESS_EMBEDS = 4`, `SUPPRESS_NOTIFICATIONS = 4096`, etc.
+- Added `StickerIds` (List<ulong>?) — up to 3 server stickers
+- Added `Nonce` (string?) and `EnforceNonce` (bool?) — message deduplication support
+
+### Changes
+
+**Testing Bot**
+- Added `/greet` slash command demonstrating a required STRING option with `MinLength`/`MaxLength` and optional STRING option with predefined `Choices`
+- Added `/roll` slash command demonstrating an INTEGER option with `MinValue`/`MaxValue` and a **deferred response + follow-up message** pattern
 
 ---
 

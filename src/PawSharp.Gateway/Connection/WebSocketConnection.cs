@@ -34,7 +34,19 @@ namespace PawSharp.Gateway.Connection
 
         public async Task DisconnectAsync(CancellationToken cancellationToken)
         {
-            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cancellationToken);
+            // Only attempt a graceful close when the socket is in a closeable state.
+            // It may already be Aborted or Closed if the remote end dropped the connection.
+            if (_webSocket.State == WebSocketState.Open ||
+                _webSocket.State == WebSocketState.CloseReceived ||
+                _webSocket.State == WebSocketState.CloseSent)
+            {
+                try
+                {
+                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cancellationToken);
+                }
+                catch (OperationCanceledException) { /* shutdown cancellation is expected */ }
+                catch (WebSocketException) { /* socket may have been torn down remotely */ }
+            }
         }
 
         public async Task SendAsync(string message, CancellationToken cancellationToken)

@@ -5,6 +5,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>PawSharp.TestConsole</RootNamespace>
     <AssemblyName>PawSharp.TestConsole</AssemblyName>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>

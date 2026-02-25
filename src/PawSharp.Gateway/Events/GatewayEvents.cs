@@ -2096,3 +2096,96 @@ public class WebhooksUpdateEvent : GatewayEvent
     [JsonConverter(typeof(SnowflakeJsonConverter))]
     public ulong ChannelId { get; set; }
 }
+
+/// <summary>
+/// APPLICATION_COMMAND_PERMISSIONS_UPDATE event — fired when application command permissions for a guild are updated.
+/// </summary>
+public class ApplicationCommandPermissionsUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("permissions")]
+    public List<ApplicationCommandPermission>? Permissions { get; set; }
+}
+
+/// <summary>
+/// INTEGRATION_CREATE event — fired when a guild integration is created.
+/// </summary>
+public class IntegrationCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? ApplicationId { get; set; }
+}
+
+/// <summary>
+/// INTEGRATION_UPDATE event — fired when a guild integration is updated.
+/// </summary>
+public class IntegrationUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? ApplicationId { get; set; }
+}
+
+/// <summary>
+/// INTEGRATION_DELETE event — fired when a guild integration is deleted.
+/// </summary>
+public class IntegrationDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? ApplicationId { get; set; }
+}

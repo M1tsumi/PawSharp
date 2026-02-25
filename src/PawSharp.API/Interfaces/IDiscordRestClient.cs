@@ -125,6 +125,12 @@ public interface IDiscordRestClient
     Task<HttpResponseMessage> EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request);
     Task<bool> DeleteOriginalInteractionResponseAsync(string applicationId, string interactionToken);
     
+    // Interaction follow-up message operations
+    Task<Message?> CreateFollowupMessageAsync(string applicationId, string interactionToken, CreateMessageRequest request);
+    Task<Message?> GetFollowupMessageAsync(string applicationId, string interactionToken, ulong messageId);
+    Task<Message?> EditFollowupMessageAsync(string applicationId, string interactionToken, ulong messageId, EditMessageRequest request);
+    Task<bool> DeleteFollowupMessageAsync(string applicationId, string interactionToken, ulong messageId);
+    
     // Reaction operations
     Task<bool> CreateReactionAsync(ulong channelId, ulong messageId, string emoji);
     Task<bool> DeleteOwnReactionAsync(ulong channelId, ulong messageId, string emoji);
@@ -307,4 +313,58 @@ public interface IDiscordRestClient
     Task<GuildTemplate?> SyncGuildTemplateAsync(ulong guildId, string templateCode);
     Task<GuildTemplate?> ModifyGuildTemplateAsync(ulong guildId, string templateCode, ModifyGuildTemplateRequest request);
     Task<GuildTemplate?> DeleteGuildTemplateAsync(ulong guildId, string templateCode);
+
+    // OAuth2 operations
+    /// <summary>Returns the bot's application object. GET /oauth2/applications/@me</summary>
+    Task<Application?> GetCurrentBotApplicationInfoAsync();
+    /// <summary>Returns info about the current authorization. Requires a Bearer token. GET /oauth2/@me</summary>
+    Task<OAuth2Info?> GetCurrentAuthorizationInfoAsync();
+
+    // Application management
+    /// <summary>Returns the current application. GET /applications/@me</summary>
+    Task<Application?> GetCurrentApplicationAsync();
+    /// <summary>Edits properties of the current application. PATCH /applications/@me</summary>
+    Task<Application?> EditCurrentApplicationAsync(EditCurrentApplicationRequest request);
+
+    // Guild emoji operations
+    Task<List<Emoji>?> ListGuildEmojisAsync(ulong guildId);
+    Task<Emoji?> GetGuildEmojiAsync(ulong guildId, ulong emojiId);
+    Task<Emoji?> CreateGuildEmojiAsync(ulong guildId, CreateGuildEmojiRequest request, string? reason = null);
+    Task<Emoji?> ModifyGuildEmojiAsync(ulong guildId, ulong emojiId, ModifyGuildEmojiRequest request, string? reason = null);
+    Task<bool> DeleteGuildEmojiAsync(ulong guildId, ulong emojiId, string? reason = null);
+
+    // Application emoji operations
+    Task<List<Emoji>?> ListApplicationEmojisAsync(ulong applicationId);
+    Task<Emoji?> GetApplicationEmojiAsync(ulong applicationId, ulong emojiId);
+    Task<Emoji?> CreateApplicationEmojiAsync(ulong applicationId, CreateApplicationEmojiRequest request);
+    Task<Emoji?> ModifyApplicationEmojiAsync(ulong applicationId, ulong emojiId, ModifyApplicationEmojiRequest request);
+    Task<bool> DeleteApplicationEmojiAsync(ulong applicationId, ulong emojiId);
+
+    // Guild integration operations
+    Task<List<GuildIntegration>?> GetGuildIntegrationsAsync(ulong guildId);
+    Task<bool> DeleteGuildIntegrationAsync(ulong guildId, ulong integrationId, string? reason = null);
+
+    // Guild invite operations
+    Task<List<Invite>?> GetGuildInvitesAsync(ulong guildId);
+
+    // Guild prune operations
+    Task<GuildPruneResult?> GetGuildPruneCountAsync(ulong guildId, int? days = null, List<ulong>? includeRoles = null);
+    Task<GuildPruneResult?> BeginGuildPruneAsync(ulong guildId, BeginGuildPruneRequest request, string? reason = null);
+
+    // Bulk ban
+    Task<BulkGuildBanResponse?> BulkGuildBanAsync(ulong guildId, BulkGuildBanRequest request, string? reason = null);
+
+    // Guild role extras
+    Task<Role?> GetGuildRoleAsync(ulong guildId, ulong roleId);
+    Task<Dictionary<string, int>?> GetGuildRoleMemberCountsAsync(ulong guildId);
+
+    // Guild incident actions
+    Task<object?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request);
+
+    // Current user guild member
+    Task<GuildMember?> GetCurrentUserGuildMemberAsync(ulong guildId);
+
+    // Reaction extras
+    Task<bool> DeleteAllReactionsAsync(ulong channelId, ulong messageId);
+    Task<bool> DeleteAllReactionsForEmojiAsync(ulong channelId, ulong messageId, string emoji);
 }

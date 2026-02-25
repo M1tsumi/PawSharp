@@ -1,4 +1,4 @@
-# PawSharp.Interactions
+﻿# PawSharp.Interactions
 
 Slash commands and component interactions for Discord bots.
 
@@ -19,7 +19,7 @@ PawSharp.Interactions provides a complete framework for handling Discord's moder
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Interactions --version 0.5.0-alpha13
+dotnet add package PawSharp.Interactions --version 0.6.0-alpha1
 ```
 
 ## Quick Start

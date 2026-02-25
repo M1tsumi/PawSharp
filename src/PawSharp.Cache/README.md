@@ -1,4 +1,4 @@
-# PawSharp.Cache
+﻿# PawSharp.Cache
 
 High-performance caching with in-memory and distributed Redis support for Discord entities.
 
@@ -20,7 +20,7 @@ PawSharp.Cache provides intelligent caching for Discord entities with automatic 
 
 ```bash
 # Core caching functionality
-dotnet add package PawSharp.Cache --version 0.5.0-alpha13
+dotnet add package PawSharp.Cache --version 0.6.0-alpha1
 
 # For Redis support
 dotnet add package StackExchange.Redis --version 2.7.33
