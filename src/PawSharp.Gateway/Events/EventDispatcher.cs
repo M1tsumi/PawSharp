@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PawSharp.Core.Serialization;
 
 namespace PawSharp.Gateway.Events
 {
@@ -11,6 +12,20 @@ namespace PawSharp.Gateway.Events
         private readonly Dictionary<string, List<Delegate>> _eventHandlers;
         private readonly List<Func<string, object, Task>> _middleware;
         private readonly ILogger? _logger;
+
+        // Shared options instance – created once, reused for every deserialization call.
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters =
+            {
+                // Discord sends ALL snowflake IDs as strings.  Register the converters
+                // globally so every ulong / ulong? field is handled automatically even
+                // when no [JsonConverter] attribute is present on the property.
+                new SnowflakeJsonConverter(),
+                new NullableSnowflakeJsonConverter()
+            }
+        };
 
         public EventDispatcher(ILogger? logger = null)
         {
@@ -99,10 +114,7 @@ namespace PawSharp.Gateway.Events
         {
             try
             {
-                var eventData = JsonSerializer.Deserialize<TEvent>(json, new JsonSerializerOptions 
-                { 
-                    PropertyNameCaseInsensitive = true 
-                });
+                var eventData = JsonSerializer.Deserialize<TEvent>(json, _jsonOptions);
 
                 if (eventData != null)
                 {

@@ -1,4 +1,4 @@
-# PawSharp.API
+﻿# PawSharp.API
 
 REST API client for Discord with automatic rate limiting and error handling.
 
@@ -18,7 +18,7 @@ PawSharp.API provides a complete, production-ready REST client for Discord's API
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.API --version 0.5.0-alpha13
+dotnet add package PawSharp.API --version 0.6.0-alpha1
 ```
 
 ## 🚀 Quick Start

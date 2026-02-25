@@ -153,6 +153,48 @@ public class InteractionData
     /// </summary>
     [JsonPropertyName("entitlements")]
     public List<object>? Entitlements { get; set; }
+    
+    /// <summary>
+    /// Resolved data — users, members, roles, channels, messages, attachments referenced in the interaction.
+    /// </summary>
+    [JsonPropertyName("resolved")]
+    public ResolvedData? Resolved { get; set; }
+    
+    /// <summary>
+    /// The components submitted in a modal interact.
+    /// </summary>
+    [JsonPropertyName("components")]
+    public List<MessageComponent>? Components { get; set; }
+}
+
+/// <summary>
+/// Resolved data containing objects referenced in an interaction.
+/// </summary>
+public class ResolvedData
+{
+    /// <summary>Map of Snowflake to user objects.</summary>
+    [JsonPropertyName("users")]
+    public Dictionary<string, User>? Users { get; set; }
+    
+    /// <summary>Map of Snowflake to partial member objects (missing user, deaf, mute).</summary>
+    [JsonPropertyName("members")]
+    public Dictionary<string, GuildMember>? Members { get; set; }
+    
+    /// <summary>Map of Snowflake to role objects.</summary>
+    [JsonPropertyName("roles")]
+    public Dictionary<string, Role>? Roles { get; set; }
+    
+    /// <summary>Map of Snowflake to partial channel objects.</summary>
+    [JsonPropertyName("channels")]
+    public Dictionary<string, Channel>? Channels { get; set; }
+    
+    /// <summary>Map of Snowflake to partial message objects.</summary>
+    [JsonPropertyName("messages")]
+    public Dictionary<string, Message>? Messages { get; set; }
+    
+    /// <summary>Map of Snowflake to attachment objects.</summary>
+    [JsonPropertyName("attachments")]
+    public Dictionary<string, object>? Attachments { get; set; }
 }
 
 /// <summary>
