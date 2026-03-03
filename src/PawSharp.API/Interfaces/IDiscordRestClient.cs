@@ -27,22 +27,22 @@ public interface IDiscordRestClient
     /// <summary>
     /// Sends a POST request to the Discord API.
     /// </summary>
-    Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content);
+    Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent? content);
     
     /// <summary>
     /// Sends a POST request to the Discord API with audit log reason and cancellation support.
     /// </summary>
-    Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default);
+    Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Sends a PUT request to the Discord API.
     /// </summary>
-    Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content);
+    Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent? content);
     
     /// <summary>
     /// Sends a PUT request to the Discord API with audit log reason and cancellation support.
     /// </summary>
-    Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default);
+    Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Sends a DELETE request to the Discord API.
@@ -167,9 +167,9 @@ public interface IDiscordRestClient
     Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId);
     Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId);
     Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId);
-    Task<List<Channel>?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
-    Task<List<Channel>?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
-    Task<List<Channel>?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
+    Task<ArchivedThreadsResponse?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
+    Task<ArchivedThreadsResponse?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
+    Task<ArchivedThreadsResponse?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     
     // Webhook operations
     Task<Webhook?> CreateWebhookAsync(ulong channelId, CreateWebhookRequest request);

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -15,21 +16,21 @@ public class ReconnectionManager
     private const int MaxBackoffMs = 16000; // 16 seconds
 
     private readonly ILogger _logger;
-    private readonly IPerformanceMetrics _metrics;
+    private readonly IPerformanceMetrics? _metrics;
     private int _reconnectionAttempts;
     private int _currentBackoffMs;
 
     /// <summary>
     /// Fired when reconnection is about to be attempted.
     /// </summary>
-    public event Func<int, Task> OnReconnectionAttempt;
+    public event Func<int, Task>? OnReconnectionAttempt;
 
     /// <summary>
     /// Fired when all reconnection attempts have been exhausted.
     /// </summary>
-    public event Func<Task> OnReconnectionFailed;
+    public event Func<Task>? OnReconnectionFailed;
 
-    public ReconnectionManager(ILogger logger, IPerformanceMetrics metrics = null)
+    public ReconnectionManager(ILogger logger, IPerformanceMetrics? metrics = null)
     {
         _logger = logger;
         _metrics = metrics;
@@ -63,7 +64,7 @@ public class ReconnectionManager
         if (!CanReconnect)
         {
             _logger.LogError("Maximum reconnection attempts exceeded. Giving up.");
-            OnReconnectionFailed?.Invoke();
+            if (OnReconnectionFailed is { } failedHandler) await failedHandler();
             return false;
         }
 
@@ -74,7 +75,7 @@ public class ReconnectionManager
 
         await Task.Delay(_currentBackoffMs);
 
-        OnReconnectionAttempt?.Invoke(_reconnectionAttempts);
+        if (OnReconnectionAttempt is { } attemptHandler) await attemptHandler(_reconnectionAttempts);
 
         // Exponential backoff: double the backoff time, capped at 16 seconds
         _currentBackoffMs = Math.Min(_currentBackoffMs * 2, MaxBackoffMs);

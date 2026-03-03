@@ -450,7 +450,7 @@ public class CommandsExtension
             {
                 Id = evt.Id,
                 ChannelId = evt.ChannelId,
-                Author = evt.Author,
+                Author = evt.Author!, // author is always present on gateway MESSAGE_CREATE events
                 Content = evt.Content,
                 Timestamp = evt.Timestamp,
                 EditedTimestamp = evt.EditedTimestamp,
@@ -460,7 +460,8 @@ public class CommandsExtension
                 // Add other properties as needed
             };
 
-            var ctx = new CommandContext(_client, message, _prefix, commandName, args, rawArgs);
+            // _client is guaranteed non-null here: OnMessageCreate is only registered after _client is set
+            var ctx = new CommandContext(_client!, message, _prefix, commandName, args, rawArgs);
 
             try
             {

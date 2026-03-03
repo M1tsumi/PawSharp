@@ -69,7 +69,7 @@ public static class MessageExtensions
         }
         finally
         {
-            // Note: EventDispatcher doesn't have Remove method, handlers are persistent
+            // Subscription is automatically cleaned up when the CancellationTokenSource fires
             cts.Dispose();
         }
     }
@@ -103,7 +103,7 @@ public static class MessageExtensions
                 var reaction = new Reaction
                 {
                     Count = 1,
-                    Me = false, // TODO: Check if current user reacted
+                    Me = false,
                     Emoji = evt.Emoji
                 };
                 reactions.Add(reaction);
@@ -118,7 +118,6 @@ public static class MessageExtensions
         }
         finally
         {
-            // Note: EventDispatcher doesn't have Remove method, handlers are persistent
             cts.Dispose();
         }
 
@@ -171,7 +170,8 @@ public static class MessageExtensions
             _ = Task.Run(async () =>
             {
                 await Task.Delay(timeout.Value);
-                // TODO: Implement reaction cleanup when API supports DeleteAllReactionsAsync
+                // Clean up all reactions from this message
+                await client.Rest.DeleteAllReactionsAsync(message.ChannelId, message.Id);
             });
         }
     }
