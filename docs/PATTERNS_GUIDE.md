@@ -15,7 +15,85 @@ Real-world patterns and code recipes for building Discord bots with PawSharp.
 
 ## Command Handling
 
-### Simple Command Router
+### Class-Based Commands with `CommandsExtension` (Recommended)
+
+`CommandsExtension` discovers command methods automatically using reflection and wires up the `MESSAGE_CREATE` event internally —
+nno manual event subscription required.
+
+```csharp
+using PawSharp.Commands;
+
+// 1. Define a module
+public class GeneralCommands : BaseCommandModule
+{
+    private readonly IDiscordRestClient _rest;
+
+    public GeneralCommands(IDiscordRestClient rest)
+    {
+        _rest = rest;
+    }
+
+    [Command("ping")]
+    [Description("Responds with pong")]
+    public async Task PingAsync(CommandContext ctx)
+    {
+        await ctx.RespondAsync("🏓 Pong!");
+    }
+
+    [Command("hello")]
+    [Aliases("hi", "hey")]
+    [Description("Greet the user")]
+    public async Task HelloAsync(CommandContext ctx)
+    {
+        await ctx.RespondAsync($"👋 Hello, {ctx.User.Username}!");
+    }
+
+    [Command("echo")]
+    [Description("Repeat your message")]
+    public async Task EchoAsync(CommandContext ctx)
+    {
+        var text = ctx.RawArguments;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await ctx.RespondAsync("Usage: !echo <text>");
+            return;
+        }
+        await ctx.RespondAsync(text);
+    }
+}
+
+// 2. Register the module — MESSAGE_CREATE is wired automatically
+var commands = new CommandsExtension(prefix: "!");
+commands.RegisterModule(client, new GeneralCommands(client.Rest));
+
+// 3. List all registered commands
+foreach (var info in commands.GetRegisteredCommands())
+    Console.WriteLine($"  !{info.Name}  {info.Description}");
+```
+
+**`CommandContext` properties:**
+
+| Property | Type | Description |
+|---|---|---|
+| `Client` | `DiscordClient` | The Discord client |
+| `Message` | `Message` | The triggering message |
+| `ChannelId` | `ulong` | Channel where command was run |
+| `GuildId` | `ulong?` | Guild (null for DMs) |
+| `User` | `User` | User who ran the command |
+| `Prefix` | `string` | The prefix used (`!`) |
+| `CommandName` | `string` | Command name without prefix |
+| `Arguments` | `string[]` | Whitespace-split arguments |
+| `RawArguments` | `string` | Everything after the command name |
+
+**`ctx.RespondAsync` overloads:**
+```csharp
+await ctx.RespondAsync("Simple text response");
+await ctx.RespondAsync(embedObject);
+```
+
+---
+
+### Manual Command Router (Simple)
 
 ```csharp
 public class CommandRouter
@@ -77,7 +155,7 @@ router.Register("hello", msg => rest.CreateMessageAsync(msg.ChannelId, new()
     Content = $"👋 Hello, {msg.Author.Username}!",
 }));
 
-dispatcher.On<MessageCreateEvent>(router.HandleAsync);
+client.OnMessageCreated(router.HandleAsync);
 ```
 
 ### Command with Arguments
@@ -254,6 +332,9 @@ public class AutoModerator
 }
 
 dispatcher.On<MessageCreateEvent>(moderator.HandleMessageAsync);
+```
+
+> **Tip:** To attach to the DiscordClient use `client.OnMessageCreated(moderator.HandleMessageAsync)`.
 ```
 
 ### Kick & Ban with Logging
@@ -466,7 +547,7 @@ public class ReactionMenu
 }
 
 // Usage
-dispatcher.On<MessageReactionAddEvent>(async reaction =>
+client.OnReactionAdded(async reaction =>
 {
     var menu = reactionMenu.GetMenu(reaction.MessageId);
     if (menu == null) return;
@@ -618,7 +699,7 @@ public class RateLimitManager
 }
 
 // Usage
-dispatcher.On<MessageCreateEvent>(async msg =>
+client.OnMessageCreated(async msg =>
 {
     if (!msg.Content.StartsWith("!")) return;
 
