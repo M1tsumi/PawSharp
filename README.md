@@ -1,9 +1,9 @@
-﻿# PawSharp
+# PawSharp
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.6.0-alpha1
-**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. Alpha13 adds typed message components, a fluent EmbedBuilder, new flags enums, and 20 additional REST endpoints. Complete documentation and examples available.
+**Current Version:** 0.6.1-alpha1
+**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. v0.6.1-alpha1 delivers bug fixes and null-safety hardening: correct heartbeat configuration propagation, awaited gateway event tasks, proper archived-thread deserialization, 6000-char embed limit enforcement, and nullable-clean REST content parameters. Complete documentation and examples available.
 
 ## Key Features
 
@@ -19,7 +19,7 @@ A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automat
 - **Dependency Injection** - First-class support for .NET DI container
 - **Fully Async** - Modern async/await throughout with nullable reference types
 - **Typed Components** - Fully typed message component hierarchy (buttons, select menus, text inputs) with polymorphic JSON deserialization
-- **EmbedBuilder** - Fluent builder with Discord limit enforcement for constructing embeds
+- **EmbedBuilder** - Fluent builder with Discord limit enforcement (title, description, fields, footer, author, and the 6000-character total limit)
 
 ---
 
@@ -70,7 +70,7 @@ dotnet build
 
 ---
 
-## 📁 Project Structure
+## ?? Project Structure
 
 PawSharp is organized into modular packages for flexibility:
 
@@ -204,34 +204,34 @@ More examples in [examples/](examples/).
 
 ```
 PawSharp.Core
-├── Entities (Guild, Channel, Message, User, components, etc.)
-├── Enums (PermissionFlags, MessageType, MessageFlags, ChannelFlags, etc.)
-├── Exceptions (custom exception hierarchy)
-├── Validation (input validators)
-├── Models (API request/response types)
-├── Builders (EmbedBuilder)
-└── Interfaces (IDiscordRestClient, etc.)
++-- Entities (Guild, Channel, Message, User, components, etc.)
++-- Enums (PermissionFlags, MessageType, MessageFlags, ChannelFlags, etc.)
++-- Exceptions (custom exception hierarchy)
++-- Validation (input validators)
++-- Models (API request/response types)
++-- Builders (EmbedBuilder)
++-- Interfaces (IDiscordRestClient, etc.)
 
 PawSharp.API
-├── REST client (all Discord HTTP endpoints)
-├── Rate limiting (per-route bucket tracking)
-└── Request/response models
++-- REST client (all Discord HTTP endpoints)
++-- Rate limiting (per-route bucket tracking)
++-- Request/response models
 
 PawSharp.Cache
-└── In-memory cache provider (with per-entity limits)
++-- In-memory cache provider (with per-entity limits)
 
 PawSharp.Gateway
-├── WebSocket connection management
-├── Event dispatch system
-├── Heartbeat handling
-└── Shard manager (coming Phase 2)
++-- WebSocket connection management
++-- Event dispatch system
++-- Heartbeat handling
++-- Shard manager (coming Phase 2)
 
 PawSharp.Interactions
-└── Slash command and component builders
++-- Slash command and component builders
 
 PawSharp.Client
-├── High-level Discord client
-└── Event handlers
++-- High-level Discord client
++-- Event handlers
 ```
 
 Use the pieces you need. Mix and match.
@@ -300,7 +300,7 @@ client.Interactions.RegisterCommand("ping", async interaction =>
         Type = (int)InteractionResponseType.ChannelMessageWithSource,
         Data = new InteractionCallbackData
         {
-            Content = "Pong! 🏓"
+            Content = "Pong! ??"
         }
     };
     
@@ -364,7 +364,7 @@ var pages = interactivity.GeneratePagesInEmbed(longText);
 await channel.SendPaginatedMessageAsync(user, pages);
 
 // Wait for a specific user reaction
-var result = await message.WaitForReactionAsync(user, "👍");
+var result = await message.WaitForReactionAsync(user, "??");
 if (!result.TimedOut)
 {
     await message.RespondAsync("Thanks for the thumbs up!");
@@ -404,7 +404,7 @@ public class UtilityCommands : BaseCommandModule
     [Description("Check if the bot is responsive")]
     public async Task PingAsync(CommandContext ctx)
     {
-        await ctx.RespondAsync($"🏓 Pong! Latency: {DateTimeOffset.Now - ctx.Message.Timestamp:hh\\:mm\\:ss}");
+        await ctx.RespondAsync($"?? Pong! Latency: {DateTimeOffset.Now - ctx.Message.Timestamp:hh\\:mm\\:ss}");
     }
 
     [Command("userinfo")]
@@ -430,7 +430,7 @@ public class UtilityCommands : BaseCommandModule
     {
         if (string.IsNullOrWhiteSpace(ctx.RawArguments))
         {
-            await ctx.RespondAsync("❌ What do you want me to say?");
+            await ctx.RespondAsync("? What do you want me to say?");
             return;
         }
         await ctx.RespondAsync(ctx.RawArguments);
@@ -468,9 +468,9 @@ Help wanted. Check the [ROADMAP.md](ROADMAP.md) for what we're building.
 
 ## Resources
 
-- [Discord Developer Portal](https://discord.com/developers/applications) — get your bot token
-- [Discord API Documentation](https://discord.com/developers/docs/intro) — the source of truth
-- [Examples](examples/) — real code samples
+- [Discord Developer Portal](https://discord.com/developers/applications) � get your bot token
+- [Discord API Documentation](https://discord.com/developers/docs/intro) � the source of truth
+- [Examples](examples/) � real code samples
 
 ---
 

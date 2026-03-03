@@ -20,7 +20,7 @@ PawSharp.Core provides the fundamental data models and entities that represent D
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Core --version 0.6.0-alpha1
+dotnet add package PawSharp.Core --version 6.1.0-alpha-1
 ```
 
 ## 🚀 Quick Start

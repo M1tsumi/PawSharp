@@ -78,17 +78,18 @@ Welcome to PawSharp! This is your complete guide to building Discord bots with .
 
 ## 📋 API Reference
 
-Quick reference documentation for all modules:
+Detailed API documentation is embedded in the XML doc-comments in each source project.
+For a structured overview by module:
 
-- **[PawSharp.Core](./api-reference/core-entities.md)** - Base entities, enums, exceptions
-- **[PawSharp.API](./api-reference/pawsharp-api.md)** - REST client with 140+ endpoints
-- **[PawSharp.Gateway](./api-reference/pawsharp-gateway.md)** - WebSocket gateway and events
-- **[PawSharp.Cache](./api-reference/pawsharp-cache.md)** - Caching providers
-- **[PawSharp.Client](./api-reference/pawsharp-client.md)** - Unified client
-- **[PawSharp.Commands](./api-reference/pawsharp-commands.md)** - Command framework
-- **[PawSharp.Interactions](./api-reference/pawsharp-interactions.md)** - Slash commands
-- **[PawSharp.Interactivity](./api-reference/pawsharp-interactivity.md)** - Reactions, pagination
-- **[PawSharp.Voice](./api-reference/pawsharp-voice.md)** - Voice support (experimental)
+- **PawSharp.Core** — Base entities (`Guild`, `Channel`, `Message`, `User`, `Role`, `Embed`), enums, exceptions, `EmbedBuilder`
+- **PawSharp.API** — `IDiscordRestClient` with 140+ typed endpoints; `RestClient`, rate-limit layer
+- **PawSharp.Gateway** — `GatewayClient`, `EventDispatcher`, `HeartbeatManager`, `ReconnectionManager`, `ShardManager`
+- **PawSharp.Cache** — `IEntityCache`, `MemoryCacheProvider`, `RedisCacheProvider`
+- **PawSharp.Client** — `DiscordClient` (unified facade), `CacheManager`, DI extension `AddPawSharp()`
+- **PawSharp.Commands** — `CommandsExtension`, `BaseCommandModule`, `[Command]`, `[Aliases]`, `[Description]`
+- **PawSharp.Interactions** — `InteractionHandler`, slash commands, components, autocomplete, context menus
+- **PawSharp.Interactivity** — Reaction pagination, `InteractivityExtension`
+- **PawSharp.Voice** — `VoiceClient`, `VoiceConnection` (experimental)
 
 ---
 
@@ -113,7 +114,7 @@ var services = new ServiceCollection()
 var client = services.BuildServiceProvider().GetRequiredService<DiscordClient>();
 
 // 3. Add command
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     if (msg.Content == "!ping")
         return client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "🏓 Pong!" });
@@ -303,7 +304,7 @@ PawSharp implements **140+ Discord API endpoints**:
 
 ## 📝 Documentation Versions
 
-**Latest:** 0.5.0-alpha10 (January 20, 2026)
+**Latest:** 6.1.0-alpha-1 (March 3, 2026)
 
 Documentation covers:
 - ✅ 0.5.0-alpha10 and later
@@ -342,6 +343,6 @@ PawSharp documentation is available under the MIT License.
 
 ---
 
-*Last updated: February 1, 2026*  
-*PawSharp Version: 0.5.0-alpha10*  
+*Last updated: March 3, 2026*  
+*PawSharp Version: 6.1.0-alpha-1*  
 *For the latest documentation, visit [github.com/pawsharp/pawsharp/docs](https://github.com/pawsharp/pawsharp/docs)*

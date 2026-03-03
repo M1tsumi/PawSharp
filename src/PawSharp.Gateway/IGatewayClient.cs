@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using PawSharp.Gateway.Events;
@@ -37,10 +38,10 @@ public interface IGatewayClient
     Task RequestGuildMembersAsync(ulong guildId, int limit = 0, string? query = null);
 
     /// <summary>Fires when a voice state update is received from Discord.</summary>
-    event Func<VoiceStateUpdateEvent, Task> VoiceStateUpdate;
+    event Func<VoiceStateUpdateEvent, Task>? VoiceStateUpdate;
 
     /// <summary>Fires when a voice server update is received from Discord.</summary>
-    event Func<VoiceServerUpdateEvent, Task> VoiceServerUpdate;
+    event Func<VoiceServerUpdateEvent, Task>? VoiceServerUpdate;
 
     /// <summary>
     /// Sends a Voice State Update payload (Opcode 4) to join/leave/move voice channels.
