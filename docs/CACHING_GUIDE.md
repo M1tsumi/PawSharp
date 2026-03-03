@@ -44,7 +44,7 @@ var client = provider.GetRequiredService<DiscordClient>();
 
 // CacheManager subscribes to gateway events automatically
 // Messages, guilds, users, channels, members, roles are all cached
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     // Message is automatically cached by the CacheManager
     return Task.CompletedTask;
@@ -309,7 +309,7 @@ Automatically cache entities as gateway events arrive. This is the default PawSh
 
 ```csharp
 // CacheManager subscribes to gateway events automatically on startup
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     // Message automatically cached by CacheManager
     // Author (User) automatically cached
@@ -317,7 +317,7 @@ client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<GuildMemberAddEvent>(member =>
+client.OnGuildMemberJoined(member =>
 {
     // Member automatically cached
     // User information automatically cached
@@ -437,7 +437,7 @@ public class SelectiveCache
     
     public void Initialize()
     {
-        _client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
+        _client.OnMessageCreated(msg =>
         {
             // Only cache messages from priority guilds
             if (msg.GuildId.HasValue && _priorityGuilds.Contains(msg.GuildId.Value))
@@ -855,7 +855,7 @@ public class SelectiveCacheManager
     
     public void Initialize()
     {
-        _client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
+        _client.OnMessageCreated(msg =>
         {
             // Only cache messages from registered guilds
             if (msg.GuildId.HasValue && _cachedGuilds.Contains(msg.GuildId.Value))
@@ -931,11 +931,10 @@ public class CacheWarmup
 }
 
 // Call during ReadyEvent
-client.Gateway.EventDispatcher.On<ReadyEvent>(async e =>
+client.OnReady(async e =>
 {
     var warmup = provider.GetRequiredService<CacheWarmup>();
     await warmup.WarmupAsync();
-    return Task.CompletedTask;
 });
 ```
 
@@ -982,10 +981,8 @@ Keep cache fresh by responding to updates:
 ```csharp
 public void SetupCacheInvalidation()
 {
-    var dispatcher = _client.Gateway.EventDispatcher;
-    
     // Automatically refresh when guilds update
-    dispatcher.On<GuildUpdateEvent>(e =>
+    _client.OnGuildUpdated(e =>
     {
         _cache.CacheGuild(e);  // Update cache
         _logger.LogDebug("Guild cache updated: {GuildName}", e.Name);
@@ -993,14 +990,14 @@ public void SetupCacheInvalidation()
     });
     
     // Automatically refresh when channels update
-    dispatcher.On<ChannelUpdateEvent>(e =>
+    _client.OnChannelUpdated(e =>
     {
         _cache.CacheChannel(e);
         return Task.CompletedTask;
     });
     
-    // Remove from cache when deleted
-    dispatcher.On<GuildDeleteEvent>(e =>
+    // Remove from cache when guild becomes unavailable or is deleted
+    _client.OnGuildUnavailable(e =>
     {
         _cache.RemoveGuild(e.Id);
         _logger.LogDebug("Guild removed from cache: {GuildId}", e.Id);

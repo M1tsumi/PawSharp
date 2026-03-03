@@ -1,4 +1,6 @@
+#nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -7,10 +9,18 @@ using PawSharp.Core.Serialization;
 
 namespace PawSharp.Gateway.Events
 {
+    /// <summary>
+    /// Thread-safe event dispatcher for Discord gateway events.
+    /// Supports both synchronous (<see cref="Action{T}"/>) and asynchronous
+    /// (<see cref="Func{T, Task}"/>) event handlers.
+    /// </summary>
     public class EventDispatcher
     {
-        private readonly Dictionary<string, List<Delegate>> _eventHandlers;
-        private readonly List<Func<string, object, Task>> _middleware;
+        // ConcurrentDictionary<eventName, snapshot copy on write list of delegates>
+        private readonly ConcurrentDictionary<string, List<Delegate>> _eventHandlers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly object _handlersLock = new();
+        private readonly List<Func<string, object, Task>> _middleware = new();
+        private readonly object _middlewareLock = new();
         private readonly ILogger? _logger;
 
         // Shared options instance – created once, reused for every deserialization call.
@@ -29,156 +39,167 @@ namespace PawSharp.Gateway.Events
 
         public EventDispatcher(ILogger? logger = null)
         {
-            _eventHandlers = new Dictionary<string, List<Delegate>>();
-            _middleware = new List<Func<string, object, Task>>();
             _logger = logger;
         }
 
+        // ---- Registration ----
+
         /// <summary>
-        /// Register a typed event handler.
+        /// Registers a synchronous typed event handler.
+        /// Dispose the returned <see cref="IDisposable"/> to unsubscribe.
         /// </summary>
         public IDisposable On<TEvent>(string eventName, Action<TEvent> handler) where TEvent : GatewayEvent
-        {
-            if (!_eventHandlers.ContainsKey(eventName))
-            {
-                _eventHandlers[eventName] = new List<Delegate>();
-            }
-            _eventHandlers[eventName].Add(handler);
-            return new EventSubscription(this, eventName, handler);
-        }
+            => AddHandler(eventName, (Delegate)handler);
 
         /// <summary>
-        /// Register a raw event handler for unparsed JSON.
+        /// Registers an asynchronous typed event handler.
+        /// Dispose the returned <see cref="IDisposable"/> to unsubscribe.
+        /// </summary>
+        public IDisposable On<TEvent>(string eventName, Func<TEvent, Task> handler) where TEvent : GatewayEvent
+            => AddHandler(eventName, (Delegate)handler);
+
+        /// <summary>
+        /// Registers a raw (JSON string) event handler.
         /// </summary>
         public IDisposable OnRaw(string eventName, Action<string> handler)
+            => AddHandler(eventName, (Delegate)handler);
+
+        private IDisposable AddHandler(string eventName, Delegate handler)
         {
-            if (!_eventHandlers.ContainsKey(eventName))
+            lock (_handlersLock)
             {
-                _eventHandlers[eventName] = new List<Delegate>();
+                var list = _eventHandlers.GetOrAdd(eventName, _ => new List<Delegate>());
+                // Replace list with a new copy (copy-on-write pattern for safe iteration)
+                var newList = new List<Delegate>(list) { handler };
+                _eventHandlers[eventName] = newList;
             }
-            _eventHandlers[eventName].Add(handler);
             return new EventSubscription(this, eventName, handler);
         }
 
+        internal void RemoveHandler(string eventName, Delegate handler)
+        {
+            lock (_handlersLock)
+            {
+                if (!_eventHandlers.TryGetValue(eventName, out var list)) return;
+                var newList = new List<Delegate>(list);
+                newList.Remove(handler);
+                _eventHandlers[eventName] = newList;
+            }
+        }
+
         /// <summary>
-        /// Register middleware that runs for all events.
+        /// Registers middleware that runs before every event dispatch.
         /// </summary>
         public void Use(Func<string, object, Task> middleware)
         {
-            _middleware.Add(middleware);
+            lock (_middlewareLock)
+            {
+                _middleware.Add(middleware);
+            }
         }
 
+        // ---- Dispatch ----
+
         /// <summary>
-        /// Dispatch a typed event.
+        /// Dispatches a typed event to all registered handlers.
         /// </summary>
         public async Task DispatchAsync<TEvent>(string eventName, TEvent eventData, string? rawJson = null) where TEvent : GatewayEvent
         {
-            if (rawJson != null)
-            {
-                eventData.RawJson = rawJson;
-            }
+            if (rawJson != null) eventData.RawJson = rawJson;
 
             // Run middleware
-            foreach (var middleware in _middleware)
+            List<Func<string, object, Task>> middlewareCopy;
+            lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
+            foreach (var mw in middlewareCopy)
             {
-                await middleware(eventName, eventData);
+                try { await mw(eventName, eventData); }
+                catch (Exception ex) { _logger?.LogError(ex, "Error in event middleware for {Event}", eventName); }
             }
 
-            if (_eventHandlers.ContainsKey(eventName))
+            // Dispatch to handlers – snapshot copy ensures iteration is safe even if handlers mutate list
+            if (!_eventHandlers.TryGetValue(eventName, out var handlers)) return;
+
+            foreach (var handler in handlers)
             {
-                foreach (var handler in _eventHandlers[eventName])
+                try
                 {
-                    try
-                    {
-                        if (handler is Action<TEvent> typedHandler)
-                        {
-                            typedHandler(eventData);
-                        }
-                        else if (handler is Action<string> rawHandler && rawJson != null)
-                        {
-                            rawHandler(rawJson);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogError(ex, $"Error in event handler for {eventName}");
-                    }
+                    if (handler is Func<TEvent, Task> asyncHandler)
+                        await asyncHandler(eventData);
+                    else if (handler is Action<TEvent> syncHandler)
+                        syncHandler(eventData);
+                    else if (handler is Action<string> rawHandler && rawJson != null)
+                        rawHandler(rawJson);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error in event handler for {Event}", eventName);
                 }
             }
         }
 
         /// <summary>
-        /// Dispatch an event from raw JSON data.
+        /// Deserializes the raw JSON payload and dispatches the resulting event.
+        /// Falls back to raw-JSON handlers on deserialization failure.
         /// </summary>
         public async Task DispatchFromJsonAsync<TEvent>(string eventName, string json) where TEvent : GatewayEvent
         {
             try
             {
                 var eventData = JsonSerializer.Deserialize<TEvent>(json, _jsonOptions);
-
                 if (eventData != null)
-                {
                     await DispatchAsync(eventName, eventData, json);
-                }
             }
             catch (JsonException ex)
             {
-                _logger?.LogError(ex, $"Failed to deserialize {eventName} event. This event will be skipped. Raw JSON length: {json?.Length ?? 0}");
-                // Still dispatch raw event so handlers can try to process it
-                await DispatchRawAsync(eventName, json);
+                _logger?.LogError(ex,
+                    "Failed to deserialize {Event} event (JSON length: {Len}). Falling back to raw dispatch.",
+                    eventName, json?.Length ?? 0);
+                await DispatchRawAsync(eventName, json!);
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, $"Failed to deserialize {eventName} event");
-                
-                // Still dispatch raw event if anyone is listening
-                if (_eventHandlers.ContainsKey(eventName))
-                {
-                    foreach (var handler in _eventHandlers[eventName])
-                    {
-                        if (handler is Action<string> rawHandler)
-                        {
-                            rawHandler(json);
-                        }
-                    }
-                }
+                _logger?.LogError(ex, "Unexpected error dispatching {Event} event", eventName);
+                await DispatchRawAsync(eventName, json!);
             }
         }
 
         /// <summary>
-        /// Dispatch a raw event (JSON string) to handlers.
+        /// Dispatches a raw JSON string to handlers registered via <see cref="OnRaw"/>.
         /// </summary>
         public async Task DispatchRawAsync(string eventName, string json)
         {
-            // Run middleware with raw JSON as object
-            foreach (var middleware in _middleware)
+            List<Func<string, object, Task>> middlewareCopy;
+            lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
+            foreach (var mw in middlewareCopy)
             {
-                await middleware(eventName, json);
+                try { await mw(eventName, json); }
+                catch (Exception ex) { _logger?.LogError(ex, "Error in middleware for raw {Event}", eventName); }
             }
 
-            if (_eventHandlers.ContainsKey(eventName))
+            if (!_eventHandlers.TryGetValue(eventName, out var handlers)) return;
+            foreach (var handler in handlers)
             {
-                foreach (var handler in _eventHandlers[eventName])
+                try
                 {
-                    try
-                    {
-                        if (handler is Action<string> rawHandler)
-                        {
-                            rawHandler(json);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogError(ex, $"Error in raw event handler for {eventName}");
-                    }
+                    if (handler is Action<string> rawHandler) rawHandler(json);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error in raw event handler for {Event}", eventName);
                 }
             }
         }
 
         /// <summary>
-        /// Represents a subscription to an event that can be disposed to unsubscribe.
+        /// Returns the number of handlers registered for the given event name.
+        /// Useful for diagnostics.
         /// </summary>
-        private class EventSubscription : IDisposable
+        public int HandlerCount(string eventName)
+            => _eventHandlers.TryGetValue(eventName, out var list) ? list.Count : 0;
+
+        // ---- Subscription token ----
+
+        private sealed class EventSubscription : IDisposable
         {
             private readonly EventDispatcher _dispatcher;
             private readonly string _eventName;
@@ -188,23 +209,16 @@ namespace PawSharp.Gateway.Events
             public EventSubscription(EventDispatcher dispatcher, string eventName, Delegate handler)
             {
                 _dispatcher = dispatcher;
-                _eventName = eventName;
-                _handler = handler;
+                _eventName  = eventName;
+                _handler    = handler;
             }
 
             public void Dispose()
             {
                 if (_disposed) return;
                 _disposed = true;
-
-                if (_dispatcher._eventHandlers.TryGetValue(_eventName, out var handlers))
-                {
-                    handlers.Remove(_handler);
-                    if (handlers.Count == 0)
-                    {
-                        _dispatcher._eventHandlers.Remove(_eventName);
-                    }
-                }
+                _dispatcher.RemoveHandler(_eventName, _handler);
             }
         }
-    }}
+    }
+}

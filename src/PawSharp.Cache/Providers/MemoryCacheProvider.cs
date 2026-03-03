@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -85,6 +86,7 @@ namespace PawSharp.Cache.Providers
         }
 
         private void EnforceEntityCacheBounds<TKey, TValue>(ConcurrentDictionary<TKey, TValue> cache, int maxSize)
+            where TKey : notnull
         {
             if (cache.Count <= maxSize) return;
 

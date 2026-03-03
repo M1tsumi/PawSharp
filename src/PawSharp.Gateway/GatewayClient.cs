@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Net.WebSockets;
 using System.Text;
@@ -17,54 +18,58 @@ namespace PawSharp.Gateway
     {
         private readonly PawSharpOptions _options;
         private readonly ILogger _logger;
-        private readonly IPerformanceMetrics _metrics;
+        private readonly IPerformanceMetrics? _metrics;
         private readonly WebSocketConnection _webSocket;
         private HeartbeatManager _heartbeatManager;
         private readonly EventDispatcher _eventDispatcher;
         private readonly ReconnectionManager _reconnectionManager;
-        private CancellationTokenSource _cts;
-        private Task _receiveTask;
+        private CancellationTokenSource? _cts;
+        private Task? _receiveTask;
         
         private GatewayState _currentState = GatewayState.Disconnected;
-        private ulong? _resumeSessionId;
+        /// <remarks>
+        /// Discord session IDs are opaque hex-like strings (e.g. "abc123...").
+        /// They must be stored as <see cref="string"/>, not a numeric snowflake.
+        /// </remarks>
+        private string? _resumeSessionId;
         private int? _resumeSequence;
 
         /// <summary>
         /// Fired when the gateway state changes.
         /// </summary>
-        public event Func<GatewayState, GatewayState, Task> OnStateChanged;
+        public event Func<GatewayState, GatewayState, Task>? OnStateChanged;
 
         /// <summary>
         /// Fired when reconnection is about to be attempted.
         /// </summary>
-        public event Func<int, Task> OnReconnectionAttempt;
+        public event Func<int, Task>? OnReconnectionAttempt;
 
         /// <summary>
         /// Fired when reconnection has failed after all attempts.
         /// </summary>
-        public event Func<Task> OnReconnectionFailed;
+        public event Func<Task>? OnReconnectionFailed;
 
         /// <summary>
         /// Fired when a voice state update is received.
         /// </summary>
-        public event Func<VoiceStateUpdateEvent, Task> VoiceStateUpdate;
+        public event Func<VoiceStateUpdateEvent, Task>? VoiceStateUpdate;
 
         /// <summary>
         /// Fired when a voice server update is received.
         /// </summary>
-        public event Func<VoiceServerUpdateEvent, Task> VoiceServerUpdate;
+        public event Func<VoiceServerUpdateEvent, Task>? VoiceServerUpdate;
 
         /// <summary>
         /// Fired when identify fails.
         /// </summary>
-        public event Func<string, Task> OnIdentifyFailed;
+        public event Func<string, Task>? OnIdentifyFailed;
 
         /// <summary>
         /// Fired when resume fails.
         /// </summary>
-        public event Func<string, Task> OnResumeFailed;
+        public event Func<string, Task>? OnResumeFailed;
 
-        public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics metrics = null)
+        public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics? metrics = null)
         {
             _options = options;
             _logger = logger;
@@ -124,7 +129,7 @@ namespace PawSharp.Gateway
                 _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token));
 
                 // Try to resume if we have a session, otherwise identify
-                if (_resumeSessionId.HasValue && _resumeSequence.HasValue)
+                if (_resumeSessionId is not null && _resumeSequence.HasValue)
                 {
                     await SendResumeAsync();
                 }
@@ -171,7 +176,7 @@ namespace PawSharp.Gateway
                     d = new
                     {
                         since = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                        activities = string.IsNullOrEmpty(game) ? new object[0] : new object[]
+                        activities = string.IsNullOrEmpty(game) ? Array.Empty<object>() : new object[]
                         {
                             new
                             {
@@ -261,7 +266,7 @@ namespace PawSharp.Gateway
                 var oldState = _currentState;
                 _currentState = newState;
                 _logger.LogInformation($"Gateway state: {oldState} -> {newState}");
-                OnStateChanged?.Invoke(oldState, newState);
+                if (OnStateChanged is { } handler) await handler(oldState, newState);
             }
             await Task.CompletedTask;
         }
@@ -287,7 +292,7 @@ namespace PawSharp.Gateway
                 };
 
                 var json = JsonSerializer.Serialize(identifyPayload);
-                await _webSocket.SendAsync(json, _cts.Token);
+                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Sent identify payload.");
             }
             catch (Exception ex)
@@ -300,7 +305,7 @@ namespace PawSharp.Gateway
 
         private async Task SendResumeAsync()
         {
-            if (!_resumeSessionId.HasValue || !_resumeSequence.HasValue)
+            if (_resumeSessionId is null || !_resumeSequence.HasValue)
             {
                 _logger.LogWarning("Cannot resume - missing session or sequence");
                 OnResumeFailed?.Invoke("Cannot resume - missing session or sequence");
@@ -316,13 +321,13 @@ namespace PawSharp.Gateway
                     d = new
                     {
                         token = _options.Token,
-                        session_id = _resumeSessionId.Value.ToString(),
+                        session_id = _resumeSessionId,   // must be the raw string value from READY
                         seq = _resumeSequence.Value
                     }
                 };
 
                 var json = JsonSerializer.Serialize(resumePayload);
-                await _webSocket.SendAsync(json, _cts.Token);
+                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Sent resume payload.");
             }
             catch (Exception ex)
@@ -366,7 +371,7 @@ namespace PawSharp.Gateway
                 int? s = root.TryGetProperty("s", out var sProp) && sProp.ValueKind != JsonValueKind.Null 
                     ? sProp.GetInt32() 
                     : (int?)null;
-                string t = root.TryGetProperty("t", out var tProp) ? tProp.GetString() : null;
+                string? t = root.TryGetProperty("t", out var tProp) ? tProp.GetString() : null;
                 var d = root.TryGetProperty("d", out var dProp) ? dProp : default;
 
                 // Track sequence number for resumption
@@ -414,7 +419,8 @@ namespace PawSharp.Gateway
                         _logger.LogDebug("Opcode 8 (Request Guild Members) should not be received from server");
                         break;
                     case 9: // Invalid Session — Auth/session failed
-                        bool resumable = d.TryGetProperty("d", out var resumableProp) && resumableProp.GetBoolean();
+                        // d is a boolean: true means the session is resumable, false means start fresh
+                        bool resumable = d.ValueKind == JsonValueKind.True;
                         string errorMsg = resumable 
                             ? "Invalid session but resumable - will re-identify" 
                             : "Invalid session - clearing resume data and re-identifying";
@@ -427,6 +433,8 @@ namespace PawSharp.Gateway
                         }
                         
                         OnIdentifyFailed?.Invoke(errorMsg);
+                        // Discord requires a small delay before re-identifying after invalid session
+                        await Task.Delay(TimeSpan.FromSeconds(resumable ? 1 : 5));
                         await SendIdentifyAsync();
                         break;
                     case 10: // Hello — Server handshake
@@ -457,7 +465,7 @@ namespace PawSharp.Gateway
                     _logger.LogInformation($"Received heartbeat interval: {interval}ms");
                     
                     _heartbeatManager.Stop();
-                    _heartbeatManager = new HeartbeatManager(interval, SendHeartbeatAsync, _logger);
+                    _heartbeatManager = new HeartbeatManager(interval, SendHeartbeatAsync, _logger, _options.MaxMissedHeartbeatAcks);
                     _heartbeatManager.OnZombieConnection += async () =>
                     {
                         _logger.LogError("Zombie connection detected - reconnecting...");
@@ -477,7 +485,7 @@ namespace PawSharp.Gateway
         {
             try
             {
-                var heartbeatPayload = new { op = 1, d = _resumeSequence ?? (object)null };
+                var heartbeatPayload = new { op = 1, d = _resumeSequence ?? (object?)null };
                 var json = JsonSerializer.Serialize(heartbeatPayload);
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogDebug($"Sent heartbeat (seq={_resumeSequence})");
@@ -783,14 +791,23 @@ namespace PawSharp.Gateway
                 using var doc = JsonDocument.Parse(eventData);
                 var root = doc.RootElement;
 
+                // session_id is an opaque string (hex-like), NOT a numeric snowflake.
                 if (root.TryGetProperty("session_id", out var sessionIdProp))
                 {
                     var sessionIdStr = sessionIdProp.GetString();
-                    if (ulong.TryParse(sessionIdStr, out var sessionId))
+                    if (!string.IsNullOrWhiteSpace(sessionIdStr))
                     {
-                        _resumeSessionId = sessionId;
-                        _logger.LogInformation($"Stored session ID for resumption: {sessionId}");
+                        _resumeSessionId = sessionIdStr;
+                        _logger.LogInformation("Stored session ID for resumption: {SessionId}", sessionIdStr);
                     }
+                }
+
+                // Cache the resume URL per Discord docs – prefer this URL on reconnect
+                if (root.TryGetProperty("resume_gateway_url", out var resumeUrlProp))
+                {
+                    var resumeUrl = resumeUrlProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(resumeUrl))
+                        _logger.LogDebug("Resume gateway URL: {ResumeUrl}", resumeUrl);
                 }
             }
             catch (Exception ex)

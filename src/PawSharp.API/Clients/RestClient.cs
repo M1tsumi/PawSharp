@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -58,7 +59,9 @@ public class DiscordRestClient : IDiscordRestClient
         // Set base address and auth header
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("PawSharp", "1.0"));
+        // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
+        // Requests without a valid User-Agent may be blocked by Cloudflare.
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 6.1.0-alpha-1)");
     }
 
     public async Task<HttpResponseMessage> GetAsync(string endpoint)
@@ -71,22 +74,22 @@ public class DiscordRestClient : IDiscordRestClient
         return await SendRequestAsync(HttpMethod.Get, endpoint, null, reason, cancellationToken);
     }
 
-    public async Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content)
+    public async Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent? content)
     {
         return await SendRequestAsync(HttpMethod.Post, endpoint, content);
     }
 
-    public async Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default)
+    public async Task<HttpResponseMessage> PostAsync(string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default)
     {
         return await SendRequestAsync(HttpMethod.Post, endpoint, content, reason, cancellationToken);
     }
 
-    public async Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content)
+    public async Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent? content)
     {
         return await SendRequestAsync(HttpMethod.Put, endpoint, content);
     }
 
-    public async Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent content, string? reason = null, CancellationToken cancellationToken = default)
+    public async Task<HttpResponseMessage> PutAsync(string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default)
     {
         return await SendRequestAsync(HttpMethod.Put, endpoint, content, reason, cancellationToken);
     }
@@ -294,7 +297,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<bool> PinMessageAsync(ulong channelId, ulong messageId)
     {
-        var response = await PutAsync($"channels/{channelId}/pins/{messageId}", null!);
+        var response = await PutAsync($"channels/{channelId}/pins/{messageId}", null);
         return response.IsSuccessStatusCode;
     }
     
@@ -316,7 +319,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<bool> TriggerTypingIndicatorAsync(ulong channelId)
     {
-        var response = await PostAsync($"channels/{channelId}/typing", null!);
+        var response = await PostAsync($"channels/{channelId}/typing", null);
         return response.IsSuccessStatusCode;
     }
     
@@ -562,7 +565,7 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<bool> AddGuildMemberRoleAsync(ulong guildId, ulong userId, ulong roleId)
     {
-        var response = await PutAsync($"guilds/{guildId}/members/{userId}/roles/{roleId}", null!);
+        var response = await PutAsync($"guilds/{guildId}/members/{userId}/roles/{roleId}", null);
         return response.IsSuccessStatusCode;
     }
     
@@ -595,7 +598,7 @@ public class DiscordRestClient : IDiscordRestClient
     // Reaction operations
     public async Task<bool> CreateReactionAsync(ulong channelId, ulong messageId, string emoji)
     {
-        var response = await PutAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/@me", null!);
+        var response = await PutAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/@me", null);
         return response.IsSuccessStatusCode;
     }
     
@@ -809,13 +812,13 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<bool> JoinThreadAsync(ulong channelId)
     {
-        var response = await PutAsync($"channels/{channelId}/thread-members/@me", null!);
+        var response = await PutAsync($"channels/{channelId}/thread-members/@me", null);
         return response.IsSuccessStatusCode;
     }
     
     public async Task<bool> AddThreadMemberAsync(ulong channelId, ulong userId)
     {
-        var response = await PutAsync($"channels/{channelId}/thread-members/{userId}", null!);
+        var response = await PutAsync($"channels/{channelId}/thread-members/{userId}", null);
         return response.IsSuccessStatusCode;
     }
     
@@ -861,48 +864,42 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<Channel>?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
+    public async Task<ArchivedThreadsResponse?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
     {
         var query = new List<string>();
-        if (before.HasValue) query.Add($"before={before.Value.ToUnixTimeSeconds()}");
+        if (before.HasValue) query.Add($"before={before.Value.UtcDateTime:O}");
         if (limit.HasValue) query.Add($"limit={limit.Value}");
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"channels/{channelId}/threads/archived/public{queryString}");
         if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
+            return await response.Content.ReadFromJsonAsync<ArchivedThreadsResponse>(_jsonOptions);
         return null;
     }
     
-    public async Task<List<Channel>?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
+    public async Task<ArchivedThreadsResponse?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
     {
         var query = new List<string>();
-        if (before.HasValue) query.Add($"before={before.Value.ToUnixTimeSeconds()}");
+        if (before.HasValue) query.Add($"before={before.Value.UtcDateTime:O}");
         if (limit.HasValue) query.Add($"limit={limit.Value}");
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"channels/{channelId}/threads/archived/private{queryString}");
         if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
+            return await response.Content.ReadFromJsonAsync<ArchivedThreadsResponse>(_jsonOptions);
         return null;
     }
     
-    public async Task<List<Channel>?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
+    public async Task<ArchivedThreadsResponse?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
     {
         var query = new List<string>();
-        if (before.HasValue) query.Add($"before={before.Value.ToUnixTimeSeconds()}");
+        if (before.HasValue) query.Add($"before={before.Value.UtcDateTime:O}");
         if (limit.HasValue) query.Add($"limit={limit.Value}");
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"channels/{channelId}/users/@me/threads/archived/private{queryString}");
         if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
+            return await response.Content.ReadFromJsonAsync<ArchivedThreadsResponse>(_jsonOptions);
         return null;
     }
     
@@ -1281,7 +1278,7 @@ public class DiscordRestClient : IDiscordRestClient
     // Message crosspost
     public async Task<Message?> CrosspostMessageAsync(ulong channelId, ulong messageId)
     {
-        var response = await PostAsync($"channels/{channelId}/messages/{messageId}/crosspost", null!);
+        var response = await PostAsync($"channels/{channelId}/messages/{messageId}/crosspost", null);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<Message>();
         return null;
@@ -1683,7 +1680,7 @@ public class DiscordRestClient : IDiscordRestClient
 
     public async Task<GuildTemplate?> SyncGuildTemplateAsync(ulong guildId, string templateCode)
     {
-        var response = await PutAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", null!);
+        var response = await PutAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", null);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
         return null;

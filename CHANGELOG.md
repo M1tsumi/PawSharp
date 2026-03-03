@@ -4,6 +4,58 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [6.1.0-alpha-1] - 2026-03-03
+
+Bug fixes, null-safety hardening, and API correctness improvements throughout the library.
+
+### Bug Fixes
+
+**Gateway — HeartbeatManager** (`PawSharp.Gateway`)
+- Fixed: events `OnHeartbeatSent`, `OnHeartbeatAckReceived`, and `OnZombieConnection` were declared non-nullable but never assigned in the constructor (CS8618). All three are now correctly declared as nullable (`Func<Task>?`)
+- Fixed: constructor parameters `sendHeartbeat` and `logger` were defaulting to `null` without a nullable context, causing unsafe implicit null assignments. Both are now `Func<Task>?` / `ILogger?`
+- Fixed: `OnHeartbeatAckReceived?.Invoke()` in `ReceiveAckAsync` discarded the returned `Task`. The invocation is now properly awaited
+- Added `#nullable enable` directive
+
+**Gateway — ReconnectionManager** (`PawSharp.Gateway`)
+- Fixed: events `OnReconnectionAttempt` and `OnReconnectionFailed` were non-nullable without assignment (CS8618). Marked as nullable
+- Fixed: `_metrics` field was declared as non-nullable `IPerformanceMetrics` but the constructor parameter defaulted to `null`. Both are now `IPerformanceMetrics?`
+- Fixed: `OnReconnectionFailed?.Invoke()` and `OnReconnectionAttempt?.Invoke(...)` discarded the returned `Task`. Both are now properly awaited
+- Added `#nullable enable` directive
+
+**Gateway — GatewayClient** (`PawSharp.Gateway`)
+- Fixed: `HandleHelloAsync` recreated `HeartbeatManager` without passing `_options.MaxMissedHeartbeatAcks`, causing the user's zombie-detection configuration to be silently ignored after the HELLO handshake. The option is now forwarded correctly
+- Fixed: `SetStateAsync` invoked `OnStateChanged?.Invoke(...)` without awaiting the returned `Task`, potentially causing race conditions in state-change handlers. Execution now awaits the event
+- Refactored: replaced `new object[0]` anti-pattern with `Array.Empty<object>()` in `UpdatePresenceAsync`
+
+**REST API — HttpContent null-safety** (`PawSharp.API`)
+- Fixed: eight endpoints passed `null!` (null-forgiving operator) as the `HttpContent` argument to `PutAsync` / `PostAsync` for zero-body requests (pin message, trigger typing, create reaction, add guild member role, join/add thread member, crosspost message, sync guild template). The public `PostAsync` and `PutAsync` overloads now accept `HttpContent?`, eliminating the need for `null!` at every call site
+
+**REST API — Archived threads return type** (`PawSharp.API`)
+- Fixed: `GetPublicArchivedThreadsAsync`, `GetPrivateArchivedThreadsAsync`, and `GetJoinedPrivateArchivedThreadsAsync` were typed as `Task<List<Channel>?>` and attempted to deserialize a `List<Channel>` directly from Discord's response. Discord's archived-thread endpoints return `{ threads, members, has_more }`, so the raw list deserialization always silently returned `null`. All three methods now return the new `ArchivedThreadsResponse?` type which correctly captures the full payload
+- Also corrected the `before` query-string parameter format from Unix epoch seconds to ISO-8601 (`DateTimeOffset.UtcDateTime:O`), matching Discord's documented format for these endpoints
+
+**EmbedBuilder** (`PawSharp.Core`)
+- Fixed: `Build()` did not enforce Discord's 6000-character total embed length limit. An `InvalidOperationException` is now thrown when the combined length of title, description, fields, footer, and author name exceeds 6 000 characters
+
+### New Models
+
+- `ArchivedThreadsResponse` — response wrapper for archived-thread list endpoints, exposing `Threads`, `Members`, and `HasMore` (`PawSharp.API.Models`)
+
+### Public API Changes
+
+| Change | Before | After |
+|--------|--------|-------|
+| `IDiscordRestClient.PostAsync` | `HttpContent content` | `HttpContent? content` |
+| `IDiscordRestClient.PutAsync` | `HttpContent content` | `HttpContent? content` |
+| `DiscordRestClient.PostAsync` | `HttpContent content` | `HttpContent? content` |
+| `DiscordRestClient.PutAsync` | `HttpContent content` | `HttpContent? content` |
+| `GetPublicArchivedThreadsAsync` return | `List<Channel>?` | `ArchivedThreadsResponse?` |
+| `GetPrivateArchivedThreadsAsync` return | `List<Channel>?` | `ArchivedThreadsResponse?` |
+| `GetJoinedPrivateArchivedThreadsAsync` return | `List<Channel>?` | `ArchivedThreadsResponse?` |
+| `EmbedBuilder.MaxTotalLength` | _(missing)_ | `6000` (new constant) |
+
+---
+
 ## [0.6.0-alpha1] - Unreleased
 
 Full Discord API surface coverage: emoji CRUD, application management, extended guild endpoints, gateway integration events, and a type-safe option value extension for slash commands.

@@ -1,0 +1,240 @@
+#nullable enable
+using System;
+using System.Net.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using PawSharp.API.Clients;
+using PawSharp.API.Interfaces;
+using PawSharp.API.RateLimit;
+using PawSharp.Cache.Interfaces;
+using PawSharp.Cache.Providers;
+using PawSharp.Core.Enums;
+using PawSharp.Core.Models;
+using PawSharp.Gateway;
+using PawSharp.Interactions;
+
+namespace PawSharp.Client;
+
+/// <summary>
+/// Lightweight fluent builder that wires up a fully-configured <see cref="DiscordClient"/>
+/// without requiring the Microsoft DI container.
+/// <para>
+/// For ASP.NET Core or similar host-based applications prefer the
+/// <c>services.AddPawSharp(options)</c> extension method instead.
+/// </para>
+/// </summary>
+/// <example>
+/// <code>
+/// var client = new PawSharpClientBuilder()
+///     .WithToken("Bot YOUR_TOKEN_HERE")
+///     .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+///     .UseConsoleLogging(LogLevel.Information)
+///     .Build();
+///
+/// client.OnMessageCreated(msg => Console.WriteLine($"[{msg.ChannelId}] {msg.Author?.Username}: {msg.Content}"));
+///
+/// await client.ConnectAsync();
+/// await Task.Delay(-1); // keep alive
+/// </code>
+/// </example>
+public sealed class PawSharpClientBuilder
+{
+    private string           _token          = string.Empty;
+    private GatewayIntents   _intents        = GatewayIntents.AllNonPrivileged;
+    private int              _apiVersion     = 10;
+    private int              _shards         = 1;
+    private int              _shardCount     = 1;
+    private bool             _compression    = false;
+    private ILoggerFactory?  _loggerFactory;
+    private IEntityCache?    _cache;
+    private HttpClient?      _httpClient;
+
+    // ── Token ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sets the bot token. Must start with <c>Bot </c> (Discord format).
+    /// If you provide a raw token without the prefix, the prefix is added automatically.
+    /// </summary>
+    public PawSharpClientBuilder WithToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            throw new ArgumentException("Bot token must not be null or empty.", nameof(token));
+
+        // Accept both "Bot TOKEN" and raw "TOKEN" formats
+        _token = token.StartsWith("Bot ", StringComparison.OrdinalIgnoreCase)
+            ? token
+            : $"Bot {token}";
+
+        return this;
+    }
+
+    // ── Intents ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sets the gateway intents to subscribe to.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="GatewayIntents.MessageContent"/>, <see cref="GatewayIntents.GuildMembers"/>,
+    /// and <see cref="GatewayIntents.GuildPresences"/> are privileged — enable them in the
+    /// Discord Developer Portal before using them.
+    /// </remarks>
+    public PawSharpClientBuilder WithIntents(GatewayIntents intents)
+    {
+        _intents = intents;
+        return this;
+    }
+
+    /// <summary>
+    /// Adds additional intents to the current set.
+    /// </summary>
+    public PawSharpClientBuilder AddIntents(GatewayIntents intents)
+    {
+        _intents |= intents;
+        return this;
+    }
+
+    // ── API version ────────────────────────────────────────────────────────────
+
+    /// <summary>Sets the Discord API version to use (default: 10).</summary>
+    public PawSharpClientBuilder WithApiVersion(int version)
+    {
+        if (version < 6)
+            throw new ArgumentOutOfRangeException(nameof(version), "API version must be 6 or higher.");
+        _apiVersion = version;
+        return this;
+    }
+
+    // ── Sharding ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Configures sharding for large bots (> ~2 500 guilds).
+    /// </summary>
+    /// <param name="shardId">Zero-based index of this shard.</param>
+    /// <param name="totalShards">Total number of shards across all instances.</param>
+    public PawSharpClientBuilder WithSharding(int shardId, int totalShards)
+    {
+        if (shardId   < 0) throw new ArgumentOutOfRangeException(nameof(shardId));
+        if (totalShards < 1 || shardId >= totalShards)
+            throw new ArgumentOutOfRangeException(nameof(totalShards),
+                "totalShards must be >= 1 and shardId must be < totalShards.");
+
+        _shards     = shardId;
+        _shardCount = totalShards;
+        return this;
+    }
+
+    // ── Compression ────────────────────────────────────────────────────────────
+
+    /// <summary>Enables zlib gateway compression (reduces bandwidth on large bots).</summary>
+    public PawSharpClientBuilder UseCompression()
+    {
+        _compression = true;
+        return this;
+    }
+
+    // ── Logging ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Supplies a custom <see cref="ILoggerFactory"/> for all PawSharp components.
+    /// </summary>
+    public PawSharpClientBuilder UseLoggerFactory(ILoggerFactory factory)
+    {
+        _loggerFactory = factory ?? throw new ArgumentNullException(nameof(factory));
+        return this;
+    }
+
+    /// <summary>
+    /// Configures PawSharp to write logs to <c>Console.Out</c> at the specified minimum level.
+    /// </summary>
+    /// <param name="minimumLevel">Minimum level to log (default: <see cref="LogLevel.Information"/>).</param>
+    public PawSharpClientBuilder UseConsoleLogging(LogLevel minimumLevel = LogLevel.Information)
+    {
+        _loggerFactory = LoggerFactory.Create(b => b
+            .SetMinimumLevel(minimumLevel)
+            .AddSimpleConsole(o =>
+            {
+                o.SingleLine        = true;
+                o.TimestampFormat   = "HH:mm:ss ";
+                o.IncludeScopes     = false;
+            }));
+        return this;
+    }
+
+    // ── Cache ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Uses the built-in in-memory cache (default behaviour when no cache is specified).
+    /// </summary>
+    public PawSharpClientBuilder UseMemoryCache()
+    {
+        _cache = new MemoryCacheProvider();
+        return this;
+    }
+
+    /// <summary>Supplies a custom <see cref="IEntityCache"/> implementation.</summary>
+    public PawSharpClientBuilder UseCache(IEntityCache cache)
+    {
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        return this;
+    }
+
+    // ── HTTP client ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Supplies a custom <see cref="HttpClient"/> for the REST layer
+    /// (e.g. to inject a mock in tests or add a custom HTTP handler).
+    /// If not provided, a default instance is created automatically.
+    /// </summary>
+    public PawSharpClientBuilder UseHttpClient(HttpClient httpClient)
+    {
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        return this;
+    }
+
+    // ── Build ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Validates configuration and constructs a fully wired <see cref="DiscordClient"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when no token has been provided.</exception>
+    public DiscordClient Build()
+    {
+        if (string.IsNullOrWhiteSpace(_token))
+            throw new InvalidOperationException(
+                "A bot token is required. Call WithToken(\"Bot YOUR_TOKEN\") before Build().");
+
+        var options = new PawSharpOptions
+        {
+            Token              = _token,
+            Intents            = _intents,
+            ApiVersion         = _apiVersion,
+            Shards             = _shards,
+            ShardCount         = _shardCount,
+            EnableCompression  = _compression,
+        };
+
+        var logFactory = _loggerFactory ?? NullLoggerFactory.Instance;
+        var cache      = _cache         ?? new MemoryCacheProvider();
+        var http       = _httpClient    ?? new HttpClient();
+        var limiter    = new AdvancedRateLimiter();
+
+        var rest = new DiscordRestClient(
+            http,
+            options,
+            logFactory.CreateLogger<DiscordRestClient>(),
+            limiter);
+
+        var gateway = new GatewayClient(
+            options,
+            logFactory.CreateLogger<GatewayClient>());
+
+        var interactions = new InteractionHandler(rest);
+
+        return new DiscordClient(
+            options,
+            cache,
+            logFactory.CreateLogger<DiscordClient>(),
+            rest,
+            gateway);
+    }
+}

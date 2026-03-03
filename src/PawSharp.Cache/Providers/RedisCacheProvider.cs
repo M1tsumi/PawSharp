@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -80,7 +81,7 @@ namespace PawSharp.Cache.Providers
         public object? Get(string key)
         {
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<object>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<object>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -138,7 +139,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"user:{userId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<User>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<User>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -160,7 +161,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"guild:{guildId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Guild>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -170,13 +171,13 @@ namespace PawSharp.Cache.Providers
         public IEnumerable<Guild> GetAllGuilds()
         {
             var result = _db.Execute("KEYS", "guild:*");
-            var keys = (RedisKey[])result;
+            var keys = ((RedisKey[]?)result) ?? [];
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
                 if (json.HasValue)
                 {
-                    var guild = JsonSerializer.Deserialize<Guild>(json, _jsonOptions);
+                    var guild = JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions);
                     if (guild != null)
                         yield return guild;
                 }
@@ -202,7 +203,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"channel:{channelId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Channel>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -213,13 +214,13 @@ namespace PawSharp.Cache.Providers
         public IEnumerable<Channel> GetGuildChannels(ulong guildId)
         {
             var result = _db.Execute("KEYS", $"channel:*");
-            var keys = (RedisKey[])result;
+            var keys = ((RedisKey[]?)result) ?? [];
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
                 if (json.HasValue)
                 {
-                    var channel = JsonSerializer.Deserialize<Channel>(json, _jsonOptions);
+                    var channel = JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions);
                     if (channel != null && channel.GuildId == guildId)
                         yield return channel;
                 }
@@ -250,7 +251,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"message:{messageId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Message>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -282,6 +283,8 @@ namespace PawSharp.Cache.Providers
         /// <param name="member">The member to cache.</param>
         public void CacheGuildMember(ulong guildId, GuildMember member)
         {
+            // GuildMember.User can be absent in some gateway events; skip caching without a User ID
+            if (member.User is null) return;
             var key = $"member:{guildId}:{member.User.Id}";
             Add(key, member);
         }
@@ -296,7 +299,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"member:{guildId}:{userId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<GuildMember>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -307,13 +310,13 @@ namespace PawSharp.Cache.Providers
         public IEnumerable<GuildMember> GetGuildMembers(ulong guildId)
         {
             var result = _db.Execute("KEYS", $"member:{guildId}:*");
-            var keys = (RedisKey[])result;
+            var keys = ((RedisKey[]?)result) ?? [];
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
                 if (json.HasValue)
                 {
-                    var member = JsonSerializer.Deserialize<GuildMember>(json, _jsonOptions);
+                    var member = JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions);
                     if (member != null)
                         yield return member;
                 }
@@ -340,7 +343,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"role:{roleId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -351,13 +354,13 @@ namespace PawSharp.Cache.Providers
         public IEnumerable<PawSharp.Core.Entities.Role> GetGuildRoles(ulong guildId)
         {
             var result = _db.Execute("KEYS", $"role:*");
-            var keys = (RedisKey[])result;
+            var keys = ((RedisKey[]?)result) ?? [];
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
                 if (json.HasValue)
                 {
-                    var role = JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>(json, _jsonOptions);
+                    var role = JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions);
                     if (role != null)
                     {
                         // Note: This is a simplified implementation.
@@ -388,7 +391,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"emoji:{emojiId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Emoji>(json, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -399,13 +402,13 @@ namespace PawSharp.Cache.Providers
         public IEnumerable<Emoji> GetGuildEmojis(ulong guildId)
         {
             var result = _db.Execute("KEYS", $"emoji:*");
-            var keys = (RedisKey[])result;
+            var keys = ((RedisKey[]?)result) ?? [];
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
                 if (json.HasValue)
                 {
-                    var emoji = JsonSerializer.Deserialize<Emoji>(json, _jsonOptions);
+                    var emoji = JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions);
                     if (emoji != null)
                     {
                         // Note: This is a simplified implementation.
@@ -442,11 +445,11 @@ namespace PawSharp.Cache.Providers
             var keys = new List<RedisKey>();
 
             // Collect all keys related to this guild
-            keys.AddRange((RedisKey[])_db.Execute("KEYS", $"guild:{guildId}"));
-            keys.AddRange((RedisKey[])_db.Execute("KEYS", $"channel:*")); // Would need filtering in real impl
-            keys.AddRange((RedisKey[])_db.Execute("KEYS", $"member:{guildId}:*"));
-            keys.AddRange((RedisKey[])_db.Execute("KEYS", $"role:*")); // Would need filtering in real impl
-            keys.AddRange((RedisKey[])_db.Execute("KEYS", $"emoji:*")); // Would need filtering in real impl
+            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"guild:{guildId}")) ?? []);
+            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"channel:*")) ?? []); // Would need filtering in real impl
+            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"member:{guildId}:*")) ?? []);
+            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"role:*")) ?? []); // Would need filtering in real impl
+            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"emoji:*")) ?? []); // Would need filtering in real impl
 
             if (keys.Count > 0)
             {
@@ -470,7 +473,7 @@ namespace PawSharp.Cache.Providers
             foreach (var pattern in patterns)
             {
                 var result = _db.Execute("KEYS", pattern);
-                var keys = (RedisKey[])result;
+                var keys = ((RedisKey[]?)result) ?? [];
                 count += keys.Length;
             }
 
@@ -496,13 +499,13 @@ namespace PawSharp.Cache.Providers
         {
             return new CacheStats
             {
-                UserCount = ((RedisKey[])_db.Execute("KEYS", "user:*")).Length,
-                GuildCount = ((RedisKey[])_db.Execute("KEYS", "guild:*")).Length,
-                ChannelCount = ((RedisKey[])_db.Execute("KEYS", "channel:*")).Length,
-                MessageCount = ((RedisKey[])_db.Execute("KEYS", "message:*")).Length,
-                MemberCount = ((RedisKey[])_db.Execute("KEYS", "member:*")).Length,
-                RoleCount = ((RedisKey[])_db.Execute("KEYS", "role:*")).Length,
-                EmojiCount = ((RedisKey[])_db.Execute("KEYS", "emoji:*")).Length,
+                UserCount = (((RedisKey[]?)_db.Execute("KEYS", "user:*")) ?? []).Length,
+                GuildCount = (((RedisKey[]?)_db.Execute("KEYS", "guild:*")) ?? []).Length,
+                ChannelCount = (((RedisKey[]?)_db.Execute("KEYS", "channel:*")) ?? []).Length,
+                MessageCount = (((RedisKey[]?)_db.Execute("KEYS", "message:*")) ?? []).Length,
+                MemberCount = (((RedisKey[]?)_db.Execute("KEYS", "member:*")) ?? []).Length,
+                RoleCount = (((RedisKey[]?)_db.Execute("KEYS", "role:*")) ?? []).Length,
+                EmojiCount = (((RedisKey[]?)_db.Execute("KEYS", "emoji:*")) ?? []).Length,
                 MemoryUsage = GetMemoryUsage()
             };
         }

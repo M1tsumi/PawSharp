@@ -29,15 +29,16 @@ PawSharp uses **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH[-pre-release]`).
 ### Pre-release identifiers (in order of maturity)
 
 ```
-0.6.0-alpha.1   ← early development, APIs may change freely
-0.6.0-beta.1    ← feature-complete, undergoing stabilisation
-0.6.0-rc.1      ← release candidate, only critical fixes
-0.6.0           ← stable release
+0.6.1-alpha1   ← early development, APIs may change freely
+6.1.0-beta-1    ← feature-complete, undergoing stabilisation
+6.1.0-rc-1      ← release candidate, only critical fixes
+6.1.0           ← stable release
 ```
 
 - Pre-release versions are **never** pushed to NuGet.org stable feed (they land in the pre-release feed only).
-- Bump the numeric suffix (`alpha.1` → `alpha.2`) for every package-bearing push within the same series.
+- Bump the numeric suffix (`alpha-1` → `alpha-2`) for every package-bearing push within the same series.
 - All nine library packages **always share the same version string** via `src/Directory.Build.props`.
+- Individual `.csproj` `<Version>` entries mirror `Directory.Build.props`; update both together.
 
 ---
 
@@ -62,11 +63,11 @@ release/v<MAJOR>.<MINOR>.<PATCH>[-pre-release]
 **Examples:**
 
 ```
-release/v0.6.0-alpha1
-release/v0.6.0-beta1
-release/v0.6.0-rc1
-release/v0.6.0
-release/v1.0.0
+release/v0.6.1-alpha1
+release/v6.1.0-beta-1
+release/v6.1.0-rc-1
+release/v6.1.0
+release/v7.0.0
 ```
 
 ### Feature & fix branches (optional but encouraged)
@@ -86,7 +87,7 @@ These branches are cut from `main` and merged back via Pull Request.
 ```
 main ──┬──────────────────────────────────────────► main
        │
-       └── release/v0.6.0-alpha1 ──► PR ──► merge ──► tag v0.6.0-alpha1
+       └── release/v0.6.1-alpha1 ──► PR ──► merge ──► tag v0.6.1-alpha1
 ```
 
 1. Cut `release/vX.Y.Z` from `main`.
@@ -132,8 +133,8 @@ PawSharp uses **Conventional Commits** (`https://www.conventionalcommits.org`).
 ```
 feat(interactions): add GetOptionValue<T> extension for slash command options
 fix(gateway): handle WebSocket reconnect race condition on RESUME
-chore: bump all packages to 0.6.0-alpha1
-release: v0.6.0-alpha1
+chore: bump all packages to 0.6.1-alpha1
+release: v0.6.1-alpha1
 ci: add release.yml workflow with NuGet publish step
 docs: update VERSIONING_POLICY with branch naming rules
 ```
@@ -154,27 +155,27 @@ docs: update VERSIONING_POLICY with branch naming rules
 ```bash
 # 1. Cut version branch from main
 git checkout main && git pull
-git checkout -b release/v0.6.0-alpha1
+git checkout -b release/v0.6.1-alpha1
 
-# 2. Bump version in Directory.Build.props
-#    (and any hardcoded display strings in bot code / READMEs)
+# 2. Bump version in Directory.Build.props AND all individual .csproj files
+#    (also update User-Agent string, per-package READMEs, root README, CHANGELOG)
 
 # 3. Update CHANGELOG.md
-#    Move content under the new [0.6.0-alpha1] heading, set the date.
+#    Move content under the new [0.6.1-alpha1] heading, set the date.
 
 # 4. Commit
 git add -A
-git commit -m "release: v0.6.0-alpha1"
+git commit -m "release: v0.6.1-alpha1"
 
 # 5. Push the version branch
-git push -u origin release/v0.6.0-alpha1
+git push -u origin release/v0.6.1-alpha1
 
 # 6. Open PR  →  review  →  merge into main
 
-# 7. On main, push the tag  →  triggers release.yml automaticaly
+# 7. On main, push the tag  →  triggers release.yml automatically
 git checkout main && git pull
-git tag v0.6.0-alpha1
-git push origin v0.6.0-alpha1
+git tag v0.6.1-alpha1
+git push origin v0.6.1-alpha1
 ```
 
 ### What the `release.yml` workflow does automatically on tag push
@@ -213,8 +214,9 @@ main               ← always green, never force-push
 release/vX.Y.Z     ← one branch per version, merged via PR, then tagged
 feat/*  fix/*      ← short-lived feature/fix branches
 
-Tag format:  v0.6.0-alpha1   (no spaces, no underscores)
-Branch fmt:  release/v0.6.0-alpha1
+Version format:  0.6.1-alpha1   (dashes throughout — no dots in pre-release suffix)
+Tag format:      v0.6.1-alpha1  (no spaces, no underscores)
+Branch format:   release/v0.6.1-alpha1
 
 Conventional commit types: feat fix perf refactor test docs chore ci release
 ```

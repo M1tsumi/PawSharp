@@ -25,22 +25,53 @@ Learn how to listen to real-time Discord events using PawSharp's Gateway system.
 | **Timing** | Request-response | Server pushes data |
 | **Connection** | HTTP (stateless) | WebSocket (persistent) |
 
-### Event Dispatcher
+### Event Subscription — Two APIs
 
-The `EventDispatcher` is your gateway to all real-time events:
+PawSharp offers two complementary ways to subscribe to gateway events:
+
+**Option A — `DiscordClient` convenience methods (recommended)**  
+Strongly-typed, no magic strings, returns `IDisposable` for easy cleanup:
 
 ```csharp
-var dispatcher = client.Gateway.EventDispatcher;
-
-// Subscribe to event
-dispatcher.On<MessageCreateEvent>(HandleMessage);
-
-// Event fires when message is received
-private async Task HandleMessage(MessageCreateEvent msg)
+// Each method returns IDisposable. Dispose it to unsubscribe.
+client.OnMessageCreated(async msg =>
 {
     Console.WriteLine($"Message: {msg.Content}");
-    return Task.CompletedTask;
-}
+});
+
+// Store the subscription to unsubscribe later
+using var sub = client.OnGuildMemberJoined(async member =>
+{
+    Console.WriteLine($"Welcome {member.User.Username}!");
+});
+
+// Convenience method list (full list in docs/DEVELOPERS_GUIDE.md):
+// OnReady, OnMessageCreated, OnMessageUpdated, OnMessageDeleted,
+// OnReactionAdded, OnReactionRemoved,
+// OnGuildAvailable, OnGuildUpdated, OnGuildUnavailable,
+// OnGuildMemberJoined, OnGuildMemberUpdated, OnGuildMemberLeft,
+// OnChannelCreated, OnChannelUpdated, OnChannelDeleted,
+// OnRoleCreated, OnRoleUpdated, OnRoleDeleted,
+// OnBanAdded, OnBanRemoved, OnTypingStarted, OnInteractionCreated, ...
+```
+
+**Option B — Low-level `EventDispatcher` (advanced use)**  
+Requires both the event *type* and the Discord *event name string*:
+
+```csharp
+// Access via client.Gateway.Events (NOT .EventDispatcher)
+var dispatcher = client.Gateway.Events;
+
+dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", async msg =>
+{
+    Console.WriteLine($"Message: {msg.Content}");
+});
+
+// Sync handler (no await needed)
+dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", msg =>
+{
+    Console.WriteLine(msg.Content);
+});
 ```
 
 ### Connection Lifecycle
@@ -53,108 +84,128 @@ Connecting → Connected → Ready → Events Flow → Disconnect → Reconnecti
 
 ## Subscribing to Events
 
-### Basic Subscription
+> **Recommended:** Use the `DiscordClient` convenience methods shown below. They are strongly-typed,
+> require no magic strings, and return `IDisposable` for clean unsubscription. Use the low-level
+> `client.Gateway.Events` dispatcher only when you need an event that has no convenience method.
+
+### Recommended — DiscordClient Convenience Methods
 
 ```csharp
-var dispatcher = client.Gateway.EventDispatcher;
-
-// Method 1: Lambda
-dispatcher.On<MessageCreateEvent>(msg =>
+// Lambda — returns IDisposable; dispose to unsubscribe
+client.OnMessageCreated(async msg =>
 {
-    Console.WriteLine(msg.Content);
-    return Task.CompletedTask;
+    if (!msg.Author.IsBot)
+        Console.WriteLine($"{msg.Author.Username}: {msg.Content}");
 });
 
-// Method 2: Named method
-dispatcher.On<MessageCreateEvent>(HandleMessage);
+// Named method
+client.OnMessageCreated(HandleMessageAsync);
 
-// Method 3: Async method
-dispatcher.On<MessageCreateEvent>(async msg =>
-{
-    await client.Rest.CreateMessageAsync(msg.ChannelId, new()
-    {
-        Content = "Received!",
-    });
-});
+// Store subscription for later cleanup
+IDisposable sub = client.OnGuildMemberJoined(WelcomeMemberAsync);
+// ...later:
+sub.Dispose();
 
-private async Task HandleMessage(MessageCreateEvent msg)
+private async Task HandleMessageAsync(MessageCreateEvent msg)
 {
-    // Handle event
-    return Task.CompletedTask;
+    if (msg.Content == "!ping")
+        await client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "🏓 Pong!" });
+}
+
+private async Task WelcomeMemberAsync(GuildMemberAddEvent member)
+{
+    Console.WriteLine($"Welcome {member.User.Username}!");
 }
 ```
 
 ### Multiple Event Subscriptions
 
 ```csharp
-// Subscribe to multiple events
-dispatcher.On<ReadyEvent>(Ready);
-dispatcher.On<MessageCreateEvent>(MessageCreate);
-dispatcher.On<GuildMemberAddEvent>(MemberAdd);
-dispatcher.On<GuildMemberRemoveEvent>(MemberRemove);
-
-private async Task Ready(ReadyEvent @event)
+// Subscribe to several events — all return IDisposable
+client.OnReady(ready =>
 {
-    Console.WriteLine($"Ready as {event.User.Username}");
+    Console.WriteLine($"Logged in as {ready.User.Username}");
     return Task.CompletedTask;
-}
+});
 
-private async Task MessageCreate(MessageCreateEvent msg)
+client.OnMessageCreated(async msg =>
 {
-    // Handle message
-    return Task.CompletedTask;
-}
+    // Handle new messages
+});
 
-private async Task MemberAdd(GuildMemberAddEvent member)
+client.OnGuildMemberJoined(async member =>
 {
-    // Welcome new member
-    return Task.CompletedTask;
-}
+    // Welcome new members
+});
 
-private async Task MemberRemove(GuildMemberRemoveEvent member)
+client.OnGuildMemberLeft(async member =>
 {
-    // Say goodbye
-    return Task.CompletedTask;
-}
+    // Log departures
+});
 ```
 
-### Middleware / Pre-processing
+### Low-Level EventDispatcher (advanced)
+
+Use `client.Gateway.Events` when you need fine-grained control or an event with no convenience wrapper:
 
 ```csharp
-// Add middleware that runs before all event handlers
-dispatcher.Use(async (context, next) =>
+var dispatcher = client.Gateway.Events;  // NOTE: .Events, not .EventDispatcher
+
+// Async handler — provide both the type AND the Discord event name string
+dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", async msg =>
 {
-    var eventType = context.GetType().Name;
-    Console.WriteLine($"[EVENT] {eventType}");
-    
-    // Call next middleware/handler
-    await next();
-    
-    Console.WriteLine($"[DONE] {eventType}");
+    await client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "Received!" });
 });
 
-// Middleware for error handling
-dispatcher.Use(async (context, next) =>
+// Sync handler
+dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", msg =>
 {
-    try
-    {
-        await next();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error handling {context.GetType().Name}: {ex}");
-    }
+    Console.WriteLine(msg.Content);
 });
 
-// Middleware for filtering
-dispatcher.Use(async (context, next) =>
+// Named method (sync or async)
+dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", HandleMessageAsync);
+
+// Unsubscribe via IDisposable
+using var sub = dispatcher.On<ReadyEvent>("READY", HandleReadyAsync);
+```
+
+**Common event name strings:**
+
+| Event type | String |
+|---|---|
+| `ReadyEvent` | `"READY"` |
+| `MessageCreateEvent` | `"MESSAGE_CREATE"` |
+| `MessageUpdateEvent` | `"MESSAGE_UPDATE"` |
+| `MessageDeleteEvent` | `"MESSAGE_DELETE"` |
+| `GuildCreateEvent` | `"GUILD_CREATE"` |
+| `GuildMemberAddEvent` | `"GUILD_MEMBER_ADD"` |
+| `GuildMemberRemoveEvent` | `"GUILD_MEMBER_REMOVE"` |
+| `InteractionCreateEvent` | `"INTERACTION_CREATE"` |
+| `VoiceStateUpdateEvent` | `"VOICE_STATE_UPDATE"` |
+
+### Middleware (pre-dispatch hook)
+
+Middleware registered with `dispatcher.Use(...)` runs **before** event handlers for every dispatched event. The signature is `Func<string eventName, object eventData, Task>`. Note: middleware does **not** have a `next()` delegate — all registered handlers always execute after middleware completes.
+
+```csharp
+var dispatcher = client.Gateway.Events;
+
+// Log every event name before it dispatches
+dispatcher.Use(async (eventName, eventData) =>
 {
-    if (context is MessageCreateEvent msg && msg.Author.IsBot)
+    Console.WriteLine($"[EVENT] {eventName}");
+    await Task.CompletedTask;
+});
+
+// Filter — record bot messages to audit log (handlers still fire; use this for side effects)
+dispatcher.Use(async (eventName, eventData) =>
+{
+    if (eventName == "MESSAGE_CREATE" && eventData is MessageCreateEvent msg)
     {
-        return;  // Skip bot messages
+        if (msg.Author?.IsBot == true)
+            await _auditLog.RecordBotMessageAsync(msg);
     }
-    
-    await next();
 });
 ```
 
@@ -189,15 +240,15 @@ finally
 
 ```csharp
 // Bot is ready
-dispatcher.On<ReadyEvent>(ready =>
+client.OnReady(ready =>
 {
     Console.WriteLine($"✅ Ready as {ready.User.Username}");
     Console.WriteLine($"   Guilds: {ready.Guilds.Count}");
     return Task.CompletedTask;
 });
 
-// Connection resumed after disconnect
-dispatcher.On<ResumedEvent>(resumed =>
+// Session resumed after disconnect (no convenience wrapper — use low-level dispatcher)
+client.Gateway.Events.On<ResumedEvent>("RESUMED", resumed =>
 {
     Console.WriteLine("✅ Connection resumed");
     return Task.CompletedTask;
@@ -256,232 +307,286 @@ finally
 
 ## Event Reference
 
+> All examples below use the `DiscordClient` convenience methods. For events without a convenience
+> wrapper, use `client.Gateway.Events.On<TEvent>("EVENT_NAME", handler)`.
+
 ### Connection Events
 
-**ReadyEvent** - Bot is ready
+**`ReadyEvent`** — Bot authenticated and ready
 ```csharp
-dispatcher.On<ReadyEvent>(ready =>
+client.OnReady(ready =>
 {
-    Console.WriteLine($"User: {ready.User.Username}#{ready.User.Discriminator}");
-    Console.WriteLine($"Guilds: {ready.Guilds.Count}");
+    Console.WriteLine($"Logged in as {ready.User.Username}#{ready.User.Discriminator}");
+    Console.WriteLine($"Serving {ready.Guilds.Count} guild(s)");
     return Task.CompletedTask;
 });
 ```
 
-**ResumedEvent** - Session resumed
+**`ResumedEvent`** — Session resumed after disconnect (no convenience wrapper)
 ```csharp
-dispatcher.On<ResumedEvent>(resumed =>
+client.Gateway.Events.On<ResumedEvent>("RESUMED", resumed =>
 {
-    Console.WriteLine("Reconnected!");
+    Console.WriteLine("Session resumed — reconnected successfully.");
     return Task.CompletedTask;
 });
 ```
+
+---
 
 ### Message Events
 
-**MessageCreateEvent** - Message sent
+**`MessageCreateEvent`** — New message posted
 ```csharp
-dispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     if (!msg.Author.IsBot)
-    {
         Console.WriteLine($"{msg.Author.Username}: {msg.Content}");
-    }
     return Task.CompletedTask;
 });
 ```
 
-**MessageUpdateEvent** - Message edited
+**`MessageUpdateEvent`** — Message edited
 ```csharp
-dispatcher.On<MessageUpdateEvent>(msg =>
+client.OnMessageUpdated(msg =>
 {
-    Console.WriteLine($"Message edited: {msg.Id}");
+    Console.WriteLine($"Message {msg.Id} edited");
     if (msg.Content != null)
-    {
-        Console.WriteLine($"New content: {msg.Content}");
-    }
+        Console.WriteLine($"  New content: {msg.Content}");
     return Task.CompletedTask;
 });
 ```
 
-**MessageDeleteEvent** - Message deleted
+**`MessageDeleteEvent`** — Single message deleted
 ```csharp
-dispatcher.On<MessageDeleteEvent>(msg =>
+client.OnMessageDeleted(msg =>
 {
-    Console.WriteLine($"Message deleted: {msg.Id}");
+    Console.WriteLine($"Message {msg.Id} deleted in channel {msg.ChannelId}");
     return Task.CompletedTask;
 });
 ```
+
+**`MessageDeleteBulkEvent`** — Bulk message delete
+```csharp
+client.OnMessagesBulkDeleted(bulk =>
+{
+    Console.WriteLine($"{bulk.Ids.Count} messages bulk-deleted in channel {bulk.ChannelId}");
+    return Task.CompletedTask;
+});
+```
+
+---
 
 ### Guild Events
 
-**GuildCreateEvent** - Bot joined guild
+**`GuildCreateEvent`** — Bot joined a guild (or guild became available on startup)
 ```csharp
-dispatcher.On<GuildCreateEvent>(guild =>
+client.OnGuildAvailable(guild =>
 {
-    Console.WriteLine($"Joined: {guild.Name} ({guild.MemberCount} members)");
+    Console.WriteLine($"Guild available: {guild.Name} ({guild.MemberCount} members)");
     return Task.CompletedTask;
 });
 ```
 
-**GuildUpdateEvent** - Guild updated
+**`GuildUpdateEvent`** — Guild settings changed
 ```csharp
-dispatcher.On<GuildUpdateEvent>(guild =>
+client.OnGuildUpdated(guild =>
 {
     Console.WriteLine($"Guild updated: {guild.Name}");
     return Task.CompletedTask;
 });
 ```
 
-**GuildDeleteEvent** - Bot left guild
+**`GuildDeleteEvent`** — Bot removed from guild or guild went unavailable
 ```csharp
-dispatcher.On<GuildDeleteEvent>(guild =>
+client.OnGuildUnavailable(guild =>
 {
-    Console.WriteLine($"Left guild: {guild.Id}");
+    Console.WriteLine($"Guild unavailable: {guild.Id}");
     return Task.CompletedTask;
 });
 ```
+
+---
 
 ### Member Events
 
-**GuildMemberAddEvent** - Member joined
+**`GuildMemberAddEvent`** — Member joined
 ```csharp
-dispatcher.On<GuildMemberAddEvent>(member =>
+client.OnGuildMemberJoined(async member =>
 {
-    Console.WriteLine($"Welcome {member.User.Username}!");
-    return Task.CompletedTask;
+    Console.WriteLine($"Welcome {member.User.Username} to guild {member.GuildId}!");
 });
 ```
 
-**GuildMemberUpdateEvent** - Member updated
+**`GuildMemberUpdateEvent`** — Member's roles/nickname changed
 ```csharp
-dispatcher.On<GuildMemberUpdateEvent>(member =>
+client.OnGuildMemberUpdated(member =>
 {
     Console.WriteLine($"Member updated: {member.User.Username}");
     if (member.Nickname != null)
-    {
-        Console.WriteLine($"Nickname: {member.Nickname}");
-    }
+        Console.WriteLine($"  Nickname: {member.Nickname}");
     return Task.CompletedTask;
 });
 ```
 
-**GuildMemberRemoveEvent** - Member left
+**`GuildMemberRemoveEvent`** — Member left or was kicked/banned
 ```csharp
-dispatcher.On<GuildMemberRemoveEvent>(member =>
+client.OnGuildMemberLeft(member =>
 {
-    Console.WriteLine($"{member.User.Username} left");
+    Console.WriteLine($"{member.User.Username} left guild {member.GuildId}");
     return Task.CompletedTask;
 });
 ```
+
+---
 
 ### Channel Events
 
-**ChannelCreateEvent** - Channel created
+**`ChannelCreateEvent`** — Channel created
 ```csharp
-dispatcher.On<ChannelCreateEvent>(channel =>
+client.OnChannelCreated(channel =>
 {
     Console.WriteLine($"Channel created: #{channel.Name}");
     return Task.CompletedTask;
 });
 ```
 
-**ChannelUpdateEvent** - Channel updated
+**`ChannelUpdateEvent`** — Channel settings changed
 ```csharp
-dispatcher.On<ChannelUpdateEvent>(channel =>
+client.OnChannelUpdated(channel =>
 {
     Console.WriteLine($"Channel updated: #{channel.Name}");
     return Task.CompletedTask;
 });
 ```
 
-**ChannelDeleteEvent** - Channel deleted
+**`ChannelDeleteEvent`** — Channel deleted
 ```csharp
-dispatcher.On<ChannelDeleteEvent>(channel =>
+client.OnChannelDeleted(channel =>
 {
     Console.WriteLine($"Channel deleted: #{channel.Name}");
     return Task.CompletedTask;
 });
 ```
 
+---
+
 ### Role Events
 
-**GuildRoleCreateEvent** - Role created
+**`GuildRoleCreateEvent`** — Role created
 ```csharp
-dispatcher.On<GuildRoleCreateEvent>(role =>
+client.OnRoleCreated(role =>
 {
     Console.WriteLine($"Role created: @{role.Role.Name}");
     return Task.CompletedTask;
 });
 ```
 
-**GuildRoleUpdateEvent** - Role updated
+**`GuildRoleUpdateEvent`** — Role settings changed
 ```csharp
-dispatcher.On<GuildRoleUpdateEvent>(role =>
+client.OnRoleUpdated(role =>
 {
     Console.WriteLine($"Role updated: @{role.Role.Name}");
     return Task.CompletedTask;
 });
 ```
 
-**GuildRoleDeleteEvent** - Role deleted
+**`GuildRoleDeleteEvent`** — Role deleted
 ```csharp
-dispatcher.On<GuildRoleDeleteEvent>(role =>
+client.OnRoleDeleted(role =>
 {
-    Console.WriteLine($"Role deleted: @{role.Role.Name}");
+    Console.WriteLine($"Role deleted: {role.RoleId}");
     return Task.CompletedTask;
 });
 ```
+
+---
 
 ### Reaction Events
 
-**MessageReactionAddEvent** - Reaction added
+**`MessageReactionAddEvent`** — Reaction added to a message
 ```csharp
-dispatcher.On<MessageReactionAddEvent>(reaction =>
+client.OnReactionAdded(reaction =>
 {
-    Console.WriteLine($"{reaction.Member.User.Username} reacted with {reaction.Emoji.Name}");
+    Console.WriteLine($"{reaction.Member?.User.Username} reacted with {reaction.Emoji.Name}");
     return Task.CompletedTask;
 });
 ```
 
-**MessageReactionRemoveEvent** - Reaction removed
+**`MessageReactionRemoveEvent`** — Reaction removed
 ```csharp
-dispatcher.On<MessageReactionRemoveEvent>(reaction =>
+client.OnReactionRemoved(reaction =>
 {
-    Console.WriteLine($"Reaction removed: {reaction.Emoji.Name}");
+    Console.WriteLine($"Reaction {reaction.Emoji.Name} removed from message {reaction.MessageId}");
     return Task.CompletedTask;
 });
 ```
+
+---
 
 ### Interaction Events
 
-**InteractionCreateEvent** - Interaction received
+**`InteractionCreateEvent`** — Slash command/component/modal interaction received
 ```csharp
-dispatcher.On<InteractionCreateEvent>(interaction =>
+client.OnInteractionCreated(async interaction =>
 {
-    Console.WriteLine($"Interaction: {interaction.Data?.Name}");
-    return Task.CompletedTask;
+    Console.WriteLine($"Interaction received: {interaction.Data?.Name} (type {interaction.Type})");
+    // Normally handled automatically by client.Interactions — see DEVELOPERS_GUIDE.md
 });
 ```
+
+---
 
 ### Voice Events
 
-**VoiceStateUpdateEvent** - Voice state changed
+**`VoiceStateUpdateEvent`** — User joined/moved/left a voice channel
 ```csharp
-dispatcher.On<VoiceStateUpdateEvent>(voiceState =>
+client.OnVoiceStateUpdated(voiceState =>
 {
-    if (voiceState.VoiceState.ChannelId.HasValue)
-    {
-        Console.WriteLine($"{voiceState.VoiceState.Member.User.Username} joined voice");
-    }
+    if (voiceState.ChannelId.HasValue)
+        Console.WriteLine($"User {voiceState.UserId} joined/moved to voice channel {voiceState.ChannelId}");
     else
-    {
-        Console.WriteLine($"{voiceState.VoiceState.Member.User.Username} left voice");
-    }
+        Console.WriteLine($"User {voiceState.UserId} left voice");
     return Task.CompletedTask;
 });
 ```
 
+---
+
+### Other Events (low-level access)
+
+For events without a dedicated convenience method, use `client.Gateway.Events` directly:
+
+```csharp
+var dispatcher = client.Gateway.Events;
+
+// Typing indicator
+dispatcher.On<TypingStartEvent>("TYPING_START", typing =>
+{
+    Console.WriteLine($"User {typing.UserId} is typing in {typing.ChannelId}");
+    return Task.CompletedTask;
+});
+
+// Invite created
+dispatcher.On<InviteCreateEvent>("INVITE_CREATE", invite =>
+{
+    Console.WriteLine($"Invite created: {invite.Code}");
+    return Task.CompletedTask;
+});
+
+// Scheduled event created
+dispatcher.On<GuildScheduledEventCreateEvent>("GUILD_SCHEDULED_EVENT_CREATE", evt =>
+{
+    Console.WriteLine($"Scheduled event: {evt.ScheduledEvent.Name}");
+    return Task.CompletedTask;
+});
+
+// Auto-moderation action executed
+dispatcher.On<AutoModerationActionExecutionEvent>("AUTO_MODERATION_ACTION_EXECUTION", action =>
+{
+    Console.WriteLine($"Auto-mod fired rule {action.RuleId} in guild {action.GuildId}");
+    return Task.CompletedTask;
+});
+```
 ---
 
 ## Event Handling Patterns
@@ -489,125 +594,103 @@ dispatcher.On<VoiceStateUpdateEvent>(voiceState =>
 ### Simple Command Response
 
 ```csharp
-dispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     if (msg.Content == "!ping")
-    {
-        return client.Rest.CreateMessageAsync(msg.ChannelId, new()
-        {
-            Content = "🏓 Pong!",
-        });
-    }
+        return client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "🏓 Pong!" });
     return Task.CompletedTask;
 });
 ```
 
-### Multiple Commands
+### Multiple Commands (switch expression)
 
 ```csharp
-private async Task HandleMessage(MessageCreateEvent msg)
+client.OnMessageCreated(async msg =>
 {
     if (msg.Author.IsBot) return;
-    
-    return msg.Content switch
-    {
-        "!ping" => client.Rest.CreateMessageAsync(msg.ChannelId, new()
-        {
-            Content = "🏓 Pong!",
-        }),
-        "!hello" => client.Rest.CreateMessageAsync(msg.ChannelId, new()
-        {
-            Content = $"Hello, {msg.Author.Username}!",
-        }),
-        "!help" => SendHelpEmbed(msg.ChannelId),
-        _ => Task.CompletedTask,
-    };
-}
 
-dispatcher.On<MessageCreateEvent>(HandleMessage);
+    switch (msg.Content?.Split(' ')[0])
+    {
+        case "!ping":
+            await client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "🏓 Pong!" });
+            break;
+        case "!hello":
+            await client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = $"Hello, {msg.Author.Username}!" });
+            break;
+        case "!help":
+            await SendHelpEmbedAsync(msg.ChannelId);
+            break;
+    }
+});
 ```
 
-### Logging All Events
+### Structured Logging
 
 ```csharp
-private readonly ILogger<Program> _logger;
-
-dispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     _logger.LogInformation(
         "Message from {User} in {Channel}: {Content}",
-        msg.Author.Username,
-        msg.ChannelId,
-        msg.Content
-    );
+        msg.Author.Username, msg.ChannelId, msg.Content);
     return Task.CompletedTask;
 });
 
-dispatcher.On<GuildMemberAddEvent>(member =>
+client.OnGuildMemberJoined(member =>
 {
     _logger.LogInformation(
-        "Member joined: {User} in {Guild}",
-        member.User.Username,
-        member.GuildId
-    );
+        "Member joined: {User} in guild {Guild}",
+        member.User.Username, member.GuildId);
     return Task.CompletedTask;
 });
-```
-
-### Caching Real-Time Data
-
-```csharp
-private Dictionary<ulong, User> _memberCache = new();
-
-dispatcher.On<GuildMemberAddEvent>(member =>
-{
-    _memberCache[member.User.Id] = member.User;
-    Console.WriteLine($"Cached: {member.User.Username}");
-    return Task.CompletedTask;
-});
-
-dispatcher.On<GuildMemberRemoveEvent>(member =>
-{
-    _memberCache.Remove(member.User.Id);
-    Console.WriteLine($"Removed from cache: {member.User.Username}");
-    return Task.CompletedTask;
-});
-
-public User? GetCachedMember(ulong userId)
-{
-    return _memberCache.TryGetValue(userId, out var user) ? user : null;
-}
 ```
 
 ### Welcome New Members
 
 ```csharp
-dispatcher.On<GuildMemberAddEvent>(async member =>
+client.OnGuildMemberJoined(async member =>
 {
-    // Get welcome channel
-    var guild = await client.Cache.GetGuildAsync(member.GuildId);
+    var guild = await client.Rest.GetGuildAsync(member.GuildId);
     if (guild == null) return;
-    
-    var welcomeChannel = guild.Channels
-        ?.FirstOrDefault(c => c.Name == "welcome");
-    
+
+    var welcomeChannel = guild.Channels?.FirstOrDefault(c => c.Name == "welcome");
     if (welcomeChannel == null) return;
-    
-    // Send welcome message
-    var embed = new Embed
-    {
-        Title = $"Welcome {member.User.Username}!",
-        Description = $"Glad to have you in {guild.Name}",
-        Color = 0x00FF00,
-        Timestamp = DateTime.UtcNow,
-    };
-    
+
+    var embed = new EmbedBuilder()
+        .WithTitle($"Welcome {member.User.Username}!")
+        .WithDescription($"Glad to have you in **{guild.Name}**!")
+        .WithColor(0x2ECC71)
+        .WithTimestamp()
+        .Build();
+
     await client.Rest.CreateMessageAsync(welcomeChannel.Id, new()
     {
-        Content = $"Welcome <@{member.User.Id}>!",
+        Content = $"<@{member.User.Id}>",
         Embeds = new List<Embed> { embed },
     });
 });
+```
+
+### Caching Custom Data from Events
+
+```csharp
+private readonly ConcurrentDictionary<ulong, User> _memberCache = new();
+
+// Populate cache as members join
+client.OnGuildMemberJoined(member =>
+{
+    _memberCache[member.User.Id] = member.User;
+    return Task.CompletedTask;
+});
+
+// Remove from cache when members leave
+client.OnGuildMemberLeft(member =>
+{
+    _memberCache.TryRemove(member.User.Id, out _);
+    return Task.CompletedTask;
+});
+
+public User? GetCachedMember(ulong userId)
+    => _memberCache.TryGetValue(userId, out var user) ? user : null;
 ```
 
 ---
@@ -616,13 +699,13 @@ dispatcher.On<GuildMemberAddEvent>(async member =>
 
 ### Automatic Reconnection
 
-PawSharp automatically reconnects on disconnect:
+PawSharp automatically handles reconnection with exponential backoff. Subscribe to `OnReady` to detect when the session is restored:
 
 ```csharp
-// Monitored automatically
-dispatcher.On<ReadyEvent>(ready =>
+// Fires both on initial connect and after a successful reconnect
+client.OnReady(ready =>
 {
-    Console.WriteLine("Reconnected!");
+    Console.WriteLine($"Session ready: {ready.User.Username} in {ready.Guilds.Count} guilds");
     return Task.CompletedTask;
 });
 ```
@@ -662,21 +745,18 @@ catch (GatewayException ex)
 ### Event Handling Errors
 
 ```csharp
-// Wrap event handlers in try-catch
-dispatcher.On<MessageCreateEvent>(async msg =>
+client.OnMessageCreated(async msg =>
 {
     try
     {
-        await ProcessMessage(msg);
+        await ProcessMessageAsync(msg);
     }
     catch (Exception ex)
     {
-        _logger.LogError(ex, "Error processing message");
-        
-        // Notify user of error
+        _logger.LogError(ex, "Error processing message {MessageId}", msg.Id);
         await client.Rest.CreateMessageAsync(msg.ChannelId, new()
         {
-            Content = "❌ An error occurred",
+            Content = "❌ An unexpected error occurred.",
         });
     }
 });
@@ -688,7 +768,7 @@ dispatcher.On<MessageCreateEvent>(async msg =>
 
 ### Sharded Gateway
 
-For bots in 2500+ servers:
+For bots in 2500+ servers, enable auto-sharding:
 
 ```csharp
 var options = new PawSharpOptions
@@ -702,77 +782,55 @@ services.AddSingleton(options).AddPawSharp();
 var shardManager = provider.GetRequiredService<ShardManager>();
 await shardManager.ConnectAllAsync();
 
-// Events work across all shards automatically
-dispatcher.On<MessageCreateEvent>(HandleMessage);
+// Register events on the unified DiscordClient — they fire for all shards
+client.OnMessageCreated(HandleMessageAsync);
+client.OnGuildMemberJoined(HandleMemberJoinAsync);
 ```
 
 ### Shard-Specific Events
 
+Access a specific shard's low-level dispatcher via `client.Gateway.Events` on the shard's `GatewayClient`:
+
 ```csharp
 var shardManager = provider.GetRequiredService<ShardManager>();
 
-// Get EventDispatcher for specific shard
-var shard0Dispatcher = shardManager.GetShard(0)?.Gateway.EventDispatcher;
+// Get the low-level EventDispatcher for shard 0
+var shard0Gateway = shardManager.GetShard(0)?.Gateway;
+var shard0Dispatcher = shard0Gateway?.Events;  // .Events, not .EventDispatcher
 
-shard0Dispatcher?.On<ReadyEvent>(ready =>
+shard0Dispatcher?.On<ReadyEvent>("READY", ready =>
 {
     Console.WriteLine($"Shard 0 ready: {ready.User.Username}");
     return Task.CompletedTask;
 });
 ```
 
-### Performance Optimization
+### Batch Processing Events
 
 ```csharp
-// Process events asynchronously without blocking
-dispatcher.Use(async (context, next) =>
+private readonly ConcurrentQueue<MessageCreateEvent> _messageQueue = new();
+private readonly SemaphoreSlim _batchLock = new(1, 1);
+
+client.OnMessageCreated(async msg =>
 {
-    // Fire and forget for non-critical events
-    if (context is GuildMemberAddEvent)
+    _messageQueue.Enqueue(msg);
+
+    if (_messageQueue.Count >= 10)
     {
-        _ = Task.Run(async () => await next());
-    }
-    else
-    {
-        await next();
+        await _batchLock.WaitAsync();
+        try { await FlushBatchAsync(); }
+        finally { _batchLock.Release(); }
     }
 });
 
-// Batch process events
-private Queue<MessageCreateEvent> _messageQueue = new();
-private readonly SemaphoreSlim _queueSemaphore = new(1, 1);
-
-dispatcher.On<MessageCreateEvent>(async msg =>
-{
-    await _queueSemaphore.WaitAsync();
-    try
-    {
-        _messageQueue.Enqueue(msg);
-        
-        if (_messageQueue.Count >= 10)
-        {
-            await ProcessBatchAsync();
-        }
-    }
-    finally
-    {
-        _queueSemaphore.Release();
-    }
-});
-
-private async Task ProcessBatchAsync()
+private async Task FlushBatchAsync()
 {
     var batch = new List<MessageCreateEvent>();
-    while (_messageQueue.Count > 0)
-    {
-        batch.Add(_messageQueue.Dequeue());
-    }
-    
-    // Process batch
+    while (_messageQueue.TryDequeue(out var msg))
+        batch.Add(msg);
+
     foreach (var msg in batch)
-    {
-        // Handle message
-    }
+        await ProcessMessageAsync(msg);
 }
 ```
 

@@ -1,3 +1,5 @@
+#nullable enable
+#pragma warning disable CS8602 // Dereference of possibly null: FluentAssertions .NotBeNull() validates before access
 using System;
 using System.Collections.Generic;
 using System.Net;

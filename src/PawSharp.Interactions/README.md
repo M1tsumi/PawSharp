@@ -19,7 +19,7 @@ PawSharp.Interactions provides a complete framework for handling Discord's moder
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Interactions --version 0.6.0-alpha1
+dotnet add package PawSharp.Interactions --version 6.1.0-alpha-1
 ```
 
 ## Quick Start

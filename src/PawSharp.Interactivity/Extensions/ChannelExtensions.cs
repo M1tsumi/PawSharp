@@ -43,8 +43,11 @@ public static class ChannelExtensions
         var message = await client.Rest.CreateMessageAsync(channel.Id, new CreateMessageRequest
         {
             Content = pageList[currentPage].Content,
-            Embeds = pageList[currentPage].Embed != null ? new List<Embed> { pageList[currentPage].Embed } : null
+            Embeds = pageList[currentPage].Embed != null ? new List<Embed> { pageList[currentPage].Embed! } : null
         });
+
+        // Guard: if the message could not be sent (e.g. missing permissions), bail out gracefully
+        if (message is null) return;
 
         if (pageList.Count == 1)
             return; // No need for pagination controls
@@ -53,12 +56,16 @@ public static class ChannelExtensions
         await client.Rest.CreateReactionAsync(channel.Id, message.Id, "◀");
         await client.Rest.CreateReactionAsync(channel.Id, message.Id, "▶");
 
+        // Capture the delay value now — timeout is guaranteed non-null after the ??= above,
+        // but the compiler cannot verify this through a lambda closure capture.
+        var paginationDelay = timeout!.Value;
+
         // Handle reactions (simplified - would need event handling)
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(timeout.Value);
+                await Task.Delay(paginationDelay);
 
                 // Clean up reactions
                 try
