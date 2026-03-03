@@ -230,6 +230,80 @@ await client.Rest.CreateMessageAsync(channelId, new CreateMessageRequest
 });
 ```
 
+### Fluent EmbedBuilder
+
+`PawSharp.Core.Builders.EmbedBuilder` provides a fluent API with built-in Discord limit enforcement:
+
+```csharp
+using PawSharp.Core.Builders;
+
+var embed = new EmbedBuilder()
+    .WithTitle("My Embed")                          // max 256 chars
+    .WithDescription("A description")               // max 4096 chars
+    .WithUrl("https://example.com")
+    .WithColor(0x5865F2)                            // blurple
+    .WithColor(r: 88, g: 101, b: 242)              // or RGB bytes
+    .WithAuthor("Author Name", iconUrl: "https://example.com/icon.png")
+    .WithThumbnail("https://example.com/thumb.png")
+    .WithImage("https://example.com/image.png")
+    .AddField("Field 1", "Value 1", inline: true)  // max 25 fields
+    .AddField("Field 2", "Value 2", inline: true)
+    .AddField("Non-inline field", "Full-width value")
+    .WithFooter("PawSharp v6.1.0-alpha-1", iconUrl: "https://example.com/footer.png")
+    .WithTimestamp()                                // defaults to now
+    .Build();                                       // throws if > 6000 total chars
+
+await client.Rest.CreateMessageAsync(channelId, new CreateMessageRequest
+{
+    Embeds = new List<Embed> { embed },
+});
+```
+
+**Discord embed limits (all enforced by `EmbedBuilder`):**
+
+| Element | Limit |
+|---|---|
+| Title | 256 characters |
+| Description | 4096 characters |
+| Fields | 25 per embed |
+| Field name | 256 characters |
+| Field value | 1024 characters |
+| Footer text | 2048 characters |
+| Author name | 256 characters |
+| **Total** | **6000 characters** (sum of all text) |
+
+`Build()` throws `InvalidOperationException` if any limit is exceeded, ensuring invalid embeds are never sent to Discord.
+
+**Common embed patterns:**
+```csharp
+// Success embed
+var success = new EmbedBuilder()
+    .WithTitle("✅ Success")
+    .WithDescription(message)
+    .WithColor(0x2ECC71)
+    .WithTimestamp()
+    .Build();
+
+// Error embed
+var error = new EmbedBuilder()
+    .WithTitle("❌ Error")
+    .WithDescription(errorMessage)
+    .WithColor(0xE74C3C)
+    .WithTimestamp()
+    .Build();
+
+// Info embed with fields
+var info = new EmbedBuilder()
+    .WithTitle("Server Info")
+    .WithColor(0x3498DB)
+    .AddField("Members", memberCount.ToString(), inline: true)
+    .AddField("Channels", channelCount.ToString(), inline: true)
+    .AddField("Roles", roleCount.ToString(), inline: true)
+    .WithFooter($"Guild ID: {guildId}")
+    .WithTimestamp()
+    .Build();
+```
+
 ### Retrieving Messages
 
 **Get message history:**

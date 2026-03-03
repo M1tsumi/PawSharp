@@ -146,13 +146,14 @@ var options = new PawSharpOptions
 
 // Cause 2: Network issues
 // Solution: Monitor reconnection
-client.Gateway.EventDispatcher.On<ReadyEvent>(ready =>
+client.OnReady(ready =>
 {
     Console.WriteLine("Connected and ready");
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<ResumedEvent>(resumed =>
+// ResumedEvent has no convenience method — use low-level dispatcher
+client.Gateway.Events.On<ResumedEvent>("RESUMED", resumed =>
 {
     Console.WriteLine("Reconnected after disconnect");
     return Task.CompletedTask;
@@ -382,26 +383,25 @@ var settings = new CacheSettings
 };
 
 // Cause: Memory leaks from event handlers
-// Solution: Unsubscribe properly
+// Solution: Dispose the subscription token returned by event registration
 
-var handler = new Action<MessageCreateEvent>(msg => 
+var subscription = client.OnMessageCreated(msg =>
 {
     Console.WriteLine(msg.Content);
+    return Task.CompletedTask;
 });
 
-dispatcher.On<MessageCreateEvent>(handler);
-
-// Later: unsubscribe (if needed)
-// Note: Current implementation doesn't expose unsubscribe
-// Instead: Create new dispatcher or dispose client
+// Later: unsubscribe by disposing the token
+subscription.Dispose();
 
 // Cause: Large objects retained
 // Solution: Clear references
-dispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     var largeData = new byte[1000000];  // 1MB
     // Do something
     // largeData goes out of scope and is garbage collected
+    return Task.CompletedTask;
 });
 
 // Monitor memory
@@ -421,22 +421,21 @@ Messages processed with noticeable delay
 ```csharp
 // Cause: Blocking I/O in event handler
 // ❌ Wrong
-dispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     var result = client.Rest.GetChannelAsync(msg.ChannelId).Result;  // Blocking!
     return Task.CompletedTask;
 });
 
 // ✅ Correct: Async all the way
-dispatcher.On<MessageCreateEvent>(async msg =>
+client.OnMessageCreated(async msg =>
 {
     var channel = await client.Rest.GetChannelAsync(msg.ChannelId);
-    return Task.CompletedTask;
 });
 
 // Cause: Expensive operations in handler
 // Solution: Offload to background task
-dispatcher.On<MessageCreateEvent>(async msg =>
+client.OnMessageCreated(async msg =>
 {
     // Quick response
     if (msg.Content == "!slow")
@@ -486,16 +485,22 @@ var options = new PawSharpOptions
     Intents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent,
 };
 
-// Cause 2: Wrong event type
-// ❌ Problem
-dispatcher.On<MessageCreateEvent>(msg =>
+// Cause 2: Using low-level API without required event name string
+// ❌ Problem: On<T>() requires both type AND event name — missing string arg
+client.Gateway.Events.On<MessageCreateEvent>(msg =>  // Won't compile!
 {
-    // Handler never called
     return Task.CompletedTask;
 });
 
-// ✅ Solution: Check correct event name and parameters
-dispatcher.On<MessageCreateEvent>(msg =>
+// ✅ Solution A: Use the convenience method (recommended)
+client.OnMessageCreated(msg =>
+{
+    Console.WriteLine($"Message: {msg.Content}");
+    return Task.CompletedTask;
+});
+
+// ✅ Solution B: Low-level — provide the event name string
+client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", msg =>
 {
     Console.WriteLine($"Message: {msg.Content}");
     return Task.CompletedTask;
@@ -503,13 +508,13 @@ dispatcher.On<MessageCreateEvent>(msg =>
 
 // Cause 3: Handler throws exception
 // ❌ Problem
-dispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     throw new Exception("Oops!");  // Silently swallowed
 });
 
 // ✅ Solution: Add error handling
-dispatcher.On<MessageCreateEvent>(async msg =>
+client.OnMessageCreated(async msg =>
 {
     try
     {
@@ -521,18 +526,13 @@ dispatcher.On<MessageCreateEvent>(async msg =>
     }
 });
 
-// Cause 4: Handler throws and prevents other handlers
-// ✅ Solution: Use middleware for global error handling
-dispatcher.Use(async (context, next) =>
+// Cause 4: Global error visibility via middleware
+// ✅ Solution: Use middleware for logging (no next() — all handlers always fire)
+client.Gateway.Events.Use(async (eventName, eventData) =>
 {
-    try
-    {
-        await next();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Unhandled error in {context.GetType().Name}: {ex}");
-    }
+    Console.WriteLine($"[{eventName}] Processing event");
+    await Task.CompletedTask;
+    // Wrap individual handlers in try/catch for resilience
 });
 ```
 
@@ -547,17 +547,17 @@ Events processed in unexpected order
 
 ```csharp
 // Events are processed in subscription order
-dispatcher.On<MessageCreateEvent>(Handler1);  // Runs first
-dispatcher.On<MessageCreateEvent>(Handler2);  // Runs second
+client.OnMessageCreated(Handler1);  // Runs first
+client.OnMessageCreated(Handler2);  // Runs second
 
 // If Handler1 throws, Handler2 may not run
 // Solution: Add error handling in each handler
-dispatcher.On<MessageCreateEvent>(async msg =>
+client.OnMessageCreated(async msg =>
 {
     try { await Handler1(msg); } catch { }
 });
 
-dispatcher.On<MessageCreateEvent>(async msg =>
+client.OnMessageCreated(async msg =>
 {
     try { await Handler2(msg); } catch { }
 });
@@ -580,7 +580,7 @@ Guild name changed but cache still shows old name
 // Cause: Cache not updated
 // Solution: Subscribe to update events
 
-dispatcher.On<GuildUpdateEvent>(async guild =>
+client.OnGuildUpdated(async guild =>
 {
     // Guild automatically updated in cache
     Console.WriteLine($"Guild updated: {guild.Name}");
@@ -644,8 +644,9 @@ catch (Exception ex)
 
 1. **Check documentation**
    - [DEVELOPERS_GUIDE.md](./DEVELOPERS_GUIDE.md)
-   - [ERROR_HANDLING.md](./ERROR_HANDLING.md)
-   - [API reference](./api-reference/)
+   - [GATEWAY_GUIDE.md](./GATEWAY_GUIDE.md)
+   - [REST_API_GUIDE.md](./REST_API_GUIDE.md)
+   - [PATTERNS_GUIDE.md](./PATTERNS_GUIDE.md)
 
 2. **Enable debug logging**
    ```csharp
@@ -669,7 +670,7 @@ catch (Exception ex)
 
 Include:
 ```
-**Version:** 0.5.0-alpha10
+**Version:** 6.1.0-alpha-1
 **Environment:** Windows 11, .NET 8.0
 **Intents Used:** [list intents]
 

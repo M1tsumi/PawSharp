@@ -91,13 +91,13 @@ var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<DiscordClient>();
 
 // 3. Subscribe to events
-client.Gateway.EventDispatcher.On<ReadyEvent>(ready =>
+client.OnReady(ready =>
 {
     Console.WriteLine($"✅ Logged in as {ready.User.Username}");
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     if (msg.Content == "!ping")
         return client.Rest.CreateMessageAsync(msg.ChannelId, new()
@@ -241,9 +241,9 @@ var interactions = client.Interactions;  // Handle slash commands
 | Send messages | `client.Rest` |
 | Create channels | `client.Rest` |
 | Ban users | `client.Rest` |
-| Listen to messages | `client.Gateway.EventDispatcher` |
-| Listen to member joins | `client.Gateway.EventDispatcher` |
-| Get real-time data | `client.Gateway.EventDispatcher` |
+| Listen to messages | `client.OnMessageCreated(handler)` |
+| Listen to member joins | `client.OnGuildMemberJoined(handler)` |
+| Get real-time data | `client.OnXxx(handler)` or `client.Gateway.Events.On<T>(name, handler)` |
 
 ### Snowflakes (IDs)
 
@@ -506,98 +506,122 @@ await client.Rest.DeleteUserReactionAsync(channelId, messageId, "👍", userId);
 
 ### Subscribing to Events
 
+PawSharp provides convenience methods on `DiscordClient` for every major event. Each returns `IDisposable` — dispose it to unsubscribe:
+
 ```csharp
-// Simple subscription
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(async msg =>
+// Lambda subscription (most common)
+client.OnMessageCreated(async msg =>
 {
     if (msg.Content == "!hello")
-    {
-        await client.Rest.CreateMessageAsync(msg.ChannelId, new()
-        {
-            Content = "Hello!",
-        });
-    }
+        await client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "Hello!" });
 });
 
-// Multiple subscriptions
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(HandleMessage);
-client.Gateway.EventDispatcher.On<GuildCreateEvent>(HandleGuildJoin);
-client.Gateway.EventDispatcher.On<GuildMemberAddEvent>(HandleMemberJoin);
+// Multiple events
+client.OnMessageCreated(HandleMessageAsync);
+client.OnGuildAvailable(HandleGuildJoinAsync);
+client.OnGuildMemberJoined(HandleMemberJoinAsync);
+
+// Store subscription for later cleanup
+IDisposable sub = client.OnGuildMemberJoined(HandleMemberJoinAsync);
+// ...
+sub.Dispose(); // stop receiving events
+```
+
+For events without a convenience wrapper, or for advanced control, use `client.Gateway.Events`:
+
+```csharp
+// Low-level dispatcher: requires both type AND event name string
+client.Gateway.Events.On<ResumedEvent>("RESUMED", resumed =>
+{
+    Console.WriteLine("Session resumed after reconnect");
+    return Task.CompletedTask;
+});
 ```
 
 ### Common Events
 
-**Connection Events:**
+**Connection events:**
 ```csharp
-client.Gateway.EventDispatcher.On<ReadyEvent>(ready =>
+client.OnReady(ready =>
 {
     Console.WriteLine($"Bot ready as {ready.User.Username}");
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<ResumedEvent>(resumed =>
+// ResumedEvent has no convenience method; use low-level dispatcher
+client.Gateway.Events.On<ResumedEvent>("RESUMED", resumed =>
 {
     Console.WriteLine("Connection resumed");
     return Task.CompletedTask;
 });
 ```
 
-**Message Events:**
+**Message events:**
 ```csharp
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(msg =>
+client.OnMessageCreated(msg =>
 {
     if (!msg.Author.IsBot)
         Console.WriteLine($"{msg.Author.Username}: {msg.Content}");
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<MessageUpdateEvent>(msg =>
+client.OnMessageUpdated(msg =>
 {
     Console.WriteLine($"Message edited: {msg.Id}");
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<MessageDeleteEvent>(msg =>
+client.OnMessageDeleted(msg =>
 {
     Console.WriteLine($"Message deleted: {msg.Id}");
     return Task.CompletedTask;
 });
 ```
 
-**Guild Events:**
+**Guild events:**
 ```csharp
-client.Gateway.EventDispatcher.On<GuildCreateEvent>(guild =>
+client.OnGuildAvailable(guild =>
 {
-    Console.WriteLine($"Joined guild: {guild.Name}");
+    Console.WriteLine($"Guild available: {guild.Name}");
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<GuildDeleteEvent>(guild =>
+client.OnGuildUnavailable(guild =>
 {
-    Console.WriteLine($"Left guild: {guild.Id}");
+    Console.WriteLine($"Guild unavailable: {guild.Id}");
     return Task.CompletedTask;
 });
 ```
 
-**Member Events:**
+**Member events:**
 ```csharp
-client.Gateway.EventDispatcher.On<GuildMemberAddEvent>(member =>
+client.OnGuildMemberJoined(member =>
 {
     Console.WriteLine($"Welcome {member.User.Username}!");
     return Task.CompletedTask;
 });
 
-client.Gateway.EventDispatcher.On<GuildMemberRemoveEvent>(member =>
+client.OnGuildMemberLeft(member =>
 {
     Console.WriteLine($"{member.User.Username} left");
     return Task.CompletedTask;
 });
 ```
 
-**Role Events:**
+**Role events:**
 ```csharp
-client.Gateway.EventDispatcher.On<GuildRoleCreateEvent>(role =>
+client.OnRoleCreated(role =>
 {
+    Console.WriteLine($"Role created: @{role.Role.Name}");
+    return Task.CompletedTask;
+});
+
+client.OnRoleUpdated(role =>
+{
+    Console.WriteLine($"Role updated: @{role.Role.Name}");
+    return Task.CompletedTask;
+});
+```
     Console.WriteLine($"Role created: @{role.Role.Name}");
     return Task.CompletedTask;
 });
@@ -640,8 +664,6 @@ Create a command module:
 
 ```csharp
 using PawSharp.Commands;
-using PawSharp.Core.Entities;
-using PawSharp.API.Models;
 
 public class ModerationCommands : BaseCommandModule
 {
@@ -654,24 +676,34 @@ public class ModerationCommands : BaseCommandModule
 
     [Command("kick")]
     [Description("Kick a user from the server")]
-    public async Task KickCommand(CommandContext ctx, ulong userId, [Remainder] string reason = "No reason")
+    public async Task KickCommand(CommandContext ctx)
     {
-        await _rest.RemoveGuildMemberAsync(ctx.Guild.Id, userId);
-        await ctx.RespondAsync(new CreateMessageRequest
+        // ctx.Arguments[0] is the user ID string
+        if (!ulong.TryParse(ctx.Arguments.ElementAtOrDefault(0), out var userId))
         {
-            Content = $"✅ User kicked. Reason: {reason}",
-        });
+            await ctx.RespondAsync("Usage: !kick <userId>");
+            return;
+        }
+
+        if (ctx.GuildId is null) return;
+        await _rest.RemoveGuildMemberAsync(ctx.GuildId.Value, userId);
+        await ctx.RespondAsync("✅ User kicked.");
     }
 
     [Command("ban")]
+    [Aliases("b")]
     [Description("Ban a user from the server")]
-    public async Task BanCommand(CommandContext ctx, ulong userId)
+    public async Task BanCommand(CommandContext ctx)
     {
-        await _rest.CreateGuildBanAsync(ctx.Guild.Id, userId, reason: "Banned by moderator");
-        await ctx.RespondAsync(new CreateMessageRequest
+        if (!ulong.TryParse(ctx.Arguments.ElementAtOrDefault(0), out var userId))
         {
-            Content = "✅ User banned.",
-        });
+            await ctx.RespondAsync("Usage: !ban <userId>");
+            return;
+        }
+
+        if (ctx.GuildId is null) return;
+        await _rest.CreateGuildBanAsync(ctx.GuildId.Value, userId, reason: "Banned by moderator");
+        await ctx.RespondAsync("✅ User banned.");
     }
 }
 ```
@@ -679,21 +711,17 @@ public class ModerationCommands : BaseCommandModule
 Register commands:
 
 ```csharp
-var commandsExtension = client.GetExtension<CommandsExtension>();
-await commandsExtension.RegisterModuleAsync<ModerationCommands>();
+var commands = new CommandsExtension(prefix: "!");
 
-// Set prefix
-client.Gateway.EventDispatcher.On<MessageCreateEvent>(async msg =>
-{
-    if (msg.Content.StartsWith("!"))
-    {
-        await commandsExtension.ProcessCommandAsync(
-            msg.Content,
-            msg,
-            "!"
-        );
-    }
-});
+// RegisterModule wires up MESSAGE_CREATE automatically
+commands.RegisterModule(client, new ModerationCommands(client.Rest));
+
+// Or async (allows module InitializeAsync to run first)
+await commands.RegisterModuleAsync(client, new ModerationCommands(client.Rest));
+
+// List all registered commands
+foreach (var info in commands.GetRegisteredCommands())
+    Console.WriteLine($"{info.Name}: {info.Description}");
 ```
 
 ### Slash Commands
@@ -717,28 +745,18 @@ await client.Rest.CreateGlobalApplicationCommandAsync(
 Handle slash commands:
 
 ```csharp
-client.Gateway.EventDispatcher.On<InteractionCreateEvent>(async interaction =>
+// client.Interactions automatically routes interactions registered via RegisterCommand()
+client.Interactions.RegisterCommand("ping", async interaction =>
 {
-    if (interaction.Type == InteractionType.ApplicationCommand)
-    {
-        var command = interaction.Data?.Name;
-        
-        if (command == "ping")
+    await client.Rest.CreateInteractionResponseAsync(
+        interaction.Id,
+        interaction.Token,
+        new InteractionResponse
         {
-            await client.Rest.CreateInteractionResponseAsync(
-                interaction.Id,
-                interaction.Token,
-                new InteractionResponse
-                {
-                    Type = InteractionResponseType.ChannelMessageWithSource,
-                    Data = new InteractionCallbackData
-                    {
-                        Content = "🏓 Pong!",
-                    },
-                }
-            );
+            Type = (int)InteractionResponseType.ChannelMessageWithSource,
+            Data = new InteractionCallbackData { Content = "🏓 Pong!" },
         }
-    }
+    );
 });
 ```
 
@@ -842,27 +860,16 @@ _ = ProcessMessageAsync(msg);
 await ProcessMessageAsync(msg);
 ```
 
-### 3. Using Middleware
+### 3. Middleware for Pre-Event Processing
+
+Middleware registered on the low-level dispatcher runs *before* all event handlers for every dispatched event. The signature is `Func<string eventName, object eventData, Task>` — there is no `next()` call; all handlers always execute after middleware.
 
 ```csharp
-// Add logging middleware
-client.Gateway.EventDispatcher.Use(async (context, next) =>
+// Log every event
+client.Gateway.Events.Use(async (eventName, eventData) =>
 {
-    Console.WriteLine($"Event: {context.GetType().Name}");
-    await next();
-});
-
-// Add error handling middleware
-client.Gateway.EventDispatcher.Use(async (context, next) =>
-{
-    try
-    {
-        await next();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error handling event: {ex}");
-    }
+    Console.WriteLine($"[EVENT] {eventName}");
+    await Task.CompletedTask;
 });
 ```
 
@@ -1046,12 +1053,11 @@ async Task RateLimitedRequest()
 
 **"Connection keeps dropping"**
 ```
-✅ Normal - gateway will reconnect automatically
-✅ Subscribe to connection events to monitor:
+✅ PawSharp auto-reconnects. Subscribe to OnReady to detect session restores:
 
-client.Gateway.EventDispatcher.On<ReadyEvent>(ready =>
+client.OnReady(ready =>
 {
-    _logger.LogInformation("Reconnected!");
+    _logger.LogInformation("Bot session ready: {User}", ready.User.Username);
     return Task.CompletedTask;
 });
 ```
@@ -1097,11 +1103,11 @@ else
 
 ## Next Steps
 
-- ✅ [Working with REST API](./docs/REST_API_GUIDE.md)
-- ✅ [Gateway & Real-time Events](./docs/GATEWAY_GUIDE.md)
-- ✅ [Advanced Caching](./docs/CACHING_GUIDE.md)
-- ✅ [Common Patterns](./docs/PATTERNS_GUIDE.md)
-- ✅ [Full API Reference](./docs/api-reference/)
+- ✅ [Working with REST API](./REST_API_GUIDE.md)
+- ✅ [Gateway & Real-time Events](./GATEWAY_GUIDE.md)
+- ✅ [Advanced Caching](./CACHING_GUIDE.md)
+- ✅ [Common Patterns](./PATTERNS_GUIDE.md)
+- ✅ [Troubleshooting](./TROUBLESHOOTING.md)
 
 ---
 
