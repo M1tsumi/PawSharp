@@ -9,12 +9,21 @@ namespace PawSharp.API.Models;
 // Message Request Models
 public class CreateMessageRequest
 {
+    /// <summary>Message text content (max 2000 chars).</summary>
     public string? Content { get; set; }
+    /// <summary>Up to 10 embeds to include with the message.</summary>
     public List<Embed>? Embeds { get; set; }
+    /// <summary>Interactive components (buttons, select menus, etc.).</summary>
     public List<MessageComponent>? Components { get; set; }
+    /// <summary>Whether to send the message as text-to-speech.</summary>
     public bool? Tts { get; set; }
-    public object? AllowedMentions { get; set; }
-    public object? MessageReference { get; set; }
+    /// <summary>
+    /// Controls which roles/users/groups Discord will actually notify.
+    /// Use <see cref="AllowedMentions.None"/> to send a silent message.
+    /// </summary>
+    public AllowedMentions? AllowedMentions { get; set; }
+    /// <summary>Data showing the source of a crosspost, channel follow add, pin, or reply.</summary>
+    public MessageReference? MessageReference { get; set; }
     /// <summary>A poll to include with this message.</summary>
     public CreatePollRequest? Poll { get; set; }
     /// <summary>Message flags combined as a bitfield (SUPPRESS_EMBEDS=4, SUPPRESS_NOTIFICATIONS=4096).</summary>
@@ -29,9 +38,16 @@ public class CreateMessageRequest
 
 public class EditMessageRequest
 {
+    /// <summary>New message text content (max 2000 chars). Pass an empty string to clear.</summary>
     public string? Content { get; set; }
+    /// <summary>Up to 10 embeds. Pass an empty list to remove all embeds.</summary>
     public List<Embed>? Embeds { get; set; }
+    /// <summary>Interactive components. Pass an empty list to remove all components.</summary>
     public List<MessageComponent>? Components { get; set; }
+    /// <summary>Allowed mentions for the edited message.</summary>
+    public AllowedMentions? AllowedMentions { get; set; }
+    /// <summary>Edit flags for the message (e.g. SUPPRESS_EMBEDS = 4).</summary>
+    public int? Flags { get; set; }
 }
 
 // Channel Request Models
@@ -160,7 +176,7 @@ public class InteractionCallbackData
 
     [System.Text.Json.Serialization.JsonPropertyName("allowed_mentions")]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public object? AllowedMentions { get; set; }
+    public AllowedMentions? AllowedMentions { get; set; }
 
     [System.Text.Json.Serialization.JsonPropertyName("flags")]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -747,4 +763,26 @@ public class GuildIntegration
 
     [JsonPropertyName("application_id")]
     public ulong? ApplicationId { get; set; }
+}
+// ── Archived Threads Response ─────────────────────────────────────────────────
+
+/// <summary>
+/// Response model for Discord's archived thread list endpoints.
+/// Returned by GET /channels/{id}/threads/archived/public,
+/// GET /channels/{id}/threads/archived/private, and
+/// GET /channels/{id}/users/@me/threads/archived/private.
+/// </summary>
+public class ArchivedThreadsResponse
+{
+    /// <summary>The archived thread channels.</summary>
+    [JsonPropertyName("threads")]
+    public List<Channel> Threads { get; set; } = new();
+
+    /// <summary>Thread member objects for the current user in each returned thread.</summary>
+    [JsonPropertyName("members")]
+    public List<ThreadMember> Members { get; set; } = new();
+
+    /// <summary>Whether there are additional archived threads beyond this page.</summary>
+    [JsonPropertyName("has_more")]
+    public bool HasMore { get; set; }
 }

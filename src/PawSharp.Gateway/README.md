@@ -19,7 +19,7 @@ PawSharp.Gateway provides the WebSocket connection to Discord's Gateway, handlin
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.Gateway --version 0.6.0-alpha1
+dotnet add package PawSharp.Gateway --version 6.1.0-alpha-1
 ```
 
 ## 🚀 Quick Start

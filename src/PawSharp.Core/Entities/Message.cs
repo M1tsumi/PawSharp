@@ -384,23 +384,3 @@ public class Emoji
     public bool? Animated { get; set; }
     
 }
-
-/// <summary>
-/// Represents allowed mentions in a message.
-/// </summary>
-public class AllowedMentions
-{
-    [JsonPropertyName("parse")]
-    public List<string>? Parse { get; set; }
-    
-    [JsonPropertyName("roles")]
-    [JsonConverter(typeof(SnowflakeListJsonConverter))]
-    public List<ulong>? Roles { get; set; }
-    
-    [JsonPropertyName("users")]
-    [JsonConverter(typeof(SnowflakeListJsonConverter))]
-    public List<ulong>? Users { get; set; }
-    
-    [JsonPropertyName("replied_user")]
-    public bool? RepliedUser { get; set; }
-}
