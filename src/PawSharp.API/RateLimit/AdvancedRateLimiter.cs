@@ -82,19 +82,28 @@ public class RateLimitBucket
     {
         await _semaphore.WaitAsync();
 
+        TimeSpan delay;
         lock (_lock)
         {
-            // Check if we're rate limited
             if (_remaining <= 0 && DateTimeOffset.UtcNow < _resetAt)
             {
-                var delay = _resetAt - DateTimeOffset.UtcNow;
-                Task.Delay(delay).Wait();
+                delay = _resetAt - DateTimeOffset.UtcNow;
+            }
+            else
+            {
+                delay = TimeSpan.Zero;
             }
 
             if (_remaining > 0)
             {
                 _remaining--;
             }
+        }
+
+        // Yield outside the lock so we don't block threads while waiting
+        if (delay > TimeSpan.Zero)
+        {
+            await Task.Delay(delay);
         }
     }
 

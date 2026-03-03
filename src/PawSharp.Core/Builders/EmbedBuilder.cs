@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using PawSharp.Core.Entities;
 
 namespace PawSharp.Core.Builders;
@@ -51,6 +52,8 @@ public sealed class EmbedBuilder
     public const int MaxFooterLength      = 2048;
     /// <summary>Maximum characters allowed in an author name.</summary>
     public const int MaxAuthorLength      = 256;
+    /// <summary>Maximum total character count across all embed fields combined (Discord enforces 6000).</summary>
+    public const int MaxTotalLength       = 6000;
 
     // ── Fluent setters ────────────────────────────────────────────────────────
 
@@ -186,11 +189,23 @@ public sealed class EmbedBuilder
     /// <summary>
     /// Constructs and returns the <see cref="Embed"/> object.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when the embed has no content.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the embed has no content or exceeds Discord's 6000-character total limit.</exception>
     public Embed Build()
     {
         if (_title == null && _description == null && _image == null && _fields.Count == 0 && _author == null)
             throw new InvalidOperationException("An embed must have at least one of: title, description, image, author, or a field.");
+
+        // Enforce Discord's 6000-character total embed length limit
+        int total = (_title?.Length ?? 0)
+                  + (_description?.Length ?? 0)
+                  + (_footer?.Text?.Length ?? 0)
+                  + (_author?.Name?.Length ?? 0)
+                  + _fields.Sum(f => (f.Name?.Length ?? 0) + (f.Value?.Length ?? 0));
+
+        if (total > MaxTotalLength)
+            throw new InvalidOperationException(
+                $"Embed total character count ({total}) exceeds Discord's {MaxTotalLength}-character limit. " +
+                "Reduce the length of your title, description, fields, footer, or author name.");
 
         return new Embed
         {

@@ -2,8 +2,8 @@
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.6.0-alpha1
-**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. Alpha13 adds typed message components, a fluent EmbedBuilder, new flags enums, and 20 additional REST endpoints. Complete documentation and examples available.
+**Current Version:** 6.1.0-alpha-1
+**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. v6.1.0-alpha-1 delivers bug fixes and null-safety hardening: correct heartbeat configuration propagation, awaited gateway event tasks, proper archived-thread deserialization, 6000-char embed limit enforcement, and nullable-clean REST content parameters. Complete documentation and examples available.
 
 ## Key Features
 
@@ -19,7 +19,7 @@ A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automat
 - **Dependency Injection** - First-class support for .NET DI container
 - **Fully Async** - Modern async/await throughout with nullable reference types
 - **Typed Components** - Fully typed message component hierarchy (buttons, select menus, text inputs) with polymorphic JSON deserialization
-- **EmbedBuilder** - Fluent builder with Discord limit enforcement for constructing embeds
+- **EmbedBuilder** - Fluent builder with Discord limit enforcement (title, description, fields, footer, author, and the 6000-character total limit)
 
 ---
 

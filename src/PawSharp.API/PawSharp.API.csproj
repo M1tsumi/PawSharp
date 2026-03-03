@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,13 +6,13 @@
     <AssemblyName>PawSharp.API</AssemblyName>
     <OutputType>Library</OutputType>
     <PackageId>PawSharp.API</PackageId>
-    <Version>0.6.0-alpha1</Version>
+    <Version>6.1.0-alpha-1</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>REST API client for PawSharp Discord API wrapper with automatic rate limiting and error handling.</Description>
     <PackageTags>discord;api;bot;wrapper;rest;rate-limiting</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/your-org/PawSharp</RepositoryUrl>
+    <RepositoryUrl>https://github.com/M1tsumi/Pawsharp</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 

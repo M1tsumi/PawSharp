@@ -18,7 +18,7 @@ PawSharp.API provides a complete, production-ready REST client for Discord's API
 ## 📦 Installation
 
 ```bash
-dotnet add package PawSharp.API --version 0.6.0-alpha1
+dotnet add package PawSharp.API --version 6.1.0-alpha-1
 ```
 
 ## 🚀 Quick Start
