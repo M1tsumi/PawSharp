@@ -1,4 +1,4 @@
-﻿# PawSharp.Commands
+# PawSharp.Commands
 
 Modern command framework for Discord bots with attribute-based registration and async support.
 
@@ -16,13 +16,13 @@ PawSharp.Commands provides a clean, extensible command system for Discord bots. 
 - Dependency injection in command modules
 - Strongly-typed command contexts
 
-## 📦 Installation
+## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Commands --version 6.1.0-alpha-1
+dotnet add package PawSharp.Commands --version 0.6.1-alpha1
 ```
 
-## 🚀 Quick Start
+## ?? Quick Start
 
 ```csharp
 using PawSharp.Client;
@@ -41,7 +41,7 @@ public class GeneralCommands : BaseCommandModule
     [Description("Check bot latency")]
     public async Task PingAsync(CommandContext ctx)
     {
-        await ctx.RespondAsync("Pong! 🏓");
+        await ctx.RespondAsync("Pong! ??");
     }
 
     [Command("echo")]
@@ -65,7 +65,7 @@ public class GeneralCommands : BaseCommandModule
 await commands.RegisterModuleAsync(client, new GeneralCommands());
 ```
 
-## 📋 Command Registration
+## ?? Command Registration
 
 ### Basic Commands
 
@@ -102,7 +102,7 @@ public async Task AvatarAsync(CommandContext ctx, User? user = null)
 }
 ```
 
-## 🔧 Advanced Features
+## ?? Advanced Features
 
 ### Async Module Initialization
 
@@ -167,7 +167,7 @@ public class LoggingModule : BaseCommandModule
 }
 ```
 
-## 📖 Command Context
+## ?? Command Context
 
 The `CommandContext` provides access to:
 
@@ -194,7 +194,7 @@ public async Task ExampleAsync(CommandContext ctx)
 }
 ```
 
-## 🔄 Dependency Injection
+## ?? Dependency Injection
 
 ```csharp
 // Register services
@@ -219,7 +219,7 @@ public class MyCommands : BaseCommandModule
 }
 ```
 
-## ⚙️ Configuration
+## ?? Configuration
 
 ```csharp
 // Configure command system
@@ -233,32 +233,32 @@ var commands = client.UseCommands(new CommandConfiguration
 });
 ```
 
-## 🛠️ Error Handling
+## ??? Error Handling
 
 ```csharp
 public class ErrorHandlingModule : BaseCommandModule
 {
     public override async Task OnErrorAsync(CommandContext ctx, Exception ex)
     {
-        await ctx.RespondAsync($"❌ An error occurred: {ex.Message}");
+        await ctx.RespondAsync($"? An error occurred: {ex.Message}");
         await base.OnErrorAsync(ctx, ex);
     }
 }
 ```
 
-## 🤝 Dependencies
+## ?? Dependencies
 
 - **PawSharp.Client** - Discord client integration
 - **PawSharp.Core** - Entity models
 - **.NET 8.0** - Modern runtime
 - **Microsoft.Extensions.DependencyInjection** - DI container
 
-## 📚 Related Packages
+## ?? Related Packages
 
 - **[PawSharp.Interactions](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Interactions)** - Slash commands
 - **[PawSharp.Interactivity](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Interactivity)** - Interactive components
 - **[PawSharp.Client](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Client)** - Main client
 
-## 📄 License
+## ?? License
 
 MIT License - see [LICENSE](../LICENSE) for details.

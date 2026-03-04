@@ -1,4 +1,4 @@
-﻿# PawSharp.API
+# PawSharp.API
 
 REST API client for Discord with automatic rate limiting and error handling.
 
@@ -15,13 +15,13 @@ PawSharp.API provides a complete, production-ready REST client for Discord's API
 - Built-in performance tracking
 - First-class DI container support
 
-## 📦 Installation
+## ?? Installation
 
 ```bash
-dotnet add package PawSharp.API --version 6.1.0-alpha-1
+dotnet add package PawSharp.API --version 0.6.1-alpha1
 ```
 
-## 🚀 Quick Start
+## ?? Quick Start
 
 ```csharp
 using PawSharp.API.Clients;
@@ -43,18 +43,18 @@ Console.WriteLine($"Logged in as: {user.Username}");
 var message = await restClient.CreateMessageAsync(channelId, "Hello, Discord!");
 ```
 
-## 📋 API Reference
+## ?? API Reference
 
 PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is a detailed breakdown of all supported endpoints, organized by category.
 
-### 🔐 Authentication & Users
+### ?? Authentication & Users
 - `GetCurrentUserAsync()` - Get current bot user information
 - `GetUserAsync(ulong userId)` - Get user by ID
 - `ModifyCurrentUserAsync(string? username, string? avatar)` - Modify current user
 - `GetCurrentUserGuildsAsync(int limit, ulong? before, ulong? after)` - Get user's guilds
 - `LeaveGuildAsync(ulong guildId)` - Leave a guild
 
-### 🏰 Guilds
+### ?? Guilds
 - `GetGuildAsync(ulong guildId, bool withCounts)` - Get guild details
 - `CreateGuildAsync(CreateGuildRequest request)` - Create a new guild
 - `ModifyGuildAsync(ulong guildId, ModifyGuildRequest request)` - Modify guild
@@ -78,7 +78,7 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `ModifyGuildChannelPositionsAsync(ulong guildId, IEnumerable<ModifyChannelPositionRequest> positions)` - Reorder channels
 - `ModifyGuildRolePositionsAsync(ulong guildId, IEnumerable<ModifyRolePositionRequest> positions)` - Reorder roles
 
-### 👥 Guild Roles
+### ?? Guild Roles
 - `GetGuildRolesAsync(ulong guildId)` - Get all guild roles
 - `CreateGuildRoleAsync(ulong guildId, CreateRoleRequest request)` - Create role
 - `ModifyGuildRoleAsync(ulong guildId, ulong roleId, ModifyRoleRequest request)` - Modify role
@@ -86,7 +86,7 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `AddGuildMemberRoleAsync(ulong guildId, ulong userId, ulong roleId)` - Add role to member
 - `RemoveGuildMemberRoleAsync(ulong guildId, ulong userId, ulong roleId)` - Remove role from member
 
-### 💬 Channels
+### ?? Channels
 - `GetChannelAsync(ulong channelId)` - Get channel details
 - `ModifyChannelAsync(ulong channelId, ModifyChannelRequest request)` - Modify channel
 - `DeleteChannelAsync(ulong channelId)` - Delete channel
@@ -96,7 +96,7 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId)` - Delete permission
 - `FollowAnnouncementChannelAsync(ulong channelId, ulong webhookChannelId)` - Follow announcement channel
 
-### 📝 Messages
+### ?? Messages
 - `CreateMessageAsync(ulong channelId, CreateMessageRequest request)` - Send message
 - `GetMessageAsync(ulong channelId, ulong messageId)` - Get message
 - `EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request)` - Edit message
@@ -108,17 +108,17 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `GetPinnedMessagesAsync(ulong channelId)` - Get pinned messages
 - `TriggerTypingIndicatorAsync(ulong channelId)` - Trigger typing indicator
 
-### 😊 Reactions
+### ?? Reactions
 - `CreateReactionAsync(ulong channelId, ulong messageId, string emoji)` - Add reaction
 - `DeleteOwnReactionAsync(ulong channelId, ulong messageId, string emoji)` - Remove own reaction
 - `DeleteUserReactionAsync(ulong channelId, ulong messageId, string emoji, ulong userId)` - Remove user reaction
 - `GetReactionsAsync(ulong channelId, ulong messageId, string emoji, int? type, ulong? after, int? limit)` - Get users who reacted
 
-### 🔗 Invites
+### ?? Invites
 - `GetInviteAsync(string inviteCode, bool? withCounts, bool? withExpiration, ulong? guildScheduledEventId)` - Get invite details
 - `DeleteInviteAsync(string inviteCode, string? reason)` - Delete an invite
 
-### 📄 Guild Templates
+### ?? Guild Templates
 - `GetGuildTemplatesAsync(ulong guildId)` - List all templates for a guild
 - `GetGuildTemplateAsync(string templateCode)` - Get a template by code
 - `CreateGuildFromTemplateAsync(string templateCode, CreateGuildFromTemplateRequest request)` - Create guild from template
@@ -127,12 +127,12 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `ModifyGuildTemplateAsync(ulong guildId, string templateCode, ModifyGuildTemplateRequest request)` - Modify template metadata
 - `DeleteGuildTemplateAsync(ulong guildId, string templateCode)` - Delete a template
 
-### ⚡ Interactions
+### ? Interactions
 - `CreateInteractionResponseAsync(ulong interactionId, string interactionToken, InteractionResponse response)` - Respond to interaction
 - `EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)` - Edit response
 - `DeleteOriginalInteractionResponseAsync(string applicationId, string interactionToken)` - Delete response
 
-### 🛠️ Application Commands
+### ??? Application Commands
 - `GetGlobalApplicationCommandsAsync(ulong applicationId)` - Get global commands
 - `CreateGlobalApplicationCommandAsync(ulong applicationId, CreateApplicationCommandRequest request)` - Create global command
 - `GetGlobalApplicationCommandAsync(ulong applicationId, ulong commandId)` - Get global command
@@ -146,13 +146,13 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `BulkOverwriteGlobalApplicationCommandsAsync(ulong applicationId, List<CreateApplicationCommandRequest> commands)` - Bulk overwrite global
 - `BulkOverwriteGuildApplicationCommandsAsync(ulong applicationId, ulong guildId, List<CreateApplicationCommandRequest> commands)` - Bulk overwrite guild
 
-### 🔑 Application Command Permissions
+### ?? Application Command Permissions
 - `GetGuildApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId)` - Get permissions
 - `GetApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId)` - Get command permissions
 - `EditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId, List<ApplicationCommandPermission> permissions)` - Edit permissions
 - `BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions)` - Batch edit
 
-### 🧵 Threads
+### ?? Threads
 - `CreateThreadAsync(ulong channelId, CreateThreadRequest request)` - Create thread
 - `CreateThreadFromMessageAsync(ulong channelId, ulong messageId, CreateThreadRequest request)` - Create thread from message
 - `CreateThreadInForumAsync(ulong channelId, CreateThreadRequest request)` - Create forum thread
@@ -167,7 +167,7 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before, int? limit)` - Get private archived threads
 - `GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before, int? limit)` - Get joined private archived threads
 
-### 🪝 Webhooks
+### ?? Webhooks
 - `CreateWebhookAsync(ulong channelId, CreateWebhookRequest request)` - Create webhook
 - `GetChannelWebhooksAsync(ulong channelId)` - Get channel webhooks
 - `GetGuildWebhooksAsync(ulong guildId)` - Get guild webhooks
@@ -179,7 +179,7 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `DeleteWebhookWithTokenAsync(ulong webhookId, string token)` - Delete webhook with token
 - `ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId)` - Execute webhook
 
-### 📅 Scheduled Events
+### ?? Scheduled Events
 - `CreateGuildScheduledEventAsync(ulong guildId, CreateGuildScheduledEventRequest request)` - Create event
 - `GetGuildScheduledEventsAsync(ulong guildId, bool? withUserCount)` - Get events
 - `GetGuildScheduledEventAsync(ulong guildId, ulong eventId, bool? withUserCount)` - Get event
@@ -187,24 +187,24 @@ PawSharp.API provides comprehensive coverage of Discord's REST API v10. Below is
 - `DeleteGuildScheduledEventAsync(ulong guildId, ulong eventId)` - Delete event
 - `GetGuildScheduledEventUsersAsync(ulong guildId, ulong eventId, int? limit, bool? withMember, ulong? before, ulong? after)` - Get event users
 
-### 📋 Audit Logs
+### ?? Audit Logs
 - `GetGuildAuditLogsAsync(ulong guildId, ulong? userId, AuditLogEvent? actionType, ulong? before, int? limit)` - Get audit logs
 
-### 🤖 Auto Moderation
+### ?? Auto Moderation
 - `ListAutoModerationRulesAsync(ulong guildId)` - List rules
 - `GetAutoModerationRuleAsync(ulong guildId, ulong ruleId)` - Get rule
 - `CreateAutoModerationRuleAsync(ulong guildId, CreateAutoModerationRuleRequest request)` - Create rule
 - `ModifyAutoModerationRuleAsync(ulong guildId, ulong ruleId, ModifyAutoModerationRuleRequest request)` - Modify rule
 - `DeleteAutoModerationRuleAsync(ulong guildId, ulong ruleId)` - Delete rule
 
-### 🔧 Low-Level HTTP Methods
+### ?? Low-Level HTTP Methods
 - `GetAsync(string endpoint)` - Raw GET request
 - `PostAsync(string endpoint, HttpContent content)` - Raw POST request
 - `PutAsync(string endpoint, HttpContent content)` - Raw PUT request
 - `DeleteAsync(string endpoint)` - Raw DELETE request
 - `PatchAsync(string endpoint, HttpContent content)` - Raw PATCH request
 
-## 🔧 Configuration
+## ?? Configuration
 
 ```csharp
 var options = new PawSharpOptions
@@ -219,7 +219,7 @@ var options = new PawSharpOptions
 var restClient = new DiscordRestClient(options);
 ```
 
-## 📖 Usage Examples
+## ?? Usage Examples
 
 ### Rate Limiting (Automatic)
 
@@ -278,7 +278,7 @@ var command = await restClient.CreateGuildApplicationCommandAsync(guildId, new A
 var permissions = await restClient.GetGuildApplicationCommandPermissionsAsync(guildId, command.Id);
 ```
 
-## 🔄 Dependency Injection
+## ?? Dependency Injection
 
 ```csharp
 // Register with DI container
@@ -298,7 +298,7 @@ public class MyService
 }
 ```
 
-## 📊 Monitoring & Metrics
+## ?? Monitoring & Metrics
 
 ```csharp
 // Get performance metrics
@@ -308,20 +308,20 @@ Console.WriteLine($"Rate Limits Hit: {metrics.RateLimitsHit}");
 Console.WriteLine($"Average Response Time: {metrics.AverageResponseTime}ms");
 ```
 
-## 🤝 Dependencies
+## ?? Dependencies
 
 - **PawSharp.Core** - Entity models and types
 - **.NET 8.0** - Runtime requirements
 - **Microsoft.Extensions.Http** - HTTP client factory
 - **Microsoft.Extensions.Logging** - Structured logging
 
-## 📚 Related Packages
+## ?? Related Packages
 
 - **[PawSharp.Core](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Core)** - Entity models
 - **[PawSharp.Gateway](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Gateway)** - WebSocket gateway
 - **[PawSharp.Client](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Client)** - Combined client
 
-## 🐛 Error Handling
+## ?? Error Handling
 
 PawSharp.API provides comprehensive error handling:
 
@@ -341,6 +341,6 @@ catch (DiscordException ex)
 }
 ```
 
-## 📄 License
+## ?? License
 
 MIT License - see [LICENSE](../LICENSE) for details.

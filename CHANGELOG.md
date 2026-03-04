@@ -1,36 +1,36 @@
-ï»¿# Changelog
+# Changelog
 
 All notable changes to PawSharp are documented here.
 
 ---
 
-## [6.1.0-alpha-1] - 2026-03-03
+## [0.6.1-alpha1] - 2026-03-03
 
 Bug fixes, null-safety hardening, and API correctness improvements throughout the library.
 
 ### Bug Fixes
 
-**Gateway â€” HeartbeatManager** (`PawSharp.Gateway`)
+**Gateway — HeartbeatManager** (`PawSharp.Gateway`)
 - Fixed: events `OnHeartbeatSent`, `OnHeartbeatAckReceived`, and `OnZombieConnection` were declared non-nullable but never assigned in the constructor (CS8618). All three are now correctly declared as nullable (`Func<Task>?`)
 - Fixed: constructor parameters `sendHeartbeat` and `logger` were defaulting to `null` without a nullable context, causing unsafe implicit null assignments. Both are now `Func<Task>?` / `ILogger?`
 - Fixed: `OnHeartbeatAckReceived?.Invoke()` in `ReceiveAckAsync` discarded the returned `Task`. The invocation is now properly awaited
 - Added `#nullable enable` directive
 
-**Gateway â€” ReconnectionManager** (`PawSharp.Gateway`)
+**Gateway — ReconnectionManager** (`PawSharp.Gateway`)
 - Fixed: events `OnReconnectionAttempt` and `OnReconnectionFailed` were non-nullable without assignment (CS8618). Marked as nullable
 - Fixed: `_metrics` field was declared as non-nullable `IPerformanceMetrics` but the constructor parameter defaulted to `null`. Both are now `IPerformanceMetrics?`
 - Fixed: `OnReconnectionFailed?.Invoke()` and `OnReconnectionAttempt?.Invoke(...)` discarded the returned `Task`. Both are now properly awaited
 - Added `#nullable enable` directive
 
-**Gateway â€” GatewayClient** (`PawSharp.Gateway`)
+**Gateway — GatewayClient** (`PawSharp.Gateway`)
 - Fixed: `HandleHelloAsync` recreated `HeartbeatManager` without passing `_options.MaxMissedHeartbeatAcks`, causing the user's zombie-detection configuration to be silently ignored after the HELLO handshake. The option is now forwarded correctly
 - Fixed: `SetStateAsync` invoked `OnStateChanged?.Invoke(...)` without awaiting the returned `Task`, potentially causing race conditions in state-change handlers. Execution now awaits the event
 - Refactored: replaced `new object[0]` anti-pattern with `Array.Empty<object>()` in `UpdatePresenceAsync`
 
-**REST API â€” HttpContent null-safety** (`PawSharp.API`)
+**REST API — HttpContent null-safety** (`PawSharp.API`)
 - Fixed: eight endpoints passed `null!` (null-forgiving operator) as the `HttpContent` argument to `PutAsync` / `PostAsync` for zero-body requests (pin message, trigger typing, create reaction, add guild member role, join/add thread member, crosspost message, sync guild template). The public `PostAsync` and `PutAsync` overloads now accept `HttpContent?`, eliminating the need for `null!` at every call site
 
-**REST API â€” Archived threads return type** (`PawSharp.API`)
+**REST API — Archived threads return type** (`PawSharp.API`)
 - Fixed: `GetPublicArchivedThreadsAsync`, `GetPrivateArchivedThreadsAsync`, and `GetJoinedPrivateArchivedThreadsAsync` were typed as `Task<List<Channel>?>` and attempted to deserialize a `List<Channel>` directly from Discord's response. Discord's archived-thread endpoints return `{ threads, members, has_more }`, so the raw list deserialization always silently returned `null`. All three methods now return the new `ArchivedThreadsResponse?` type which correctly captures the full payload
 - Also corrected the `before` query-string parameter format from Unix epoch seconds to ISO-8601 (`DateTimeOffset.UtcDateTime:O`), matching Discord's documented format for these endpoints
 
@@ -39,7 +39,7 @@ Bug fixes, null-safety hardening, and API correctness improvements throughout th
 
 ### New Models
 
-- `ArchivedThreadsResponse` â€” response wrapper for archived-thread list endpoints, exposing `Threads`, `Members`, and `HasMore` (`PawSharp.API.Models`)
+- `ArchivedThreadsResponse` — response wrapper for archived-thread list endpoints, exposing `Threads`, `Members`, and `HasMore` (`PawSharp.API.Models`)
 
 ### Public API Changes
 
@@ -63,61 +63,61 @@ Full Discord API surface coverage: emoji CRUD, application management, extended 
 ### New Features
 
 **Emoji REST Endpoints**
-- `ListGuildEmojisAsync(guildId)` â†’ `GET /guilds/{id}/emojis`
-- `GetGuildEmojiAsync(guildId, emojiId)` â†’ `GET /guilds/{id}/emojis/{emoji.id}`
-- `CreateGuildEmojiAsync(guildId, request, reason?)` â†’ `POST /guilds/{id}/emojis`
-- `ModifyGuildEmojiAsync(guildId, emojiId, request, reason?)` â†’ `PATCH /guilds/{id}/emojis/{emoji.id}`
-- `DeleteGuildEmojiAsync(guildId, emojiId, reason?)` â†’ `DELETE /guilds/{id}/emojis/{emoji.id}`
-- `ListApplicationEmojisAsync(applicationId)` â†’ `GET /applications/{id}/emojis` (unwraps `{ "items": [...] }`)
-- `GetApplicationEmojiAsync(applicationId, emojiId)` â†’ `GET /applications/{id}/emojis/{emoji.id}`
-- `CreateApplicationEmojiAsync(applicationId, request)` â†’ `POST /applications/{id}/emojis`
-- `ModifyApplicationEmojiAsync(applicationId, emojiId, request)` â†’ `PATCH /applications/{id}/emojis/{emoji.id}`
-- `DeleteApplicationEmojiAsync(applicationId, emojiId)` â†’ `DELETE /applications/{id}/emojis/{emoji.id}`
+- `ListGuildEmojisAsync(guildId)` ? `GET /guilds/{id}/emojis`
+- `GetGuildEmojiAsync(guildId, emojiId)` ? `GET /guilds/{id}/emojis/{emoji.id}`
+- `CreateGuildEmojiAsync(guildId, request, reason?)` ? `POST /guilds/{id}/emojis`
+- `ModifyGuildEmojiAsync(guildId, emojiId, request, reason?)` ? `PATCH /guilds/{id}/emojis/{emoji.id}`
+- `DeleteGuildEmojiAsync(guildId, emojiId, reason?)` ? `DELETE /guilds/{id}/emojis/{emoji.id}`
+- `ListApplicationEmojisAsync(applicationId)` ? `GET /applications/{id}/emojis` (unwraps `{ "items": [...] }`)
+- `GetApplicationEmojiAsync(applicationId, emojiId)` ? `GET /applications/{id}/emojis/{emoji.id}`
+- `CreateApplicationEmojiAsync(applicationId, request)` ? `POST /applications/{id}/emojis`
+- `ModifyApplicationEmojiAsync(applicationId, emojiId, request)` ? `PATCH /applications/{id}/emojis/{emoji.id}`
+- `DeleteApplicationEmojiAsync(applicationId, emojiId)` ? `DELETE /applications/{id}/emojis/{emoji.id}`
 
 **New Request/Response Models**
-- `CreateGuildEmojiRequest` â€” `name`, `image` (base64), `roles`
-- `ModifyGuildEmojiRequest` â€” `name?`, `roles?`
-- `CreateApplicationEmojiRequest` â€” `name`, `image`
-- `ModifyApplicationEmojiRequest` â€” `name`
-- `ApplicationEmojiListResponse` â€” response wrapper for application emoji list endpoint
-- `EditCurrentApplicationRequest` â€” `description`, `icon`, `cover_image`, `tags`, `interactions_endpoint_url`, `event_webhooks_url`, `event_webhooks_status`, `event_webhooks_types`, `flags`, `role_connections_verification_url`, `custom_install_url`
-- `GuildPruneResult` â€” `pruned` count returned by prune endpoints
-- `BeginGuildPruneRequest` â€” `days?`, `compute_prune_count?`, `include_roles?`
-- `BulkGuildBanRequest` â€” `user_ids`, `delete_message_seconds?`
-- `BulkGuildBanResponse` â€” `banned_users`, `failed_users`
-- `ModifyGuildIncidentActionsRequest` â€” `invites_disabled_until?`, `dms_disabled_until?`
-- `GuildIntegration` â€” minimal integration object returned by `GET /guilds/{id}/integrations`
+- `CreateGuildEmojiRequest` — `name`, `image` (base64), `roles`
+- `ModifyGuildEmojiRequest` — `name?`, `roles?`
+- `CreateApplicationEmojiRequest` — `name`, `image`
+- `ModifyApplicationEmojiRequest` — `name`
+- `ApplicationEmojiListResponse` — response wrapper for application emoji list endpoint
+- `EditCurrentApplicationRequest` — `description`, `icon`, `cover_image`, `tags`, `interactions_endpoint_url`, `event_webhooks_url`, `event_webhooks_status`, `event_webhooks_types`, `flags`, `role_connections_verification_url`, `custom_install_url`
+- `GuildPruneResult` — `pruned` count returned by prune endpoints
+- `BeginGuildPruneRequest` — `days?`, `compute_prune_count?`, `include_roles?`
+- `BulkGuildBanRequest` — `user_ids`, `delete_message_seconds?`
+- `BulkGuildBanResponse` — `banned_users`, `failed_users`
+- `ModifyGuildIncidentActionsRequest` — `invites_disabled_until?`, `dms_disabled_until?`
+- `GuildIntegration` — minimal integration object returned by `GET /guilds/{id}/integrations`
 
 **Application Management REST Endpoints**
-- `GetCurrentApplicationAsync()` â†’ `GET /applications/@me` â€” returns the current application object
-- `EditCurrentApplicationAsync(request)` â†’ `PATCH /applications/@me` â€” edits the current application
+- `GetCurrentApplicationAsync()` ? `GET /applications/@me` — returns the current application object
+- `EditCurrentApplicationAsync(request)` ? `PATCH /applications/@me` — edits the current application
 
 **Extended Guild REST Endpoints**
-- `GetGuildInvitesAsync(guildId)` â†’ `GET /guilds/{id}/invites`
-- `GetGuildIntegrationsAsync(guildId)` â†’ `GET /guilds/{id}/integrations`
-- `DeleteGuildIntegrationAsync(guildId, integrationId, reason?)` â†’ `DELETE /guilds/{id}/integrations/{id}`
-- `GetGuildPruneCountAsync(guildId, days?, includeRoles?)` â†’ `GET /guilds/{id}/prune`
-- `BeginGuildPruneAsync(guildId, request, reason?)` â†’ `POST /guilds/{id}/prune`
-- `BulkGuildBanAsync(guildId, request, reason?)` â†’ `POST /guilds/{id}/bulk-ban`
-- `GetGuildRoleAsync(guildId, roleId)` â†’ `GET /guilds/{id}/roles/{role.id}`
-- `GetGuildRoleMemberCountsAsync(guildId)` â†’ `GET /guilds/{id}/roles/member-counts`
-- `ModifyGuildIncidentActionsAsync(guildId, request)` â†’ `PUT /guilds/{id}/incident-actions`
-- `GetCurrentUserGuildMemberAsync(guildId)` â†’ `GET /users/@me/guilds/{guild.id}/member`
+- `GetGuildInvitesAsync(guildId)` ? `GET /guilds/{id}/invites`
+- `GetGuildIntegrationsAsync(guildId)` ? `GET /guilds/{id}/integrations`
+- `DeleteGuildIntegrationAsync(guildId, integrationId, reason?)` ? `DELETE /guilds/{id}/integrations/{id}`
+- `GetGuildPruneCountAsync(guildId, days?, includeRoles?)` ? `GET /guilds/{id}/prune`
+- `BeginGuildPruneAsync(guildId, request, reason?)` ? `POST /guilds/{id}/prune`
+- `BulkGuildBanAsync(guildId, request, reason?)` ? `POST /guilds/{id}/bulk-ban`
+- `GetGuildRoleAsync(guildId, roleId)` ? `GET /guilds/{id}/roles/{role.id}`
+- `GetGuildRoleMemberCountsAsync(guildId)` ? `GET /guilds/{id}/roles/member-counts`
+- `ModifyGuildIncidentActionsAsync(guildId, request)` ? `PUT /guilds/{id}/incident-actions`
+- `GetCurrentUserGuildMemberAsync(guildId)` ? `GET /users/@me/guilds/{guild.id}/member`
 
 **Extended Reaction REST Endpoints**
-- `DeleteAllReactionsAsync(channelId, messageId)` â†’ `DELETE /channels/{id}/messages/{id}/reactions`
-- `DeleteAllReactionsForEmojiAsync(channelId, messageId, emoji)` â†’ `DELETE /channels/{id}/messages/{id}/reactions/{emoji}`
+- `DeleteAllReactionsAsync(channelId, messageId)` ? `DELETE /channels/{id}/messages/{id}/reactions`
+- `DeleteAllReactionsForEmojiAsync(channelId, messageId, emoji)` ? `DELETE /channels/{id}/messages/{id}/reactions/{emoji}`
 
 **New Gateway Events**
-- `APPLICATION_COMMAND_PERMISSIONS_UPDATE` â†’ dispatched as `ApplicationCommandPermissionsUpdateEvent` (id, applicationId, guildId, permissions)
-- `INTEGRATION_CREATE` â†’ dispatched as `IntegrationCreateEvent` (id, guildId, name, type, enabled, applicationId?)
-- `INTEGRATION_UPDATE` â†’ dispatched as `IntegrationUpdateEvent` (id, guildId, name, type, enabled, applicationId?)
-- `INTEGRATION_DELETE` â†’ dispatched as `IntegrationDeleteEvent` (id, guildId, applicationId?)
+- `APPLICATION_COMMAND_PERMISSIONS_UPDATE` ? dispatched as `ApplicationCommandPermissionsUpdateEvent` (id, applicationId, guildId, permissions)
+- `INTEGRATION_CREATE` ? dispatched as `IntegrationCreateEvent` (id, guildId, name, type, enabled, applicationId?)
+- `INTEGRATION_UPDATE` ? dispatched as `IntegrationUpdateEvent` (id, guildId, name, type, enabled, applicationId?)
+- `INTEGRATION_DELETE` ? dispatched as `IntegrationDeleteEvent` (id, guildId, applicationId?)
 
 **`InteractionExtensions` helper (`PawSharp.Interactions.Extensions`)**
-- `interaction.GetOptionValue<T>(name)` â€” type-safe extraction of a slash command option value by name; supports `string`, `bool`, `int`, `long`, `ulong`, `double`, `float`, and any JSON-deserializable type
-- `options.GetOptionValue<T>(name)` â€” overload for subcommand option lists
-- `interaction.FindOption(name)` â€” returns the raw `ApplicationCommandInteractionDataOption` for advanced access
+- `interaction.GetOptionValue<T>(name)` — type-safe extraction of a slash command option value by name; supports `string`, `bool`, `int`, `long`, `ulong`, `double`, `float`, and any JSON-deserializable type
+- `options.GetOptionValue<T>(name)` — overload for subcommand option lists
+- `interaction.FindOption(name)` — returns the raw `ApplicationCommandInteractionDataOption` for advanced access
 
 ---
 
@@ -131,31 +131,31 @@ Application Command completeness, OAuth2 REST endpoints, interaction follow-up m
 - `ApplicationCommand` entity: added `NameLocalizations`, `DescriptionLocalizations`, `IntegrationTypes`, `Contexts`
 - `ApplicationCommandOption` entity: added `NameLocalizations`, `DescriptionLocalizations`, `Focused` (for autocomplete)
 - `ApplicationCommandType` enum: added `PrimaryEntryPoint = 4` (for Activities)
-- `CreateApplicationCommandRequest` model: added `NameLocalizations`, `DescriptionLocalizations`, `DefaultMemberPermissions`, `DmPermission`, `IntegrationTypes`, `Contexts`, `Nsfw` â€” full parity with Discord's Create/Edit Application Command endpoints
+- `CreateApplicationCommandRequest` model: added `NameLocalizations`, `DescriptionLocalizations`, `DefaultMemberPermissions`, `DmPermission`, `IntegrationTypes`, `Contexts`, `Nsfw` — full parity with Discord's Create/Edit Application Command endpoints
 
 **OAuth2 REST Endpoints**
-- `GetCurrentBotApplicationInfoAsync()` â†’ `GET /oauth2/applications/@me` â€” returns the bot's `Application` object
-- `GetCurrentAuthorizationInfoAsync()` â†’ `GET /oauth2/@me` â€” returns `OAuth2Info` with `application`, `scopes`, `expires`, `user`
+- `GetCurrentBotApplicationInfoAsync()` ? `GET /oauth2/applications/@me` — returns the bot's `Application` object
+- `GetCurrentAuthorizationInfoAsync()` ? `GET /oauth2/@me` — returns `OAuth2Info` with `application`, `scopes`, `expires`, `user`
 
 **Interaction Follow-Up Messages**
-- `CreateFollowupMessageAsync(applicationId, token, CreateMessageRequest)` â†’ `POST /webhooks/{id}/{token}`
-- `GetFollowupMessageAsync(applicationId, token, messageId)` â†’ `GET /webhooks/{id}/{token}/messages/{msg_id}`
-- `EditFollowupMessageAsync(applicationId, token, messageId, EditMessageRequest)` â†’ `PATCH /webhooks/{id}/{token}/messages/{msg_id}`
-- `DeleteFollowupMessageAsync(applicationId, token, messageId)` â†’ `DELETE /webhooks/{id}/{token}/messages/{msg_id}`
+- `CreateFollowupMessageAsync(applicationId, token, CreateMessageRequest)` ? `POST /webhooks/{id}/{token}`
+- `GetFollowupMessageAsync(applicationId, token, messageId)` ? `GET /webhooks/{id}/{token}/messages/{msg_id}`
+- `EditFollowupMessageAsync(applicationId, token, messageId, EditMessageRequest)` ? `PATCH /webhooks/{id}/{token}/messages/{msg_id}`
+- `DeleteFollowupMessageAsync(applicationId, token, messageId)` ? `DELETE /webhooks/{id}/{token}/messages/{msg_id}`
 - `InteractionHandler` convenience wrappers: `CreateFollowupAsync`, `EditFollowupAsync`, `DeleteFollowupAsync` (old `FollowupAsync` marked `[Obsolete]`)
 
 **Resolved Interaction Data**
 - New `ResolvedData` class with `Users`, `Members`, `Roles`, `Channels`, `Messages`, `Attachments` dictionaries
-- `InteractionData.Resolved` property â€” enables USER, ROLE, CHANNEL, MENTIONABLE, ATTACHMENT option types to return actual objects
+- `InteractionData.Resolved` property — enables USER, ROLE, CHANNEL, MENTIONABLE, ATTACHMENT option types to return actual objects
 - `InteractionData.Components` property added for modal submit data
 
 **`InteractionCallbackType` Enum (`PawSharp.API.Models`)**
 - `Pong = 1`, `ChannelMessageWithSource = 4`, `DeferredChannelMessageWithSource = 5`, `DeferredUpdateMessage = 6`, `UpdateMessage = 7`, `ApplicationCommandAutocompleteResult = 8`, `Modal = 9`, `PremiumRequired = 10`, `LaunchActivity = 12`
 
 **`CreateMessageRequest` Enhancements**
-- Added `Flags` (int?) â€” supports `SUPPRESS_EMBEDS = 4`, `SUPPRESS_NOTIFICATIONS = 4096`, etc.
-- Added `StickerIds` (List<ulong>?) â€” up to 3 server stickers
-- Added `Nonce` (string?) and `EnforceNonce` (bool?) â€” message deduplication support
+- Added `Flags` (int?) — supports `SUPPRESS_EMBEDS = 4`, `SUPPRESS_NOTIFICATIONS = 4096`, etc.
+- Added `StickerIds` (List<ulong>?) — up to 3 server stickers
+- Added `Nonce` (string?) and `EnforceNonce` (bool?) — message deduplication support
 
 ### Changes
 
@@ -167,7 +167,7 @@ Application Command completeness, OAuth2 REST endpoints, interaction follow-up m
 
 ## [0.5.0-alpha13] - February 22, 2026
 
-Developer Experience & API Completeness â€” typed message components, a fluent embed builder, missing REST endpoints (reactions, invites, guild templates, widget/welcome-screen controls), and a full set of presence and channel flag enums.
+Developer Experience & API Completeness — typed message components, a fluent embed builder, missing REST endpoints (reactions, invites, guild templates, widget/welcome-screen controls), and a full set of presence and channel flag enums.
 
 ### New Features
 
@@ -175,13 +175,13 @@ Developer Experience & API Completeness â€” typed message components, a fluent e
 - New `MessageComponent` abstract base class with polymorphic JSON converter (`MessageComponentJsonConverter`) in `PawSharp.Core.Entities`
 - Concrete types: `ActionRow`, `Button`, `SelectMenu` / `StringSelectMenu`, `UserSelectMenu`, `RoleSelectMenu`, `MentionableSelectMenu`, `ChannelSelectMenu`, `TextInput`, `UnknownComponent`
 - `SelectOption` and `SelectDefaultValue` supporting types
-- `ComponentType` enum (ActionRow=1 â€¦ ChannelSelect=8), `ButtonStyle` enum (Primary=1 â€¦ Premium=6), `TextInputStyle` enum (Short=1, Paragraph=2)
-- `Message.Components` is now `List<MessageComponent>?` â€” previously `List<object>?`
+- `ComponentType` enum (ActionRow=1 … ChannelSelect=8), `ButtonStyle` enum (Primary=1 … Premium=6), `TextInputStyle` enum (Short=1, Paragraph=2)
+- `Message.Components` is now `List<MessageComponent>?` — previously `List<object>?`
 
 **EmbedBuilder**
 - New fluent `EmbedBuilder` in `PawSharp.Core.Builders`
 - Methods: `WithTitle`, `WithDescription`, `WithUrl`, `WithColor(int)`, `WithColor(r,g,b)`, `WithTimestamp()`, `WithTimestamp(DateTimeOffset)`, `WithFooter`, `WithImage`, `WithThumbnail`, `WithAuthor`, `AddField`, `Build()`
-- Enforces Discord limits at build-time: title â‰¤ 256, description â‰¤ 4 096, â‰¤ 25 fields, field name â‰¤ 256, field value â‰¤ 1 024, footer â‰¤ 2 048, author name â‰¤ 256
+- Enforces Discord limits at build-time: title = 256, description = 4 096, = 25 fields, field name = 256, field value = 1 024, footer = 2 048, author name = 256
 - `Build()` throws `InvalidOperationException` if no visible content is set
 
 **New Flags Enums**
@@ -189,30 +189,30 @@ Developer Experience & API Completeness â€” typed message components, a fluent e
 - `ChannelFlags` `[Flags]` enum: Pinned, RequireTag, HideMediaDownloadOptions
 - `AttachmentFlags` `[Flags]` enum: IsRemix
 - `GuildMemberFlags` `[Flags]` enum: DidRejoin, CompletedOnboarding, BypassesVerification, StartedOnboarding, IsGuest, StartedHomeActions, CompletedHomeActions, AutomodQuarantinedUsername, DmSettingsUpsellAcknowledged
-- `Message.Flags` is now `MessageFlags?` â€” previously `int?`
+- `Message.Flags` is now `MessageFlags?` — previously `int?`
 
 **New REST Endpoints**
-- `GetReactionsAsync(channelId, messageId, emoji, type?, after?, limit?)` â€” paginated reaction user list with optional type filter and cursor pagination
-- `FollowAnnouncementChannelAsync(channelId, webhookChannelId) â†’ FollowedChannel` â€” POST `channels/{id}/followers`
-- `GetGuildPreviewAsync(guildId) â†’ GuildPreview` â€” public preview for discoverable guilds
-- `GetGuildWidgetSettingsAsync(guildId) â†’ GuildWidgetSettings`
-- `ModifyGuildWidgetAsync(guildId, request) â†’ GuildWidgetSettings`
-- `GetGuildVanityUrlAsync(guildId) â†’ VanityUrl`
-- `GetGuildWelcomeScreenAsync(guildId) â†’ WelcomeScreen`
-- `ModifyGuildWelcomeScreenAsync(guildId, request) â†’ WelcomeScreen`
-- `ModifyGuildChannelPositionsAsync(guildId, positions) â†’ bool`
-- `ModifyGuildRolePositionsAsync(guildId, positions) â†’ List<Role>`
-- `GetInviteAsync(code, withCounts?, withExpiration?, guildScheduledEventId?) â†’ Invite`
-- `DeleteInviteAsync(code, reason?) â†’ bool`
+- `GetReactionsAsync(channelId, messageId, emoji, type?, after?, limit?)` — paginated reaction user list with optional type filter and cursor pagination
+- `FollowAnnouncementChannelAsync(channelId, webhookChannelId) ? FollowedChannel` — POST `channels/{id}/followers`
+- `GetGuildPreviewAsync(guildId) ? GuildPreview` — public preview for discoverable guilds
+- `GetGuildWidgetSettingsAsync(guildId) ? GuildWidgetSettings`
+- `ModifyGuildWidgetAsync(guildId, request) ? GuildWidgetSettings`
+- `GetGuildVanityUrlAsync(guildId) ? VanityUrl`
+- `GetGuildWelcomeScreenAsync(guildId) ? WelcomeScreen`
+- `ModifyGuildWelcomeScreenAsync(guildId, request) ? WelcomeScreen`
+- `ModifyGuildChannelPositionsAsync(guildId, positions) ? bool`
+- `ModifyGuildRolePositionsAsync(guildId, positions) ? List<Role>`
+- `GetInviteAsync(code, withCounts?, withExpiration?, guildScheduledEventId?) ? Invite`
+- `DeleteInviteAsync(code, reason?) ? bool`
 - Guild Templates (7 methods): `GetGuildTemplatesAsync`, `GetGuildTemplateAsync`, `CreateGuildFromTemplateAsync`, `CreateGuildTemplateAsync`, `SyncGuildTemplateAsync`, `ModifyGuildTemplateAsync`, `DeleteGuildTemplateAsync`
 
 **New Entity Types**
-- `GuildPreview` â€” Id, Name, Icon, Splash, DiscoverySplash, Emojis, Features, ApproximateMemberCount, ApproximatePresenceCount, Description, Stickers
-- `GuildWidgetSettings` â€” Enabled, ChannelId
-- `WelcomeScreen` â€” Description, `List<WelcomeScreenChannel>`
-- `WelcomeScreenChannel` â€” ChannelId, Description, EmojiId, EmojiName
-- `FollowedChannel` â€” ChannelId, WebhookId
-- `VanityUrl` â€” Code, Uses
+- `GuildPreview` — Id, Name, Icon, Splash, DiscoverySplash, Emojis, Features, ApproximateMemberCount, ApproximatePresenceCount, Description, Stickers
+- `GuildWidgetSettings` — Enabled, ChannelId
+- `WelcomeScreen` — Description, `List<WelcomeScreenChannel>`
+- `WelcomeScreenChannel` — ChannelId, Description, EmojiId, EmojiName
+- `FollowedChannel` — ChannelId, WebhookId
+- `VanityUrl` — Code, Uses
 
 **New Request Models**
 - `CreateGuildTemplateRequest`, `ModifyGuildTemplateRequest`, `CreateGuildFromTemplateRequest`
@@ -223,9 +223,9 @@ Developer Experience & API Completeness â€” typed message components, a fluent e
 
 ### Changes
 
-- **`Message.Components`** â€” type changed from `List<object>?` to `List<MessageComponent>?`; deserializes automatically via `MessageComponentJsonConverter`
-- **`Message.Flags`** â€” type changed from `int?` to `MessageFlags?`
-- **`ModalBuilder.AddTextInput`** â€” `style` parameter changed from `int` (defaulting to `1`) to `TextInputStyle` (defaulting to `TextInputStyle.Short`); provides compile-time safety
+- **`Message.Components`** — type changed from `List<object>?` to `List<MessageComponent>?`; deserializes automatically via `MessageComponentJsonConverter`
+- **`Message.Flags`** — type changed from `int?` to `MessageFlags?`
+- **`ModalBuilder.AddTextInput`** — `style` parameter changed from `int` (defaulting to `1`) to `TextInputStyle` (defaulting to `TextInputStyle.Short`); provides compile-time safety
 - Component model classes (`MessageComponent`, `ActionRow`, `Button`, `SelectMenu`, `SelectOption`, `TextInput`) have been moved from `PawSharp.API.Models` to `PawSharp.Core.Entities`; the `PawSharp.Core.Entities` namespace is already re-exported from `PawSharp.API` so existing code referencing the old namespace may need a `using` update
 
 ### Breaking Changes
@@ -234,7 +234,7 @@ Developer Experience & API Completeness â€” typed message components, a fluent e
 |---|---|---|
 | `Message.Components` | `List<object>?` | `List<MessageComponent>?` |
 | `Message.Flags` | `int?` | `MessageFlags?` |
-| `ModalBuilder.AddTextInput(â€¦, style, â€¦)` | `int style = 1` | `TextInputStyle style = TextInputStyle.Short` |
+| `ModalBuilder.AddTextInput(…, style, …)` | `int style = 1` | `TextInputStyle style = TextInputStyle.Short` |
 | `TextInput.Style` | `int` | `TextInputStyle` |
 | Component models namespace | `PawSharp.API.Models` | `PawSharp.Core.Entities` |
 
@@ -242,33 +242,33 @@ Developer Experience & API Completeness â€” typed message components, a fluent e
 
 ## [0.5.0-alpha12] - February 20, 2026
 
-Full Discord API v10 coverage across REST and Gateway â€” polls, monetization, soundboard, onboarding, role connections, and 28 previously-missing gateway events.
+Full Discord API v10 coverage across REST and Gateway — polls, monetization, soundboard, onboarding, role connections, and 28 previously-missing gateway events.
 
 ### New Features
 
 **Polls API**
 - New `Poll`, `PollMedia`, `PollAnswer`, `PollResults`, `PollAnswerCount`, and `PollLayoutType` entity types in `PawSharp.Core`
-- `Message.Poll` property â€” messages can now carry an attached poll
-- `CreateMessageRequest.Poll` field â€” send a poll with a new message via `CreatePollRequest` / `PollMediaRequest` / `PollAnswerRequest`
-- `GetAnswerVotersAsync(channelId, messageId, answerId, limit?, after?)` â€” paginated list of users who voted on an answer
-- `EndPollAsync(channelId, messageId)` â€” immediately expire a poll and return the final message
+- `Message.Poll` property — messages can now carry an attached poll
+- `CreateMessageRequest.Poll` field — send a poll with a new message via `CreatePollRequest` / `PollMediaRequest` / `PollAnswerRequest`
+- `GetAnswerVotersAsync(channelId, messageId, answerId, limit?, after?)` — paginated list of users who voted on an answer
+- `EndPollAsync(channelId, messageId)` — immediately expire a poll and return the final message
 
 **New Gateway Intents (alpha12)**
-- `GatewayIntents.GuildMessagePolls` (1 << 24) â€” guild poll vote events
-- `GatewayIntents.DirectMessagePolls` (1 << 25) â€” DM poll vote events
+- `GatewayIntents.GuildMessagePolls` (1 << 24) — guild poll vote events
+- `GatewayIntents.DirectMessagePolls` (1 << 25) — DM poll vote events
 - `AllNonPrivileged` and `All` composite flags updated to include both new intents
 
 **Monetization (SKUs, Entitlements, Subscriptions)**
-- `ListSkusAsync(applicationId)` â€” list all SKUs for an application
-- `ListEntitlementsAsync` â€” paginated with full filter support (userId, skuIds, before, after, limit, guildId, excludeEnded)
+- `ListSkusAsync(applicationId)` — list all SKUs for an application
+- `ListEntitlementsAsync` — paginated with full filter support (userId, skuIds, before, after, limit, guildId, excludeEnded)
 - `GetEntitlementAsync(applicationId, entitlementId)`
-- `CreateTestEntitlementAsync` / `DeleteTestEntitlementAsync` â€” test entitlement management
-- `ConsumeEntitlementAsync` â€” mark a consumable entitlement as consumed
-- `ListSkuSubscriptionsAsync` / `GetSkuSubscriptionAsync` â€” read subscription records for a SKU
+- `CreateTestEntitlementAsync` / `DeleteTestEntitlementAsync` — test entitlement management
+- `ConsumeEntitlementAsync` — mark a consumable entitlement as consumed
+- `ListSkuSubscriptionsAsync` / `GetSkuSubscriptionAsync` — read subscription records for a SKU
 
 **Soundboard API**
-- `ListDefaultSoundboardSoundsAsync()` â€” Discord's built-in default sounds
-- `ListGuildSoundboardSoundsAsync(guildId)` â€” all custom sounds for a guild
+- `ListDefaultSoundboardSoundsAsync()` — Discord's built-in default sounds
+- `ListGuildSoundboardSoundsAsync(guildId)` — all custom sounds for a guild
 - `GetGuildSoundboardSoundAsync(guildId, soundId)`
 - `CreateGuildSoundboardSoundAsync` / `ModifyGuildSoundboardSoundAsync` / `DeleteGuildSoundboardSoundAsync`
 - New request models: `CreateGuildSoundboardSoundRequest`, `ModifyGuildSoundboardSoundRequest`
@@ -276,17 +276,17 @@ Full Discord API v10 coverage across REST and Gateway â€” polls, monetization, s
 **Guild Onboarding API**
 - New `GuildOnboarding`, `OnboardingPrompt`, `OnboardingPromptOption`, `OnboardingMode`, `OnboardingPromptType` entity types
 - `GetGuildOnboardingAsync(guildId)`
-- `ModifyGuildOnboardingAsync(guildId, request)` â€” update prompts, default channels, mode, and enabled flag
+- `ModifyGuildOnboardingAsync(guildId, request)` — update prompts, default channels, mode, and enabled flag
 - New request models: `ModifyGuildOnboardingRequest`, `OnboardingPromptRequest`, `OnboardingPromptOptionRequest`
 
 **Application Role Connection Metadata**
 - New `ApplicationRoleConnectionMetadata` and `ApplicationRoleConnectionMetadataType` entity types
 - `GetApplicationRoleConnectionMetadataAsync(applicationId)`
-- `UpdateApplicationRoleConnectionMetadataAsync(applicationId, records)` â€” PUT up to 5 metadata records
+- `UpdateApplicationRoleConnectionMetadataAsync(applicationId, records)` — PUT up to 5 metadata records
 
 **Guild Member Improvements**
-- `SearchGuildMembersAsync(guildId, query, limit?)` â€” search guild members by username/nickname
-- `ModifyCurrentMemberAsync(guildId, nick)` â€” update the bot's own nickname in a guild
+- `SearchGuildMembersAsync(guildId, query, limit?)` — search guild members by username/nickname
+- `ModifyCurrentMemberAsync(guildId, nick)` — update the bot's own nickname in a guild
 
 **28 New Gateway Events (alpha12)**
 
@@ -329,7 +329,7 @@ All 28 events are fully wired in `GatewayClient.HandleDispatchEventAsync`.
 - `GatewayIntents.AllNonPrivileged` now includes `GuildMessagePolls` and `DirectMessagePolls`
 
 ### Notes
-- Voice integration intentionally excluded â€” see `PawSharp.Voice` for optional voice support
+- Voice integration intentionally excluded — see `PawSharp.Voice` for optional voice support
 
 ---
 
@@ -379,7 +379,7 @@ Gateway event coverage, DI hardening, interaction routing, REST endpoint parity,
 
 **ShardManager**
 - Added `ConnectedShardCount` property (number of shards in `Connected` state)
-- Added `CalculateRecommendedShardCountAsync()` â€” queries `GET /gateway/bot` to get Discord's recommended shard count; falls back to local heuristic if REST client is unavailable
+- Added `CalculateRecommendedShardCountAsync()` — queries `GET /gateway/bot` to get Discord's recommended shard count; falls back to local heuristic if REST client is unavailable
 - `ShardManager` constructor accepts optional `IDiscordRestClient` parameter
 
 **DiscordClient Convenience API**
@@ -388,9 +388,9 @@ Gateway event coverage, DI hardening, interaction routing, REST endpoint parity,
 - 8 typed event helper methods: `OnMessageCreated`, `OnMessageUpdated`, `OnMessageDeleted`, `OnGuildAvailable`, `OnGuildMemberJoined`, `OnGuildMemberLeft`, `OnInteractionCreated`, `OnReady`
 
 **Test Coverage**
-- New `PawSharp.Interactions.Tests` project â€” 8 tests covering slash commands, components, autocomplete, context menus, modal submit routing
-- `PawSharp.API.Tests` â€” 9 new tests for all alpha11 REST endpoints (Stage Instance, Sticker, DM, GatewayBot, VoiceRegions, Crosspost, Channel Permissions, User Connections)
-- `PawSharp.Gateway.Tests` â€” 9 new tests for alpha11 gateway event deserialization and `EventDispatcher` routing
+- New `PawSharp.Interactions.Tests` project — 8 tests covering slash commands, components, autocomplete, context menus, modal submit routing
+- `PawSharp.API.Tests` — 9 new tests for all alpha11 REST endpoints (Stage Instance, Sticker, DM, GatewayBot, VoiceRegions, Crosspost, Channel Permissions, User Connections)
+- `PawSharp.Gateway.Tests` — 9 new tests for alpha11 gateway event deserialization and `EventDispatcher` routing
 
 ### Changes
 - `Version` bumped from `0.5.0-alpha8` to `0.5.0-alpha11` in `Directory.Build.props`
@@ -711,7 +711,7 @@ Phase 3 is complete and production-ready:
 
 The gateway client now handles network issues gracefully without crashing:
 
-- `GatewayState` enum implementing a proper state machine: Disconnected â†’ Connecting â†’ Connected â†’ Ready â†’ Failed
+- `GatewayState` enum implementing a proper state machine: Disconnected ? Connecting ? Connected ? Ready ? Failed
 - `ReconnectionManager` with exponential backoff: starts at 1 second, doubles each attempt, caps at 16 seconds maximum
 - Automatic session resumption within 45 seconds of disconnect
 - Maximum of 10 reconnection attempts before permanent failure

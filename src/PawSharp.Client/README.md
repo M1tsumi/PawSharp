@@ -1,4 +1,4 @@
-﻿# PawSharp.Client
+# PawSharp.Client
 
 The complete, high-level Discord client that brings everything together.
 
@@ -15,13 +15,13 @@ PawSharp.Client is the main entry point for Discord bot development with PawShar
 - Async throughout
 - First-class dependency injection support
 
-## 📦 Installation
+## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Client --version 6.1.0-alpha-1
+dotnet add package PawSharp.Client --version 0.6.1-alpha1
 ```
 
-## 🚀 Quick Start
+## ?? Quick Start
 
 ### Basic Bot Setup
 
@@ -67,7 +67,7 @@ var client = provider.GetRequiredService<DiscordClient>();
 await client.ConnectAsync();
 ```
 
-## 📋 Client Features
+## ?? Client Features
 
 ### REST API Access
 
@@ -115,7 +115,7 @@ var stats = client.Cache.GetStats();
 Console.WriteLine($"Cached guilds: {stats.GuildCount}");
 ```
 
-## 🔧 Extensions
+## ?? Extensions
 
 ### Commands Extension
 
@@ -170,7 +170,7 @@ var connection = await voice.ConnectAsync(voiceChannel);
 connection.StartCapture();
 ```
 
-## ⚙️ Configuration
+## ?? Configuration
 
 ```csharp
 var options = new PawSharpOptions
@@ -203,7 +203,7 @@ var options = new PawSharpOptions
 var client = new DiscordClient(options);
 ```
 
-## 📊 Monitoring & Health Checks
+## ?? Monitoring & Health Checks
 
 ```csharp
 // Connection status
@@ -220,7 +220,7 @@ Console.WriteLine($"Uptime: {metrics.Uptime}");
 Console.WriteLine($"Events Processed: {metrics.EventsProcessed}");
 ```
 
-## 🔄 Event Handling
+## ?? Event Handling
 
 ### Basic Events
 
@@ -252,21 +252,21 @@ client.Gateway.Events.On<MessageCreateEvent>(async evt =>
 });
 ```
 
-## 🏗️ Architecture
+## ??? Architecture
 
 ```
 PawSharp.Client
-├── DiscordClient (main interface)
-│   ├── Rest (IDiscordRestClient)
-│   ├── Gateway (IGatewayClient)
-│   ├── Cache (ICacheProvider)
-│   └── Extensions (commands, voice, etc.)
-├── PawSharpOptions (configuration)
-├── ServiceCollectionExtensions (DI)
-└── Health monitoring & metrics
++-- DiscordClient (main interface)
+�   +-- Rest (IDiscordRestClient)
+�   +-- Gateway (IGatewayClient)
+�   +-- Cache (ICacheProvider)
+�   +-- Extensions (commands, voice, etc.)
++-- PawSharpOptions (configuration)
++-- ServiceCollectionExtensions (DI)
++-- Health monitoring & metrics
 ```
 
-## 🛠️ Advanced Usage
+## ??? Advanced Usage
 
 ### Custom Extensions
 
@@ -313,7 +313,7 @@ public class StatusUpdater : BackgroundService
 }
 ```
 
-## 🤝 Dependencies
+## ?? Dependencies
 
 - **PawSharp.API** - REST API client
 - **PawSharp.Gateway** - WebSocket gateway
@@ -322,13 +322,13 @@ public class StatusUpdater : BackgroundService
 - **Microsoft.Extensions.DependencyInjection** - DI container
 - **Microsoft.Extensions.Logging** - Structured logging
 
-## 📚 Related Packages
+## ?? Related Packages
 
 - **[PawSharp.Commands](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Commands)** - Command framework
 - **[PawSharp.Interactions](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Interactions)** - Slash commands
 - **[PawSharp.Voice](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Voice)** - Voice support
 
-## 🐛 Error Handling
+## ?? Error Handling
 
 ```csharp
 try
@@ -349,6 +349,6 @@ catch (Exception ex)
 }
 ```
 
-## 📄 License
+## ?? License
 
 MIT License - see [LICENSE](../LICENSE) for details.

@@ -1,4 +1,4 @@
-﻿# PawSharp.Voice
+# PawSharp.Voice
 
 Professional-grade voice channel connectivity with automatic reconnection and dynamic heartbeat management.
 
@@ -16,13 +16,13 @@ PawSharp.Voice provides complete voice channel support for Discord bots, featuri
 - Thread-safe operations
 - Connection resilience with automatic recovery
 
-## 📦 Installation
+## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Voice --version 6.1.0-alpha-1
+dotnet add package PawSharp.Voice --version 0.6.1-alpha1
 ```
 
-## 🚀 Quick Start
+## ?? Quick Start
 
 ```csharp
 using PawSharp.Client;
@@ -49,7 +49,7 @@ connection.StopCapture();
 await connection.DisconnectAsync();
 ```
 
-## 📋 Voice Connection Lifecycle
+## ?? Voice Connection Lifecycle
 
 ### 1. Connection Establishment
 
@@ -92,7 +92,7 @@ connection.OnAudioReceived += async (audioData) =>
 connection.StartPlayback();
 ```
 
-## 🔧 Advanced Configuration
+## ?? Advanced Configuration
 
 ### Voice Client Options
 
@@ -124,7 +124,7 @@ connection.OnReconnected += async () =>
 };
 ```
 
-## 🎵 Audio Processing
+## ?? Audio Processing
 
 ### Current Implementation
 
@@ -154,7 +154,7 @@ var pcmData = await connection.DecodeAudioAsync(opusData);
 - **Bitrate**: Variable (configurable)
 - **Codec**: Opus ready (when implemented)
 
-## 🔄 Automatic Reconnection
+## ?? Automatic Reconnection
 
 PawSharp.Voice includes intelligent reconnection logic:
 
@@ -165,12 +165,12 @@ PawSharp.Voice includes intelligent reconnection logic:
 // - WebSocket connection drops
 // - Discord service issues
 
-// Exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s (max)
+// Exponential backoff: 1s ? 2s ? 4s ? 8s ? 16s ? 30s (max)
 // Maximum 5 reconnection attempts
 // Automatic cleanup on final failure
 ```
 
-## 📊 Voice Events
+## ?? Voice Events
 
 ### Voice State Updates
 
@@ -199,30 +199,30 @@ client.Gateway.Events.On<VoiceServerUpdateEvent>("VOICE_SERVER_UPDATE", async ev
 });
 ```
 
-## 🏗️ Architecture
+## ??? Architecture
 
 ```
 PawSharp.Voice
-├── VoiceClient
-│   ├── Connection management
-│   ├── Reconnection logic
-│   └── State tracking
-├── VoiceConnection
-│   ├── WebSocket communication
-│   ├── Heartbeat management
-│   ├── Audio capture/playback
-│   └── Protocol handling
-├── Audio Processing
-│   ├── NAudio integration
-│   ├── PCM handling
-│   └── Opus framework (ready)
-└── Events & State
-    ├── Voice state updates
-    ├── Server updates
-    └── Connection events
++-- VoiceClient
+�   +-- Connection management
+�   +-- Reconnection logic
+�   +-- State tracking
++-- VoiceConnection
+�   +-- WebSocket communication
+�   +-- Heartbeat management
+�   +-- Audio capture/playback
+�   +-- Protocol handling
++-- Audio Processing
+�   +-- NAudio integration
+�   +-- PCM handling
+�   +-- Opus framework (ready)
++-- Events & State
+    +-- Voice state updates
+    +-- Server updates
+    +-- Connection events
 ```
 
-## ⚠️ Error Handling
+## ?? Error Handling
 
 ```csharp
 try
@@ -241,7 +241,7 @@ catch (AudioDeviceException ex)
 }
 ```
 
-## 🔧 Dependencies
+## ?? Dependencies
 
 - **PawSharp.Client** - Discord client integration
 - **PawSharp.Core** - Entity models
@@ -249,13 +249,13 @@ catch (AudioDeviceException ex)
 - **Concentus** - Opus codec (framework ready)
 - **.NET 8.0** - Modern runtime
 
-## 📚 Related Packages
+## ?? Related Packages
 
 - **[PawSharp.Client](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Client)** - Main Discord client
 - **[PawSharp.Gateway](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Gateway)** - Gateway connectivity
 - **[PawSharp.Commands](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Commands)** - Command framework
 
-## 🎯 Best Practices
+## ?? Best Practices
 
 ### Connection Management
 
@@ -292,6 +292,6 @@ var options = new VoiceOptions
 };
 ```
 
-## 📄 License
+## ?? License
 
 MIT License - see [LICENSE](../LICENSE) for details.

@@ -1,4 +1,4 @@
-﻿# PawSharp.Gateway
+# PawSharp.Gateway
 
 Robust WebSocket gateway client with automatic reconnection and event handling.
 
@@ -16,13 +16,13 @@ PawSharp.Gateway provides the WebSocket connection to Discord's Gateway, handlin
 - Health checks and zombie connection detection
 - Full Discord intent system support
 
-## 📦 Installation
+## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Gateway --version 6.1.0-alpha-1
+dotnet add package PawSharp.Gateway --version 0.6.1-alpha1
 ```
 
-## 🚀 Quick Start
+## ?? Quick Start
 
 ```csharp
 using PawSharp.Gateway;
@@ -49,7 +49,7 @@ gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", async evt =>
 });
 ```
 
-## 📋 Gateway Lifecycle
+## ?? Gateway Lifecycle
 
 ### Connection Establishment
 
@@ -92,7 +92,7 @@ gateway.Events.Use(async (evt, next) =>
 });
 ```
 
-## 🔧 Configuration
+## ?? Configuration
 
 ```csharp
 var options = new PawSharpOptions
@@ -122,7 +122,7 @@ var options = new PawSharpOptions
 var gateway = new GatewayClient(options);
 ```
 
-## 📊 Sharding
+## ?? Sharding
 
 ### Auto-Sharding
 
@@ -156,7 +156,7 @@ var shard1 = new GatewayClient(new PawSharpOptions
 });
 ```
 
-## 🔄 Reconnection & Reliability
+## ?? Reconnection & Reliability
 
 ### Automatic Reconnection
 
@@ -167,7 +167,7 @@ var shard1 = new GatewayClient(new PawSharpOptions
 // - Rate limiting
 // - Temporary service issues
 
-// Exponential backoff: 1s → 2s → 4s → 8s → 16s (max)
+// Exponential backoff: 1s ? 2s ? 4s ? 8s ? 16s (max)
 // Session resumption preserves state
 // Events are replayed after reconnection
 ```
@@ -191,7 +191,7 @@ gateway.OnZombieDetected += async () =>
 };
 ```
 
-## 🎯 Event Types
+## ?? Event Types
 
 ### Lifecycle Events
 
@@ -250,7 +250,7 @@ gateway.Events.On<VoiceStateUpdateEvent>("VOICE_STATE_UPDATE", async evt =>
 });
 ```
 
-## 📈 Performance & Monitoring
+## ?? Performance & Monitoring
 
 ### Health Checks
 
@@ -276,22 +276,22 @@ Console.WriteLine($"Missed Heartbeats: {metrics.MissedHeartbeats}");
 Console.WriteLine($"Compression Ratio: {metrics.CompressionRatio:P}");
 ```
 
-## 🏗️ Architecture
+## ??? Architecture
 
 ```
 PawSharp.Gateway
-├── GatewayClient (main interface)
-│   ├── WebSocketConnection (transport layer)
-│   ├── HeartbeatManager (heartbeat handling)
-│   ├── ReconnectionManager (reconnection logic)
-│   ├── ShardManager (sharding support)
-│   └── EventDispatcher (event system)
-├── Event Types (all Discord events)
-├── Payload Handling (JSON serialization)
-└── Compression (zlib/zstd support)
++-- GatewayClient (main interface)
+�   +-- WebSocketConnection (transport layer)
+�   +-- HeartbeatManager (heartbeat handling)
+�   +-- ReconnectionManager (reconnection logic)
+�   +-- ShardManager (sharding support)
+�   +-- EventDispatcher (event system)
++-- Event Types (all Discord events)
++-- Payload Handling (JSON serialization)
++-- Compression (zlib/zstd support)
 ```
 
-## ⚠️ Error Handling
+## ?? Error Handling
 
 ```csharp
 try
@@ -312,7 +312,7 @@ catch (Exception ex)
 }
 ```
 
-## 🔧 Intents
+## ?? Intents
 
 ```csharp
 // Specify only needed intents for privacy
@@ -327,19 +327,19 @@ var gateway = new GatewayClient(new PawSharpOptions
 });
 ```
 
-## 🤝 Dependencies
+## ?? Dependencies
 
 - **PawSharp.Core** - Entity models and types
 - **System.Net.WebSockets** - WebSocket implementation
 - **System.IO.Compression** - Compression support
 - **Microsoft.Extensions.Logging** - Structured logging
 
-## 📚 Related Packages
+## ?? Related Packages
 
 - **[PawSharp.Client](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Client)** - High-level client
 - **[PawSharp.API](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.API)** - REST API client
 - **[PawSharp.Cache](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Cache)** - Caching layer
 
-## 📄 License
+## ?? License
 
 MIT License - see [LICENSE](../LICENSE) for details.
