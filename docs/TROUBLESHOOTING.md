@@ -670,7 +670,7 @@ catch (Exception ex)
 
 Include:
 ```
-**Version:** 6.1.0-alpha-1
+**Version:** 0.6.1-alpha1
 **Environment:** Windows 11, .NET 8.0
 **Intents Used:** [list intents]
 

@@ -1,4 +1,4 @@
-﻿# PawSharp.Core
+# PawSharp.Core
 
 Core entities and models for the PawSharp Discord API wrapper.
 
@@ -17,13 +17,13 @@ PawSharp.Core provides the fundamental data models and entities that represent D
 - Fluent `EmbedBuilder` with Discord limit enforcement
 - `MessageFlags`, `ChannelFlags`, `AttachmentFlags`, `GuildMemberFlags` bitfield enums
 
-## 📦 Installation
+## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Core --version 6.1.0-alpha-1
+dotnet add package PawSharp.Core --version 0.6.1-alpha1
 ```
 
-## 🚀 Quick Start
+## ?? Quick Start
 
 ```csharp
 using PawSharp.Core.Entities;
@@ -45,7 +45,7 @@ Console.WriteLine($"User ID: {userId}"); // User ID: 123456789012345678
 string json = System.Text.Json.JsonSerializer.Serialize(user);
 ```
 
-## 📋 What's Included
+## ?? What's Included
 
 ### Core Entities
 - `User` - Discord users with avatar handling
@@ -78,7 +78,7 @@ string json = System.Text.Json.JsonSerializer.Serialize(user);
 - `Color` - Role and embed colors
 - `Timestamp` - Discord timestamp handling
 
-## 🔧 Usage Examples
+## ?? Usage Examples
 
 ### Working with Permissions
 
@@ -127,17 +127,17 @@ string json = JsonSerializer.Serialize(embed);
 // {"title":"Example Embed","description":"This is an example embed","color":3447003}
 ```
 
-## 🤝 Dependencies
+## ?? Dependencies
 
 - **.NET 8.0** - Modern .NET runtime
 - **System.Text.Json** - High-performance JSON serialization
 
-## 📚 Related Packages
+## ?? Related Packages
 
 - **[PawSharp.API](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.API)** - REST API client
 - **[PawSharp.Gateway](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Gateway)** - WebSocket gateway client
 - **[PawSharp.Client](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Client)** - High-level client combining API and Gateway
 
-## 📄 License
+## ?? License
 
 MIT License - see [LICENSE](../LICENSE) for details.

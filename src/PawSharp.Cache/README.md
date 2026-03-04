@@ -1,4 +1,4 @@
-﻿# PawSharp.Cache
+# PawSharp.Cache
 
 High-performance caching with in-memory and distributed Redis support for Discord entities.
 
@@ -16,17 +16,17 @@ PawSharp.Cache provides intelligent caching for Discord entities with automatic 
 - Extensible provider interface
 - Optimized storage with object pooling
 
-## 📦 Installation
+## ?? Installation
 
 ```bash
 # Core caching functionality
-dotnet add package PawSharp.Cache --version 6.1.0-alpha-1
+dotnet add package PawSharp.Cache --version 0.6.1-alpha1
 
 # For Redis support
 dotnet add package StackExchange.Redis --version 2.7.33
 ```
 
-## 🚀 Quick Start
+## ?? Quick Start
 
 ### In-Memory Caching
 
@@ -110,7 +110,7 @@ public class MyBotService
 }
 ```
 
-## 📋 Cache Configuration
+## ?? Cache Configuration
 
 ```csharp
 var options = new CacheOptions
@@ -136,7 +136,7 @@ var options = new CacheOptions
 var cache = new MemoryCacheProvider(options);
 ```
 
-## 🔧 Automatic Cache Updates
+## ?? Automatic Cache Updates
 
 ### Gateway Event Integration
 
@@ -168,7 +168,7 @@ await cache.CacheGuildsAsync(guildList);
 await cache.CacheUsersAsync(userList);
 ```
 
-## 📊 Cache Statistics
+## ?? Cache Statistics
 
 ```csharp
 // Get comprehensive statistics
@@ -184,7 +184,7 @@ Console.WriteLine($"Users: {stats.UserCount} ({stats.UserHitRate:P} hit rate)");
 Console.WriteLine($"Channels: {stats.ChannelCount} ({stats.ChannelHitRate:P} hit rate)");
 ```
 
-## 🔍 Cache Queries
+## ?? Cache Queries
 
 ### Basic Retrieval
 
@@ -223,7 +223,7 @@ var guildIds = cache.GetCachedGuildIds();
 var userIds = cache.GetCachedUserIds();
 ```
 
-## 🗂️ Cache Providers
+## ??? Cache Providers
 
 ### Memory Cache Provider (Default)
 
@@ -250,7 +250,7 @@ public class RedisCacheProvider : ICacheProvider
 var cache = new RedisCacheProvider(connectionString);
 ```
 
-## 🔄 Cache Invalidation
+## ?? Cache Invalidation
 
 ### Automatic Invalidation
 
@@ -277,7 +277,7 @@ await cache.ClearUsersAsync();
 await cache.ClearAsync();
 ```
 
-## 📈 Performance Monitoring
+## ?? Performance Monitoring
 
 ```csharp
 // Real-time metrics
@@ -294,24 +294,24 @@ if (metrics.HitRate < 0.8)
 }
 ```
 
-## 🏗️ Architecture
+## ??? Architecture
 
 ```
 PawSharp.Cache
-├── ICacheProvider (interface)
-│   ├── MemoryCacheProvider (default implementation)
-│   └── Custom providers (Redis, Database, etc.)
-├── CacheOptions (configuration)
-├── CacheStatistics (metrics)
-├── Entity-specific caches
-│   ├── GuildCache
-│   ├── UserCache
-│   ├── ChannelCache
-│   └── MemberCache
-└── Automatic invalidation system
++-- ICacheProvider (interface)
+�   +-- MemoryCacheProvider (default implementation)
+�   +-- Custom providers (Redis, Database, etc.)
++-- CacheOptions (configuration)
++-- CacheStatistics (metrics)
++-- Entity-specific caches
+�   +-- GuildCache
+�   +-- UserCache
+�   +-- ChannelCache
+�   +-- MemberCache
++-- Automatic invalidation system
 ```
 
-## ⚙️ Advanced Configuration
+## ?? Advanced Configuration
 
 ### Memory Management
 
@@ -346,18 +346,18 @@ public async Task WarmCacheAsync(DiscordClient client)
 }
 ```
 
-## 🤝 Dependencies
+## ?? Dependencies
 
 - **PawSharp.Core** - Entity models
 - **Microsoft.Extensions.Caching.Memory** - .NET memory cache
 - **Microsoft.Extensions.Options** - Configuration options
 
-## 📚 Related Packages
+## ?? Related Packages
 
 - **[PawSharp.Client](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Client)** - Main client with cache integration
 - **[PawSharp.Gateway](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Gateway)** - Gateway events that update cache
 
-## 🐛 Error Handling
+## ?? Error Handling
 
 ```csharp
 try
@@ -376,6 +376,6 @@ catch (CacheFullException ex)
 }
 ```
 
-## 📄 License
+## ?? License
 
 MIT License - see [LICENSE](../LICENSE) for details.

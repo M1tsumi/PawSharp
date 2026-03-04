@@ -304,7 +304,7 @@ PawSharp implements **140+ Discord API endpoints**:
 
 ## 📝 Documentation Versions
 
-**Latest:** 6.1.0-alpha-1 (March 3, 2026)
+**Latest:** 0.6.1-alpha1 (March 3, 2026)
 
 Documentation covers:
 - ✅ 0.5.0-alpha10 and later
@@ -344,5 +344,5 @@ PawSharp documentation is available under the MIT License.
 ---
 
 *Last updated: March 3, 2026*  
-*PawSharp Version: 6.1.0-alpha-1*  
+*PawSharp Version: 0.6.1-alpha1*  
 *For the latest documentation, visit [github.com/pawsharp/pawsharp/docs](https://github.com/pawsharp/pawsharp/docs)*

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
     <Authors>PawSharp Team</Authors>
@@ -8,7 +8,7 @@
     <PackageProjectUrl>https://github.com/M1tsumi/PawSharp</PackageProjectUrl>
     <RepositoryUrl>https://github.com/M1tsumi/PawSharp</RepositoryUrl>
     <PackageTags>discord api wrapper bot csharp dotnet</PackageTags>
-    <Version>6.1.0-alpha-1</Version>
+    <Version>0.6.1-alpha1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>

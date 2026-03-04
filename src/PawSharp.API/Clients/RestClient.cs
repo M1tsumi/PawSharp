@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,7 +61,7 @@ public class DiscordRestClient : IDiscordRestClient
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 6.1.0-alpha-1)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.1-alpha1)");
     }
 
     public async Task<HttpResponseMessage> GetAsync(string endpoint)
@@ -1301,7 +1301,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Alpha12 endpoints ─────────────────────────────────────────────────────
+    // -- Alpha12 endpoints -----------------------------------------------------
 
     // Guild member search
     public async Task<List<GuildMember>?> SearchGuildMembersAsync(ulong guildId, string query, int? limit = null)
@@ -1519,7 +1519,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Alpha13 additions ─────────────────────────────────────────────────────
+    // -- Alpha13 additions -----------------------------------------------------
 
     // Reaction query
     public async Task<List<User>?> GetReactionsAsync(ulong channelId, ulong messageId, string emoji, int? type = null, ulong? after = null, int? limit = null)
@@ -1703,7 +1703,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── OAuth2 endpoints ─────────────────────────────────────────────────────
+    // -- OAuth2 endpoints -----------------------------------------------------
 
     public async Task<Application?> GetCurrentBotApplicationInfoAsync()
     {
@@ -1721,7 +1721,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Interaction follow-up message endpoints ───────────────────────────────
+    // -- Interaction follow-up message endpoints -------------------------------
 
     public async Task<Message?> CreateFollowupMessageAsync(string applicationId, string interactionToken, CreateMessageRequest request)
     {
@@ -1755,7 +1755,7 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
-    // ── Application Management ────────────────────────────────────────────────
+    // -- Application Management ------------------------------------------------
 
     public async Task<Application?> GetCurrentApplicationAsync()
     {
@@ -1774,7 +1774,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Guild Emoji Operations ────────────────────────────────────────────────
+    // -- Guild Emoji Operations ------------------------------------------------
 
     public async Task<List<Emoji>?> ListGuildEmojisAsync(ulong guildId)
     {
@@ -1816,7 +1816,7 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
-    // ── Application Emoji Operations ──────────────────────────────────────────
+    // -- Application Emoji Operations ------------------------------------------
 
     public async Task<List<Emoji>?> ListApplicationEmojisAsync(ulong applicationId)
     {
@@ -1861,7 +1861,7 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
-    // ── Guild Integration Operations ──────────────────────────────────────────
+    // -- Guild Integration Operations ------------------------------------------
 
     public async Task<List<GuildIntegration>?> GetGuildIntegrationsAsync(ulong guildId)
     {
@@ -1877,7 +1877,7 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
-    // ── Guild Invite Operations ───────────────────────────────────────────────
+    // -- Guild Invite Operations -----------------------------------------------
 
     public async Task<List<Invite>?> GetGuildInvitesAsync(ulong guildId)
     {
@@ -1887,7 +1887,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Guild Prune Operations ────────────────────────────────────────────────
+    // -- Guild Prune Operations ------------------------------------------------
 
     public async Task<GuildPruneResult?> GetGuildPruneCountAsync(ulong guildId, int? days = null, List<ulong>? includeRoles = null)
     {
@@ -1911,7 +1911,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Bulk Ban ──────────────────────────────────────────────────────────────
+    // -- Bulk Ban --------------------------------------------------------------
 
     public async Task<BulkGuildBanResponse?> BulkGuildBanAsync(ulong guildId, BulkGuildBanRequest request, string? reason = null)
     {
@@ -1922,7 +1922,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Guild Role Extras ─────────────────────────────────────────────────────
+    // -- Guild Role Extras -----------------------------------------------------
 
     public async Task<Role?> GetGuildRoleAsync(ulong guildId, ulong roleId)
     {
@@ -1940,7 +1940,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Guild Incident Actions ────────────────────────────────────────────────
+    // -- Guild Incident Actions ------------------------------------------------
 
     public async Task<object?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request)
     {
@@ -1951,7 +1951,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Current User Guild Member ─────────────────────────────────────────────
+    // -- Current User Guild Member ---------------------------------------------
 
     public async Task<GuildMember?> GetCurrentUserGuildMemberAsync(ulong guildId)
     {
@@ -1961,7 +1961,7 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    // ── Reaction Extras ───────────────────────────────────────────────────────
+    // -- Reaction Extras -------------------------------------------------------
 
     public async Task<bool> DeleteAllReactionsAsync(ulong channelId, ulong messageId)
     {

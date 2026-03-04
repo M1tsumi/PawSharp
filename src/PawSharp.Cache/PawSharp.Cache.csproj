@@ -5,7 +5,7 @@
     <RootNamespace>PawSharp.Cache</RootNamespace>
     <AssemblyName>PawSharp.Cache</AssemblyName>
     <PackageId>PawSharp.Cache</PackageId>
-    <Version>6.1.0-alpha-1</Version>
+    <Version>0.6.1-alpha1</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Caching providers for PawSharp with in-memory and pluggable cache implementations.</Description>
