@@ -69,7 +69,7 @@ public class ReconnectionManager
         }
 
         _reconnectionAttempts++;
-        _logger.LogWarning($"Reconnection attempt {_reconnectionAttempts}/{MaxReconnectionAttempts} in {_currentBackoffMs}ms");
+        _logger.LogWarning("Reconnection attempt {Attempt}/{Max} in {BackoffMs}ms", _reconnectionAttempts, MaxReconnectionAttempts, _currentBackoffMs);
 
         _metrics?.RecordReconnection();
 

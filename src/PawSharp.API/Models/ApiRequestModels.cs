@@ -729,6 +729,16 @@ public class ModifyGuildIncidentActionsRequest
     public DateTimeOffset? DmsDisabledUntil { get; set; }
 }
 
+/// <summary>Response returned by PUT /guilds/{id}/incident-actions.</summary>
+public class GuildIncidentActionsResponse
+{
+    [JsonPropertyName("invites_disabled_until")]
+    public DateTimeOffset? InvitesDisabledUntil { get; set; }
+
+    [JsonPropertyName("dms_disabled_until")]
+    public DateTimeOffset? DmsDisabledUntil { get; set; }
+}
+
 // ── Guild Integration ─────────────────────────────────────────────────────────
 
 /// <summary>Minimal representation of a guild integration returned by GET /guilds/{id}/integrations.</summary>
