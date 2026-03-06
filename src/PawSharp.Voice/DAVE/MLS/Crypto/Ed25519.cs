@@ -710,7 +710,7 @@ internal static class Ed25519
             return r;
         }
 
-        public static new bool Equals(FE a, FE b)
+        public static bool Equals(FE a, FE b)
         {
             var ab = ToBytes(a); var bb = ToBytes(b);
             int diff = 0;
