@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 namespace PawSharp.Voice.DAVE;
@@ -14,6 +15,14 @@ namespace PawSharp.Voice.DAVE;
 /// Nonce construction:
 ///   bytes 0–3   : sender SSRC (big-endian uint32)
 ///   bytes 4–11  : frame counter (little-endian uint64)
+///
+/// Key lifecycle:
+///   The caller owns the key byte array. Call <see cref="CryptographicOperations.ZeroMemory"/>
+///   on it when it is no longer needed so the material is wiped from memory before GC.
+///
+/// Replay protection:
+///   Callers must ensure <paramref name="frameCounter"/> is monotonically increasing
+///   per (key, SSRC) pair. The library does not maintain counter state.
 /// </summary>
 public static class DAVEEncryption
 {
@@ -24,7 +33,10 @@ public static class DAVEEncryption
     /// Encrypts a voice frame with AES-128-GCM.
     /// </summary>
     /// <param name="plaintext">The raw voice frame payload (Opus-encoded audio).</param>
-    /// <param name="key">The 16-byte sender key (from <see cref="DAVEKeyDerivation.DeriveEncryptionKey"/>).</param>
+    /// <param name="key">
+    ///   The 16-byte sender key (from <see cref="DAVEKeyDerivation.DeriveEncryptionKey"/>).
+    ///   Zero the array with <see cref="CryptographicOperations.ZeroMemory"/> when done.
+    /// </param>
     /// <param name="ssrc">The sender's SSRC, used in the nonce.</param>
     /// <param name="frameCounter">A monotonically increasing counter that prevents replay attacks.</param>
     /// <param name="additionalData">
@@ -44,22 +56,33 @@ public static class DAVEEncryption
         Span<byte> nonce = stackalloc byte[NonceSize];
         BuildNonce(nonce, ssrc, frameCounter);
 
-        using var aes = new AesGcm(key, TagSize);
+        try
+        {
+            using var aes = new AesGcm(key, TagSize);
 
-        var ciphertext = new byte[plaintext.Length];
-        var tag        = new byte[TagSize];
-        aes.Encrypt(nonce, plaintext, ciphertext, tag, additionalData);
+            var ciphertext = new byte[plaintext.Length];
+            var tag        = new byte[TagSize];
+            aes.Encrypt(nonce, plaintext, ciphertext, tag, additionalData);
 
-        // Output: nonce || ciphertext || tag
-        var output = new byte[NonceSize + ciphertext.Length + TagSize];
-        nonce.CopyTo(output);
-        ciphertext.CopyTo(output.AsSpan(NonceSize));
-        tag.CopyTo(output.AsSpan(NonceSize + ciphertext.Length));
-        return output;
+            // Output: nonce || ciphertext || tag
+            var output = new byte[NonceSize + ciphertext.Length + TagSize];
+            nonce.CopyTo(output);
+            ciphertext.CopyTo(output.AsSpan(NonceSize));
+            tag.CopyTo(output.AsSpan(NonceSize + ciphertext.Length));
+            return output;
+        }
+        finally
+        {
+            // Wipe the stack-allocated nonce before the frame leaves scope
+            CryptographicOperations.ZeroMemory(nonce);
+        }
     }
 
     /// <summary>
     /// Decrypts a voice frame with AES-128-GCM.
+    /// Throws <see cref="CryptographicException"/> when the auth tag does not match
+    /// (tampered ciphertext, wrong key, replayed frame with wrong counter).
+    /// Prefer <see cref="TryDecryptFrame"/> for non-fatal failure paths.
     /// </summary>
     /// <param name="encryptedFrame">nonce + ciphertext + tag (as produced by <see cref="EncryptFrame"/>).</param>
     /// <param name="key">The 16-byte sender key.</param>
@@ -89,6 +112,34 @@ public static class DAVEEncryption
         return plaintext;
     }
 
+    /// <summary>
+    /// Attempts to decrypt a voice frame with AES-128-GCM.
+    /// Returns <see langword="false"/> and sets <paramref name="plaintext"/> to
+    /// <see langword="null"/> when authentication fails instead of throwing.
+    /// </summary>
+    /// <param name="encryptedFrame">nonce + ciphertext + tag.</param>
+    /// <param name="key">The 16-byte sender key.</param>
+    /// <param name="plaintext">The decrypted Opus payload, or <see langword="null"/> on failure.</param>
+    /// <param name="additionalData">The same AAD used during encryption.</param>
+    /// <returns><see langword="true"/> on success; <see langword="false"/> when the frame is invalid or tampered.</returns>
+    public static bool TryDecryptFrame(
+        byte[] encryptedFrame,
+        byte[] key,
+        [NotNullWhen(true)] out byte[]? plaintext,
+        byte[]? additionalData = null)
+    {
+        try
+        {
+            plaintext = DecryptFrame(encryptedFrame, key, additionalData);
+            return true;
+        }
+        catch (Exception ex) when (ex is CryptographicException or ArgumentException)
+        {
+            plaintext = null;
+            return false;
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static void BuildNonce(Span<byte> nonce, uint ssrc, ulong frameCounter)
@@ -110,3 +161,4 @@ public static class DAVEEncryption
             throw new ArgumentException("DAVE encryption key must be exactly 16 bytes (AES-128).", nameof(key));
     }
 }
+
