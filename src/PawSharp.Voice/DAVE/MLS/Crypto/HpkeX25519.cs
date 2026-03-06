@@ -1,3 +1,7 @@
+// Copyright (c) 2025 quefep. All rights reserved.
+// PawSharp implementation of Discord's DAVE end-to-end encryption protocol.
+// Attribution is required for any derivative use. See LICENSE.
+
 #nullable enable
 using System;
 using System.Security.Cryptography;
@@ -111,9 +115,8 @@ internal static class HpkeX25519
         // KEM: DH(recipient, ephemeral)
         var dh = Curve25519.SharedSecret(clampedPriv, enc);
 
-        // Derive recipient public key for context
-        var recipientPub = Curve25519.ScalarMult(clampedPriv,
-            new byte[] { 9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 });
+        // Derive recipient public key from private key using the X25519 base point
+        var recipientPub = Curve25519.ScalarMult(clampedPriv, Curve25519.BasePoint);
 
         var sharedSecret = ExtractAndExpand(dh, enc, recipientPub);
         var (key, baseNonce) = KeyScheduleBase(sharedSecret, info);

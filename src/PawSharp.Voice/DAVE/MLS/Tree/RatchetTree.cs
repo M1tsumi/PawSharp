@@ -1,3 +1,7 @@
+// Copyright (c) 2025 quefep. All rights reserved.
+// PawSharp implementation of Discord's DAVE end-to-end encryption protocol.
+// Attribution is required for any derivative use. See LICENSE.
+
 #nullable enable
 using System;
 using System.Collections.Generic;
@@ -65,6 +69,57 @@ internal sealed class RatchetTree
 
         if (isLocal) LocalLeafIndex = nodeIndex;
         return nodeIndex;
+    }
+
+    /// <summary>
+    /// Replaces the HPKE public key on a leaf node (Update proposal, RFC 9420 §12.1.2).
+    /// </summary>
+    /// <param name="leafNodeIndex">Even in-order node index of the leaf to update.</param>
+    /// <param name="newHpkePublicKey">32-byte replacement X25519 public key.</param>
+    public void ReplaceLeafHpkeKey(uint leafNodeIndex, byte[] newHpkePublicKey)
+    {
+        if ((leafNodeIndex & 1) != 0)
+            throw new ArgumentException("Expected even leaf node index.", nameof(leafNodeIndex));
+        if (leafNodeIndex >= _nodes.Length || _nodes[leafNodeIndex].IsBlank)
+            return;
+
+        var old = _nodes[leafNodeIndex];
+        _nodes[leafNodeIndex] = TreeNode.CreateLeaf(
+            leafNodeIndex,
+            newHpkePublicKey,
+            old.NodeIndex == LocalLeafIndex ? old.HpkePrivateKey : null,
+            old.SignatureKey  ?? Array.Empty<byte>(),
+            old.Credential    ?? Array.Empty<byte>());
+
+        // Blank the direct path so ancestors receive fresh keys from the next Commit
+        var directPath = TreeMath.DirectPath(leafNodeIndex, LeafCount);
+        foreach (var idx in directPath)
+        {
+            if (idx < _nodes.Length)
+            {
+                _nodes[idx].Blank();
+                _blank.Add(idx);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finds the in-order node index of the first leaf whose credential bytes match
+    /// <paramref name="identity"/>. Returns null when not found.
+    /// </summary>
+    public uint? FindLeafByCredential(ReadOnlySpan<byte> identity)
+    {
+        for (uint i = 0; i < LeafCount; i++)
+        {
+            uint nodeIdx = TreeMath.LeafToNode(i);
+            if (nodeIdx < (uint)_nodes.Length && !_nodes[nodeIdx].IsBlank)
+            {
+                var cred = _nodes[nodeIdx].Credential;
+                if (cred != null && identity.SequenceEqual(cred))
+                    return nodeIdx;
+            }
+        }
+        return null;
     }
 
     /// <summary>

@@ -1,3 +1,7 @@
+// Copyright (c) 2025 quefep. All rights reserved.
+// PawSharp implementation of Discord's DAVE end-to-end encryption protocol.
+// Attribution is required for any derivative use. See LICENSE.
+
 #nullable enable
 using System;
 using PawSharp.Voice.DAVE.MLS.Crypto;
@@ -69,6 +73,9 @@ internal sealed class MLSKeySchedule
             Advance(InitSecret, commitSecret, groupContextBytes);
     }
 
+    // Private constructor used by FromJoinerSecret — fields are assigned directly.
+    private MLSKeySchedule() { }
+
     /// <summary>
     /// Constructs a key schedule from a joiner_secret received in a Welcome.
     /// RFC 9420 §8.2 — joiner path.
@@ -77,16 +84,16 @@ internal sealed class MLSKeySchedule
     /// <param name="groupContextBytes">The GroupContext from the GroupInfo in the Welcome.</param>
     public static MLSKeySchedule FromJoinerSecret(byte[] joinerSecret, byte[] groupContextBytes)
     {
-        var ks = new MLSKeySchedule(new byte[MlsHkdf.HashLen], new byte[1]); // dummy
-        // Re-derive from the provided joiner secret
         var (ep, exp, cfm, wlc, init) = DeriveFromJoiner(joinerSecret, groupContextBytes);
-        ks.JoinerSecret   = joinerSecret;
-        ks.EpochSecret    = ep;
-        ks.ExporterSecret = exp;
-        ks.ConfirmationKey = cfm;
-        ks.WelcomeSecret  = wlc;
-        ks.InitSecret     = init;
-        return ks;
+        return new MLSKeySchedule
+        {
+            JoinerSecret    = joinerSecret,
+            EpochSecret     = ep,
+            ExporterSecret  = exp,
+            ConfirmationKey = cfm,
+            WelcomeSecret   = wlc,
+            InitSecret      = init,
+        };
     }
 
     // ── Epoch advancement ─────────────────────────────────────────────────────

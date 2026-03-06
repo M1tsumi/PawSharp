@@ -1,3 +1,7 @@
+// Copyright (c) 2025 quefep. All rights reserved.
+// PawSharp implementation of Discord's DAVE end-to-end encryption protocol.
+// Attribution is required for any derivative use. See LICENSE.
+
 #nullable enable
 using System;
 using System.Collections.Generic;
@@ -195,8 +199,15 @@ internal sealed class MLSGroupState : IDisposable
                     break;
 
                 case ProposalType.Update:
-                    // Update replaces the sender's leaf — sender index not tracked here
-                    // A full implementation would know which leaf index matches the sender
+                    // Replace the sender's leaf HPKE key (RFC 9420 §12.1.2).
+                    // We identify the leaf by matching the new leaf node's credential identity.
+                    if (p.UpdateLeafNode != null)
+                    {
+                        var identity = p.UpdateLeafNode.Credential.Identity;
+                        var leafIdx  = _tree!.FindLeafByCredential(identity);
+                        if (leafIdx.HasValue)
+                            _tree.ReplaceLeafHpkeKey(leafIdx.Value, p.UpdateLeafNode.EncryptionKey);
+                    }
                     break;
             }
         }
@@ -256,6 +267,31 @@ internal sealed class MLSGroupState : IDisposable
         if (!IsInitialized)
             throw new InvalidOperationException(
                 "MLS group state has not been initialised. Call ProcessWelcome first.");
+    }
+
+    /// <summary>
+    /// Resets all group state so the instance can be reused for a new session
+    /// (e.g. after a voice channel reconnect without re-creating the protocol object).
+    /// Wipes all key material before clearing.
+    /// </summary>
+    public void Reset()
+    {
+        if (_daveEpochSecret   != null) Array.Clear(_daveEpochSecret,   0, _daveEpochSecret.Length);
+        if (_localInitPrivKey  != null) Array.Clear(_localInitPrivKey,  0, _localInitPrivKey.Length);
+        if (_localLeafHpkePrivKey != null) Array.Clear(_localLeafHpkePrivKey, 0, _localLeafHpkePrivKey.Length);
+        if (_localLeafSigPrivKey  != null) Array.Clear(_localLeafSigPrivKey,  0, _localLeafSigPrivKey.Length);
+
+        _daveEpochSecret         = null;
+        _groupId                 = null;
+        _epochNumber             = 0;
+        _treeHash                = null;
+        _confirmedTranscriptHash = null;
+        _localInitPrivKey        = null;
+        _localLeafHpkePrivKey    = null;
+        _localLeafSigPrivKey     = null;
+        _localKeyPackage         = null;
+        _tree                    = null;
+        _pendingProposals.Clear();
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────

@@ -1,3 +1,7 @@
+// Copyright (c) 2025 quefep. All rights reserved.
+// PawSharp implementation of Discord's DAVE end-to-end encryption protocol.
+// Attribution is required for any derivative use. See LICENSE.
+
 #nullable enable
 using System;
 using System.Collections.Concurrent;
@@ -112,6 +116,16 @@ public sealed class MLSState : IDisposable
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resets the MLS group state for reconnection, wiping all key material.
+    /// After this call the group must be re-entered via <see cref="ProcessWelcome"/>.
+    /// </summary>
+    public void Reset()
+    {
+        _group.Reset();
+        _senderKeyCache.Clear();
+    }
 
     public void Dispose()
     {

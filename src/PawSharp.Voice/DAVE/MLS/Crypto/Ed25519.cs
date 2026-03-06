@@ -1,3 +1,7 @@
+// Copyright (c) 2025 quefep. All rights reserved.
+// PawSharp implementation of Discord's DAVE end-to-end encryption protocol.
+// Attribution is required for any derivative use. See LICENSE.
+
 #nullable enable
 using System;
 using System.Security.Cryptography;
@@ -151,15 +155,8 @@ internal static class Ed25519
             var k = ScalarModL(kHash);
 
             var Smod = ScalarFromBytes(S);
-            // Check: [8][S]B == [8](R + [k]A)
-            var lhs = ScalarMult(B, Mul8(Smod));
-            var rhs = PointAdd(ScalarMult(R, Eight()), ScalarMult(A, k));
-            // rhs above wrong: should be [8]R + [8k]A
-            // Correct: [8][S]B == [8]R + [8k]A
-            var rhs2 = PointAdd(ScalarMult(B, Smod), NegPoint(ScalarMult(R, One())));
-            _ = rhs2; // not used, use direct check
 
-            // Standard cofactor-less check: [S]B == R + [k]A
+            // Standard cofactor-less check (RFC 8032 §5.1.7): [S]B == R + [k]A
             var check1 = ScalarMult(B, Smod);
             var check2 = PointAdd(R, ScalarMult(A, k));
             return PointEqual(check1, check2);
@@ -313,29 +310,6 @@ internal static class Ed25519
         r.CopyTo(rr, 0);
         var sum = AddScalars(rr, ka);
         return ReduceModL(sum);
-    }
-
-    private static byte[] Mul8(byte[] s)
-    {
-        var r = new byte[32];
-        int carry = 0;
-        for (int i = 0; i < 32; i++)
-        {
-            int v = (s[i] << 3) + carry;
-            r[i] = (byte)v;
-            carry = v >> 8;
-        }
-        return r;
-    }
-
-    private static byte[] Eight()
-    {
-        var r = new byte[32]; r[0] = 8; return r;
-    }
-
-    private static byte[] One()
-    {
-        var r = new byte[32]; r[0] = 1; return r;
     }
 
     // Checks if scalar (little-endian) < l
