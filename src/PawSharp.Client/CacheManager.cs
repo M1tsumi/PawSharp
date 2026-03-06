@@ -66,6 +66,9 @@ public class CacheManager
 
         // User events
         gateway.Events.On<UserUpdateEvent>("USER_UPDATE", HandleUserUpdate);
+
+        // Bulk member chunk — response to opcode 8 (Request Guild Members)
+        gateway.Events.On<GuildMembersChunkEvent>("GUILD_MEMBERS_CHUNK", HandleGuildMembersChunk);
         
         _logger?.LogInformation("Cache manager subscribed to gateway events");
     }
@@ -86,7 +89,7 @@ public class CacheManager
 
     private void HandleGuildCreate(GuildCreateEvent e)
     {
-        _logger?.LogDebug($"Caching guild: {e.Name} ({e.Id})");
+        _logger?.LogDebug("Caching guild: {Name} ({Id})", e.Name, e.Id);
         
         var guild = e.ToGuild();
         _cache.CacheGuildData(guild);
@@ -94,7 +97,7 @@ public class CacheManager
 
     private void HandleGuildUpdate(GuildUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached guild: {e.Id}");
+        _logger?.LogDebug("Updating cached guild: {Id}", e.Id);
         
         var guild = _cache.GetGuild(e.Id);
         if (guild != null)
@@ -108,13 +111,13 @@ public class CacheManager
 
     private void HandleGuildDelete(GuildDeleteEvent e)
     {
-        _logger?.LogDebug($"Removing guild from cache: {e.Id}");
+        _logger?.LogDebug("Removing guild from cache: {Id}", e.Id);
         _cache.RemoveGuild(e.Id);
     }
 
     private void HandleGuildEmojisUpdate(GuildEmojisUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached emojis for guild: {e.GuildId}");
+        _logger?.LogDebug("Updating cached emojis for guild: {GuildId}", e.GuildId);
         
         var guild = _cache.GetGuild(e.GuildId);
         if (guild != null)
@@ -132,25 +135,25 @@ public class CacheManager
 
     private void HandleChannelCreate(ChannelCreateEvent e)
     {
-        _logger?.LogDebug($"Caching channel: {e.Name} ({e.Id})");
+        _logger?.LogDebug("Caching channel: {Name} ({Id})", e.Name, e.Id);
         _cache.CacheChannel(e.ToChannel());
     }
 
     private void HandleChannelUpdate(ChannelUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached channel: {e.Id}");
+        _logger?.LogDebug("Updating cached channel: {Id}", e.Id);
         _cache.CacheChannel(e.ToChannel());
     }
 
     private void HandleChannelDelete(ChannelDeleteEvent e)
     {
-        _logger?.LogDebug($"Removing channel from cache: {e.Id}");
+        _logger?.LogDebug("Removing channel from cache: {Id}", e.Id);
         _cache.Remove($"channel:{e.Id}");
     }
 
     private void HandleMessageCreate(MessageCreateEvent e)
     {
-        _logger?.LogDebug($"Caching message: {e.Id}");
+        _logger?.LogDebug("Caching message: {Id}", e.Id);
         
         var message = e.ToMessage();
         _cache.CacheMessage(message);
@@ -167,7 +170,7 @@ public class CacheManager
 
     private void HandleMessageUpdate(MessageUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached message: {e.Id}");
+        _logger?.LogDebug("Updating cached message: {Id}", e.Id);
         
         var message = _cache.GetMessage(e.Id);
         if (message != null)
@@ -185,13 +188,13 @@ public class CacheManager
 
     private void HandleMessageDelete(MessageDeleteEvent e)
     {
-        _logger?.LogDebug($"Removing message from cache: {e.Id}");
+        _logger?.LogDebug("Removing message from cache: {Id}", e.Id);
         _cache.Remove($"message:{e.Id}");
     }
 
     private void HandleGuildMemberAdd(GuildMemberAddEvent e)
     {
-        _logger?.LogDebug($"Caching guild member: {e.User?.Id} in guild {e.GuildId}");
+        _logger?.LogDebug("Caching guild member: {UserId} in guild {GuildId}", e.User?.Id, e.GuildId);
         
         if (e.User != null)
         {
@@ -202,7 +205,7 @@ public class CacheManager
 
     private void HandleGuildMemberUpdate(GuildMemberUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached guild member: {e.User.Id} in guild {e.GuildId}");
+        _logger?.LogDebug("Updating cached guild member: {UserId} in guild {GuildId}", e.User.Id, e.GuildId);
         
         var member = _cache.GetGuildMember(e.GuildId, e.User.Id);
         if (member != null)
@@ -222,7 +225,7 @@ public class CacheManager
 
     private void HandleGuildMemberRemove(GuildMemberRemoveEvent e)
     {
-        _logger?.LogDebug($"Removing guild member from cache: {e.User.Id} from guild {e.GuildId}");
+        _logger?.LogDebug("Removing guild member from cache: {UserId} from guild {GuildId}", e.User.Id, e.GuildId);
         _cache.Remove($"member:{e.GuildId}:{e.User.Id}");
     }
 
@@ -230,7 +233,7 @@ public class CacheManager
 
     private void HandleGuildRoleCreate(GuildRoleCreateEvent e)
     {
-        _logger?.LogDebug($"Caching new role: {e.Role.Name} ({e.Role.Id}) in guild {e.GuildId}");
+        _logger?.LogDebug("Caching new role: {Name} ({Id}) in guild {GuildId}", e.Role.Name, e.Role.Id, e.GuildId);
         _cache.CacheRole(e.GuildId, e.Role);
 
         var guild = _cache.GetGuild(e.GuildId);
@@ -245,7 +248,7 @@ public class CacheManager
 
     private void HandleGuildRoleUpdate(GuildRoleUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached role: {e.Role.Id} in guild {e.GuildId}");
+        _logger?.LogDebug("Updating cached role: {Id} in guild {GuildId}", e.Role.Id, e.GuildId);
         _cache.CacheRole(e.GuildId, e.Role);
 
         var guild = _cache.GetGuild(e.GuildId);
@@ -263,7 +266,7 @@ public class CacheManager
 
     private void HandleGuildRoleDelete(GuildRoleDeleteEvent e)
     {
-        _logger?.LogDebug($"Removing role from cache: {e.RoleId} from guild {e.GuildId}");
+        _logger?.LogDebug("Removing role from cache: {RoleId} from guild {GuildId}", e.RoleId, e.GuildId);
         _cache.Remove($"role:{e.RoleId}");
 
         var guild = _cache.GetGuild(e.GuildId);
@@ -278,7 +281,7 @@ public class CacheManager
 
     private void HandleGuildStickersUpdate(GuildStickersUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached stickers for guild: {e.GuildId}");
+        _logger?.LogDebug("Updating cached stickers for guild: {GuildId}", e.GuildId);
 
         var guild = _cache.GetGuild(e.GuildId);
         if (guild != null)
@@ -292,7 +295,7 @@ public class CacheManager
 
     private void HandleThreadCreate(ThreadCreateEvent e)
     {
-        _logger?.LogDebug($"Caching thread: {e.Name} ({e.Id})");
+        _logger?.LogDebug("Caching thread: {Name} ({Id})", e.Name, e.Id);
         _cache.CacheChannel(new Channel
         {
             Id = e.Id,
@@ -308,7 +311,7 @@ public class CacheManager
 
     private void HandleThreadUpdate(ThreadUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating cached thread: {e.Id}");
+        _logger?.LogDebug("Updating cached thread: {Id}", e.Id);
         _cache.CacheChannel(new Channel
         {
             Id = e.Id,
@@ -324,7 +327,7 @@ public class CacheManager
 
     private void HandleThreadDelete(ThreadDeleteEvent e)
     {
-        _logger?.LogDebug($"Removing thread from cache: {e.Id}");
+        _logger?.LogDebug("Removing thread from cache: {Id}", e.Id);
         _cache.Remove($"channel:{e.Id}");
     }
 
@@ -332,7 +335,7 @@ public class CacheManager
 
     private void HandleUserUpdate(UserUpdateEvent e)
     {
-        _logger?.LogDebug($"Updating bot user in cache: {e.Id}");
+        _logger?.LogDebug("Updating bot user in cache: {Id}", e.Id);
         var existing = _cache.GetUser(e.Id);
         if (existing != null)
         {
@@ -340,6 +343,20 @@ public class CacheManager
             existing.Discriminator = e.Discriminator;
             existing.Avatar = e.Avatar;
             _cache.CacheUser(existing);
+        }
+    }
+
+    private void HandleGuildMembersChunk(GuildMembersChunkEvent e)
+    {
+        _logger?.LogDebug(
+            "Caching member chunk for guild {GuildId}: {Count} members (chunk {Index}/{Total})",
+            e.GuildId, e.Members.Count, e.ChunkIndex + 1, e.ChunkCount);
+
+        foreach (var member in e.Members)
+        {
+            if (member.User != null)
+                _cache.CacheUser(member.User);
+            _cache.CacheGuildMember(e.GuildId, member);
         }
     }
 }

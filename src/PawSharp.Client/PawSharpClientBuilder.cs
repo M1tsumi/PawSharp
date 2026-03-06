@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Net;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -229,7 +230,14 @@ public sealed class PawSharpClientBuilder
 
         var logFactory = _loggerFactory ?? NullLoggerFactory.Instance;
         var cache      = _cache         ?? new MemoryCacheProvider();
-        var http       = _httpClient    ?? new HttpClient();
+        var http       = _httpClient    ?? new HttpClient(new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = true
+        })
+        {
+            DefaultRequestVersion = HttpVersion.Version20,
+            DefaultVersionPolicy  = HttpVersionPolicy.RequestVersionOrLower,
+        };
         var limiter    = new AdvancedRateLimiter();
 
         var rest = new DiscordRestClient(
