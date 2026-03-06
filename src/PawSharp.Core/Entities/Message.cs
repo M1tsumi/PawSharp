@@ -163,6 +163,50 @@ public class Message : DiscordEntity
     /// </summary>
     [JsonPropertyName("poll")]
     public Poll? Poll { get; set; }
+
+    /// <summary>
+    /// Interaction that triggered this message (deprecated; use <see cref="InteractionMetadata"/>).
+    /// </summary>
+    [JsonPropertyName("interaction")]
+    public MessageInteraction? Interaction { get; set; }
+
+    /// <summary>
+    /// Metadata about the interaction that generated this message (replaces <see cref="Interaction"/>).
+    /// </summary>
+    [JsonPropertyName("interaction_metadata")]
+    public InteractionMetadata? InteractionMetadata { get; set; }
+
+    /// <summary>
+    /// Data about role subscription purchase/renewal that triggered this system message.
+    /// </summary>
+    [JsonPropertyName("role_subscription_data")]
+    public RoleSubscriptionData? RoleSubscriptionData { get; set; }
+
+    /// <summary>
+    /// Call data for CALL type messages.
+    /// </summary>
+    [JsonPropertyName("call")]
+    public MessageCall? Call { get; set; }
+
+    /// <summary>
+    /// Snapshots of forwarded messages (populated when <see cref="Enums.MessageType"/> is <c>24</c>).
+    /// </summary>
+    [JsonPropertyName("message_snapshots")]
+    public List<MessageSnapshot>? MessageSnapshots { get; set; }
+
+    /// <summary>
+    /// Sticker items attached to this message (partial sticker info).
+    /// </summary>
+    [JsonPropertyName("sticker_items")]
+    public List<StickerItem>? StickerItems { get; set; }
+
+    /// <summary>Channels specifically mentioned in a crosspost announcement message.</summary>
+    [JsonPropertyName("mention_channels")]
+    public List<ChannelMention>? MentionChannels { get; set; }
+
+    /// <summary>Approximate position of this message in a thread, used for jump-to-message.</summary>
+    [JsonPropertyName("position")]
+    public int? Position { get; set; }
 }
 
 /// <summary>
@@ -355,32 +399,188 @@ public class Reaction
     public Emoji Emoji { get; set; } = null!;
 }
 
+// ── Interaction data attached to messages ─────────────────────────────────────
+
 /// <summary>
-/// Represents an emoji.
+/// Deprecated interaction data attached to a message response.
+/// Use <see cref="InteractionMetadata"/> for new implementations.
 /// </summary>
-public class Emoji
+public class MessageInteraction
 {
     [JsonPropertyName("id")]
-    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
-    public ulong? Id { get; set; }
-    
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    /// <summary>Interaction type (see Discord docs InteractionType enum).</summary>
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    /// <summary>Name of the application command or component custom_id.</summary>
     [JsonPropertyName("name")]
-    public string? Name { get; set; }
-    
-    [JsonPropertyName("roles")]
-    [JsonConverter(typeof(SnowflakeListJsonConverter))]
-    public List<ulong>? Roles { get; set; }
-    
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>User who invoked the interaction.</summary>
     [JsonPropertyName("user")]
-    public User? User { get; set; }
-    
-    [JsonPropertyName("require_colons")]
-    public bool? RequireColons { get; set; }
-    
-    [JsonPropertyName("managed")]
-    public bool? Managed { get; set; }
-    
-    [JsonPropertyName("animated")]
-    public bool? Animated { get; set; }
-    
+    public User User { get; set; } = null!;
+
+    /// <summary>Member who invoked the interaction (guild interactions only).</summary>
+    [JsonPropertyName("member")]
+    public GuildMember? Member { get; set; }
+}
+
+/// <summary>
+/// Metadata about the interaction that generated a message response (replaces MessageInteraction).
+/// </summary>
+public class InteractionMetadata
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    /// <summary>Interaction type value.</summary>
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    /// <summary>ID of the user who triggered the interaction.</summary>
+    [JsonPropertyName("user_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong UserId { get; set; }
+
+    /// <summary>
+    /// Dictionary of installation contexts to authorizing user/guild IDs.
+    /// Key 0 = guild install context, Key 1 = user install context.
+    /// </summary>
+    [JsonPropertyName("authorizing_integration_owners")]
+    public System.Collections.Generic.Dictionary<string, ulong>? AuthorizingIntegrationOwners { get; set; }
+
+    /// <summary>ID of the original response message for a follow-up interaction.</summary>
+    [JsonPropertyName("original_response_message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? OriginalResponseMessageId { get; set; }
+
+    /// <summary>ID of the message that was interacted with (component interactions).</summary>
+    [JsonPropertyName("interacted_message_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? InteractedMessageId { get; set; }
+
+    /// <summary>Metadata for the interaction that triggered a modal from this interaction.</summary>
+    [JsonPropertyName("triggering_interaction_metadata")]
+    public InteractionMetadata? TriggeringInteractionMetadata { get; set; }
+}
+
+// ── Role subscription data ────────────────────────────────────────────────────
+
+/// <summary>
+/// Data about a role subscription purchase or renewal that triggered a system message.
+/// </summary>
+public class RoleSubscriptionData
+{
+    /// <summary>ID of the SKU and listing that the user subscribed to.</summary>
+    [JsonPropertyName("role_subscription_listing_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong RoleSubscriptionListingId { get; set; }
+
+    /// <summary>Name of the tier that the user subscribed to.</summary>
+    [JsonPropertyName("tier_name")]
+    public string TierName { get; set; } = string.Empty;
+
+    /// <summary>Cumulative number of months the user has been subscribed for.</summary>
+    [JsonPropertyName("total_months_subscribed")]
+    public int TotalMonthsSubscribed { get; set; }
+
+    /// <summary>Whether this notification is for a renewal rather than a new purchase.</summary>
+    [JsonPropertyName("is_renewal")]
+    public bool IsRenewal { get; set; }
+}
+
+// ── Message call data ─────────────────────────────────────────────────────────
+
+/// <summary>
+/// Call information for CALL type messages (DM voice calls).
+/// </summary>
+public class MessageCall
+{
+    /// <summary>Array of user IDs that participated in the call.</summary>
+    [JsonPropertyName("participants")]
+    [JsonConverter(typeof(SnowflakeListJsonConverter))]
+    public System.Collections.Generic.List<ulong> Participants { get; set; } = new();
+
+    /// <summary>Time when the call ended (null if still in progress).</summary>
+    [JsonPropertyName("ended_timestamp")]
+    public DateTimeOffset? EndedTimestamp { get; set; }
+}
+
+// ── Message snapshot (forwarded messages) ─────────────────────────────────────
+
+/// <summary>
+/// A snapshot containing a partial copy of a forwarded message
+/// (MessageType 24 = ForwardedMessage).
+/// </summary>
+public class MessageSnapshot
+{
+    /// <summary>Partial message data from the forwarded message.</summary>
+    [JsonPropertyName("message")]
+    public PartialMessage Message { get; set; } = null!;
+}
+
+/// <summary>
+/// A partial message object used inside <see cref="MessageSnapshot"/>.
+/// Contains the subset of message fields Discord sends for forwarded messages.
+/// </summary>
+public class PartialMessage
+{
+    [JsonPropertyName("type")]
+    public Enums.MessageType Type { get; set; }
+
+    [JsonPropertyName("content")]
+    public string Content { get; set; } = string.Empty;
+
+    [JsonPropertyName("embeds")]
+    public System.Collections.Generic.List<Embed>? Embeds { get; set; }
+
+    [JsonPropertyName("attachments")]
+    public System.Collections.Generic.List<Attachment>? Attachments { get; set; }
+
+    [JsonPropertyName("timestamp")]
+    public DateTimeOffset Timestamp { get; set; }
+
+    [JsonPropertyName("edited_timestamp")]
+    public DateTimeOffset? EditedTimestamp { get; set; }
+
+    [JsonPropertyName("flags")]
+    public Enums.MessageFlags? Flags { get; set; }
+
+    [JsonPropertyName("mentions")]
+    public System.Collections.Generic.List<User>? Mentions { get; set; }
+
+    [JsonPropertyName("mention_roles")]
+    public System.Collections.Generic.List<ulong>? MentionRoles { get; set; }
+
+    [JsonPropertyName("components")]
+    public System.Collections.Generic.List<MessageComponent>? Components { get; set; }
+
+    [JsonPropertyName("sticker_items")]
+    public System.Collections.Generic.List<StickerItem>? StickerItems { get; set; }
+}
+
+// ── Channel mention (crosspost) ───────────────────────────────────────────────
+
+/// <summary>
+/// A reference to a channel mentioned inside a crosspost announcement message.
+/// </summary>
+public class ChannelMention
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("type")]
+    public Enums.ChannelType Type { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
 }
