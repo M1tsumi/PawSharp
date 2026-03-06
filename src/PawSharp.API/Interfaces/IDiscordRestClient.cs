@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -77,6 +78,7 @@ public interface IDiscordRestClient
     
     // Message operations
     Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request);
+    Task<Message?> SendFileAsync(ulong channelId, Stream fileStream, string fileName, CreateMessageRequest? messageRequest = null, CancellationToken cancellationToken = default);
     Task<Message?> GetMessageAsync(ulong channelId, ulong messageId);
     Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request);
     Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId);
@@ -359,7 +361,7 @@ public interface IDiscordRestClient
     Task<Dictionary<string, int>?> GetGuildRoleMemberCountsAsync(ulong guildId);
 
     // Guild incident actions
-    Task<object?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request);
+    Task<GuildIncidentActionsResponse?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request);
 
     // Current user guild member
     Task<GuildMember?> GetCurrentUserGuildMemberAsync(ulong guildId);
