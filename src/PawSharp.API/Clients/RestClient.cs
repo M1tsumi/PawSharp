@@ -56,12 +56,13 @@ public class DiscordRestClient : IDiscordRestClient
         _logger = logger;
         _rateLimiter = rateLimiter;
         
-        // Set base address and auth header
+        // Set base address and user-agent.
+        // Authorization is NOT set on DefaultRequestHeaders; it is added per-request
+        // in SendRequestAsync to scope credentials tightly and prevent accidental exposure.
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.1-alpha1)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.2-alpha1)");
     }
 
     public async Task<HttpResponseMessage> GetAsync(string endpoint)
@@ -2026,8 +2027,25 @@ public class DiscordRestClient : IDiscordRestClient
 
     private const int MaxRateLimitRetries = 5;
 
-    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default, int retryCount = 0)
+    private async Task<HttpResponseMessage> SendRequestAsync(
+        HttpMethod method,
+        string endpoint,
+        HttpContent? content,
+        string? reason = null,
+        CancellationToken cancellationToken = default,
+        int retryCount = 0,
+        byte[]? bufferedContentBytes = null,
+        string? bufferedContentType = null)
     {
+        // Buffer request body once so retries can reconstruct fresh HttpContent.
+        // HttpClient disposes the content object after SendAsync; reusing it throws
+        // ObjectDisposedException on any rate-limited POST/PATCH/PUT retry.
+        if (content is not null && bufferedContentBytes is null)
+        {
+            bufferedContentBytes = await content.ReadAsByteArrayAsync(cancellationToken);
+            bufferedContentType  = content.Headers.ContentType?.ToString();
+        }
+
         // Global rate limit check
         if (DateTimeOffset.UtcNow < _globalReset)
         {
@@ -2051,8 +2069,19 @@ public class DiscordRestClient : IDiscordRestClient
             route = $"{method.Method} {endpoint.Split('?')[0]}";
         }
 
-        var request = new HttpRequestMessage(method, endpoint) { Content = content };
-        
+        // Build a fresh HttpRequestMessage per attempt.
+        // Authorization is set here rather than on DefaultRequestHeaders so that
+        // credentials are scoped to individual request objects.
+        var request = new HttpRequestMessage(method, endpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
+        if (bufferedContentBytes is { Length: > 0 })
+        {
+            var bc = new ByteArrayContent(bufferedContentBytes);
+            if (bufferedContentType is not null)
+                bc.Headers.TryAddWithoutValidation("Content-Type", bufferedContentType);
+            request.Content = bc;
+        }
+
         // Add audit log reason header if provided
         if (!string.IsNullOrEmpty(reason))
         {
@@ -2084,23 +2113,37 @@ public class DiscordRestClient : IDiscordRestClient
 
             if (retryCount >= MaxRateLimitRetries)
             {
-                _logger.LogError("Rate limit retry limit ({Max}) exceeded for {Method} {Endpoint}", MaxRateLimitRetries, method, endpoint);
+                _logger.LogError("Rate limit retry limit ({Max}) exceeded for {Method} {Endpoint}",
+                    MaxRateLimitRetries, method, RedactWebhookToken(endpoint));
                 return response; // Return the 429 response rather than looping forever
             }
 
-            return await SendRequestAsync(method, endpoint, content, reason, cancellationToken, retryCount + 1); // Retry
+            // Pass buffered bytes so the retry reconstructs a fresh HttpContent.
+            return await SendRequestAsync(method, endpoint, null, reason, cancellationToken,
+                retryCount + 1, bufferedContentBytes, bufferedContentType); // Retry
         }
 
         // Mark request as complete
         _rateLimiter.MarkRequestComplete(route, bucketHash);
 
-        if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalVals) && bool.Parse(globalVals.FirstOrDefault() ?? "false"))
+        // Use TryGetValues to avoid InvalidOperationException when Retry-After is absent.
+        if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalVals) &&
+            bool.Parse(globalVals.FirstOrDefault() ?? "false") &&
+            response.Headers.TryGetValues("Retry-After", out var retryAfterVals) &&
+            double.TryParse(retryAfterVals.FirstOrDefault(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var retryAfterSecs))
         {
-            _globalReset = DateTimeOffset.UtcNow.AddSeconds(double.Parse(response.Headers.GetValues("Retry-After").First()));
+            _globalReset = DateTimeOffset.UtcNow.AddSeconds(retryAfterSecs);
         }
 
         return response;
     }
+
+    /// <summary>Replaces webhook token segments in endpoint paths with REDACTED for safe log output.</summary>
+    private static string RedactWebhookToken(string endpoint) =>
+        System.Text.RegularExpressions.Regex.Replace(endpoint, @"(?<=webhooks/\d+/)[^/?]+", "REDACTED");
 
     private void ParseAndUpdateRateLimits(HttpResponseMessage response, string route, ref string? bucketHash)
     {
