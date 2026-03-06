@@ -1,3 +1,7 @@
+// Copyright (c) 2025 quefep. All rights reserved.
+// PawSharp implementation of Discord's DAVE end-to-end encryption protocol.
+// Attribution is required for any derivative use. See LICENSE.
+
 #nullable enable
 using System;
 using System.Text.Json;
@@ -26,15 +30,32 @@ namespace PawSharp.Voice.DAVE;
 public sealed class DAVEProtocol : IDisposable
 {
     private readonly MLSState _mls = new();
+    private readonly byte[] _localIdentity;
     private uint _localSsrc;
-    private ulong _outgoingFrameCounter;
+    // long (not ulong) so Interlocked.Increment/.Exchange work on .NET 8
+    private long _outgoingFrameCounter;
     private bool _disposed;
 
     // Set when op 24 has been received — encryption is active
     private volatile bool _active;
 
+    /// <summary>Creates a DAVEProtocol with an anonymous identity.</summary>
+    public DAVEProtocol() : this("discord-dave-client") { }
+
+    /// <summary>Creates a DAVEProtocol bound to the given Discord user ID.</summary>
+    /// <param name="userId">The Discord user ID (e.g. "123456789012345678").</param>
+    public DAVEProtocol(string userId)
+    {
+        if (string.IsNullOrEmpty(userId))
+            throw new ArgumentException("userId must not be empty.", nameof(userId));
+        _localIdentity = System.Text.Encoding.UTF8.GetBytes(userId);
+    }
+
     /// <summary>True when DAVE encryption is fully active (op 24 received).</summary>
     public bool IsActive => _active;
+
+    /// <summary>Current MLS epoch number (advances on every Commit or Welcome).</summary>
+    public ulong EpochNumber => _mls.EpochNumber;
 
     /// <summary>The local sender's SSRC (set from the voice Ready payload, op 2).</summary>
     public uint LocalSsrc
@@ -74,14 +95,22 @@ public sealed class DAVEProtocol : IDisposable
                 // New group member: process Welcome message
                 var welcomeBytes = ExtractBinaryPayload(data);
                 if (welcomeBytes != null)
+                {
                     _mls.ProcessWelcome(welcomeBytes);
+                    // Fresh epoch → reset nonce counter so the nonce space restarts
+                    Interlocked.Exchange(ref _outgoingFrameCounter, 0L);
+                }
                 break;
 
             case DAVEVoiceOpcode.DaveMlsCommit:
                 // Group state update: apply commit, advance epoch
                 var commitBytes = ExtractBinaryPayload(data);
                 if (commitBytes != null)
+                {
                     _mls.ProcessCommit(commitBytes);
+                    // New epoch key → reset nonce counter for forward secrecy of nonces
+                    Interlocked.Exchange(ref _outgoingFrameCounter, 0L);
+                }
                 break;
 
             case DAVEVoiceOpcode.DaveMlsProposals:
@@ -126,9 +155,8 @@ public sealed class DAVEProtocol : IDisposable
             return frame;
 
         var key = _mls.GetSenderKey(_localSsrc);
-        var counter = Interlocked.Increment(ref _outgoingFrameCounter);
-        // counter starts at 1 — decrement so the first encrypted frame is 1
-        return DAVEEncryption.EncryptFrame(frame, key, _localSsrc, (ulong)counter, additionalData);
+        var counter = (ulong)Interlocked.Increment(ref _outgoingFrameCounter);
+        return DAVEEncryption.EncryptFrame(frame, key, _localSsrc, counter, additionalData);
     }
 
     /// <summary>
@@ -169,10 +197,9 @@ public sealed class DAVEProtocol : IDisposable
     /// Generates a production-quality MLS KeyPackage for this DAVE session.
     /// Returns TLS-encoded KeyPackage bytes per RFC 9420 §10.
     /// </summary>
-    private static byte[] GenerateKeyPackage()
+    private byte[] GenerateKeyPackage()
     {
-        var identity = System.Text.Encoding.UTF8.GetBytes("discord-dave-client");
-        var kp       = MLS.Messages.KeyPackage.Generate(identity);
+        var kp = MLS.Messages.KeyPackage.Generate(_localIdentity);
         return kp.Encode();
     }
 
@@ -191,6 +218,17 @@ public sealed class DAVEProtocol : IDisposable
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resets the DAVE protocol state for reconnection without deallocating the instance.
+    /// Deactivates encryption, resets the frame counter, and clears MLS group state.
+    /// </summary>
+    public void Reset()
+    {
+        _active = false;
+        Interlocked.Exchange(ref _outgoingFrameCounter, 0L);
+        _mls.Reset();
+    }
 
     public void Dispose()
     {
