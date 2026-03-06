@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PawSharp.API.Models;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
@@ -294,15 +296,18 @@ public class CommandsExtension
 {
     private readonly string _prefix;
     private readonly Dictionary<string, Command> _commands = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ILogger<CommandsExtension> _logger;
     private DiscordClient? _client;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandsExtension"/> class.
     /// </summary>
     /// <param name="prefix">The command prefix.</param>
-    public CommandsExtension(string prefix = "!")
+    /// <param name="logger">Optional logger; defaults to no-op.</param>
+    public CommandsExtension(string prefix = "!", ILogger<CommandsExtension>? logger = null)
     {
         _prefix = prefix ?? throw new ArgumentNullException(nameof(prefix));
+        _logger = logger ?? NullLogger<CommandsExtension>.Instance;
     }
 
     /// <summary>
@@ -425,7 +430,7 @@ public class CommandsExtension
             .AsReadOnly();
     }
 
-    private async void OnMessageCreate(MessageCreateEvent evt)
+    private async Task OnMessageCreate(MessageCreateEvent evt)
     {
         if (evt.Author?.Bot == true || string.IsNullOrEmpty(evt.Content))
             return;
@@ -482,8 +487,8 @@ public class CommandsExtension
             }
             catch (Exception ex)
             {
-                // Handle command execution errors
-                Console.WriteLine($"Command execution error: {ex.Message}");
+                _logger.LogError(ex, "Error executing command {Command} for user {UserId}",
+                    commandName, evt.Author?.Id);
             }
         }
     }
