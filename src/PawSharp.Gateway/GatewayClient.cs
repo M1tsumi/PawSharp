@@ -292,6 +292,7 @@ namespace PawSharp.Gateway
                 };
 
                 var json = JsonSerializer.Serialize(identifyPayload);
+                // SECURITY: Do not log the 'json' variable — it contains the bot token in plaintext.
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Sent identify payload.");
             }

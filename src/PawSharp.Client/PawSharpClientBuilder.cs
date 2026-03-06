@@ -60,6 +60,20 @@ public sealed class PawSharpClientBuilder
         if (string.IsNullOrWhiteSpace(token))
             throw new ArgumentException("Bot token must not be null or empty.", nameof(token));
 
+        // Strip the "Bot " prefix before format-validating the raw token.
+        var rawToken = token.StartsWith("Bot ", StringComparison.OrdinalIgnoreCase)
+            ? token.Substring(4)
+            : token;
+
+        // Discord bot tokens are three Base64url segments separated by '.'.
+        // Rejecting obviously wrong values (webhook URLs, client secrets) early
+        // produces a clear error rather than a silent HTTP 401 later.
+        if (rawToken.Split('.').Length != 3)
+            throw new ArgumentException(
+                "The provided value does not appear to be a valid Discord bot token. " +
+                "Ensure you are using a bot token, not a client secret or webhook URL.",
+                nameof(token));
+
         // Accept both "Bot TOKEN" and raw "TOKEN" formats
         _token = token.StartsWith("Bot ", StringComparison.OrdinalIgnoreCase)
             ? token

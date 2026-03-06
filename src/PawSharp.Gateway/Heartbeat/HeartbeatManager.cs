@@ -1,6 +1,6 @@
 #nullable enable
 using System;
-using System.Timers;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -8,15 +8,18 @@ namespace PawSharp.Gateway.Heartbeat
 {
     public class HeartbeatManager
     {
-        private readonly Timer _heartbeatTimer;
         private readonly int _heartbeatInterval;
-        private bool _isConnected;
         private readonly Func<Task> _sendHeartbeat;
         private readonly ILogger? _logger;
-        
-        private bool _ackReceived = true;
+
+        // volatile ensures the JIT/CPU does not cache this across threads:
+        // the gateway receive loop writes it and the heartbeat loop reads it.
+        private volatile bool _ackReceived = true;
         private int _missedAcks = 0;
         private readonly int _maxMissedAcks;
+
+        private CancellationTokenSource? _cts;
+        private Task? _heartbeatTask;
 
         /// <summary>
         /// Fired when a heartbeat is sent.
@@ -39,8 +42,6 @@ namespace PawSharp.Gateway.Heartbeat
             _sendHeartbeat = sendHeartbeat ?? (() => Task.CompletedTask);
             _logger = logger;
             _maxMissedAcks = maxMissedAcks;
-            _heartbeatTimer = new Timer(_heartbeatInterval);
-            _heartbeatTimer.Elapsed += OnHeartbeatElapsed;
         }
 
         /// <summary>
@@ -50,16 +51,16 @@ namespace PawSharp.Gateway.Heartbeat
 
         public void Start()
         {
-            _isConnected = true;
             _ackReceived = true;
             _missedAcks = 0;
-            _heartbeatTimer.Start();
+            _cts = new CancellationTokenSource();
+            // Fire-and-store: exceptions are caught inside the loop, not propagated as async void.
+            _heartbeatTask = RunHeartbeatLoopAsync(_cts.Token);
         }
 
         public void Stop()
         {
-            _isConnected = false;
-            _heartbeatTimer.Stop();
+            _cts?.Cancel();
         }
 
         /// <summary>
@@ -74,31 +75,45 @@ namespace PawSharp.Gateway.Heartbeat
                 await ackHandler();
         }
 
-        private async void OnHeartbeatElapsed(object? sender, ElapsedEventArgs e)
+        private async Task RunHeartbeatLoopAsync(CancellationToken cancellationToken)
         {
-            if (_isConnected)
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(_heartbeatInterval));
+            try
             {
-                // Check if we received the ACK from the last heartbeat
-                if (!_ackReceived)
+                while (await timer.WaitForNextTickAsync(cancellationToken))
                 {
-                    _missedAcks++;
-                    _logger?.LogWarning($"Heartbeat ACK not received - missed {_missedAcks}/{_maxMissedAcks}");
-
-                    if (!IsHealthy)
+                    try
                     {
-                        _logger?.LogError("Connection is zombie - no heartbeat ACKs received!");
-                        if (OnZombieConnection is { } zombieHandler)
-                            _ = zombieHandler();
+                        if (!_ackReceived)
+                        {
+                            _missedAcks++;
+                            _logger?.LogWarning("Heartbeat ACK not received - missed {Missed}/{Max}", _missedAcks, _maxMissedAcks);
+
+                            if (!IsHealthy)
+                            {
+                                _logger?.LogError("Connection is zombie - no heartbeat ACKs received!");
+                                if (OnZombieConnection is { } zombieHandler)
+                                    await zombieHandler();
+                            }
+                        }
+                        else
+                        {
+                            _ackReceived = false; // Expect a new ACK after the next heartbeat
+                        }
+
+                        await _sendHeartbeat();
+                        if (OnHeartbeatSent is { } sentHandler)
+                            await sentHandler();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogError(ex, "Heartbeat loop iteration threw unexpectedly");
                     }
                 }
-                else
-                {
-                    _ackReceived = false; // Expect new ACK after next heartbeat
-                }
-
-                await _sendHeartbeat();
-                if (OnHeartbeatSent is { } sentHandler)
-                    _ = sentHandler();
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown via Stop() — not an error.
             }
         }
     }
