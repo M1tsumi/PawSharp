@@ -302,7 +302,7 @@ namespace PawSharp.Client
 
         // ── Internal ──────────────────────────────────────────────────────────────
 
-        private async void HandleInteractionAsync(InteractionCreateEvent interaction)
+        private async Task HandleInteractionAsync(InteractionCreateEvent interaction)
         {
             try
             {
