@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -204,7 +205,34 @@ public class DiscordRestClient : IDiscordRestClient
         }
         return null;
     }
-    
+
+    public async Task<Message?> SendFileAsync(
+        ulong channelId,
+        Stream fileStream,
+        string fileName,
+        CreateMessageRequest? messageRequest = null,
+        CancellationToken cancellationToken = default)
+    {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+
+        using var form = new MultipartFormDataContent();
+
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(fileContent, "files[0]", fileName);
+
+        if (messageRequest is not null)
+        {
+            var json = JsonSerializer.Serialize(messageRequest, _jsonOptions);
+            form.Add(new StringContent(json, Encoding.UTF8, "application/json"), "payload_json");
+        }
+
+        var response = await PostAsync($"channels/{channelId}/messages", form, cancellationToken: cancellationToken);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions, cancellationToken);
+        return null;
+    }
+
     public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
     {
         var response = await GetAsync($"channels/{channelId}/messages/{messageId}");
@@ -1943,12 +1971,12 @@ public class DiscordRestClient : IDiscordRestClient
 
     // -- Guild Incident Actions ------------------------------------------------
 
-    public async Task<object?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request)
+    public async Task<GuildIncidentActionsResponse?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request)
     {
         var content = JsonContent(request);
         var response = await PutAsync($"guilds/{guildId}/incident-actions", content);
         if (response.IsSuccessStatusCode)
-            return await response.Content.ReadFromJsonAsync<ModifyGuildIncidentActionsRequest>(_jsonOptions);
+            return await response.Content.ReadFromJsonAsync<GuildIncidentActionsResponse>(_jsonOptions);
         return null;
     }
 

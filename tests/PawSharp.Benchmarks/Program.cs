@@ -26,12 +26,12 @@ public class Benchmarks
     """;
 
     private readonly MemoryCacheProvider _cache;
-    private readonly RateLimiter _rateLimiter;
+    private readonly AdvancedRateLimiter _rateLimiter;
 
     public Benchmarks()
     {
         _cache = new MemoryCacheProvider();
-        _rateLimiter = new RateLimiter(10, TimeSpan.FromSeconds(1));
+        _rateLimiter = new AdvancedRateLimiter();
 
         // Setup cache with some data
         var user = new User { Id = 123456789012345680, Username = "testuser" };
@@ -51,8 +51,8 @@ public class Benchmarks
     }
 
     [Benchmark]
-    public bool RateLimitTryAcquire()
+    public async Task RateLimitWaitAsync()
     {
-        return _rateLimiter.TryAcquire();
+        await _rateLimiter.WaitForRateLimitAsync("channels/123456789012345679/messages");
     }
 }

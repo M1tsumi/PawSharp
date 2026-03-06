@@ -8,6 +8,43 @@ using PawSharp.Core.Serialization;
 namespace PawSharp.Core.Entities;
 
 /// <summary>
+/// Activity object attached to a Rich Presence message.
+/// </summary>
+public class MessageActivity
+{
+    /// <summary>Type of activity (1=Join, 2=Spectate, 3=Listen, 5=JoinRequest).</summary>
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    /// <summary>Party ID from the player's Rich Presence, if present.</summary>
+    [JsonPropertyName("party_id")]
+    public string? PartyId { get; set; }
+}
+
+/// <summary>
+/// Partial application object attached to a Rich Presence message.
+/// </summary>
+public class MessageApplication
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    /// <summary>Cover image hash for the application.</summary>
+    [JsonPropertyName("cover_image")]
+    public string? CoverImage { get; set; }
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("icon")]
+    public string? Icon { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Represents a Discord message.
 /// </summary>
 public class Message : DiscordEntity
@@ -113,13 +150,13 @@ public class Message : DiscordEntity
     /// Sent with Rich Presence-related chat embeds.
     /// </summary>
     [JsonPropertyName("activity")]
-    public object? Activity { get; set; }
+    public MessageActivity? Activity { get; set; }
     
     /// <summary>
     /// Sent with Rich Presence-related chat embeds.
     /// </summary>
     [JsonPropertyName("application")]
-    public object? Application { get; set; }
+    public MessageApplication? Application { get; set; }
     
     /// <summary>
     /// Interactive components attached to this message (buttons, select menus, etc.).
