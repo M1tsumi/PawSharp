@@ -111,7 +111,5 @@ public class UserConnection
     public int Visibility { get; set; }
 }
 
-/// <summary>
-/// Represents a Nitro sticker pack. Alias kept for documentation — see <see cref="StickerPack"/> in Sticker.cs.
-/// </summary>
+// Represents a Nitro sticker pack. Alias kept for documentation — see StickerPack in Sticker.cs.
 // NOTE: StickerPack is already defined in Sticker.cs — this marker comment keeps the file non-empty.

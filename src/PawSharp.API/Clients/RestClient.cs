@@ -1975,6 +1975,55 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
+    // -- Soundboard -------------------------------------------------------
+
+    /// <summary>POST /channels/{channel.id}/send-soundboard-sound</summary>
+    public async Task<bool> SendSoundboardSoundAsync(ulong channelId, SendSoundboardSoundRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync($"channels/{channelId}/send-soundboard-sound", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    // -- Voice States -----------------------------------------------------
+
+    /// <summary>PATCH /guilds/{guild.id}/voice-states/@me</summary>
+    public async Task<bool> ModifyCurrentUserVoiceStateAsync(ulong guildId, ModifyCurrentUserVoiceStateRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}/voice-states/@me", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>PATCH /guilds/{guild.id}/voice-states/{user.id}</summary>
+    public async Task<bool> ModifyUserVoiceStateAsync(ulong guildId, ulong userId, ModifyUserVoiceStateRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}/voice-states/{userId}", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    // -- User Application Role Connection ---------------------------------
+
+    /// <summary>GET /users/@me/applications/{application.id}/role-connection</summary>
+    public async Task<ApplicationRoleConnection?> GetUserApplicationRoleConnectionAsync(ulong applicationId)
+    {
+        var response = await GetAsync($"users/@me/applications/{applicationId}/role-connection");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<ApplicationRoleConnection>(_jsonOptions);
+        return null;
+    }
+
+    /// <summary>PUT /users/@me/applications/{application.id}/role-connection</summary>
+    public async Task<ApplicationRoleConnection?> UpdateUserApplicationRoleConnectionAsync(ulong applicationId, UpdateUserApplicationRoleConnectionRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PutAsync($"users/@me/applications/{applicationId}/role-connection", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<ApplicationRoleConnection>(_jsonOptions);
+        return null;
+    }
+
     private const int MaxRateLimitRetries = 5;
 
     private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default, int retryCount = 0)

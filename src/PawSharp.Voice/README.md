@@ -1,11 +1,12 @@
 # PawSharp.Voice
 
-Professional-grade voice channel connectivity with automatic reconnection and dynamic heartbeat management.
+Professional-grade voice channel connectivity with automatic reconnection, dynamic heartbeat management, and full **Discord DAVE E2EE** (RFC 9420 MLS end-to-end encryption).
 
-PawSharp.Voice provides complete voice channel support for Discord bots, featuring automatic heartbeat interval detection, exponential backoff reconnection, and a robust audio processing framework ready for Opus codec integration.
+PawSharp.Voice provides complete encrypted voice channel support for Discord bots: automatic heartbeat interval detection, exponential backoff reconnection, per-epoch AES-128-GCM frame encryption, and a complete MLS group-state engine built entirely on .NET 8 BCL cryptography primitives.
 
 ## Features
 
+- **DAVE E2EE** â€” full RFC 9420 MLS stack for end-to-end encrypted voice (see below)
 - Voice channel connectivity with automatic negotiation
 - Dynamic heartbeat interval detection from Discord's HELLO events
 - Exponential backoff reconnection (1s to 30s max, 5 attempts)
@@ -19,7 +20,7 @@ PawSharp.Voice provides complete voice channel support for Discord bots, featuri
 ## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Voice --version 0.6.1-alpha1
+dotnet add package PawSharp.Voice --version 0.7.0-alpha.1
 ```
 
 ## ?? Quick Start
@@ -199,28 +200,66 @@ client.Gateway.Events.On<VoiceServerUpdateEvent>("VOICE_SERVER_UPDATE", async ev
 });
 ```
 
-## ??? Architecture
+## Architecture
 
 ```
 PawSharp.Voice
 +-- VoiceClient
-¦   +-- Connection management
-¦   +-- Reconnection logic
-¦   +-- State tracking
+|   +-- Connection management
+|   +-- Reconnection logic
+|   +-- State tracking
 +-- VoiceConnection
-¦   +-- WebSocket communication
-¦   +-- Heartbeat management
-¦   +-- Audio capture/playback
-¦   +-- Protocol handling
+|   +-- WebSocket communication
+|   +-- Heartbeat management
+|   +-- Audio capture/playback
+|   +-- Protocol handling
++-- DAVE/
+|   +-- DAVEProtocol       -- orchestrates MLS handshake
+|   +-- DAVEEncryption     -- AES-128-GCM per-frame encryption
+|   +-- DAVEKeyDerivation  -- epoch-secret -> sender-key HKDF
+|   +-- MLS/
+|       +-- Crypto/
+|       |   +-- Curve25519   (RFC 7748 X25519)
+|       |   +-- Ed25519      (RFC 8032 sign/verify)
+|       |   +-- MlsHkdf      (RFC 9420 label functions)
+|       |   +-- HpkeX25519   (RFC 9180 HPKE Base mode)
+|       +-- Encoding/
+|       |   +-- TlsReader    (zero-copy span reader)
+|       |   +-- TlsWriter    (MemoryStream writer)
+|       +-- Tree/
+|       |   +-- TreeMath     (left-balanced tree indexes)
+|       |   +-- TreeNode     (leaf/parent with HPKE keys)
+|       |   +-- RatchetTree  (TreeKEM operations)
+|       +-- Messages/
+|       |   +-- Credential, LeafNode, KeyPackage
+|       |   +-- GroupContext, Proposal, Welcome
+|       +-- State/
+|           +-- MLSKeySchedule  (RFC 9420 key schedule)
+|           +-- MLSGroupState   (full group state engine)
 +-- Audio Processing
-¦   +-- NAudio integration
-¦   +-- PCM handling
-¦   +-- Opus framework (ready)
-+-- Events & State
+|   +-- NAudio integration
+|   +-- PCM handling
+|   +-- Opus framework (ready)
++-- Events and State
     +-- Voice state updates
     +-- Server updates
     +-- Connection events
 ```
+
+## DAVE E2EE Details
+
+Discord's DAVE protocol encrypts voice frames using MLS group keys. PawSharp implements the full MLS stack from scratch:
+
+**Ciphersuite:** `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
+
+| Layer | Implementation |
+|-------|---------------|
+| Key agreement | RFC 7748 X25519 (5x51-bit Montgomery ladder) |
+| Signatures | RFC 8032 Ed25519 (twisted Edwards, GF(2^255-19)) |
+| HPKE | RFC 9180 Base mode (DHKEM-X25519 + AES-128-GCM) |
+| Tree | RFC 9420 TreeKEM ratchet tree |
+| Key schedule | RFC 9420 s8 (joiner -> epoch -> exporter) |
+| Frame encryption | AES-128-GCM with per-SSRC sender keys |
 
 ## ?? Error Handling
 
