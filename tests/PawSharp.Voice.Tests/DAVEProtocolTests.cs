@@ -149,6 +149,117 @@ public class DAVEProtocolTests : IDisposable
         decrypted.Should().BeEquivalentTo(plaintext, "remote must recover the original frame");
     }
 
+    // ── Constructor with explicit user ID ────────────────────────────────────
+
+    [Fact]
+    public void Constructor_WithUserId_DoesNotThrow()
+    {
+        using var proto = new DAVEProtocol("123456789012345678");
+        proto.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Constructor_WithEmptyUserId_ThrowsArgumentException()
+    {
+        Action act = () => _ = new DAVEProtocol("");
+        act.Should().Throw<ArgumentException>();
+    }
+
+    // ── EpochNumber ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void EpochNumber_StartsWith_Zero()
+    {
+        _proto.EpochNumber.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task EpochNumber_AfterWelcome_IsOne()
+    {
+        await DispatchWelcomeAsync();
+        _proto.EpochNumber.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task EpochNumber_AfterCommit_IsTwo()
+    {
+        await DispatchWelcomeAsync();
+        var commitData = MakeBase64Payload(new byte[] { 0xCC, 0xDD });
+        await _proto.HandleOpcodeAsync(26, commitData, null);
+        _proto.EpochNumber.Should().Be(2);
+    }
+
+    // ── Reset() ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Reset_AfterActivation_SetsIsActiveFalse()
+    {
+        await DispatchWelcomeAsync();
+        await DispatchOpcodeAsync(24);
+        _proto.IsActive.Should().BeTrue();
+
+        _proto.Reset();
+
+        _proto.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Reset_AfterActivation_ResetsEpochNumber()
+    {
+        await DispatchWelcomeAsync();
+        _proto.EpochNumber.Should().Be(1);
+
+        _proto.Reset();
+
+        _proto.EpochNumber.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AfterReset_EncryptFrame_PassesThroughUnchanged()
+    {
+        await DispatchWelcomeAsync();
+        await DispatchOpcodeAsync(24);
+        _proto.Reset();
+
+        var frame  = new byte[] { 0x01, 0x02, 0x03 };
+        var result = _proto.EncryptFrame(frame);
+
+        result.Should().BeSameAs(frame, "reset protocol must not encrypt");
+    }
+
+    [Fact]
+    public async Task AfterReset_CanReactivateWithNewWelcome()
+    {
+        await DispatchWelcomeAsync();
+        await DispatchOpcodeAsync(24);
+        _proto.Reset();
+
+        // Re-enter the group
+        await DispatchWelcomeAsync();
+        await DispatchOpcodeAsync(24);
+
+        _proto.IsActive.Should().BeTrue();
+        _proto.EpochNumber.Should().Be(1);
+    }
+
+    // ── Epoch advance resets frame counter ───────────────────────────────────
+
+    [Fact]
+    public async Task CommitAdvance_ProducesEncryptedFrame_NotPassthrough()
+    {
+        _proto.LocalSsrc = 0x01;
+        await DispatchWelcomeAsync();
+        await DispatchOpcodeAsync(24);
+        var commitData = MakeBase64Payload(new byte[] { 0xCC, 0xDD });
+        await _proto.HandleOpcodeAsync(26, commitData, null);
+
+        // After epoch advance, encryption should still be active
+        var plaintext = new byte[] { 0xAA, 0xBB };
+        var encrypted = _proto.EncryptFrame(plaintext);
+        encrypted.Should().NotBeEquivalentTo(plaintext,
+            "encryption must remain active after a commit");
+    }
+
     // ── Frame counter increments produce unique ciphertexts ────────────────────
 
     [Fact]
