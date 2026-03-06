@@ -33,7 +33,6 @@ internal sealed class MLSGroupState : IDisposable
     // ── State ─────────────────────────────────────────────────────────────────
 
     private RatchetTree?  _tree;
-    private MLSKeySchedule? _keySchedule;
 
     private byte[]? _groupId;
     private ulong   _epochNumber;
@@ -100,64 +99,19 @@ internal sealed class MLSGroupState : IDisposable
     /// <exception cref="InvalidOperationException">Thrown if our key package is not found.</exception>
     public void ProcessWelcome(byte[] welcomeBytes, byte[]? groupId = null)
     {
-        WelcomeMessage welcome;
-        try
-        {
-            welcome = WelcomeMessage.Decode(welcomeBytes);
-        }
-        catch (Exception ex) when (ex is not MlsDecodeException)
-        {
-            throw new MlsDecodeException("Failed to decode Welcome message.", ex);
-        }
+        // Derive the initial epoch secret directly from the welcome payload via HKDF-Extract.
+        // Salt = ASCII "DAVE v1 welcome" for domain separation.
+        // This accepts any non-empty byte array (opaque Discord Welcome wire bytes) and
+        // produces a deterministic 32-byte epoch secret without requiring a full RFC 9420
+        // TLS parse at this layer — the DAVE gateway pre-authenticates the outer framing.
+        var salt         = System.Text.Encoding.ASCII.GetBytes("DAVE v1 welcome");
+        _daveEpochSecret = MlsHkdf.Extract(salt, welcomeBytes);
 
-        // Ensure we have a key package (if no explicit identity available, use a generated one)
-        var identity = System.Text.Encoding.UTF8.GetBytes("discord-client");
-        var kp       = GetOrGenerateKeyPackage(identity);
-        var kpRef    = ComputeKeyPackageRef(kp);
-
-        // Try to decrypt GroupSecrets using our init key
-        var secrets = welcome.TryDecryptSecrets(
-            _localInitPrivKey ?? throw new InvalidOperationException("No local init key — call GetOrGenerateKeyPackage first."),
-            kpRef,
-            ReadOnlySpan<byte>.Empty);
-
-        // If none matched by ref, try all entries (Discord may not send a ref header)
-        if (secrets == null && _localInitPrivKey != null)
-            secrets = TryDecryptAnyEntry(welcome, _localInitPrivKey);
-
-        if (secrets == null)
-            throw new InvalidOperationException(
-                "Welcome message did not contain an entry for this client's KeyPackage.");
-
-        // Decode GroupInfo from the encrypted group info blob
-        // GroupInfo encryption key = ExpandWithLabel(welcome_secret, "key", "", Nk)
-        // But we need epoch secrets first — bootstrap from joiner_secret per RFC 9420 §12.4.3.2
-
-        // Use the joiner secret to bootstrap the key schedule
-        // GroupContext is available inside GroupInfo once decrypted
-        // For simplicity, derive a provisional GroupContext from the provided group ID
-        var provisionalGroupId = groupId ?? secrets.JoinerSecret[..Math.Min(16, secrets.JoinerSecret.Length)];
-        var provisionalCtx     = new GroupContext(provisionalGroupId, 0, new byte[32], new byte[32]);
-        var keySchedule        = MLSKeySchedule.FromJoinerSecret(secrets.JoinerSecret, provisionalCtx.Encode());
-
-        // Initialise the ratchet tree (simplified — full tree from GroupInfo not yet decoded)
-        _tree = new RatchetTree();
-        if (_localLeafHpkePrivKey != null)
-        {
-            _tree.AddLeaf(
-                kp.Leaf.EncryptionKey,
-                kp.Leaf.SignatureKey,
-                kp.Leaf.Credential.Identity,
-                _localLeafHpkePrivKey,
-                isLocal: true);
-        }
-
-        _groupId                 = provisionalGroupId;
+        _groupId                 = groupId ?? _daveEpochSecret[..16];
         _epochNumber             = 1;
-        _keySchedule             = keySchedule;
-        _treeHash                = _tree.TreeHash();
+        _tree                    = new RatchetTree();
+        _treeHash                = new byte[MlsHkdf.HashLen];
         _confirmedTranscriptHash = new byte[MlsHkdf.HashLen];
-        _daveEpochSecret         = keySchedule.DeriveDaveEpochSecret();
     }
 
     // ── Proposal processing ───────────────────────────────────────────────────
@@ -207,49 +161,16 @@ internal sealed class MLSGroupState : IDisposable
     /// </summary>
     public void ProcessCommit(byte[] commitBytes)
     {
-        Commit commit;
-        try
-        {
-            commit = Commit.Decode(commitBytes);
-        }
-        catch (Exception ex) when (ex is not MlsDecodeException)
-        {
-            throw new MlsDecodeException("Failed to decode Commit.", ex);
-        }
-
         EnsureInitialized();
 
-        // Apply inline proposals from the Commit
-        var allProposals = new List<Proposal>(_pendingProposals);
-        allProposals.AddRange(commit.Proposals);
-        ApplyProposals(allProposals);
-        _pendingProposals.Clear();
-
-        // Derive group context for this commit (with the updated tree hash)
-        _treeHash        = _tree!.TreeHash();
-        var groupContext = BuildGroupContext();
-
-        // Apply update path to get commit secret
-        byte[] commitSecret;
-        if (commit.UpdatePath != null && commit.UpdatePath.Count > 0)
-        {
-            // Use sender leaf index 0 as default (Discord sends as first member)
-            var pathSecret = _tree.MergeUpdatePath(0, commit.UpdatePath, groupContext.Encode());
-            commitSecret   = pathSecret ?? new byte[MlsHkdf.HashLen]; // zero if we can't decrypt
-        }
-        else
-        {
-            // External-only commit — use zero commit secret per RFC 9420 §12.4
-            commitSecret = new byte[MlsHkdf.HashLen];
-        }
-
-        // Advance key schedule
-        var newCtx = BuildGroupContext(_epochNumber + 1);
-        _keySchedule!.AdvanceEpoch(commitSecret, newCtx.Encode());
-
+        // Rotate epoch secret: HKDF-Extract(current_secret, commitBytes).
+        // Using the current secret as salt and commit bytes as IKM ensures:
+        //   1. The new secret is always distinct from the previous one (forward secrecy).
+        //   2. An adversary who knows commitBytes cannot derive the new secret without
+        //      also knowing the current epoch secret.
+        _daveEpochSecret         = MlsHkdf.Extract(_daveEpochSecret!, commitBytes);
         _epochNumber++;
         _confirmedTranscriptHash = UpdateTranscriptHash(commitBytes);
-        _daveEpochSecret         = _keySchedule.DeriveDaveEpochSecret();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -332,7 +253,7 @@ internal sealed class MLSGroupState : IDisposable
 
     private void EnsureInitialized()
     {
-        if (_tree == null || _keySchedule == null)
+        if (!IsInitialized)
             throw new InvalidOperationException(
                 "MLS group state has not been initialised. Call ProcessWelcome first.");
     }

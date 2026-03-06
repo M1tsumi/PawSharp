@@ -34,8 +34,6 @@ public class VoiceConnection : IDisposable
 
     // Audio processing - Opus codec integration planned for future release
     // TODO: Implement Opus encoding/decoding when Concentus API is finalized
-    private readonly object _encoder = null; // Placeholder for OpusEncoder
-    private readonly object _decoder = null; // Placeholder for OpusDecoder
     private WaveInEvent? _waveIn;
     private WaveOutEvent? _waveOut;
     private BufferedWaveProvider? _waveProvider;
@@ -115,6 +113,7 @@ public class VoiceConnection : IDisposable
 
         _receiveTask = Task.Run(ReceiveLoopAsync, _cts.Token);
         _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
+        await Task.CompletedTask;
     }
 
     /// <summary>
