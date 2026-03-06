@@ -6,7 +6,7 @@
     <AssemblyName>PawSharp.Core</AssemblyName>
     <OutputType>Library</OutputType>
     <PackageId>PawSharp.Core</PackageId>
-    <Version>0.6.1-alpha1</Version>
+    <Version>0.7.0-alpha.1</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Core entities, models, and utilities for PawSharp Discord API wrapper.</Description>

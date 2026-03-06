@@ -10,6 +10,7 @@ using NAudio.Wave;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
+using PawSharp.Voice.DAVE;
 
 namespace PawSharp.Voice;
 
@@ -27,6 +28,9 @@ public class VoiceConnection : IDisposable
     private Task? _heartbeatTask;
     private bool _disposed;
     private int _heartbeatInterval = 5000; // Default 5 seconds, updated from HELLO
+
+    // DAVE E2EE protocol handler (null until DAVE is negotiated)
+    private readonly DAVEProtocol _dave = new();
 
     // Audio processing - Opus codec integration planned for future release
     // TODO: Implement Opus encoding/decoding when Concentus API is finalized
@@ -202,8 +206,11 @@ public class VoiceConnection : IDisposable
         // Encode PCM to Opus
         var opusData = EncodeAudio(audioData);
 
+        // Apply DAVE encryption if the protocol is active
+        var payload = _dave.EncryptFrame(opusData);
+
         // Send via WebSocket (simplified - would need proper voice packet structure)
-        await _webSocket.SendAsync(opusData, WebSocketMessageType.Binary, true, CancellationToken.None);
+        await _webSocket.SendAsync(payload, WebSocketMessageType.Binary, true, CancellationToken.None);
     }
 
     private void OnWaveInDataAvailable(object? sender, WaveInEventArgs e)
@@ -254,8 +261,13 @@ public class VoiceConnection : IDisposable
                 }
                 else if (result.MessageType == WebSocketMessageType.Binary)
                 {
-                    // Handle voice data packets
-                    // This would process incoming voice packets
+                    // Handle incoming voice packets — decrypt with DAVE if active
+                    var packet = new byte[result.Count];
+                    Array.Copy(buffer, packet, result.Count);
+                    // SSRC would be extracted from the RTP header in a full implementation
+                    // Using 0 as placeholder SSRC for now
+                    var decrypted = _dave.DecryptFrame(packet, ssrc: 0);
+                    await PlayAudioAsync(decrypted);
                 }
             }
         }
@@ -283,6 +295,13 @@ public class VoiceConnection : IDisposable
                 var opCode = opProp.GetInt32();
                 switch (opCode)
                 {
+                    case 2: // READY — capture our SSRC for DAVE
+                        if (root.TryGetProperty("d", out var readyData) &&
+                            readyData.TryGetProperty("ssrc", out var ssrcProp))
+                        {
+                            _dave.LocalSsrc = (uint)ssrcProp.GetInt64();
+                        }
+                        break;
                     case 8: // HELLO
                         if (root.TryGetProperty("d", out var data) &&
                             data.TryGetProperty("heartbeat_interval", out var intervalProp))
@@ -294,7 +313,11 @@ public class VoiceConnection : IDisposable
                     case 9: // HEARTBEAT ACK
                         // Handle heartbeat acknowledgment if needed
                         break;
-                    // Add other op codes as needed
+                    // DAVE E2EE opcodes 21–31
+                    case >= 21 and <= 31:
+                        if (root.TryGetProperty("d", out var daveData))
+                            await _dave.HandleOpcodeAsync(opCode, daveData, _webSocket, _cts?.Token ?? CancellationToken.None);
+                        break;
                 }
             }
         }
@@ -401,6 +424,7 @@ public class VoiceConnection : IDisposable
         _webSocket?.Dispose();
         _waveIn?.Dispose();
         _waveOut?.Dispose();
+        _dave.Dispose();
         // Note: OpusEncoder and OpusDecoder don't implement IDisposable
     }
 }

@@ -367,4 +367,15 @@ public interface IDiscordRestClient
     // Reaction extras
     Task<bool> DeleteAllReactionsAsync(ulong channelId, ulong messageId);
     Task<bool> DeleteAllReactionsForEmojiAsync(ulong channelId, ulong messageId, string emoji);
+
+    // Soundboard
+    Task<bool> SendSoundboardSoundAsync(ulong channelId, SendSoundboardSoundRequest request);
+
+    // Voice states
+    Task<bool> ModifyCurrentUserVoiceStateAsync(ulong guildId, ModifyCurrentUserVoiceStateRequest request);
+    Task<bool> ModifyUserVoiceStateAsync(ulong guildId, ulong userId, ModifyUserVoiceStateRequest request);
+
+    // User application role connection
+    Task<ApplicationRoleConnection?> GetUserApplicationRoleConnectionAsync(ulong applicationId);
+    Task<ApplicationRoleConnection?> UpdateUserApplicationRoleConnectionAsync(ulong applicationId, UpdateUserApplicationRoleConnectionRequest request);
 }
