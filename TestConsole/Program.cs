@@ -15,12 +15,19 @@ class Program
 {
     static async Task Main(string[] args)
     {
+        // Load token — set DISCORD_TOKEN in your environment or a .env file.
+        // Never hard-code or commit a token. See .env.example for local setup.
+        var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
+            ?? throw new InvalidOperationException(
+                "DISCORD_TOKEN environment variable is not set. " +
+                "Copy .env.example to .env, fill in your token, and load it before running.");
+
         // Set up DI
         var services = new ServiceCollection();
         services.AddLogging(config => config.AddConsole().SetMinimumLevel(LogLevel.Debug));
         services.AddSingleton<PawSharpOptions>(new PawSharpOptions
         {
-            Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN") ?? "your-token-here",
+            Token = token,
             Intents = PawSharp.Core.Enums.GatewayIntents.Guilds | 
                      PawSharp.Core.Enums.GatewayIntents.GuildMessages | 
                      PawSharp.Core.Enums.GatewayIntents.MessageContent
@@ -46,29 +53,29 @@ class Program
             // Register event handlers
             client.Gateway.Events.On<ReadyEvent>("READY", (e) =>
             {
-                logger.LogInformation($"✅ Logged in as {e.User.Username}!");
-                logger.LogInformation($"Connected to {e.Guilds.Count} guilds");
+                logger.LogInformation("Logged in as {Username}", e.User.Username);
+                logger.LogInformation("Connected to {GuildCount} guilds", e.Guilds.Count);
             });
             
             client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", async (e) =>
             {
                 if (e.Author.Bot == true) return;
                 
-                logger.LogInformation($"💬 {e.Author.Username}: {e.Content}");
+                logger.LogInformation("{Author}: {Content}", e.Author.Username, e.Content);
                 
                 // Respond to !ping
                 if (e.Content.ToLower() == "!ping")
                 {
                     await client.Rest.CreateMessageAsync(e.ChannelId, new CreateMessageRequest
                     {
-                        Content = "🏓 Pong!"
+                        Content = "Pong!"
                     });
                 }
             });
             
             client.Gateway.Events.On<GuildCreateEvent>("GUILD_CREATE", (e) =>
             {
-                logger.LogInformation($"🏰 Guild received: {e.Id}");
+                logger.LogInformation("Guild received: {GuildId}", e.Id);
             });
             
             // Fallback raw handler for events that fail to deserialize
@@ -77,22 +84,22 @@ class Program
                 // This will catch events that failed typed deserialization
                 if (!json.Contains("\"unavailable\":true"))
                 {
-                    logger.LogDebug("📦 Raw GUILD_CREATE event received (fallback)");
+                    logger.LogDebug("Raw GUILD_CREATE event received (fallback)");
                 }
             });
             
             // Connect to Discord
             await client.ConnectAsync();
             
-            logger.LogInformation("✅ Bot is running! Press Ctrl+C to exit.");
-            logger.LogInformation("💡 Try sending '!ping' in a channel the bot can see!");
+            logger.LogInformation("Bot is running. Press Ctrl+C to exit.");
+            logger.LogInformation("Try sending '!ping' in a channel the bot can see.");
 
             // Keep running
             await Task.Delay(-1);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "❌ Fatal error occurred");
+            logger.LogError(ex, "Fatal error occurred");
         }
     }
 }
