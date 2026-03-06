@@ -119,7 +119,8 @@ public class VoiceClient
         {
             _logger.LogError(ex, "Voice reconnection failed for channel {ChannelId}", channelId);
             state.IsReconnecting = false;
-            await HandleConnectionFailureAsync(channelId); // Recursive retry
+            // Do not recurse — the connection failure callback will schedule the next attempt,
+            // preventing unbounded call-stack growth under sustained failures.
         }
     }
 

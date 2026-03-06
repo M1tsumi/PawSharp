@@ -56,7 +56,7 @@ public static class MessageExtensions
             }
         }
 
-        client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
+        var subscription = client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
 
         try
         {
@@ -69,7 +69,7 @@ public static class MessageExtensions
         }
         finally
         {
-            // Subscription is automatically cleaned up when the CancellationTokenSource fires
+            subscription.Dispose(); // Unregister handler to prevent unbounded list growth
             cts.Dispose();
         }
     }
@@ -110,7 +110,7 @@ public static class MessageExtensions
             }
         }
 
-        client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
+        var subscription = client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
 
         try
         {
@@ -118,6 +118,7 @@ public static class MessageExtensions
         }
         finally
         {
+            subscription.Dispose(); // Unregister handler to prevent unbounded list growth
             cts.Dispose();
         }
 
