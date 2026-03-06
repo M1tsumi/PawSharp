@@ -29,7 +29,7 @@ public class VoiceClient
     /// </summary>
     /// <param name="discordClient">The Discord client.</param>
     /// <param name="logger">The logger.</param>
-    public VoiceClient(DiscordClient discordClient, ILogger logger = null)
+    public VoiceClient(DiscordClient discordClient, ILogger? logger = null)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
@@ -155,6 +155,7 @@ public class VoiceClient
                 break;
             }
         }
+        await Task.CompletedTask;
     }
 }
 

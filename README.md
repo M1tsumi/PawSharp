@@ -2,8 +2,8 @@
 
 A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automatic reconnection, proper error handling, and comprehensive Discord API coverage.
 
-**Current Version:** 0.6.1-alpha1
-**Status:** Production-ready with advanced features - Gateway reliability, REST resiliency, caching, interactions, commands, voice support, and sharding fully implemented. v0.6.1-alpha1 delivers bug fixes and null-safety hardening: correct heartbeat configuration propagation, awaited gateway event tasks, proper archived-thread deserialization, 6000-char embed limit enforcement, and nullable-clean REST content parameters. Complete documentation and examples available.
+**Current Version:** 0.7.0-alpha.1
+**Status:** Production-ready with advanced features — Gateway reliability, REST resiliency, caching, interactions, commands, voice support, sharding, and Discord DAVE E2EE fully implemented. v0.7.0-alpha.1 delivers a complete from-scratch RFC 9420 MLS stack for end-to-end encrypted voice: X25519 key agreement, Ed25519 signatures, HPKE, TreeKEM ratchet tree, MLS key schedule, and full Welcome/Commit/Proposal processing — all built on .NET 8 BCL primitives with zero new dependencies.
 
 ## Key Features
 
@@ -20,6 +20,7 @@ A modern, stable Discord API wrapper for .NET 8.0. Production-ready with automat
 - **Fully Async** - Modern async/await throughout with nullable reference types
 - **Typed Components** - Fully typed message component hierarchy (buttons, select menus, text inputs) with polymorphic JSON deserialization
 - **EmbedBuilder** - Fluent builder with Discord limit enforcement (title, description, fields, footer, author, and the 6000-character total limit)
+- **DAVE E2EE Voice** - Full RFC 9420 MLS end-to-end encryption for voice: X25519 key agreement, Ed25519 signatures, HPKE, TreeKEM ratchet tree, and the complete MLS key schedule — zero extra dependencies
 
 ---
 
@@ -56,8 +57,8 @@ dotnet add package PawSharp.Interactions
 # Interactivity (pagination, polls)
 dotnet add package PawSharp.Interactivity
 
-# Voice support (experimental)
-dotnet add package PawSharp.Voice
+# Install the packages you need:
+dotnet add package PawSharp.Voice --version 0.7.0-alpha.1
 ```
 
 ### From Source
@@ -318,9 +319,9 @@ client.Interactions.RegisterComponent("my_button", async interaction =>
 
 ---
 
-## Voice Support
+## Voice Support — DAVE E2EE
 
-PawSharp includes comprehensive voice channel connectivity with professional-grade audio processing:
+PawSharp includes full voice channel connectivity with Discord's **DAVE (Discord's Audio & Video Encryption)** protocol — RFC 9420 MLS end-to-end encryption built entirely on .NET 8 BCL primitives.
 
 ```csharp
 using PawSharp.Voice;
@@ -329,23 +330,36 @@ using PawSharp.Voice;
 var voice = client.UseVoice();
 var connection = await voice.ConnectAsync(voiceChannel);
 
-// Start capturing from microphone and sending audio
+// DAVE E2EE is negotiated automatically — voice frames are
+// encrypted with per-epoch AES-128-GCM keys derived from the
+// MLS group's epoch secret via HKDF.
+
+// Start capturing from microphone and sending encrypted audio
 connection.StartCapture();
 
-// Play received audio through speakers
+// Play received (and automatically decrypted) audio
 await connection.PlayAudioAsync(receivedAudioData);
 
 // Clean up when done
 await connection.DisconnectAsync();
 ```
 
-**Voice Features:**
+**DAVE E2EE Features:**
+- Full RFC 9420 MLS group state: Welcome, Commit, and Proposal processing
+- RFC 7748 X25519 key agreement (5×51-bit Montgomery ladder, constant-time)
+- RFC 8032 Ed25519 signatures for leaf-node and KeyPackage authentication
+- RFC 9180 HPKE Base mode (DHKEM-X25519-HKDF-SHA256 + AES-128-GCM) for Welcome encryption
+- TreeKEM ratchet tree: `AddLeaf`, `BlankPath`, `MergeUpdatePath`, `TreeHash`
+- MLS key schedule: `joiner_secret → epoch_secret → exporter_secret` derivation chain
+- Per-SSRC 16-byte sender keys derived from the current epoch secret
+- Zero extra NuGet dependencies — everything uses `System.Security.Cryptography`
+
+**General Voice Features:**
 - WebSocket-based voice connections with Discord's voice gateway
 - Real-time microphone capture and speaker playback infrastructure
 - Voice state management and automatic server update handling
-- Audio processing framework ready for codec integration
 - Thread-safe voice operations with comprehensive error handling
-- Opus codec preparation ( Concentus library included, encoding/decoding framework in place )
+- Opus codec preparation (Concentus library included, encoding/decoding framework in place)
 
 ---
 
@@ -454,7 +468,7 @@ commands.RegisterModule(new UtilityCommands());
 ## What's Not Implemented Yet
 
 - Distributed clustering (single-machine and sharded bots fully supported)
-- Advanced voice features (basic voice connectivity implemented)
+- Full Opus audio pipeline (codec framework in place, real-time encode/decode pending)
 
 See [ROADMAP.md](ROADMAP.md) for the development plan and future phases.
 
@@ -468,9 +482,9 @@ Help wanted. Check the [ROADMAP.md](ROADMAP.md) for what we're building.
 
 ## Resources
 
-- [Discord Developer Portal](https://discord.com/developers/applications) � get your bot token
-- [Discord API Documentation](https://discord.com/developers/docs/intro) � the source of truth
-- [Examples](examples/) � real code samples
+- [Discord Developer Portal](https://discord.com/developers/applications) � get your bot token
+- [Discord API Documentation](https://discord.com/developers/docs/intro) � the source of truth
+- [Examples](examples/) � real code samples
 
 ---
 
