@@ -33,6 +33,8 @@ namespace PawSharp.Gateway
         /// </remarks>
         private string? _resumeSessionId;
         private int? _resumeSequence;
+        private DateTimeOffset? _lastHeartbeatSent;
+        private TimeSpan? _lastHeartbeatLatency;
 
         /// <summary>
         /// Fired when the gateway state changes.
@@ -106,6 +108,12 @@ namespace PawSharp.Gateway
         /// Get the current gateway connection state.
         /// </summary>
         public GatewayState CurrentState => _currentState;
+
+        /// <inheritdoc/>
+        public string? SessionId => _resumeSessionId;
+
+        /// <inheritdoc/>
+        public TimeSpan? LastHeartbeatLatency => _lastHeartbeatLatency;
 
         public async Task ConnectAsync()
         {
@@ -443,6 +451,8 @@ namespace PawSharp.Gateway
                         break;
                     case 11: // Heartbeat ACK — Server heartbeat response
                         _logger.LogDebug("Heartbeat acknowledged");
+                        if (_lastHeartbeatSent.HasValue)
+                            _lastHeartbeatLatency = DateTimeOffset.UtcNow - _lastHeartbeatSent.Value;
                         await _heartbeatManager.ReceiveAckAsync();
                         break;
                     default:
@@ -486,6 +496,7 @@ namespace PawSharp.Gateway
         {
             try
             {
+                _lastHeartbeatSent = DateTimeOffset.UtcNow;
                 var heartbeatPayload = new { op = 1, d = _resumeSequence ?? (object?)null };
                 var json = JsonSerializer.Serialize(heartbeatPayload);
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);

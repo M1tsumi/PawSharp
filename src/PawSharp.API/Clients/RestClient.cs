@@ -66,6 +66,16 @@ public class DiscordRestClient : IDiscordRestClient
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.2-alpha1)");
     }
 
+    /// <summary>
+    /// Convenience overload — creates a default <see cref="AdvancedRateLimiter"/> internally.
+    /// Consumers that register <c>DiscordRestClient</c> directly (e.g. via <c>AddHttpClient</c>)
+    /// without calling <c>AddAdvancedRateLimiter()</c> will use this overload automatically.
+    /// </summary>
+    public DiscordRestClient(HttpClient httpClient, PawSharpOptions options, ILogger<DiscordRestClient> logger)
+        : this(httpClient, options, logger, new AdvancedRateLimiter())
+    {
+    }
+
     public async Task<HttpResponseMessage> GetAsync(string endpoint)
     {
         return await SendRequestAsync(HttpMethod.Get, endpoint, null);
@@ -611,6 +621,14 @@ public class DiscordRestClient : IDiscordRestClient
         var httpResponse = await PostAsync($"interactions/{interactionId}/{interactionToken}/callback", content);
         return httpResponse.IsSuccessStatusCode;
     }
+
+    public async Task<Message?> GetOriginalInteractionResponseAsync(string applicationId, string interactionToken)
+    {
+        var response = await GetAsync($"webhooks/{applicationId}/{interactionToken}/messages/@original");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
     
     public async Task<HttpResponseMessage> EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
     {
@@ -748,6 +766,9 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("BulkOverwriteGlobalApplicationCommands failed ({Status}): {Body}",
+            (int)response.StatusCode, errorBody);
         return null;
     }
     
@@ -759,6 +780,9 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("BulkOverwriteGuildApplicationCommands failed ({Status}): {Body}",
+            (int)response.StatusCode, errorBody);
         return null;
     }
     
@@ -883,13 +907,11 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId)
+    public async Task<ActiveThreadsResponse?> GetActiveThreadsAsync(ulong guildId)
     {
         var response = await GetAsync($"guilds/{guildId}/threads/active");
         if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
+            return await response.Content.ReadFromJsonAsync<ActiveThreadsResponse>(_jsonOptions);
         return null;
     }
     
@@ -1029,6 +1051,35 @@ public class DiscordRestClient : IDiscordRestClient
             return await response.Content.ReadFromJsonAsync<Message>();
         }
         return null;
+    }
+
+    public async Task<Message?> GetWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    public async Task<Message?> EditWebhookMessageAsync(ulong webhookId, string token, ulong messageId, EditMessageRequest request, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var content = JsonContent(request);
+        var response = await PatchAsync(endpoint, content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    public async Task<bool> DeleteWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var response = await DeleteAsync(endpoint);
+        return response.IsSuccessStatusCode;
     }
     
     // Scheduled Event operations
@@ -1666,10 +1717,12 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    public async Task<bool> DeleteInviteAsync(string inviteCode, string? reason = null)
+    public async Task<Invite?> DeleteInviteAsync(string inviteCode, string? reason = null)
     {
         var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Invite>();
+        return null;
     }
 
     // Guild Templates

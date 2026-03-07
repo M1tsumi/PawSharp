@@ -512,6 +512,43 @@ namespace PawSharp.Cache.Providers
 
         #endregion
 
+        // Async overloads — leverage Redis native async API
+        public async Task<User?> GetUserAsync(ulong userId)
+        {
+            var json = await _db.StringGetAsync($"user:{userId}");
+            return json.HasValue ? JsonSerializer.Deserialize<User>((string)json!, _jsonOptions) : null;
+        }
+
+        public async Task<Guild?> GetGuildAsync(ulong guildId)
+        {
+            var json = await _db.StringGetAsync($"guild:{guildId}");
+            return json.HasValue ? JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions) : null;
+        }
+
+        public async Task<Channel?> GetChannelAsync(ulong channelId)
+        {
+            var json = await _db.StringGetAsync($"channel:{channelId}");
+            return json.HasValue ? JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions) : null;
+        }
+
+        public async Task<Message?> GetMessageAsync(ulong messageId)
+        {
+            var json = await _db.StringGetAsync($"message:{messageId}");
+            return json.HasValue ? JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions) : null;
+        }
+
+        public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
+        {
+            var json = await _db.StringGetAsync($"member:{guildId}:{userId}");
+            return json.HasValue ? JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions) : null;
+        }
+
+        public async Task<PawSharp.Core.Entities.Role?> GetRoleAsync(ulong roleId)
+        {
+            var json = await _db.StringGetAsync($"role:{roleId}");
+            return json.HasValue ? JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions) : null;
+        }
+
         /// <summary>
         /// Disposes the Redis connection.
         /// </summary>

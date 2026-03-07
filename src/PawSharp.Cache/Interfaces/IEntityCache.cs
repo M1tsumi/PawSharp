@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using PawSharp.Core.Entities;
 
 namespace PawSharp.Cache.Interfaces
@@ -56,6 +57,14 @@ namespace PawSharp.Cache.Interfaces
         /// Gets cache statistics including counts per entity type and memory usage.
         /// </summary>
         CacheStats GetCacheStats();
+
+        // Async overloads — enable async-capable backends (Redis, distributed caches)
+        Task<User?> GetUserAsync(ulong userId);
+        Task<Guild?> GetGuildAsync(ulong guildId);
+        Task<Channel?> GetChannelAsync(ulong channelId);
+        Task<Message?> GetMessageAsync(ulong messageId);
+        Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId);
+        Task<Role?> GetRoleAsync(ulong roleId);
     }
 
     /// <summary>
