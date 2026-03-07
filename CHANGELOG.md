@@ -4,6 +4,87 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.10.0-alpha.3] - 2026-03-08
+
+Full developer-ergonomics pass: interactions, components, embeds, voice, webhooks, presence, and gateway events.
+
+### New Features
+
+**`InteractionHandler`** (`PawSharp.Interactions`)
+- `RegisterModal(string customId, Func<InteractionCreateEvent, Task>)` — separate registration for modal submissions (previously shared `RegisterComponent`)
+- `DeferAsync(ulong id, string token, bool ephemeral = false)` — defers a slash command interaction (response type 5)
+- `DeferComponentAsync(ulong id, string token)` — defers a component update without spinner (type 6)
+- `RespondEphemeralAsync(ulong id, string token, string content)` — sends an ephemeral message in one call (type 4, flags=64)
+
+**`InteractionResponseBuilder`** (`PawSharp.Interactions.Builders`)
+- New fluent builder for `InteractionResponse` (types 4 and 7)
+- `WithContent(string)`, `AddEmbed(Embed)`, `AddActionRow(MessageComponent)`, `AddActionRow(Action<ActionRowBuilder>)`
+- `AsEphemeral(bool = true)`, `AsUpdateMessage(bool = true)`, `Build()`
+
+**Component Builders** (`PawSharp.Interactions.Builders`)
+- All builders (`ButtonBuilder`, `SelectMenuBuilder`, `ActionRowBuilder`, etc.) now return `PawSharp.Core.Entities` typed objects (`Button`, `SelectMenu`, `ActionRow`, …), making them directly compatible with `InteractionCallbackData.Components` and `CreateMessageRequest.Components`
+- `ButtonBuilder.SetCustomEmoji(name, id, animated)` — sets a typed `Emoji` on a button
+- `ButtonBuilder.SetSkuId(ulong)` — sets Premium (type 6) button with SKU ID
+- `ButtonStyle.Premium = 6` added to `PawSharp.Core.Entities.ButtonStyle`
+- `ActionRowBuilder` enforces max-5-component guard with `InvalidOperationException`
+- New: `UserSelectMenuBuilder`, `RoleSelectMenuBuilder`, `MentionableSelectMenuBuilder`, `ChannelSelectMenuBuilder` (types 5–8); `ChannelSelectMenuBuilder.SetChannelTypes(params int[])`
+
+**`InteractionExtensions`** (`PawSharp.Interactions.Extensions`)
+- `GetOptionValue<T>` now traverses subcommand/subcommand-group option nesting automatically
+- `GetSubcommandName()` — returns the name of the active sub-command (or null)
+
+**`EmbedBuilder`** (`PawSharp.Core.Builders`)
+- `WithColor(uint color)` overload (hex-friendly: `0xFF5733`)
+- `WithoutFooter()`, `WithoutAuthor()`, `WithoutImage()`, `WithoutThumbnail()`, `ClearFields()` — convenience clear methods
+
+**`PawSharpClientBuilder`** (`PawSharp.Client`)
+- `WithPresence(activityName?, activityType = 0, status = "online", streamUrl?)` — configures the bot's initial presence/status
+
+**`DiscordClient`** (`PawSharp.Client`)
+- Sets presence on `READY` when configured via `WithPresence`
+- 26 new `On…` event wrappers covering all gateway dispatch events previously missing:
+  `OnVoiceServerUpdated`, `OnGuildEmojisUpdated`, `OnGuildStickersUpdated`, `OnGuildMembersChunked`, `OnGuildAuditLogEntryCreated`, `OnWebhooksUpdated`, `OnStageInstance{Created,Updated,Deleted}`, `OnScheduledEventUser{Added,Removed}`, `OnAutoModerationRule{Created,Updated,Deleted}`, `OnIntegration{Created,Updated,Deleted}`, `OnMessagePollVote{Added,Removed}`, `OnEntitlement{Created,Updated,Deleted}`, `OnThreadListSynced`, `OnThreadMemberUpdated`, `OnThreadMembersUpdated`, `OnApplicationCommandPermissionsUpdated`
+
+**REST — Interaction & Webhook follow-ups** (`PawSharp.API`)
+- `GetOriginalInteractionResponseAsync(applicationId, token)`
+- `GetWebhookMessageAsync(webhookId, token, messageId, threadId?)`
+- `EditWebhookMessageAsync(webhookId, token, messageId, request, threadId?)`
+- `DeleteWebhookMessageAsync(webhookId, token, messageId, threadId?)`
+
+**`VoiceConnection`** (`PawSharp.Voice`)
+- `IsPlaying` is now automatically reset to `false` when audio playback finishes (`PlaybackStopped` event)
+- New `StopPlayback()` method — stops the current stream and resets state cleanly
+
+### Bug Fixes
+
+- `InteractionHandler` was routing `ModalSubmit` interactions to `_componentHandlers` instead of the new `_modalHandlers` — now correctly routed
+- `PawSharpOptions.cs` was missing `#nullable enable`, causing spurious CS8632 warnings
+
+### Public API Changes
+
+| Symbol | Before | After |
+|--------|--------|-------|
+| `InteractionHandler.RegisterModal` | _(missing)_ | new method |
+| `InteractionHandler.DeferAsync` | _(missing)_ | new method |
+| `InteractionHandler.DeferComponentAsync` | _(missing)_ | new method |
+| `InteractionHandler.RespondEphemeralAsync` | _(missing)_ | new method |
+| `InteractionResponseBuilder` | _(missing)_ | new class |
+| `ButtonBuilder.Build()` return type | `PawSharp.Interactions.Models.MessageComponent` | `PawSharp.Core.Entities.Button` |
+| `SelectMenuBuilder.Build()` return type | `PawSharp.Interactions.Models.MessageComponent` | `PawSharp.Core.Entities.SelectMenu` |
+| `ActionRowBuilder.Build()` return type | `PawSharp.Interactions.Models.MessageComponent` | `PawSharp.Core.Entities.ActionRow` |
+| `UserSelectMenuBuilder` | _(missing)_ | new builder, returns `UserSelectMenu` |
+| `RoleSelectMenuBuilder` | _(missing)_ | new builder, returns `RoleSelectMenu` |
+| `MentionableSelectMenuBuilder` | _(missing)_ | new builder, returns `MentionableSelectMenu` |
+| `ChannelSelectMenuBuilder` | _(missing)_ | new builder, returns `ChannelSelectMenu` |
+| `EmbedBuilder.WithColor(uint)` | _(missing)_ | new overload |
+| `EmbedBuilder.Without*/ClearFields` | _(missing)_ | 5 new convenience methods |
+| `PawSharpClientBuilder.WithPresence` | _(missing)_ | new method |
+| `VoiceConnection.StopPlayback()` | _(missing)_ | new method |
+| `IDiscordRestClient.GetOriginalInteractionResponseAsync` | _(missing)_ | new method |
+| `IDiscordRestClient.Get/Edit/DeleteWebhookMessageAsync` | _(missing)_ | 3 new methods |
+
+---
+
 ## [0.10.0-alpha.2] - 2026-03-07
 
 Developer-ergonomics polish: error hooks, GC-safe singletons, and a simpler DI default.

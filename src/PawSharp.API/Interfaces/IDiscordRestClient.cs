@@ -124,6 +124,7 @@ public interface IDiscordRestClient
     
     // Interaction operations
     Task<bool> CreateInteractionResponseAsync(ulong interactionId, string interactionToken, InteractionResponse response);
+    Task<Message?> GetOriginalInteractionResponseAsync(string applicationId, string interactionToken);
     Task<HttpResponseMessage> EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request);
     Task<bool> DeleteOriginalInteractionResponseAsync(string applicationId, string interactionToken);
     
@@ -184,6 +185,9 @@ public interface IDiscordRestClient
     Task<bool> DeleteWebhookAsync(ulong webhookId);
     Task<bool> DeleteWebhookWithTokenAsync(ulong webhookId, string token);
     Task<Message?> ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId = null);
+    Task<Message?> GetWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null);
+    Task<Message?> EditWebhookMessageAsync(ulong webhookId, string token, ulong messageId, EditMessageRequest request, ulong? threadId = null);
+    Task<bool> DeleteWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null);
     
     // Scheduled Event operations
     Task<GuildScheduledEvent?> CreateGuildScheduledEventAsync(ulong guildId, CreateGuildScheduledEventRequest request);

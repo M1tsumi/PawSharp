@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using PawSharp.Core.Enums;
 
@@ -67,5 +68,30 @@ public class PawSharpOptions
         /// Maximum number of members to cache per guild (default: 1000).
         /// </summary>
         public int MaxMembersPerGuild { get; set; } = 1000;
+    }
+
+    /// <summary>
+    /// Initial bot presence shown immediately after connecting to the gateway.
+    /// When <see langword="null"/> (default) no initial presence is set and Discord
+    /// shows the bot as online with no activity.
+    /// </summary>
+    public PresenceOptions? Presence { get; set; }
+
+    /// <summary>
+    /// Initial presence configuration for the bot.
+    /// </summary>
+    public class PresenceOptions
+    {
+        /// <summary>Discord status string: "online", "idle", "dnd", or "invisible".</summary>
+        public string Status { get; set; } = "online";
+
+        /// <summary>Activity name shown in the user list (e.g. "with fire").</summary>
+        public string? ActivityName { get; set; }
+
+        /// <summary>Activity type. See <c>ActivityType</c> in PawSharp.Core.Entities.</summary>
+        public int ActivityType { get; set; } = 0; // 0 = Playing
+
+        /// <summary>Stream URL for Streaming (type 1) activities.</summary>
+        public string? StreamUrl { get; set; }
     }
 }

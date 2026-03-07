@@ -29,7 +29,9 @@ public enum ButtonStyle
     Secondary = 2,
     Success = 3,
     Danger = 4,
-    Link = 5
+    Link = 5,
+    /// <summary>Premium (App Subscription) button — requires <see cref="MessageComponent.SkuId"/> to be set.</summary>
+    Premium = 6
 }
 
 /// <summary>
@@ -72,6 +74,14 @@ public class MessageComponent
     
     [JsonPropertyName("components")]
     public List<MessageComponent>? Components { get; set; }
+
+    /// <summary>SKU identifier for Premium (type 6) buttons.</summary>
+    [JsonPropertyName("sku_id")]
+    public ulong? SkuId { get; set; }
+
+    /// <summary>Channel types that can be selected in a ChannelSelect menu.</summary>
+    [JsonPropertyName("channel_types")]
+    public List<int>? ChannelTypes { get; set; }
 }
 
 /// <summary>
