@@ -4,6 +4,37 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.10.0-alpha.2] - 2026-03-07
+
+Developer-ergonomics polish: error hooks, GC-safe singletons, and a simpler DI default.
+
+### New Features
+
+**`CommandsExtension.CommandErrored`** (`PawSharp.Commands`)
+- New `Func<CommandErrorEventArgs, Task>? CommandErrored` property on `CommandsExtension`
+- Assign a handler to receive full context when a command method throws (e.g. to send a user-facing error reply)
+- Without a handler, the original behaviour is preserved: exception is logged at `Error` level and swallowed
+- `CommandErrorEventArgs` exposes `CommandContext Context` and `Exception Exception`
+
+**`AddPawSharpWithMemoryCache`** (`PawSharp.Client.Extensions`)
+- New `services.AddPawSharpWithMemoryCache(options)` convenience overload
+- Equivalent to `AddPawSharp(options, _ => new MemoryCacheProvider())`; removes the most common cause of runtime `InvalidOperationException: IEntityCache` on first bot startup
+
+### Bug Fixes / Cleanup
+
+- **`UseCommands()`** switched from `ConcurrentDictionary` to `ConditionalWeakTable` — consistent with `UseVoice()`, prevents the extension table from extending the `DiscordClient` lifetime beyond its own scope
+- **`PawSharpClientBuilder.Build()`** — removed dead `InteractionHandler` local variable (`interactions`) that was created but never used (client creates its own instance internally)
+
+### Public API Changes
+
+| Symbol | Before | After |
+|--------|--------|-------|
+| `CommandsExtension.CommandErrored` | _(missing)_ | `Func<CommandErrorEventArgs, Task>?` |
+| `CommandErrorEventArgs` | _(missing)_ | new type: `Context`, `Exception` |
+| `AddPawSharpWithMemoryCache` | _(missing)_ | new extension method |
+
+---
+
 ## [0.10.0-alpha.1] - 2026-03-07
 
 API correctness, voice connection completion, and developer ergonomics improvements across the whole library. Includes one breaking change in interaction resolved-data types.

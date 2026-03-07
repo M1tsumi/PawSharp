@@ -12,6 +12,8 @@ using PawSharp.Core.Models;
 using PawSharp.Gateway;
 using PawSharp.Interactions;
 
+using PawSharp.Cache.Providers;
+
 namespace PawSharp.Client.Extensions;
 
 /// <summary>
@@ -86,4 +88,14 @@ public static class PawSharpServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Registers all PawSharp services with an in-memory entity cache.
+    /// Equivalent to calling <see cref="AddPawSharp(IServiceCollection,PawSharpOptions,Func{IServiceProvider,IEntityCache}?)"/>
+    /// with <c>cacheFactory: _ =&gt; new MemoryCacheProvider()</c>.
+    /// </summary>
+    public static IServiceCollection AddPawSharpWithMemoryCache(
+        this IServiceCollection services,
+        PawSharpOptions options)
+        => services.AddPawSharp(options, _ => new MemoryCacheProvider());
 }
