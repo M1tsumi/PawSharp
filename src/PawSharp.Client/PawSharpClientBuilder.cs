@@ -250,8 +250,6 @@ public sealed class PawSharpClientBuilder
             options,
             logFactory.CreateLogger<GatewayClient>());
 
-        var interactions = new InteractionHandler(rest);
-
         return new DiscordClient(
             options,
             cache,

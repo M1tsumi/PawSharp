@@ -300,6 +300,13 @@ public class CommandsExtension
     private DiscordClient? _client;
 
     /// <summary>
+    /// Invoked when a command throws an unhandled exception.
+    /// Assign a handler here to customise error reporting (e.g. send a user-facing error message).
+    /// If no handler is assigned, the exception is logged at <c>Error</c> level and swallowed.
+    /// </summary>
+    public Func<CommandErrorEventArgs, Task>? CommandErrored { get; set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="CommandsExtension"/> class.
     /// </summary>
     /// <param name="prefix">The command prefix.</param>
@@ -489,7 +496,34 @@ public class CommandsExtension
             {
                 _logger.LogError(ex, "Error executing command {Command} for user {UserId}",
                     commandName, evt.Author?.Id);
+
+                if (CommandErrored != null)
+                {
+                    try { await CommandErrored(new CommandErrorEventArgs(ctx, ex)); }
+                    catch (Exception handlerEx)
+                    {
+                        _logger.LogError(handlerEx, "CommandErrored handler itself threw for command {Command}", commandName);
+                    }
+                }
             }
         }
+    }
+}
+
+/// <summary>
+/// Event arguments passed to <see cref="CommandsExtension.CommandErrored"/> when a command throws.
+/// </summary>
+public sealed class CommandErrorEventArgs
+{
+    /// <summary>The context under which the failing command was invoked.</summary>
+    public CommandContext Context { get; }
+
+    /// <summary>The exception that was thrown by the command method.</summary>
+    public Exception Exception { get; }
+
+    internal CommandErrorEventArgs(CommandContext context, Exception exception)
+    {
+        Context   = context   ?? throw new ArgumentNullException(nameof(context));
+        Exception = exception ?? throw new ArgumentNullException(nameof(exception));
     }
 }

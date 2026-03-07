@@ -2,7 +2,7 @@
 
 A Discord bot library for .NET 8. Handles the gateway connection, REST calls, caching, slash commands, and voice.
 
-**Version:** 0.10.0-alpha.1 | **Discord API:** v10 | **Status:** alpha
+**Version:** 0.10.0-alpha.2 | **Discord API:** v10 | **Status:** alpha
 
 ---
 
