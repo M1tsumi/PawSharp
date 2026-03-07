@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 namespace PawSharp.Core.Metrics;
 
@@ -64,53 +65,58 @@ public class PerformanceMetrics : IPerformanceMetrics
     public void RecordApiRequest(string endpoint, string method, long durationMs, int statusCode)
     {
         string key = $"{method.ToUpper()} {endpoint}";
-        
-        _apiMetrics.AddOrUpdate(key, 
-            new ApiMetric { Count = 1, TotalDurationMs = durationMs, AverageDurationMs = durationMs, LastDurationMs = durationMs },
+        int errorDelta = statusCode >= 400 ? 1 : 0;
+
+        _apiMetrics.AddOrUpdate(key,
+            new ApiMetric { Count = 1, TotalDurationMs = durationMs, AverageDurationMs = durationMs, LastDurationMs = durationMs, ErrorCount = errorDelta },
             (_, metric) =>
             {
-                metric.Count++;
-                metric.TotalDurationMs += durationMs;
-                metric.AverageDurationMs = metric.TotalDurationMs / metric.Count;
-                metric.LastDurationMs = durationMs;
-                if (statusCode >= 400) metric.ErrorCount++;
-                return metric;
+                long newCount = metric.Count + 1;
+                long newTotal = metric.TotalDurationMs + durationMs;
+                return new ApiMetric
+                {
+                    Count          = newCount,
+                    TotalDurationMs  = newTotal,
+                    AverageDurationMs = newTotal / newCount,
+                    LastDurationMs   = durationMs,
+                    ErrorCount       = metric.ErrorCount + errorDelta
+                };
             });
 
-        _totalApiRequests++;
-        _totalApiDurationMs += durationMs;
-        
-        if (statusCode >= 400)
-            _totalApiErrors++;
+        Interlocked.Increment(ref _totalApiRequests);
+        Interlocked.Add(ref _totalApiDurationMs, durationMs);
+
+        if (errorDelta == 1)
+            Interlocked.Increment(ref _totalApiErrors);
     }
 
     public void RecordCacheOperation(string entityType, bool isHit)
     {
         if (isHit)
         {
-            _totalCacheHits++;
+            Interlocked.Increment(ref _totalCacheHits);
             _cacheMetrics.AddOrUpdate(entityType,
                 new CacheMetric { Hits = 1 },
-                (_, metric) => { metric.Hits++; return metric; });
+                (_, metric) => new CacheMetric { Hits = metric.Hits + 1, Misses = metric.Misses });
         }
         else
         {
-            _totalCacheMisses++;
+            Interlocked.Increment(ref _totalCacheMisses);
             _cacheMetrics.AddOrUpdate(entityType,
                 new CacheMetric { Misses = 1 },
-                (_, metric) => { metric.Misses++; return metric; });
+                (_, metric) => new CacheMetric { Hits = metric.Hits, Misses = metric.Misses + 1 });
         }
     }
 
     public void RecordGatewayMessage(string opcodeName)
     {
-        _totalGatewayMessages++;
+        Interlocked.Increment(ref _totalGatewayMessages);
         _gatewayOpcodes.AddOrUpdate(opcodeName, 1, (_, count) => count + 1);
     }
 
     public void RecordReconnection()
     {
-        _totalReconnections++;
+        Interlocked.Increment(ref _totalReconnections);
     }
 
     public MetricsSummary GetSummary()

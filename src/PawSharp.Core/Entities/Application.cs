@@ -84,7 +84,7 @@ public class Application : DiscordEntity
     public Team? Team { get; set; }
     
     /// <summary>
-    /// If the application belongs to a team, this will be a list of the members of that team.
+    /// If this application is a game sold on Discord, this field will be the ID of the guild it has been linked to.
     /// </summary>
     [JsonPropertyName("guild_id")]
     [JsonConverter(typeof(SnowflakeJsonConverter))]
