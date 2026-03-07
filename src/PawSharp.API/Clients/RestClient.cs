@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -56,12 +57,23 @@ public class DiscordRestClient : IDiscordRestClient
         _logger = logger;
         _rateLimiter = rateLimiter;
         
-        // Set base address and auth header
+        // Set base address and user-agent.
+        // Authorization is NOT set on DefaultRequestHeaders; it is added per-request
+        // in SendRequestAsync to scope credentials tightly and prevent accidental exposure.
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.1-alpha1)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.2-alpha1)");
+    }
+
+    /// <summary>
+    /// Convenience overload — creates a default <see cref="AdvancedRateLimiter"/> internally.
+    /// Consumers that register <c>DiscordRestClient</c> directly (e.g. via <c>AddHttpClient</c>)
+    /// without calling <c>AddAdvancedRateLimiter()</c> will use this overload automatically.
+    /// </summary>
+    public DiscordRestClient(HttpClient httpClient, PawSharpOptions options, ILogger<DiscordRestClient> logger)
+        : this(httpClient, options, logger, new AdvancedRateLimiter())
+    {
     }
 
     public async Task<HttpResponseMessage> GetAsync(string endpoint)
@@ -203,7 +215,34 @@ public class DiscordRestClient : IDiscordRestClient
         }
         return null;
     }
-    
+
+    public async Task<Message?> SendFileAsync(
+        ulong channelId,
+        Stream fileStream,
+        string fileName,
+        CreateMessageRequest? messageRequest = null,
+        CancellationToken cancellationToken = default)
+    {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+
+        using var form = new MultipartFormDataContent();
+
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(fileContent, "files[0]", fileName);
+
+        if (messageRequest is not null)
+        {
+            var json = JsonSerializer.Serialize(messageRequest, _jsonOptions);
+            form.Add(new StringContent(json, Encoding.UTF8, "application/json"), "payload_json");
+        }
+
+        var response = await PostAsync($"channels/{channelId}/messages", form, cancellationToken: cancellationToken);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions, cancellationToken);
+        return null;
+    }
+
     public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
     {
         var response = await GetAsync($"channels/{channelId}/messages/{messageId}");
@@ -582,6 +621,14 @@ public class DiscordRestClient : IDiscordRestClient
         var httpResponse = await PostAsync($"interactions/{interactionId}/{interactionToken}/callback", content);
         return httpResponse.IsSuccessStatusCode;
     }
+
+    public async Task<Message?> GetOriginalInteractionResponseAsync(string applicationId, string interactionToken)
+    {
+        var response = await GetAsync($"webhooks/{applicationId}/{interactionToken}/messages/@original");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
     
     public async Task<HttpResponseMessage> EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
     {
@@ -719,6 +766,9 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("BulkOverwriteGlobalApplicationCommands failed ({Status}): {Body}",
+            (int)response.StatusCode, errorBody);
         return null;
     }
     
@@ -730,6 +780,9 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("BulkOverwriteGuildApplicationCommands failed ({Status}): {Body}",
+            (int)response.StatusCode, errorBody);
         return null;
     }
     
@@ -854,13 +907,11 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId)
+    public async Task<ActiveThreadsResponse?> GetActiveThreadsAsync(ulong guildId)
     {
         var response = await GetAsync($"guilds/{guildId}/threads/active");
         if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
+            return await response.Content.ReadFromJsonAsync<ActiveThreadsResponse>(_jsonOptions);
         return null;
     }
     
@@ -1000,6 +1051,35 @@ public class DiscordRestClient : IDiscordRestClient
             return await response.Content.ReadFromJsonAsync<Message>();
         }
         return null;
+    }
+
+    public async Task<Message?> GetWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    public async Task<Message?> EditWebhookMessageAsync(ulong webhookId, string token, ulong messageId, EditMessageRequest request, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var content = JsonContent(request);
+        var response = await PatchAsync(endpoint, content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    public async Task<bool> DeleteWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var response = await DeleteAsync(endpoint);
+        return response.IsSuccessStatusCode;
     }
     
     // Scheduled Event operations
@@ -1637,10 +1717,12 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    public async Task<bool> DeleteInviteAsync(string inviteCode, string? reason = null)
+    public async Task<Invite?> DeleteInviteAsync(string inviteCode, string? reason = null)
     {
         var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Invite>();
+        return null;
     }
 
     // Guild Templates
@@ -1942,12 +2024,12 @@ public class DiscordRestClient : IDiscordRestClient
 
     // -- Guild Incident Actions ------------------------------------------------
 
-    public async Task<object?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request)
+    public async Task<GuildIncidentActionsResponse?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request)
     {
         var content = JsonContent(request);
         var response = await PutAsync($"guilds/{guildId}/incident-actions", content);
         if (response.IsSuccessStatusCode)
-            return await response.Content.ReadFromJsonAsync<ModifyGuildIncidentActionsRequest>(_jsonOptions);
+            return await response.Content.ReadFromJsonAsync<GuildIncidentActionsResponse>(_jsonOptions);
         return null;
     }
 
@@ -1975,10 +2057,76 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
 
+    // -- Soundboard -------------------------------------------------------
+
+    /// <summary>POST /channels/{channel.id}/send-soundboard-sound</summary>
+    public async Task<bool> SendSoundboardSoundAsync(ulong channelId, SendSoundboardSoundRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync($"channels/{channelId}/send-soundboard-sound", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    // -- Voice States -----------------------------------------------------
+
+    /// <summary>PATCH /guilds/{guild.id}/voice-states/@me</summary>
+    public async Task<bool> ModifyCurrentUserVoiceStateAsync(ulong guildId, ModifyCurrentUserVoiceStateRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}/voice-states/@me", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>PATCH /guilds/{guild.id}/voice-states/{user.id}</summary>
+    public async Task<bool> ModifyUserVoiceStateAsync(ulong guildId, ulong userId, ModifyUserVoiceStateRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}/voice-states/{userId}", content);
+        return response.IsSuccessStatusCode;
+    }
+
+    // -- User Application Role Connection ---------------------------------
+
+    /// <summary>GET /users/@me/applications/{application.id}/role-connection</summary>
+    public async Task<ApplicationRoleConnection?> GetUserApplicationRoleConnectionAsync(ulong applicationId)
+    {
+        var response = await GetAsync($"users/@me/applications/{applicationId}/role-connection");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<ApplicationRoleConnection>(_jsonOptions);
+        return null;
+    }
+
+    /// <summary>PUT /users/@me/applications/{application.id}/role-connection</summary>
+    public async Task<ApplicationRoleConnection?> UpdateUserApplicationRoleConnectionAsync(ulong applicationId, UpdateUserApplicationRoleConnectionRequest request)
+    {
+        var content = JsonContent(request);
+        var response = await PutAsync($"users/@me/applications/{applicationId}/role-connection", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<ApplicationRoleConnection>(_jsonOptions);
+        return null;
+    }
+
     private const int MaxRateLimitRetries = 5;
 
-    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string endpoint, HttpContent? content, string? reason = null, CancellationToken cancellationToken = default, int retryCount = 0)
+    private async Task<HttpResponseMessage> SendRequestAsync(
+        HttpMethod method,
+        string endpoint,
+        HttpContent? content,
+        string? reason = null,
+        CancellationToken cancellationToken = default,
+        int retryCount = 0,
+        byte[]? bufferedContentBytes = null,
+        string? bufferedContentType = null)
     {
+        // Buffer request body once so retries can reconstruct fresh HttpContent.
+        // HttpClient disposes the content object after SendAsync; reusing it throws
+        // ObjectDisposedException on any rate-limited POST/PATCH/PUT retry.
+        if (content is not null && bufferedContentBytes is null)
+        {
+            bufferedContentBytes = await content.ReadAsByteArrayAsync(cancellationToken);
+            bufferedContentType  = content.Headers.ContentType?.ToString();
+        }
+
         // Global rate limit check
         if (DateTimeOffset.UtcNow < _globalReset)
         {
@@ -2002,8 +2150,19 @@ public class DiscordRestClient : IDiscordRestClient
             route = $"{method.Method} {endpoint.Split('?')[0]}";
         }
 
-        var request = new HttpRequestMessage(method, endpoint) { Content = content };
-        
+        // Build a fresh HttpRequestMessage per attempt.
+        // Authorization is set here rather than on DefaultRequestHeaders so that
+        // credentials are scoped to individual request objects.
+        var request = new HttpRequestMessage(method, endpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
+        if (bufferedContentBytes is { Length: > 0 })
+        {
+            var bc = new ByteArrayContent(bufferedContentBytes);
+            if (bufferedContentType is not null)
+                bc.Headers.TryAddWithoutValidation("Content-Type", bufferedContentType);
+            request.Content = bc;
+        }
+
         // Add audit log reason header if provided
         if (!string.IsNullOrEmpty(reason))
         {
@@ -2035,23 +2194,37 @@ public class DiscordRestClient : IDiscordRestClient
 
             if (retryCount >= MaxRateLimitRetries)
             {
-                _logger.LogError("Rate limit retry limit ({Max}) exceeded for {Method} {Endpoint}", MaxRateLimitRetries, method, endpoint);
+                _logger.LogError("Rate limit retry limit ({Max}) exceeded for {Method} {Endpoint}",
+                    MaxRateLimitRetries, method, RedactWebhookToken(endpoint));
                 return response; // Return the 429 response rather than looping forever
             }
 
-            return await SendRequestAsync(method, endpoint, content, reason, cancellationToken, retryCount + 1); // Retry
+            // Pass buffered bytes so the retry reconstructs a fresh HttpContent.
+            return await SendRequestAsync(method, endpoint, null, reason, cancellationToken,
+                retryCount + 1, bufferedContentBytes, bufferedContentType); // Retry
         }
 
         // Mark request as complete
         _rateLimiter.MarkRequestComplete(route, bucketHash);
 
-        if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalVals) && bool.Parse(globalVals.FirstOrDefault() ?? "false"))
+        // Use TryGetValues to avoid InvalidOperationException when Retry-After is absent.
+        if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalVals) &&
+            bool.Parse(globalVals.FirstOrDefault() ?? "false") &&
+            response.Headers.TryGetValues("Retry-After", out var retryAfterVals) &&
+            double.TryParse(retryAfterVals.FirstOrDefault(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var retryAfterSecs))
         {
-            _globalReset = DateTimeOffset.UtcNow.AddSeconds(double.Parse(response.Headers.GetValues("Retry-After").First()));
+            _globalReset = DateTimeOffset.UtcNow.AddSeconds(retryAfterSecs);
         }
 
         return response;
     }
+
+    /// <summary>Replaces webhook token segments in endpoint paths with REDACTED for safe log output.</summary>
+    private static string RedactWebhookToken(string endpoint) =>
+        System.Text.RegularExpressions.Regex.Replace(endpoint, @"(?<=webhooks/\d+/)[^/?]+", "REDACTED");
 
     private void ParseAndUpdateRateLimits(HttpResponseMessage response, string route, ref string? bucketHash)
     {

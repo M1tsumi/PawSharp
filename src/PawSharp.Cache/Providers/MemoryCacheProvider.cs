@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Core.Entities;
 
@@ -24,6 +25,9 @@ namespace PawSharp.Cache.Providers
         private const int MaxEntityCacheSize = 5000; // Maximum entities per type
         private readonly object _cleanupLock = new object();
         private DateTime _lastCleanup = DateTime.UtcNow;
+        // Min-heap ordered by expiration: O(log n) insert, O(1) peek, O(log n) dequeue.
+        // Items without expiration are excluded; they are evicted last.
+        private readonly PriorityQueue<string, DateTime> _expirationQueue = new();
 
         // Statistics
         public int CacheSize => _cache.Count;
@@ -56,6 +60,15 @@ namespace PawSharp.Cache.Providers
         {
             var cacheItem = new CacheItem(value, expiration.HasValue ? DateTime.UtcNow.Add(expiration.Value) : (DateTime?)null);
             _cache[key] = cacheItem;
+
+            // Track expiring items in the heap so cleanup is O(log n) not O(n log n)
+            if (cacheItem.Expiration.HasValue)
+            {
+                lock (_cleanupLock)
+                {
+                    _expirationQueue.Enqueue(key, cacheItem.Expiration.Value);
+                }
+            }
 
             // Perform bounded caching cleanup if necessary
             if (_cache.Count > MaxCacheSize)
@@ -108,27 +121,29 @@ namespace PawSharp.Cache.Providers
 
                 _lastCleanup = DateTime.UtcNow;
 
-                // Remove expired items first
-                var expiredKeys = _cache.Where(kvp => kvp.Value.IsExpired).Select(kvp => kvp.Key).ToList();
-                foreach (var key in expiredKeys)
+                // Drain the heap: dequeue all entries whose expiration has passed.
+                // This is O(k log n) where k = number of expired items, vs O(n log n) for full sort.
+                var now = DateTime.UtcNow;
+                while (_expirationQueue.TryPeek(out _, out var soonest) && soonest <= now)
                 {
-                    _cache.TryRemove(key, out _);
+                    if (_expirationQueue.TryDequeue(out var expiredKey, out _))
+                        _cache.TryRemove(expiredKey, out _);
                 }
 
-                // If still over limit, remove oldest items (LRU approximation)
+                // If still over limit, evict by soonest expiration first (cheapest to lose).
+                // Non-expiring items are not in the heap and are kept longest.
+                while (_cache.Count > MaxCacheSize && _expirationQueue.TryDequeue(out var victimKey, out _))
+                {
+                    _cache.TryRemove(victimKey, out _);
+                }
+
+                // Last resort: the cache is over limit and no expiring items remain.
+                // Evict an arbitrary batch (keys() snapshot is O(n) but this path is rare).
                 if (_cache.Count > MaxCacheSize)
                 {
-                    var itemsToRemove = _cache.Count - MaxCacheSize;
-                    var keysToRemove = _cache
-                        .OrderBy(kvp => kvp.Value.Expiration ?? DateTime.MaxValue)
-                        .Take(itemsToRemove)
-                        .Select(kvp => kvp.Key)
-                        .ToList();
-
-                    foreach (var key in keysToRemove)
-                    {
+                    var overflow = _cache.Count - MaxCacheSize;
+                    foreach (var key in _cache.Keys.Take(overflow).ToList())
                         _cache.TryRemove(key, out _);
-                    }
                 }
             }
         }
@@ -359,6 +374,14 @@ namespace PawSharp.Cache.Providers
             // Rough estimate - would need more sophisticated calculation for accurate numbers
             return GC.GetTotalMemory(false);
         }
+
+        // Async overloads — in-memory provider delegates to sync methods via Task.FromResult
+        public Task<User?> GetUserAsync(ulong userId) => Task.FromResult(GetUser(userId));
+        public Task<Guild?> GetGuildAsync(ulong guildId) => Task.FromResult(GetGuild(guildId));
+        public Task<Channel?> GetChannelAsync(ulong channelId) => Task.FromResult(GetChannel(channelId));
+        public Task<Message?> GetMessageAsync(ulong messageId) => Task.FromResult(GetMessage(messageId));
+        public Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId) => Task.FromResult(GetGuildMember(guildId, userId));
+        public Task<Role?> GetRoleAsync(ulong roleId) => Task.FromResult(GetRole(roleId));
 
         private class CacheItem
         {

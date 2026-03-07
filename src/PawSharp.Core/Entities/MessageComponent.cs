@@ -19,6 +19,21 @@ public enum ComponentType
     RoleSelect         = 6,
     MentionableSelect  = 7,
     ChannelSelect      = 8,
+    // Components v2 (released 2025)
+    Section            = 9,
+    TextDisplay        = 10,
+    Thumbnail          = 11,
+    MediaGallery       = 12,
+    File               = 13,
+    Separator          = 14,
+    Container          = 17,
+}
+
+/// <summary>Spacing size for a <see cref="Separator"/> component.</summary>
+public enum SeparatorSpacing
+{
+    Small = 1,
+    Large = 2,
 }
 
 /// <summary>Visual style of a button component.</summary>
@@ -68,6 +83,14 @@ public sealed class MessageComponentJsonConverter : JsonConverter<MessageCompone
             ComponentType.RoleSelect        => JsonSerializer.Deserialize<RoleSelectMenu>(raw, options),
             ComponentType.MentionableSelect => JsonSerializer.Deserialize<MentionableSelectMenu>(raw, options),
             ComponentType.ChannelSelect     => JsonSerializer.Deserialize<ChannelSelectMenu>(raw, options),
+            // Components v2
+            ComponentType.Section           => JsonSerializer.Deserialize<Section>(raw, options),
+            ComponentType.TextDisplay       => JsonSerializer.Deserialize<TextDisplay>(raw, options),
+            ComponentType.Thumbnail         => JsonSerializer.Deserialize<ThumbnailComponent>(raw, options),
+            ComponentType.MediaGallery      => JsonSerializer.Deserialize<MediaGallery>(raw, options),
+            ComponentType.File              => JsonSerializer.Deserialize<FileComponent>(raw, options),
+            ComponentType.Separator         => JsonSerializer.Deserialize<Separator>(raw, options),
+            ComponentType.Container         => JsonSerializer.Deserialize<Container>(raw, options),
             _                               => JsonSerializer.Deserialize<UnknownComponent>(raw, options),
         };
     }
@@ -303,4 +326,188 @@ public class SelectDefaultValue
     /// <summary>Type of the default value: "user", "role", or "channel".</summary>
     [JsonPropertyName("type")]
     public string Type { get; set; } = string.Empty;
+}
+
+// ── Components v2 ─────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Media item used in <see cref="ThumbnailComponent"/>, <see cref="MediaGallery"/>,
+/// and <see cref="FileComponent"/> components.
+/// </summary>
+public class UnfurledMediaItem
+{
+    /// <summary>The URL of the media. Can be a discord CDN URL, attachment://, or external URL.</summary>
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = string.Empty;
+
+    /// <summary>Proxied URL of the media (set by Discord).</summary>
+    [JsonPropertyName("proxy_url")]
+    public string? ProxyUrl { get; set; }
+
+    /// <summary>Height of the media in pixels.</summary>
+    [JsonPropertyName("height")]
+    public int? Height { get; set; }
+
+    /// <summary>Width of the media in pixels.</summary>
+    [JsonPropertyName("width")]
+    public int? Width { get; set; }
+
+    /// <summary>Media content type.</summary>
+    [JsonPropertyName("content_type")]
+    public string? ContentType { get; set; }
+}
+
+/// <summary>
+/// One item inside a <see cref="MediaGallery"/> component.
+/// </summary>
+public class MediaGalleryItem
+{
+    /// <summary>The media for this item.</summary>
+    [JsonPropertyName("media")]
+    public UnfurledMediaItem Media { get; set; } = new();
+
+    /// <summary>Optional description (alt-text) for the media item.</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Whether this item is a spoiler (blurred until clicked).</summary>
+    [JsonPropertyName("spoiler")]
+    public bool? Spoiler { get; set; }
+}
+
+// ── Section (type 9) ─────────────────────────────────────────────────────────
+
+/// <summary>
+/// A Section component (type 9) groups TextDisplay child components alongside
+/// an optional right-side accessory (Button or Thumbnail).
+/// Only valid as a top-level component inside a Container.
+/// </summary>
+public class Section : MessageComponent
+{
+    public Section() => Type = ComponentType.Section;
+
+    /// <summary>
+    /// Child components — must contain only <see cref="TextDisplay"/> components.
+    /// </summary>
+    [JsonPropertyName("components")]
+    public List<MessageComponent> Components { get; set; } = new();
+
+    /// <summary>
+    /// Optional right-side accessory — a <see cref="Button"/> or <see cref="ThumbnailComponent"/>.
+    /// </summary>
+    [JsonPropertyName("accessory")]
+    public MessageComponent? Accessory { get; set; }
+}
+
+// ── TextDisplay (type 10) ─────────────────────────────────────────────────────
+
+/// <summary>
+/// A TextDisplay component (type 10) renders markdown text inside a Section or Container.
+/// </summary>
+public class TextDisplay : MessageComponent
+{
+    public TextDisplay() => Type = ComponentType.TextDisplay;
+
+    /// <summary>Text content supporting Discord markdown (max 4000 characters).</summary>
+    [JsonPropertyName("content")]
+    public string Content { get; set; } = string.Empty;
+}
+
+// ── Thumbnail (type 11) ───────────────────────────────────────────────────────
+
+/// <summary>
+/// A Thumbnail component (type 11) shows an image; used as the accessory in a Section.
+/// </summary>
+public class ThumbnailComponent : MessageComponent
+{
+    public ThumbnailComponent() => Type = ComponentType.Thumbnail;
+
+    /// <summary>The media to display.</summary>
+    [JsonPropertyName("media")]
+    public UnfurledMediaItem Media { get; set; } = new();
+
+    /// <summary>Optional alt text / description for the image.</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Whether to spoiler (blur) the image.</summary>
+    [JsonPropertyName("spoiler")]
+    public bool? Spoiler { get; set; }
+}
+
+// ── MediaGallery (type 12) ────────────────────────────────────────────────────
+
+/// <summary>
+/// A MediaGallery component (type 12) displays a sorted collection of media attachments.
+/// </summary>
+public class MediaGallery : MessageComponent
+{
+    public MediaGallery() => Type = ComponentType.MediaGallery;
+
+    /// <summary>Items to display (1–10 items).</summary>
+    [JsonPropertyName("items")]
+    public List<MediaGalleryItem> Items { get; set; } = new();
+}
+
+// ── File (type 13) ────────────────────────────────────────────────────────────
+
+/// <summary>
+/// A File component (type 13) renders a file attachment inline in the message.
+/// </summary>
+public class FileComponent : MessageComponent
+{
+    public FileComponent() => Type = ComponentType.File;
+
+    /// <summary>
+    /// Reference to the attachment file.
+    /// Use an <c>attachment://</c> URL to reference one of the message's attachments.
+    /// </summary>
+    [JsonPropertyName("file")]
+    public UnfurledMediaItem File { get; set; } = new();
+
+    /// <summary>Whether the file should be a spoiler.</summary>
+    [JsonPropertyName("spoiler")]
+    public bool? Spoiler { get; set; }
+}
+
+// ── Separator (type 14) ───────────────────────────────────────────────────────
+
+/// <summary>
+/// A Separator component (type 14) adds a visual divider between other components.
+/// </summary>
+public class Separator : MessageComponent
+{
+    public Separator() => Type = ComponentType.Separator;
+
+    /// <summary>Whether to render a visible dividing line. Defaults to true.</summary>
+    [JsonPropertyName("divider")]
+    public bool? Divider { get; set; }
+
+    /// <summary>Spacing above / below the separator.</summary>
+    [JsonPropertyName("spacing")]
+    public SeparatorSpacing? Spacing { get; set; }
+}
+
+// ── Container (type 17) ───────────────────────────────────────────────────────
+
+/// <summary>
+/// A Container component (type 17) is the top-level grouping element for Components v2.
+/// It can contain ActionRows (for interactive elements), Sections, MediaGalleries,
+/// Files, Separators, and TextDisplays.
+/// </summary>
+public class Container : MessageComponent
+{
+    public Container() => Type = ComponentType.Container;
+
+    /// <summary>Child components.</summary>
+    [JsonPropertyName("components")]
+    public List<MessageComponent> Components { get; set; } = new();
+
+    /// <summary>Optional side-bar accent colour (integer, same format as role/embed colours).</summary>
+    [JsonPropertyName("accent_color")]
+    public int? AccentColor { get; set; }
+
+    /// <summary>Whether the entire container is a spoiler.</summary>
+    [JsonPropertyName("spoiler")]
+    public bool? Spoiler { get; set; }
 }

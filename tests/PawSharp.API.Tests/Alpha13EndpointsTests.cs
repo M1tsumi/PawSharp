@@ -303,34 +303,37 @@ public class Alpha13EndpointsTests
     }
 
     [Fact]
-    public async Task DeleteInviteAsync_Returns_True_On_Success()
+    public async Task DeleteInviteAsync_Returns_Invite_On_Success()
     {
-        _mock.Setup(r => r.DeleteInviteAsync("abc123", null)).ReturnsAsync(true);
+        var invite = new Invite { Code = "abc123" };
+        _mock.Setup(r => r.DeleteInviteAsync("abc123", null)).ReturnsAsync(invite);
 
         var result = await _mock.Object.DeleteInviteAsync("abc123");
 
-        result.Should().BeTrue();
+        result.Should().NotBeNull();
+        result!.Code.Should().Be("abc123");
     }
 
     [Fact]
     public async Task DeleteInviteAsync_Accepts_AuditLog_Reason()
     {
-        _mock.Setup(r => r.DeleteInviteAsync("abc123", "Spam link")).ReturnsAsync(true);
+        var invite = new Invite { Code = "abc123" };
+        _mock.Setup(r => r.DeleteInviteAsync("abc123", "Spam link")).ReturnsAsync(invite);
 
         var result = await _mock.Object.DeleteInviteAsync("abc123", reason: "Spam link");
 
-        result.Should().BeTrue();
+        result.Should().NotBeNull();
     }
 
     [Fact]
-    public async Task DeleteInviteAsync_Returns_False_On_Failure()
+    public async Task DeleteInviteAsync_Returns_Null_On_Failure()
     {
         _mock.Setup(r => r.DeleteInviteAsync(It.IsAny<string>(), It.IsAny<string?>()))
-             .ReturnsAsync(false);
+             .ReturnsAsync((Invite?)null);
 
         var result = await _mock.Object.DeleteInviteAsync("invalid");
 
-        result.Should().BeFalse();
+        result.Should().BeNull();
     }
 
     // ─── Guild Templates ──────────────────────────────────────────────────────

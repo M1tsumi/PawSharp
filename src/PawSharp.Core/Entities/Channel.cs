@@ -30,6 +30,12 @@ public class Channel : DiscordEntity
     /// </summary>
     [JsonPropertyName("position")]
     public int? Position { get; set; }
+
+    /// <summary>
+    /// Explicit permission overwrites for members and roles.
+    /// </summary>
+    [JsonPropertyName("permission_overwrites")]
+    public List<Overwrite>? PermissionOverwrites { get; set; }
     
     /// <summary>
     /// The name of the channel (1-100 characters).

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -77,6 +78,7 @@ public interface IDiscordRestClient
     
     // Message operations
     Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request);
+    Task<Message?> SendFileAsync(ulong channelId, Stream fileStream, string fileName, CreateMessageRequest? messageRequest = null, CancellationToken cancellationToken = default);
     Task<Message?> GetMessageAsync(ulong channelId, ulong messageId);
     Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request);
     Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId);
@@ -122,6 +124,7 @@ public interface IDiscordRestClient
     
     // Interaction operations
     Task<bool> CreateInteractionResponseAsync(ulong interactionId, string interactionToken, InteractionResponse response);
+    Task<Message?> GetOriginalInteractionResponseAsync(string applicationId, string interactionToken);
     Task<HttpResponseMessage> EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request);
     Task<bool> DeleteOriginalInteractionResponseAsync(string applicationId, string interactionToken);
     
@@ -166,7 +169,7 @@ public interface IDiscordRestClient
     Task<bool> RemoveThreadMemberAsync(ulong channelId, ulong userId);
     Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId);
     Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId);
-    Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId);
+    Task<ActiveThreadsResponse?> GetActiveThreadsAsync(ulong guildId);
     Task<ArchivedThreadsResponse?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     Task<ArchivedThreadsResponse?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     Task<ArchivedThreadsResponse?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
@@ -182,6 +185,9 @@ public interface IDiscordRestClient
     Task<bool> DeleteWebhookAsync(ulong webhookId);
     Task<bool> DeleteWebhookWithTokenAsync(ulong webhookId, string token);
     Task<Message?> ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId = null);
+    Task<Message?> GetWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null);
+    Task<Message?> EditWebhookMessageAsync(ulong webhookId, string token, ulong messageId, EditMessageRequest request, ulong? threadId = null);
+    Task<bool> DeleteWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null);
     
     // Scheduled Event operations
     Task<GuildScheduledEvent?> CreateGuildScheduledEventAsync(ulong guildId, CreateGuildScheduledEventRequest request);
@@ -303,7 +309,7 @@ public interface IDiscordRestClient
 
     // Invite lookup and deletion
     Task<Invite?> GetInviteAsync(string inviteCode, bool? withCounts = null, bool? withExpiration = null, ulong? guildScheduledEventId = null);
-    Task<bool> DeleteInviteAsync(string inviteCode, string? reason = null);
+    Task<Invite?> DeleteInviteAsync(string inviteCode, string? reason = null);
 
     // Guild Templates
     Task<List<GuildTemplate>?> GetGuildTemplatesAsync(ulong guildId);
@@ -359,7 +365,7 @@ public interface IDiscordRestClient
     Task<Dictionary<string, int>?> GetGuildRoleMemberCountsAsync(ulong guildId);
 
     // Guild incident actions
-    Task<object?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request);
+    Task<GuildIncidentActionsResponse?> ModifyGuildIncidentActionsAsync(ulong guildId, ModifyGuildIncidentActionsRequest request);
 
     // Current user guild member
     Task<GuildMember?> GetCurrentUserGuildMemberAsync(ulong guildId);
@@ -367,4 +373,15 @@ public interface IDiscordRestClient
     // Reaction extras
     Task<bool> DeleteAllReactionsAsync(ulong channelId, ulong messageId);
     Task<bool> DeleteAllReactionsForEmojiAsync(ulong channelId, ulong messageId, string emoji);
+
+    // Soundboard
+    Task<bool> SendSoundboardSoundAsync(ulong channelId, SendSoundboardSoundRequest request);
+
+    // Voice states
+    Task<bool> ModifyCurrentUserVoiceStateAsync(ulong guildId, ModifyCurrentUserVoiceStateRequest request);
+    Task<bool> ModifyUserVoiceStateAsync(ulong guildId, ulong userId, ModifyUserVoiceStateRequest request);
+
+    // User application role connection
+    Task<ApplicationRoleConnection?> GetUserApplicationRoleConnectionAsync(ulong applicationId);
+    Task<ApplicationRoleConnection?> UpdateUserApplicationRoleConnectionAsync(ulong applicationId, UpdateUserApplicationRoleConnectionRequest request);
 }

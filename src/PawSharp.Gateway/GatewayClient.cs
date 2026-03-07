@@ -33,6 +33,8 @@ namespace PawSharp.Gateway
         /// </remarks>
         private string? _resumeSessionId;
         private int? _resumeSequence;
+        private DateTimeOffset? _lastHeartbeatSent;
+        private TimeSpan? _lastHeartbeatLatency;
 
         /// <summary>
         /// Fired when the gateway state changes.
@@ -107,11 +109,17 @@ namespace PawSharp.Gateway
         /// </summary>
         public GatewayState CurrentState => _currentState;
 
+        /// <inheritdoc/>
+        public string? SessionId => _resumeSessionId;
+
+        /// <inheritdoc/>
+        public TimeSpan? LastHeartbeatLatency => _lastHeartbeatLatency;
+
         public async Task ConnectAsync()
         {
             if (_currentState != GatewayState.Disconnected)
             {
-                _logger.LogWarning($"Cannot connect - already in state {_currentState}");
+                _logger.LogWarning("Cannot connect - already in state {State}", _currentState);
                 return;
             }
 
@@ -192,7 +200,7 @@ namespace PawSharp.Gateway
 
                 var json = JsonSerializer.Serialize(presencePayload);
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
-                _logger.LogInformation($"Updated presence to: {status}");
+                _logger.LogInformation("Updated presence to: {Status}", status);
             }
             catch (Exception ex)
             {
@@ -220,7 +228,7 @@ namespace PawSharp.Gateway
 
                 var json = JsonSerializer.Serialize(requestPayload);
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
-                _logger.LogInformation($"Requested guild members for guild {guildId}");
+                _logger.LogInformation("Requested guild members for guild {GuildId}", guildId);
             }
             catch (Exception ex)
             {
@@ -265,7 +273,7 @@ namespace PawSharp.Gateway
             {
                 var oldState = _currentState;
                 _currentState = newState;
-                _logger.LogInformation($"Gateway state: {oldState} -> {newState}");
+                _logger.LogInformation("Gateway state: {OldState} -> {NewState}", oldState, newState);
                 if (OnStateChanged is { } handler) await handler(oldState, newState);
             }
             await Task.CompletedTask;
@@ -292,6 +300,7 @@ namespace PawSharp.Gateway
                 };
 
                 var json = JsonSerializer.Serialize(identifyPayload);
+                // SECURITY: Do not log the 'json' variable — it contains the bot token in plaintext.
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Sent identify payload.");
             }
@@ -380,14 +389,14 @@ namespace PawSharp.Gateway
                     _resumeSequence = s.Value;
                 }
 
-                _logger.LogDebug($"Received Gateway message: op={op}, t={t}, seq={s}");
+                _logger.LogDebug("Received Gateway message: op={Op}, t={EventType}, seq={Seq}", op, t, s);
 
                 switch (op)
                 {
                     case 0: // Dispatch — Server event
                         if (!string.IsNullOrEmpty(t))
                         {
-                            _logger.LogDebug($"Dispatching event: {t}");
+                            _logger.LogDebug("Dispatching event: {EventType}", t);
                             await HandleDispatchEventAsync(t, d.GetRawText());
                         }
                         break;
@@ -442,10 +451,12 @@ namespace PawSharp.Gateway
                         break;
                     case 11: // Heartbeat ACK — Server heartbeat response
                         _logger.LogDebug("Heartbeat acknowledged");
+                        if (_lastHeartbeatSent.HasValue)
+                            _lastHeartbeatLatency = DateTimeOffset.UtcNow - _lastHeartbeatSent.Value;
                         await _heartbeatManager.ReceiveAckAsync();
                         break;
                     default:
-                        _logger.LogDebug($"Unhandled opcode: {op}");
+                        _logger.LogDebug("Unhandled opcode: {Op}", op);
                         break;
                 }
             }
@@ -462,7 +473,7 @@ namespace PawSharp.Gateway
                 if (data.TryGetProperty("heartbeat_interval", out var intervalProp))
                 {
                     int interval = intervalProp.GetInt32();
-                    _logger.LogInformation($"Received heartbeat interval: {interval}ms");
+                    _logger.LogInformation("Received heartbeat interval: {Interval}ms", interval);
                     
                     _heartbeatManager.Stop();
                     _heartbeatManager = new HeartbeatManager(interval, SendHeartbeatAsync, _logger, _options.MaxMissedHeartbeatAcks);
@@ -485,10 +496,11 @@ namespace PawSharp.Gateway
         {
             try
             {
+                _lastHeartbeatSent = DateTimeOffset.UtcNow;
                 var heartbeatPayload = new { op = 1, d = _resumeSequence ?? (object?)null };
                 var json = JsonSerializer.Serialize(heartbeatPayload);
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
-                _logger.LogDebug($"Sent heartbeat (seq={_resumeSequence})");
+                _logger.LogDebug("Sent heartbeat (seq={Seq})", _resumeSequence);
             }
             catch (Exception ex)
             {
@@ -520,7 +532,7 @@ namespace PawSharp.Gateway
                 };
                 var json = JsonSerializer.Serialize(voiceStatePayload);
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
-                _logger.LogDebug($"Sent voice state update for guild {guildId}, channel {channelId}");
+                _logger.LogDebug("Sent voice state update for guild {GuildId}, channel {ChannelId}", guildId, channelId);
             }
             catch (Exception ex)
             {
@@ -772,13 +784,13 @@ namespace PawSharp.Gateway
                         await _eventDispatcher.DispatchFromJsonAsync<IntegrationDeleteEvent>(eventType, eventData);
                         break;
                     default:
-                        _logger.LogDebug($"Unhandled event type: {eventType}");
+                        _logger.LogDebug("Unhandled event type: {EventType}", eventType);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error dispatching event {eventType}");
+                _logger.LogError(ex, "Error dispatching event {EventType}", eventType);
             }
             
             await Task.CompletedTask;

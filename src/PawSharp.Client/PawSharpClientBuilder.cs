@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Net;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -48,6 +49,7 @@ public sealed class PawSharpClientBuilder
     private ILoggerFactory?  _loggerFactory;
     private IEntityCache?    _cache;
     private HttpClient?      _httpClient;
+    private PawSharpOptions.PresenceOptions? _presence;
 
     // ── Token ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,20 @@ public sealed class PawSharpClientBuilder
     {
         if (string.IsNullOrWhiteSpace(token))
             throw new ArgumentException("Bot token must not be null or empty.", nameof(token));
+
+        // Strip the "Bot " prefix before format-validating the raw token.
+        var rawToken = token.StartsWith("Bot ", StringComparison.OrdinalIgnoreCase)
+            ? token.Substring(4)
+            : token;
+
+        // Discord bot tokens are three Base64url segments separated by '.'.
+        // Rejecting obviously wrong values (webhook URLs, client secrets) early
+        // produces a clear error rather than a silent HTTP 401 later.
+        if (rawToken.Split('.').Length != 3)
+            throw new ArgumentException(
+                "The provided value does not appear to be a valid Discord bot token. " +
+                "Ensure you are using a bot token, not a client secret or webhook URL.",
+                nameof(token));
 
         // Accept both "Bot TOKEN" and raw "TOKEN" formats
         _token = token.StartsWith("Bot ", StringComparison.OrdinalIgnoreCase)
@@ -191,6 +207,34 @@ public sealed class PawSharpClientBuilder
         return this;
     }
 
+    // ── Presence ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sets the bot's initial presence shown immediately after the gateway READY event.
+    /// </summary>
+    /// <param name="activityName">Activity text shown in the user list (e.g. "with fire").</param>
+    /// <param name="activityType">
+    /// Activity type integer: 0 = Playing (default), 1 = Streaming, 2 = Listening,
+    /// 3 = Watching, 5 = Competing.
+    /// </param>
+    /// <param name="status">Discord status: "online" (default), "idle", "dnd", or "invisible".</param>
+    /// <param name="streamUrl">Stream URL required when <paramref name="activityType"/> is 1 (Streaming).</param>
+    public PawSharpClientBuilder WithPresence(
+        string? activityName,
+        int activityType = 0,
+        string status = "online",
+        string? streamUrl = null)
+    {
+        _presence = new PawSharpOptions.PresenceOptions
+        {
+            Status       = status,
+            ActivityName = activityName,
+            ActivityType = activityType,
+            StreamUrl    = streamUrl,
+        };
+        return this;
+    }
+
     // ── Build ──────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -211,11 +255,19 @@ public sealed class PawSharpClientBuilder
             Shards             = _shards,
             ShardCount         = _shardCount,
             EnableCompression  = _compression,
+            Presence           = _presence,
         };
 
         var logFactory = _loggerFactory ?? NullLoggerFactory.Instance;
         var cache      = _cache         ?? new MemoryCacheProvider();
-        var http       = _httpClient    ?? new HttpClient();
+        var http       = _httpClient    ?? new HttpClient(new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = true
+        })
+        {
+            DefaultRequestVersion = HttpVersion.Version20,
+            DefaultVersionPolicy  = HttpVersionPolicy.RequestVersionOrLower,
+        };
         var limiter    = new AdvancedRateLimiter();
 
         var rest = new DiscordRestClient(
@@ -227,8 +279,6 @@ public sealed class PawSharpClientBuilder
         var gateway = new GatewayClient(
             options,
             logFactory.CreateLogger<GatewayClient>());
-
-        var interactions = new InteractionHandler(rest);
 
         return new DiscordClient(
             options,
