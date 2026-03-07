@@ -4,6 +4,82 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.10.0-alpha.1] - 2026-03-07
+
+API correctness, voice connection completion, and developer ergonomics improvements across the whole library. Includes one breaking change in interaction resolved-data types.
+
+### Breaking Changes
+
+- **`InteractionResolvedData` and `ResolvedData` keys changed from `string` to `ulong`** — Discord sends resolved-data maps with snowflake string keys. Both classes in `PawSharp.Gateway.Events` and `PawSharp.Core.Entities` previously used `Dictionary<string, T>`, requiring callers to `.ToString()` every lookup. They now use `Dictionary<ulong, T>` backed by the new `SnowflakeDictionaryJsonConverterFactory`, so lookups use the numeric ID directly.
+- **`DeleteInviteAsync` return type changed from `Task<bool>` to `Task<Invite?>`** — Discord's `DELETE /invites/{code}` returns the deleted invite object. The method now returns that object (or `null` on failure) instead of a boolean.
+- **`GetActiveThreadsAsync` return type changed from `Task<List<Channel>?>` to `Task<ActiveThreadsResponse?>`** — exposes the `threads` and `members` arrays from the Discord response instead of silently returning only a flat channel list.
+
+### New Features
+
+**Serialization — `SnowflakeDictionaryJsonConverterFactory`** (`PawSharp.Core.Serialization`)
+- New `SnowflakeDictionaryJsonConverterFactory` / `SnowflakeDictionaryJsonConverter<TValue>` pair
+- Converts any `Dictionary<ulong, TValue>` property to/from Discord's string-keyed JSON maps transparently
+- Apply via `[JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]`
+
+**Gateway** (`PawSharp.Gateway`)
+- `IGatewayClient.SessionId` — exposes the opaque session ID received in the READY event
+- `IGatewayClient.LastHeartbeatLatency` — round-trip `TimeSpan` measured from the last heartbeat/ACK pair; `null` until the first ACK
+- `VoiceStateUpdateEvent.GuildId` — exposes the `guild_id` field from `VOICE_STATE_UPDATE` payloads, required for multi-guild voice session tracking
+- `GatewayEvents.InteractionData.Components` — exposes modal text-input component data from `INTERACTION_CREATE` events
+
+**REST API** (`PawSharp.API`)
+- `DiscordRestClient` secondary constructor accepting `(HttpClient, PawSharpOptions, ILogger)` — creates a default `AdvancedRateLimiter` internally, fixing DI registration without a manually constructed rate limiter
+- `BulkOverwriteGlobalApplicationCommandsAsync` now logs the Discord error body at `LogError` level on non-success responses (mirrors the existing behaviour of the guild variant)
+- `CreateAutoModerationRuleRequest.EventType` / `TriggerType` — changed from `int` to `AutoModerationEventType` / `AutoModerationTriggerType`
+- `ModifyAutoModerationRuleRequest.EventType` / `TriggerType` — changed from `int?` to `AutoModerationEventType?` / `AutoModerationTriggerType?`
+- `CreateStageInstanceRequest.PrivacyLevel` — changed from `int?` to `StageInstancePrivacyLevel?`
+- `ModifyStageInstanceRequest.PrivacyLevel` — changed from `int?` to `StageInstancePrivacyLevel?`
+- New `ActiveThreadsResponse` model with `List<Thread> Threads` and `List<ThreadMember> Members`
+- `ArchivedThreadsResponse.Threads` changed from `List<Channel>` to `List<Thread>` (exposes `ThreadMetadata`)
+
+**Cache** (`PawSharp.Cache`)
+- `IEntityCache` async overloads: `GetUserAsync`, `GetGuildAsync`, `GetChannelAsync`, `GetMessageAsync`, `GetGuildMemberAsync`, `GetRoleAsync`
+- `MemoryCacheProvider` implements all async overloads via `Task.FromResult` (zero overhead for in-process use)
+- `RedisCacheProvider` implements all async overloads using `StringGetAsync` for true async Redis I/O
+
+**Voice** (`PawSharp.Voice`)
+- `VoiceConnectionState` enum — `Disconnected`, `Connecting`, `Connected`, `Disconnecting`; replaces ad-hoc boolean checks
+- `VoiceConnection.State` property tracks current connection state
+- `VoiceConnection.ConnectAsync(endpoint, guildId, userId, sessionId, token)` — full implementation: strips `:80` suffix, opens `wss://{host}?v=8`, sends op 0 IDENTIFY, starts heartbeat and receive loops
+- `VoiceConnection.ReconnectAsync()` — reconnects using stored handshake parameters without requiring the caller to track them
+- `VoiceClient.ActiveConnections` — `IReadOnlyDictionary<ulong, VoiceConnection>` exposing all live connections keyed by channel ID
+- `VoiceClient` handshake is now fully event-driven: `ConnectAsync` sends gateway op4 and returns; the WebSocket connection is completed when `VOICE_SERVER_UPDATE` arrives
+- `UseVoice()` extension is now idempotent — returns the same `VoiceClient` per `DiscordClient` instance via a `ConditionalWeakTable` singleton cache
+
+**Interactions** (`PawSharp.Interactions`)
+- `GetOptionValue<ulong>` now correctly handles Discord snowflakes sent as JSON strings (e.g. User, Role, Channel option values) in addition to numeric JSON values
+
+### Public API Changes
+
+| Symbol | Before | After |
+|--------|--------|-------|
+| `InteractionResolvedData.Users` | `Dictionary<string, User>?` | `Dictionary<ulong, User>?` |
+| `InteractionResolvedData.Members` | `Dictionary<string, GuildMember>?` | `Dictionary<ulong, GuildMember>?` |
+| `InteractionResolvedData.Roles` | `Dictionary<string, Role>?` | `Dictionary<ulong, Role>?` |
+| `InteractionResolvedData.Channels` | `Dictionary<string, Channel>?` | `Dictionary<ulong, Channel>?` |
+| `InteractionResolvedData.Messages` | `Dictionary<string, Message>?` | `Dictionary<ulong, Message>?` |
+| `InteractionResolvedData.Attachments` | `Dictionary<string, Attachment>?` | `Dictionary<ulong, Attachment>?` |
+| `ResolvedData.*` (Core.Entities) | `Dictionary<string, T>?` | `Dictionary<ulong, T>?` |
+| `DeleteInviteAsync` | `Task<bool>` | `Task<Invite?>` |
+| `GetActiveThreadsAsync` | `Task<List<Channel>?>` | `Task<ActiveThreadsResponse?>` |
+| `CreateAutoModerationRuleRequest.EventType` | `int` | `AutoModerationEventType` |
+| `CreateAutoModerationRuleRequest.TriggerType` | `int` | `AutoModerationTriggerType` |
+| `ModifyAutoModerationRuleRequest.EventType` | `int?` | `AutoModerationEventType?` |
+| `ModifyAutoModerationRuleRequest.TriggerType` | `int?` | `AutoModerationTriggerType?` |
+| `CreateStageInstanceRequest.PrivacyLevel` | `int?` | `StageInstancePrivacyLevel?` |
+| `ModifyStageInstanceRequest.PrivacyLevel` | `int?` | `StageInstancePrivacyLevel?` |
+| `ArchivedThreadsResponse.Threads` | `List<Channel>` | `List<Thread>` |
+| `IGatewayClient` | _(no SessionId/Latency)_ | `SessionId`, `LastHeartbeatLatency` |
+| `VoiceClient` | _(no ActiveConnections)_ | `ActiveConnections` |
+| `IEntityCache` | sync-only | +6 async overloads |
+
+---
+
 ## [0.7.0-alpha.1] - 2026-03-05
 
 Full RFC 9420 MLS (Message Layer Security) implementation for Discord's DAVE E2EE protocol — voice connections are now end-to-end encrypted using the MLS ciphersuite `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`. This release adds a complete, from-scratch cryptographic stack built on top of .NET 8's built-in primitives with zero new NuGet dependencies.

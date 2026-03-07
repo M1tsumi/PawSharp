@@ -168,7 +168,7 @@ public interface IDiscordRestClient
     Task<bool> RemoveThreadMemberAsync(ulong channelId, ulong userId);
     Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId);
     Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId);
-    Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId);
+    Task<ActiveThreadsResponse?> GetActiveThreadsAsync(ulong guildId);
     Task<ArchivedThreadsResponse?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     Task<ArchivedThreadsResponse?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     Task<ArchivedThreadsResponse?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
@@ -305,7 +305,7 @@ public interface IDiscordRestClient
 
     // Invite lookup and deletion
     Task<Invite?> GetInviteAsync(string inviteCode, bool? withCounts = null, bool? withExpiration = null, ulong? guildScheduledEventId = null);
-    Task<bool> DeleteInviteAsync(string inviteCode, string? reason = null);
+    Task<Invite?> DeleteInviteAsync(string inviteCode, string? reason = null);
 
     // Guild Templates
     Task<List<GuildTemplate>?> GetGuildTemplatesAsync(ulong guildId);
