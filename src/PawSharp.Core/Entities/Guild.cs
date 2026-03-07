@@ -133,6 +133,7 @@ public class Guild : DiscordEntity
     /// The id of the channel where guild notices such as welcome messages and boost events are posted.
     /// </summary>
     [JsonPropertyName("system_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
     public ulong? SystemChannelId { get; set; }
     
     /// <summary>

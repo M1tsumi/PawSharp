@@ -58,14 +58,14 @@ public static class EmbedValidator
     /// </summary>
     /// <param name="title">The embed title.</param>
     /// <param name="description">The embed description.</param>
-    /// <param name="fields">The embed fields.</param>
+    /// <param name="fields">The embed fields collection.</param>
     /// <param name="parameterName">The name of the parameter being validated.</param>
     /// <exception cref="ValidationException">Thrown when the embed has no content.</exception>
-    public static void ValidateEmbedHasContent(string? title, string? description, object? fields, string parameterName = "embed")
+    public static void ValidateEmbedHasContent(string? title, string? description, System.Collections.ICollection? fields, string parameterName = "embed")
     {
         bool hasTitle = !string.IsNullOrEmpty(title);
         bool hasDescription = !string.IsNullOrEmpty(description);
-        bool hasFields = fields != null; // This is a simplified check
+        bool hasFields = fields != null && fields.Count > 0;
 
         if (!hasTitle && !hasDescription && !hasFields)
         {
