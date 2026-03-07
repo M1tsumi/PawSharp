@@ -116,6 +116,7 @@ public class VoiceConnection : IDisposable
         _waveOut = new WaveOutEvent();
         _waveProvider = new BufferedWaveProvider(new WaveFormat(48000, 16, 1));
         _waveOut.Init(_waveProvider);
+        _waveOut.PlaybackStopped += (_, _) => { IsPlaying = false; };
     }
 
     /// <summary>
@@ -233,6 +234,17 @@ public class VoiceConnection : IDisposable
 
         _cts?.Dispose();
         _cts = null;
+    }
+
+    /// <summary>
+    /// Stops the current audio playback, if any.
+    /// </summary>
+    public void StopPlayback()
+    {
+        if (!IsPlaying) return;
+        _waveOut?.Stop();
+        IsPlaying = false;
+        _waveProvider?.ClearBuffer();
     }
 
     /// <summary>

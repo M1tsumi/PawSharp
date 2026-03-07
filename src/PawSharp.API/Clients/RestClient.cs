@@ -621,6 +621,14 @@ public class DiscordRestClient : IDiscordRestClient
         var httpResponse = await PostAsync($"interactions/{interactionId}/{interactionToken}/callback", content);
         return httpResponse.IsSuccessStatusCode;
     }
+
+    public async Task<Message?> GetOriginalInteractionResponseAsync(string applicationId, string interactionToken)
+    {
+        var response = await GetAsync($"webhooks/{applicationId}/{interactionToken}/messages/@original");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
     
     public async Task<HttpResponseMessage> EditOriginalInteractionResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
     {
@@ -1043,6 +1051,35 @@ public class DiscordRestClient : IDiscordRestClient
             return await response.Content.ReadFromJsonAsync<Message>();
         }
         return null;
+    }
+
+    public async Task<Message?> GetWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    public async Task<Message?> EditWebhookMessageAsync(ulong webhookId, string token, ulong messageId, EditMessageRequest request, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var content = JsonContent(request);
+        var response = await PatchAsync(endpoint, content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>();
+        return null;
+    }
+
+    public async Task<bool> DeleteWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
+        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        var response = await DeleteAsync(endpoint);
+        return response.IsSuccessStatusCode;
     }
     
     // Scheduled Event operations

@@ -59,7 +59,19 @@ namespace PawSharp.Client
             _cacheManager.SubscribeToGateway(_gatewayClient);
 
             // Cache CurrentUser from READY event
-            _gatewayClient.Events.On<ReadyEvent>("READY", e => { CurrentUser = e.User; });
+            _gatewayClient.Events.On<ReadyEvent>("READY", e =>
+            {
+                CurrentUser = e.User;
+                // Apply initial presence if configured
+                if (_options.Presence is { } presence)
+                {
+                    return _gatewayClient.UpdatePresenceAsync(
+                        presence.Status,
+                        presence.ActivityName,
+                        presence.StreamUrl);
+                }
+                return Task.CompletedTask;
+            });
 
             // Subscribe to interaction events
             _gatewayClient.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", HandleInteractionAsync);
@@ -299,6 +311,132 @@ namespace PawSharp.Client
         /// <summary>Subscribes to the AUTO_MODERATION_ACTION_EXECUTION gateway event.</summary>
         public IDisposable OnAutoModerationActionExecuted(Func<AutoModerationActionExecutionEvent, Task> handler)
             => _gatewayClient.Events.On<AutoModerationActionExecutionEvent>("AUTO_MODERATION_ACTION_EXECUTION", handler);
+
+        // Voice ─────────────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the VOICE_SERVER_UPDATE gateway event.</summary>
+        public IDisposable OnVoiceServerUpdated(Func<VoiceServerUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<VoiceServerUpdateEvent>("VOICE_SERVER_UPDATE", handler);
+
+        // Guild content ─────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the GUILD_EMOJIS_UPDATE gateway event.</summary>
+        public IDisposable OnGuildEmojisUpdated(Func<GuildEmojisUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildEmojisUpdateEvent>("GUILD_EMOJIS_UPDATE", handler);
+
+        /// <summary>Subscribes to the GUILD_STICKERS_UPDATE gateway event.</summary>
+        public IDisposable OnGuildStickersUpdated(Func<GuildStickersUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildStickersUpdateEvent>("GUILD_STICKERS_UPDATE", handler);
+
+        /// <summary>Subscribes to the GUILD_MEMBERS_CHUNK gateway event.</summary>
+        public IDisposable OnGuildMembersChunked(Func<GuildMembersChunkEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildMembersChunkEvent>("GUILD_MEMBERS_CHUNK", handler);
+
+        /// <summary>Subscribes to the GUILD_AUDIT_LOG_ENTRY_CREATE gateway event.</summary>
+        public IDisposable OnGuildAuditLogEntryCreated(Func<GuildAuditLogEntryCreateEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildAuditLogEntryCreateEvent>("GUILD_AUDIT_LOG_ENTRY_CREATE", handler);
+
+        // Webhooks ──────────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the WEBHOOKS_UPDATE gateway event.</summary>
+        public IDisposable OnWebhooksUpdated(Func<WebhooksUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<WebhooksUpdateEvent>("WEBHOOKS_UPDATE", handler);
+
+        // Stage instances ───────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the STAGE_INSTANCE_CREATE gateway event.</summary>
+        public IDisposable OnStageInstanceCreated(Func<StageInstanceCreateEvent, Task> handler)
+            => _gatewayClient.Events.On<StageInstanceCreateEvent>("STAGE_INSTANCE_CREATE", handler);
+
+        /// <summary>Subscribes to the STAGE_INSTANCE_UPDATE gateway event.</summary>
+        public IDisposable OnStageInstanceUpdated(Func<StageInstanceUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<StageInstanceUpdateEvent>("STAGE_INSTANCE_UPDATE", handler);
+
+        /// <summary>Subscribes to the STAGE_INSTANCE_DELETE gateway event.</summary>
+        public IDisposable OnStageInstanceDeleted(Func<StageInstanceDeleteEvent, Task> handler)
+            => _gatewayClient.Events.On<StageInstanceDeleteEvent>("STAGE_INSTANCE_DELETE", handler);
+
+        // Scheduled event users ─────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the GUILD_SCHEDULED_EVENT_USER_ADD gateway event.</summary>
+        public IDisposable OnScheduledEventUserAdded(Func<GuildScheduledEventUserAddEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildScheduledEventUserAddEvent>("GUILD_SCHEDULED_EVENT_USER_ADD", handler);
+
+        /// <summary>Subscribes to the GUILD_SCHEDULED_EVENT_USER_REMOVE gateway event.</summary>
+        public IDisposable OnScheduledEventUserRemoved(Func<GuildScheduledEventUserRemoveEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildScheduledEventUserRemoveEvent>("GUILD_SCHEDULED_EVENT_USER_REMOVE", handler);
+
+        // Auto-Moderation rules ─────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the AUTO_MODERATION_RULE_CREATE gateway event.</summary>
+        public IDisposable OnAutoModerationRuleCreated(Func<AutoModerationRuleCreateEvent, Task> handler)
+            => _gatewayClient.Events.On<AutoModerationRuleCreateEvent>("AUTO_MODERATION_RULE_CREATE", handler);
+
+        /// <summary>Subscribes to the AUTO_MODERATION_RULE_UPDATE gateway event.</summary>
+        public IDisposable OnAutoModerationRuleUpdated(Func<AutoModerationRuleUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<AutoModerationRuleUpdateEvent>("AUTO_MODERATION_RULE_UPDATE", handler);
+
+        /// <summary>Subscribes to the AUTO_MODERATION_RULE_DELETE gateway event.</summary>
+        public IDisposable OnAutoModerationRuleDeleted(Func<AutoModerationRuleDeleteEvent, Task> handler)
+            => _gatewayClient.Events.On<AutoModerationRuleDeleteEvent>("AUTO_MODERATION_RULE_DELETE", handler);
+
+        // Integrations ──────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the INTEGRATION_CREATE gateway event.</summary>
+        public IDisposable OnIntegrationCreated(Func<IntegrationCreateEvent, Task> handler)
+            => _gatewayClient.Events.On<IntegrationCreateEvent>("INTEGRATION_CREATE", handler);
+
+        /// <summary>Subscribes to the INTEGRATION_UPDATE gateway event.</summary>
+        public IDisposable OnIntegrationUpdated(Func<IntegrationUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<IntegrationUpdateEvent>("INTEGRATION_UPDATE", handler);
+
+        /// <summary>Subscribes to the INTEGRATION_DELETE gateway event.</summary>
+        public IDisposable OnIntegrationDeleted(Func<IntegrationDeleteEvent, Task> handler)
+            => _gatewayClient.Events.On<IntegrationDeleteEvent>("INTEGRATION_DELETE", handler);
+
+        // Polls ─────────────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the MESSAGE_POLL_VOTE_ADD gateway event.</summary>
+        public IDisposable OnMessagePollVoteAdded(Func<MessagePollVoteAddEvent, Task> handler)
+            => _gatewayClient.Events.On<MessagePollVoteAddEvent>("MESSAGE_POLL_VOTE_ADD", handler);
+
+        /// <summary>Subscribes to the MESSAGE_POLL_VOTE_REMOVE gateway event.</summary>
+        public IDisposable OnMessagePollVoteRemoved(Func<MessagePollVoteRemoveEvent, Task> handler)
+            => _gatewayClient.Events.On<MessagePollVoteRemoveEvent>("MESSAGE_POLL_VOTE_REMOVE", handler);
+
+        // Entitlements ──────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the ENTITLEMENT_CREATE gateway event.</summary>
+        public IDisposable OnEntitlementCreated(Func<EntitlementCreateEvent, Task> handler)
+            => _gatewayClient.Events.On<EntitlementCreateEvent>("ENTITLEMENT_CREATE", handler);
+
+        /// <summary>Subscribes to the ENTITLEMENT_UPDATE gateway event.</summary>
+        public IDisposable OnEntitlementUpdated(Func<EntitlementUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<EntitlementUpdateEvent>("ENTITLEMENT_UPDATE", handler);
+
+        /// <summary>Subscribes to the ENTITLEMENT_DELETE gateway event.</summary>
+        public IDisposable OnEntitlementDeleted(Func<EntitlementDeleteEvent, Task> handler)
+            => _gatewayClient.Events.On<EntitlementDeleteEvent>("ENTITLEMENT_DELETE", handler);
+
+        // Threads (extended) ────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the THREAD_LIST_SYNC gateway event.</summary>
+        public IDisposable OnThreadListSynced(Func<ThreadListSyncEvent, Task> handler)
+            => _gatewayClient.Events.On<ThreadListSyncEvent>("THREAD_LIST_SYNC", handler);
+
+        /// <summary>Subscribes to the THREAD_MEMBER_UPDATE gateway event.</summary>
+        public IDisposable OnThreadMemberUpdated(Func<ThreadMemberUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<ThreadMemberUpdateEvent>("THREAD_MEMBER_UPDATE", handler);
+
+        /// <summary>Subscribes to the THREAD_MEMBERS_UPDATE gateway event.</summary>
+        public IDisposable OnThreadMembersUpdated(Func<ThreadMembersUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<ThreadMembersUpdateEvent>("THREAD_MEMBERS_UPDATE", handler);
+
+        // Application commands ──────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the APPLICATION_COMMAND_PERMISSIONS_UPDATE gateway event.</summary>
+        public IDisposable OnApplicationCommandPermissionsUpdated(Func<ApplicationCommandPermissionsUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<ApplicationCommandPermissionsUpdateEvent>("APPLICATION_COMMAND_PERMISSIONS_UPDATE", handler);
 
         // ── Internal ──────────────────────────────────────────────────────────────
 

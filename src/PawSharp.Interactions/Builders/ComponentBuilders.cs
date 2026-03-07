@@ -1,6 +1,7 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
-using PawSharp.Interactions.Models;
+using PawSharp.Core.Entities;
 using CoreComponents = PawSharp.Core.Entities;
 
 namespace PawSharp.Interactions.Builders;
@@ -10,13 +11,13 @@ namespace PawSharp.Interactions.Builders;
 /// </summary>
 public class ButtonBuilder
 {
-    private readonly MessageComponent _button = new() { Type = ComponentType.Button };
+    private readonly Button _button = new();
 
     public ButtonBuilder(string customId, string label, ButtonStyle style = ButtonStyle.Primary)
     {
         _button.CustomId = customId;
         _button.Label = label;
-        _button.Style = (int)style;
+        _button.Style = style;
     }
 
     public ButtonBuilder SetDisabled(bool disabled)
@@ -25,24 +26,43 @@ public class ButtonBuilder
         return this;
     }
 
-    public ButtonBuilder SetEmoji(string emoji)
+    /// <summary>Sets a Unicode emoji on the button (e.g. <c>"🔥"</c>).</summary>
+    public ButtonBuilder SetEmoji(string unicodeEmoji)
     {
-        _button.Emoji = new { name = emoji };
+        _button.Emoji = new Emoji { Name = unicodeEmoji };
+        return this;
+    }
+
+    /// <summary>Sets a custom guild emoji on the button.</summary>
+    /// <param name="name">Emoji name (without colons).</param>
+    /// <param name="id">The guild emoji snowflake ID.</param>
+    /// <param name="animated">Whether the emoji is animated.</param>
+    public ButtonBuilder SetCustomEmoji(string name, ulong id, bool animated = false)
+    {
+        _button.Emoji = new Emoji { Name = name, Id = id, Animated = animated };
+        return this;
+    }
+
+    /// <summary>Sets the SKU ID for a <see cref="ButtonStyle.Premium"/> button.</summary>
+    public ButtonBuilder SetSkuId(ulong skuId)
+    {
+        _button.SkuId = skuId;
+        _button.Style = ButtonStyle.Premium;
+        _button.CustomId = null;
+        _button.Label = null;
+        _button.Emoji = null;
         return this;
     }
 
     public ButtonBuilder SetUrl(string url)
     {
         _button.Url = url;
-        _button.Style = (int)ButtonStyle.Link;
+        _button.Style = ButtonStyle.Link;
         _button.CustomId = null; // Link buttons don't have custom IDs
         return this;
     }
 
-    public MessageComponent Build()
-    {
-        return _button;
-    }
+    public Button Build() => _button;
 }
 
 /// <summary>
@@ -50,11 +70,7 @@ public class ButtonBuilder
 /// </summary>
 public class SelectMenuBuilder
 {
-    private readonly MessageComponent _selectMenu = new() 
-    { 
-        Type = ComponentType.StringSelect,
-        Options = new List<SelectMenuOption>()
-    };
+    private readonly SelectMenu _selectMenu = new();
 
     public SelectMenuBuilder(string customId, string placeholder = "Select an option")
     {
@@ -64,7 +80,7 @@ public class SelectMenuBuilder
 
     public SelectMenuBuilder AddOption(string label, string value, string? description = null, bool isDefault = false)
     {
-        _selectMenu.Options!.Add(new SelectMenuOption
+        _selectMenu.Options.Add(new SelectOption
         {
             Label = label,
             Value = value,
@@ -92,10 +108,90 @@ public class SelectMenuBuilder
         return this;
     }
 
-    public MessageComponent Build()
+    public SelectMenu Build() => _selectMenu;
+}
+
+/// <summary>
+/// Builder for a User select menu (component type 5) — lets users choose one or more guild members.
+/// </summary>
+public class UserSelectMenuBuilder
+{
+    private readonly UserSelectMenu _menu = new();
+
+    public UserSelectMenuBuilder(string customId, string placeholder = "Select a user")
     {
-        return _selectMenu;
+        _menu.CustomId = customId;
+        _menu.Placeholder = placeholder;
     }
+
+    public UserSelectMenuBuilder SetMinValues(int min) { _menu.MinValues = min; return this; }
+    public UserSelectMenuBuilder SetMaxValues(int max) { _menu.MaxValues = max; return this; }
+    public UserSelectMenuBuilder SetDisabled(bool disabled) { _menu.Disabled = disabled; return this; }
+    public UserSelectMenu Build() => _menu;
+}
+
+/// <summary>
+/// Builder for a Role select menu (component type 6) — lets users choose one or more guild roles.
+/// </summary>
+public class RoleSelectMenuBuilder
+{
+    private readonly RoleSelectMenu _menu = new();
+
+    public RoleSelectMenuBuilder(string customId, string placeholder = "Select a role")
+    {
+        _menu.CustomId = customId;
+        _menu.Placeholder = placeholder;
+    }
+
+    public RoleSelectMenuBuilder SetMinValues(int min) { _menu.MinValues = min; return this; }
+    public RoleSelectMenuBuilder SetMaxValues(int max) { _menu.MaxValues = max; return this; }
+    public RoleSelectMenuBuilder SetDisabled(bool disabled) { _menu.Disabled = disabled; return this; }
+    public RoleSelectMenu Build() => _menu;
+}
+
+/// <summary>
+/// Builder for a Mentionable select menu (component type 7) — lets users choose users or roles.
+/// </summary>
+public class MentionableSelectMenuBuilder
+{
+    private readonly MentionableSelectMenu _menu = new();
+
+    public MentionableSelectMenuBuilder(string customId, string placeholder = "Select a user or role")
+    {
+        _menu.CustomId = customId;
+        _menu.Placeholder = placeholder;
+    }
+
+    public MentionableSelectMenuBuilder SetMinValues(int min) { _menu.MinValues = min; return this; }
+    public MentionableSelectMenuBuilder SetMaxValues(int max) { _menu.MaxValues = max; return this; }
+    public MentionableSelectMenuBuilder SetDisabled(bool disabled) { _menu.Disabled = disabled; return this; }
+    public MentionableSelectMenu Build() => _menu;
+}
+
+/// <summary>
+/// Builder for a Channel select menu (component type 8) — lets users choose one or more channels.
+/// </summary>
+public class ChannelSelectMenuBuilder
+{
+    private readonly ChannelSelectMenu _menu = new();
+
+    public ChannelSelectMenuBuilder(string customId, string placeholder = "Select a channel")
+    {
+        _menu.CustomId = customId;
+        _menu.Placeholder = placeholder;
+    }
+
+    /// <summary>Restricts channels shown to the specified types (<see cref="PawSharp.Core.Enums.ChannelType"/> int values).</summary>
+    public ChannelSelectMenuBuilder SetChannelTypes(params int[] channelTypes)
+    {
+        _menu.ChannelTypes = new List<int>(channelTypes);
+        return this;
+    }
+
+    public ChannelSelectMenuBuilder SetMinValues(int min) { _menu.MinValues = min; return this; }
+    public ChannelSelectMenuBuilder SetMaxValues(int max) { _menu.MaxValues = max; return this; }
+    public ChannelSelectMenuBuilder SetDisabled(bool disabled) { _menu.Disabled = disabled; return this; }
+    public ChannelSelectMenu Build() => _menu;
 }
 
 /// <summary>
@@ -103,32 +199,21 @@ public class SelectMenuBuilder
 /// </summary>
 public class ActionRowBuilder
 {
-    private readonly MessageComponent _actionRow = new()
-    {
-        Type = ComponentType.ActionRow,
-        Components = new List<MessageComponent>()
-    };
+    private readonly ActionRow _actionRow = new();
 
     public ActionRowBuilder AddComponent(MessageComponent component)
     {
-        _actionRow.Components!.Add(component);
+        if (_actionRow.Components.Count >= 5)
+            throw new InvalidOperationException("An ActionRow cannot contain more than 5 components.");
+        _actionRow.Components.Add(component);
         return this;
     }
 
-    public ActionRowBuilder AddButton(ButtonBuilder button)
-    {
-        return AddComponent(button.Build());
-    }
+    public ActionRowBuilder AddButton(ButtonBuilder button) => AddComponent(button.Build());
 
-    public ActionRowBuilder AddSelectMenu(SelectMenuBuilder selectMenu)
-    {
-        return AddComponent(selectMenu.Build());
-    }
+    public ActionRowBuilder AddSelectMenu(SelectMenuBuilder selectMenu) => AddComponent(selectMenu.Build());
 
-    public MessageComponent Build()
-    {
-        return _actionRow;
-    }
+    public ActionRow Build() => _actionRow;
 }
 
 // ── Components v2 builders ────────────────────────────────────────────────────

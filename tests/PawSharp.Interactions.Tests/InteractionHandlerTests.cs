@@ -174,7 +174,7 @@ public class InteractionHandlerTests
     public async Task HandleInteractionAsync_Routes_ModalSubmit_By_CustomId()
     {
         InteractionCreateEvent? received = null;
-        _handler.RegisterComponent("feedback-modal", evt =>
+        _handler.RegisterModal("feedback-modal", evt =>
         {
             received = evt;
             return Task.CompletedTask;
