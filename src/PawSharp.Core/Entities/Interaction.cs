@@ -169,32 +169,40 @@ public class InteractionData
 
 /// <summary>
 /// Resolved data containing objects referenced in an interaction.
+/// Keys are Discord snowflake IDs (<see cref="ulong"/>); use the ID directly —
+/// no <c>.ToString()</c> required.
 /// </summary>
 public class ResolvedData
 {
-    /// <summary>Map of Snowflake to user objects.</summary>
+    /// <summary>Map of snowflake ID to user objects.</summary>
     [JsonPropertyName("users")]
-    public Dictionary<string, User>? Users { get; set; }
-    
-    /// <summary>Map of Snowflake to partial member objects (missing user, deaf, mute).</summary>
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, User>? Users { get; set; }
+
+    /// <summary>Map of snowflake ID to partial member objects (missing user, deaf, mute).</summary>
     [JsonPropertyName("members")]
-    public Dictionary<string, GuildMember>? Members { get; set; }
-    
-    /// <summary>Map of Snowflake to role objects.</summary>
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, GuildMember>? Members { get; set; }
+
+    /// <summary>Map of snowflake ID to role objects.</summary>
     [JsonPropertyName("roles")]
-    public Dictionary<string, Role>? Roles { get; set; }
-    
-    /// <summary>Map of Snowflake to partial channel objects.</summary>
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, Role>? Roles { get; set; }
+
+    /// <summary>Map of snowflake ID to partial channel objects.</summary>
     [JsonPropertyName("channels")]
-    public Dictionary<string, Channel>? Channels { get; set; }
-    
-    /// <summary>Map of Snowflake to partial message objects.</summary>
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, Channel>? Channels { get; set; }
+
+    /// <summary>Map of snowflake ID to partial message objects.</summary>
     [JsonPropertyName("messages")]
-    public Dictionary<string, Message>? Messages { get; set; }
-    
-    /// <summary>Map of Snowflake to attachment objects.</summary>
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, Message>? Messages { get; set; }
+
+    /// <summary>Map of snowflake ID to attachment objects.</summary>
     [JsonPropertyName("attachments")]
-    public Dictionary<string, object>? Attachments { get; set; }
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, object>? Attachments { get; set; }
 }
 
 /// <summary>

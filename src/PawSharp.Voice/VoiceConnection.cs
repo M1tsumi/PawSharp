@@ -10,8 +10,22 @@ using NAudio.Wave;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
+using PawSharp.Voice.DAVE;
 
 namespace PawSharp.Voice;
+
+/// <summary>Describes the lifecycle state of a <see cref="VoiceConnection"/>.</summary>
+public enum VoiceConnectionState
+{
+    /// <summary>No active WebSocket connection.</summary>
+    Disconnected,
+    /// <summary>WebSocket connect is in progress.</summary>
+    Connecting,
+    /// <summary>WebSocket is open and the voice session is active.</summary>
+    Connected,
+    /// <summary>Graceful close is in progress.</summary>
+    Disconnecting,
+}
 
 /// <summary>
 /// Represents a voice connection to a Discord voice channel.
@@ -28,13 +42,24 @@ public class VoiceConnection : IDisposable
     private bool _disposed;
     private int _heartbeatInterval = 5000; // Default 5 seconds, updated from HELLO
 
+    // Stored handshake parameters for reconnects
+    private string? _endpoint;
+    private ulong _voiceGuildId;
+    private ulong _voiceUserId;
+    private string? _sessionId;
+    private string? _token;
+
+    // DAVE E2EE protocol handler (null until DAVE is negotiated)
+    private readonly DAVEProtocol _dave = new();
+
     // Audio processing - Opus codec integration planned for future release
     // TODO: Implement Opus encoding/decoding when Concentus API is finalized
-    private readonly object _encoder = null; // Placeholder for OpusEncoder
-    private readonly object _decoder = null; // Placeholder for OpusDecoder
     private WaveInEvent? _waveIn;
     private WaveOutEvent? _waveOut;
     private BufferedWaveProvider? _waveProvider;
+
+    /// <summary>Gets the current connection lifecycle state.</summary>
+    public VoiceConnectionState State { get; private set; } = VoiceConnectionState.Disconnected;
 
     /// <summary>
     /// Gets the guild ID.
@@ -54,7 +79,7 @@ public class VoiceConnection : IDisposable
     /// <summary>
     /// Gets whether the connection is connected.
     /// </summary>
-    public bool IsConnected => _webSocket?.State == WebSocketState.Open;
+    public bool IsConnected => State == VoiceConnectionState.Connected;
 
     /// <summary>
     /// Gets whether audio is currently playing.
@@ -91,26 +116,88 @@ public class VoiceConnection : IDisposable
         _waveOut = new WaveOutEvent();
         _waveProvider = new BufferedWaveProvider(new WaveFormat(48000, 16, 1));
         _waveOut.Init(_waveProvider);
+        _waveOut.PlaybackStopped += (_, _) => { IsPlaying = false; };
     }
 
     /// <summary>
-    /// Connects to the voice channel.
+    /// Connects to the Discord voice WebSocket and sends the IDENTIFY payload.
     /// </summary>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task ConnectAsync()
+    /// <param name="endpoint">The voice server endpoint from VOICE_SERVER_UPDATE (may have ":80" suffix).</param>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="userId">The bot's user ID.</param>
+    /// <param name="sessionId">The session ID from VOICE_STATE_UPDATE.</param>
+    /// <param name="token">The voice token from VOICE_SERVER_UPDATE.</param>
+    public async Task ConnectAsync(string endpoint, ulong guildId, ulong userId, string sessionId, string token)
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(VoiceConnection));
 
+        // Store for later reconnects
+        _endpoint = endpoint;
+        _voiceGuildId = guildId;
+        _voiceUserId = userId;
+        _sessionId = sessionId;
+        _token = token;
+
+        await ConnectInternalAsync();
+    }
+
+    /// <summary>
+    /// Reconnects using the stored handshake parameters.
+    /// </summary>
+    internal async Task ReconnectAsync()
+    {
+        if (_endpoint is null || _sessionId is null || _token is null)
+            throw new InvalidOperationException("Cannot reconnect: handshake parameters not stored. Call ConnectAsync first.");
+
+        await ConnectInternalAsync();
+    }
+
+    private async Task ConnectInternalAsync()
+    {
+        if (_disposed)
+            return;
+
+        State = VoiceConnectionState.Connecting;
+
+        // Cancel any existing tasks
+        _cts?.Cancel();
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
+
+        _webSocket?.Dispose();
         _webSocket = new ClientWebSocket();
 
-        // WebSocket connection would be established here
-        // This is a simplified implementation - full implementation would require
-        // voice server negotiation, encryption setup, etc.
+        // Strip port suffix — Discord sends "endpoint:80", WebSocket URI needs plain hostname
+        var host = _endpoint!.Contains(':') ? _endpoint.Substring(0, _endpoint.LastIndexOf(':')) : _endpoint;
+        var uri = new Uri($"wss://{host}?v=8");
+
+        await _webSocket.ConnectAsync(uri, _cts.Token);
+        State = VoiceConnectionState.Connected;
 
         _receiveTask = Task.Run(ReceiveLoopAsync, _cts.Token);
         _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
+
+        // Send Opcode 0 IDENTIFY immediately after WebSocket upgrade
+        await SendIdentifyAsync();
+    }
+
+    private async Task SendIdentifyAsync()
+    {
+        var payload = new
+        {
+            op = 0,
+            d = new
+            {
+                server_id = _voiceGuildId.ToString(),
+                user_id = _voiceUserId.ToString(),
+                session_id = _sessionId,
+                token = _token
+            }
+        };
+        var json = System.Text.Json.JsonSerializer.Serialize(payload);
+        var buffer = System.Text.Encoding.UTF8.GetBytes(json);
+        await _webSocket!.SendAsync(buffer, WebSocketMessageType.Text, true, _cts?.Token ?? CancellationToken.None);
     }
 
     /// <summary>
@@ -122,16 +209,23 @@ public class VoiceConnection : IDisposable
         if (_disposed)
             return;
 
+        State = VoiceConnectionState.Disconnecting;
         _cts?.Cancel();
 
-        if (_webSocket != null)
+        if (_webSocket != null &&
+            (_webSocket.State == WebSocketState.Open || _webSocket.State == WebSocketState.CloseReceived))
         {
-            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None);
+            try
+            {
+                await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None);
+            }
+            catch { /* ignore close errors on disconnect */ }
             _webSocket.Dispose();
             _webSocket = null;
         }
 
         StopAudio();
+        State = VoiceConnectionState.Disconnected;
 
         await Task.WhenAll(
             _receiveTask ?? Task.CompletedTask,
@@ -140,6 +234,17 @@ public class VoiceConnection : IDisposable
 
         _cts?.Dispose();
         _cts = null;
+    }
+
+    /// <summary>
+    /// Stops the current audio playback, if any.
+    /// </summary>
+    public void StopPlayback()
+    {
+        if (!IsPlaying) return;
+        _waveOut?.Stop();
+        IsPlaying = false;
+        _waveProvider?.ClearBuffer();
     }
 
     /// <summary>
@@ -202,8 +307,11 @@ public class VoiceConnection : IDisposable
         // Encode PCM to Opus
         var opusData = EncodeAudio(audioData);
 
+        // Apply DAVE encryption if the protocol is active
+        var payload = _dave.EncryptFrame(opusData);
+
         // Send via WebSocket (simplified - would need proper voice packet structure)
-        await _webSocket.SendAsync(opusData, WebSocketMessageType.Binary, true, CancellationToken.None);
+        await _webSocket.SendAsync(payload, WebSocketMessageType.Binary, true, CancellationToken.None);
     }
 
     private void OnWaveInDataAvailable(object? sender, WaveInEventArgs e)
@@ -254,8 +362,13 @@ public class VoiceConnection : IDisposable
                 }
                 else if (result.MessageType == WebSocketMessageType.Binary)
                 {
-                    // Handle voice data packets
-                    // This would process incoming voice packets
+                    // Handle incoming voice packets — decrypt with DAVE if active
+                    var packet = new byte[result.Count];
+                    Array.Copy(buffer, packet, result.Count);
+                    // SSRC would be extracted from the RTP header in a full implementation
+                    // Using 0 as placeholder SSRC for now
+                    var decrypted = _dave.DecryptFrame(packet, ssrc: 0);
+                    await PlayAudioAsync(decrypted);
                 }
             }
         }
@@ -267,6 +380,7 @@ public class VoiceConnection : IDisposable
         {
             // Log error
             Console.WriteLine($"Voice receive error: {ex.Message}");
+            State = VoiceConnectionState.Disconnected;
             _onConnectionFailed?.Invoke(_channel.Id);
         }
     }
@@ -283,6 +397,13 @@ public class VoiceConnection : IDisposable
                 var opCode = opProp.GetInt32();
                 switch (opCode)
                 {
+                    case 2: // READY — capture our SSRC for DAVE
+                        if (root.TryGetProperty("d", out var readyData) &&
+                            readyData.TryGetProperty("ssrc", out var ssrcProp))
+                        {
+                            _dave.LocalSsrc = (uint)ssrcProp.GetInt64();
+                        }
+                        break;
                     case 8: // HELLO
                         if (root.TryGetProperty("d", out var data) &&
                             data.TryGetProperty("heartbeat_interval", out var intervalProp))
@@ -294,7 +415,11 @@ public class VoiceConnection : IDisposable
                     case 9: // HEARTBEAT ACK
                         // Handle heartbeat acknowledgment if needed
                         break;
-                    // Add other op codes as needed
+                    // DAVE E2EE opcodes 21–31
+                    case >= 21 and <= 31:
+                        if (root.TryGetProperty("d", out var daveData))
+                            await _dave.HandleOpcodeAsync(opCode, daveData, _webSocket, _cts?.Token ?? CancellationToken.None);
+                        break;
                 }
             }
         }
@@ -376,13 +501,12 @@ public class VoiceConnection : IDisposable
     }
 
     /// <summary>
-    /// Updates the voice server.
+    /// Updates the voice server. (Connection is now initiated by <see cref="VoiceClient"/> via <c>ConnectAsync</c>.)
     /// </summary>
     /// <param name="evt">The voice server update event.</param>
     public void UpdateVoiceServer(VoiceServerUpdateEvent evt)
     {
-        // Handle voice server updates
-        // This would establish the actual WebSocket connection
+        // Connection is driven by VoiceClient.OnVoiceServerUpdate — no action needed here.
     }
 
     /// <summary>
@@ -401,6 +525,7 @@ public class VoiceConnection : IDisposable
         _webSocket?.Dispose();
         _waveIn?.Dispose();
         _waveOut?.Dispose();
+        _dave.Dispose();
         // Note: OpusEncoder and OpusDecoder don't implement IDisposable
     }
 }

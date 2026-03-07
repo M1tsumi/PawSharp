@@ -58,7 +58,7 @@ public class ShardManager
     /// </summary>
     public async Task ConnectAllAsync()
     {
-        _logger.LogInformation($"Connecting {_options.Shards} shards...");
+        _logger.LogInformation("Connecting {ShardCount} shards...", _options.Shards);
 
         for (int i = 0; i < _options.Shards; i++)
         {
@@ -89,7 +89,7 @@ public class ShardManager
         var newStatus = MapGatewayStateToShardStatus(newState);
         _shardStatuses[shardId] = newStatus;
         
-        _logger.LogInformation($"Shard {shardId} state changed from {oldState} to {newState} (status: {newStatus})");
+        _logger.LogInformation("Shard {ShardId} state changed from {OldState} to {NewState} (status: {Status})", shardId, oldState, newState, newStatus);
         
         // Dispatch shard events
         if (newState == GatewayState.Ready && oldState != GatewayState.Ready)
@@ -107,7 +107,7 @@ public class ShardManager
         
         if (newState == GatewayState.Failed)
         {
-            _logger.LogWarning($"Shard {shardId} failed. Attempting reconnection...");
+            _logger.LogWarning("Shard {ShardId} failed. Attempting reconnection...", shardId);
             await ReconnectShardAsync(shardId);
         }
     }
@@ -119,12 +119,12 @@ public class ShardManager
     {
         if (!_shards.TryGetValue(shardId, out var shard))
         {
-            _logger.LogError($"Shard {shardId} not found for reconnection.");
+            _logger.LogError("Shard {ShardId} not found for reconnection.", shardId);
             return;
         }
 
         _shardStatuses[shardId] = ShardStatus.Reconnecting;
-        _logger.LogInformation($"Reconnecting shard {shardId}...");
+        _logger.LogInformation("Reconnecting shard {ShardId}...", shardId);
         
         try
         {
@@ -133,7 +133,7 @@ public class ShardManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Failed to reconnect shard {shardId}.");
+            _logger.LogError(ex, "Failed to reconnect shard {ShardId}.", shardId);
             _shardStatuses[shardId] = ShardStatus.Failed;
         }
     }

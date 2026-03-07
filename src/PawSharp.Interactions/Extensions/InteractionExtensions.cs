@@ -13,8 +13,9 @@ namespace PawSharp.Interactions.Extensions;
 public static class InteractionExtensions
 {
     /// <summary>
-    /// Gets the value of a named top-level slash command option, cast to <typeparamref name="T"/>.
+    /// Gets the value of a named slash command option, cast to <typeparamref name="T"/>.
     /// Supports <c>string</c>, <c>int</c>, <c>long</c>, <c>double</c>, <c>bool</c>, and <c>ulong</c>.
+    /// Automatically walks into the first-level subcommand options when the interaction uses a subcommand.
     /// Returns <c>default</c> if the option is not found or the cast fails.
     /// </summary>
     /// <typeparam name="T">Desired return type.</typeparam>
@@ -23,7 +24,28 @@ public static class InteractionExtensions
     public static T? GetOptionValue<T>(this InteractionCreateEvent interaction, string name)
     {
         var options = interaction.Data?.Options;
+        if (options is null) return default;
+
+        // If the first option is a SubCommand (type 1) or SubCommandGroup (type 2),
+        // the actual user-supplied options are nested inside it.
+        if (options.Count == 1 && options[0].Type is 1 or 2)
+            options = options[0].Options;
+
         return GetOptionValueFromList<T>(options, name);
+    }
+
+    /// <summary>
+    /// Returns the name of the invoked subcommand (type 1) or subcommand group option (type 2),
+    /// or <c>null</c> if the interaction has no subcommand.
+    /// </summary>
+    public static string? GetSubcommandName(this InteractionCreateEvent interaction)
+    {
+        var options = interaction.Data?.Options;
+        if (options is null || options.Count == 0) return null;
+
+        var first = options[0];
+        if (first.Type is 1 or 2) return first.Name;
+        return null;
     }
 
     /// <summary>
@@ -78,7 +100,18 @@ public static class InteractionExtensions
                 if (target == typeof(bool))     return (T?)(object?)element.GetBoolean();
                 if (target == typeof(int))      return (T?)(object?)(int)element.GetInt64();
                 if (target == typeof(long))     return (T?)(object?)element.GetInt64();
-                if (target == typeof(ulong))    return (T?)(object?)(ulong)element.GetInt64();
+                if (target == typeof(ulong))
+                {
+                    if (element.ValueKind == System.Text.Json.JsonValueKind.Number)
+                        return (T?)(object?)element.GetUInt64();
+                    if (element.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        var s = element.GetString();
+                        if (ulong.TryParse(s, out var ulongParsed))
+                            return (T?)(object?)ulongParsed;
+                    }
+                    return default;
+                }
                 if (target == typeof(double))   return (T?)(object?)element.GetDouble();
                 if (target == typeof(float))    return (T?)(object?)(float)element.GetDouble();
 

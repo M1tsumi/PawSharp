@@ -90,6 +90,15 @@ public sealed class EmbedBuilder
     }
 
     /// <summary>
+    /// Sets the embed sidebar color from a <c>uint</c> hex literal (e.g. <c>0xFF5733u</c>).
+    /// </summary>
+    public EmbedBuilder WithColor(uint color)
+    {
+        _color = (int)(color & 0xFFFFFF);
+        return this;
+    }
+
+    /// <summary>
     /// Sets the embed sidebar color from individual R, G, B components (0–255 each).
     /// </summary>
     public EmbedBuilder WithColor(byte r, byte g, byte b)
@@ -183,6 +192,23 @@ public sealed class EmbedBuilder
         _fields.Add(field);
         return this;
     }
+
+    // ── Clear methods ─────────────────────────────────────────────────────────
+
+    /// <summary>Removes the footer from the embed.</summary>
+    public EmbedBuilder WithoutFooter() { _footer = null; return this; }
+
+    /// <summary>Removes the author block from the embed.</summary>
+    public EmbedBuilder WithoutAuthor() { _author = null; return this; }
+
+    /// <summary>Removes the large body image from the embed.</summary>
+    public EmbedBuilder WithoutImage() { _image = null; return this; }
+
+    /// <summary>Removes the thumbnail from the embed.</summary>
+    public EmbedBuilder WithoutThumbnail() { _thumbnail = null; return this; }
+
+    /// <summary>Removes all fields from the embed.</summary>
+    public EmbedBuilder ClearFields() { _fields.Clear(); return this; }
 
     // ── Build ─────────────────────────────────────────────────────────────────
 

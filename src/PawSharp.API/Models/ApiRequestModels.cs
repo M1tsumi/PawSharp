@@ -349,8 +349,8 @@ public class ModifyGuildScheduledEventRequest
 public class CreateAutoModerationRuleRequest
 {
     public string Name { get; set; } = string.Empty;
-    public int EventType { get; set; } // 1 = MESSAGE_SEND
-    public int TriggerType { get; set; } // 1 = KEYWORD, 3 = SPAM, etc.
+    public AutoModerationEventType EventType { get; set; }
+    public AutoModerationTriggerType TriggerType { get; set; }
     public AutoModerationTriggerMetadata? TriggerMetadata { get; set; }
     public List<AutoModerationAction>? Actions { get; set; }
     public bool? Enabled { get; set; }
@@ -361,8 +361,8 @@ public class CreateAutoModerationRuleRequest
 public class ModifyAutoModerationRuleRequest
 {
     public string? Name { get; set; }
-    public int? EventType { get; set; }
-    public int? TriggerType { get; set; }
+    public AutoModerationEventType? EventType { get; set; }
+    public AutoModerationTriggerType? TriggerType { get; set; }
     public AutoModerationTriggerMetadata? TriggerMetadata { get; set; }
     public List<AutoModerationAction>? Actions { get; set; }
     public bool? Enabled { get; set; }
@@ -377,8 +377,8 @@ public class CreateStageInstanceRequest
     public ulong ChannelId { get; set; }
     /// <summary>The topic of the Stage instance (1-120 characters).</summary>
     public string Topic { get; set; } = string.Empty;
-    /// <summary>1 = PUBLIC, 2 = GUILD_ONLY. Defaults to GUILD_ONLY.</summary>
-    public int? PrivacyLevel { get; set; }
+    /// <summary>Privacy level. Defaults to <see cref="StageInstancePrivacyLevel.GuildOnly"/>.</summary>
+    public StageInstancePrivacyLevel? PrivacyLevel { get; set; }
     /// <summary>Notify @everyone that a Stage instance has started.</summary>
     public bool? SendStartNotification { get; set; }
     /// <summary>The id of the scheduled event associated with this Stage instance.</summary>
@@ -388,7 +388,7 @@ public class CreateStageInstanceRequest
 public class ModifyStageInstanceRequest
 {
     public string? Topic { get; set; }
-    public int? PrivacyLevel { get; set; }
+    public StageInstancePrivacyLevel? PrivacyLevel { get; set; }
 }
 
 // Sticker Request Models
@@ -729,6 +729,16 @@ public class ModifyGuildIncidentActionsRequest
     public DateTimeOffset? DmsDisabledUntil { get; set; }
 }
 
+/// <summary>Response returned by PUT /guilds/{id}/incident-actions.</summary>
+public class GuildIncidentActionsResponse
+{
+    [JsonPropertyName("invites_disabled_until")]
+    public DateTimeOffset? InvitesDisabledUntil { get; set; }
+
+    [JsonPropertyName("dms_disabled_until")]
+    public DateTimeOffset? DmsDisabledUntil { get; set; }
+}
+
 // ── Guild Integration ─────────────────────────────────────────────────────────
 
 /// <summary>Minimal representation of a guild integration returned by GET /guilds/{id}/integrations.</summary>
@@ -764,6 +774,84 @@ public class GuildIntegration
     [JsonPropertyName("application_id")]
     public ulong? ApplicationId { get; set; }
 }
+// ── Soundboard ───────────────────────────────────────────────────────────────
+
+/// <summary>POST /channels/{channel.id}/send-soundboard-sound — play a soundboard sound.</summary>
+public class SendSoundboardSoundRequest
+{
+    /// <summary>The id of the soundboard sound to play.</summary>
+    [JsonPropertyName("sound_id")]
+    public ulong SoundId { get; set; }
+
+    /// <summary>The id of the guild the soundboard sound is from (required for non-default sounds).</summary>
+    [JsonPropertyName("source_guild_id")]
+    public ulong? SourceGuildId { get; set; }
+}
+
+// ── Voice State ───────────────────────────────────────────────────────────────
+
+/// <summary>PATCH /guilds/{guild.id}/voice-states/@me — modify the current user's voice state.</summary>
+public class ModifyCurrentUserVoiceStateRequest
+{
+    /// <summary>The id of the channel the user is currently in (null to disconnect).</summary>
+    [JsonPropertyName("channel_id")]
+    public ulong? ChannelId { get; set; }
+
+    /// <summary>Toggles the user's suppress state.</summary>
+    [JsonPropertyName("suppress")]
+    public bool? Suppress { get; set; }
+
+    /// <summary>Sets the user's request to speak (ISO8601 timestamp, null to cancel).</summary>
+    [JsonPropertyName("request_to_speak_timestamp")]
+    public DateTimeOffset? RequestToSpeakTimestamp { get; set; }
+}
+
+/// <summary>PATCH /guilds/{guild.id}/voice-states/{user.id} — modify another user's voice state.</summary>
+public class ModifyUserVoiceStateRequest
+{
+    /// <summary>The id of the channel the user is currently in.</summary>
+    [JsonPropertyName("channel_id")]
+    public ulong ChannelId { get; set; }
+
+    /// <summary>Toggles the user's suppress state.</summary>
+    [JsonPropertyName("suppress")]
+    public bool? Suppress { get; set; }
+}
+
+// ── User Application Role Connection ─────────────────────────────────────────
+
+/// <summary>
+/// A user's linked role connection metadata for an application.
+/// Returned by GET /users/@me/applications/{application.id}/role-connection.
+/// </summary>
+public class ApplicationRoleConnection
+{
+    /// <summary>The vanity name of the platform a bot has connected (max 50 chars).</summary>
+    [JsonPropertyName("platform_name")]
+    public string? PlatformName { get; set; }
+
+    /// <summary>The username on the platform a bot has connected (max 100 chars).</summary>
+    [JsonPropertyName("platform_username")]
+    public string? PlatformUsername { get; set; }
+
+    /// <summary>Object mapping application role connection metadata keys to their string-ified value.</summary>
+    [JsonPropertyName("metadata")]
+    public Dictionary<string, string>? Metadata { get; set; }
+}
+
+/// <summary>PUT /users/@me/applications/{application.id}/role-connection — update user's role connection.</summary>
+public class UpdateUserApplicationRoleConnectionRequest
+{
+    [JsonPropertyName("platform_name")]
+    public string? PlatformName { get; set; }
+
+    [JsonPropertyName("platform_username")]
+    public string? PlatformUsername { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public Dictionary<string, string>? Metadata { get; set; }
+}
+
 // ── Archived Threads Response ─────────────────────────────────────────────────
 
 /// <summary>
@@ -774,9 +862,9 @@ public class GuildIntegration
 /// </summary>
 public class ArchivedThreadsResponse
 {
-    /// <summary>The archived thread channels.</summary>
+    /// <summary>The archived thread channels (include ThreadMetadata).</summary>
     [JsonPropertyName("threads")]
-    public List<Channel> Threads { get; set; } = new();
+    public List<Thread> Threads { get; set; } = new();
 
     /// <summary>Thread member objects for the current user in each returned thread.</summary>
     [JsonPropertyName("members")]
@@ -785,4 +873,18 @@ public class ArchivedThreadsResponse
     /// <summary>Whether there are additional archived threads beyond this page.</summary>
     [JsonPropertyName("has_more")]
     public bool HasMore { get; set; }
+}
+
+/// <summary>
+/// Response for GET /guilds/{id}/threads/active.
+/// </summary>
+public class ActiveThreadsResponse
+{
+    /// <summary>The active thread channels (include ThreadMetadata).</summary>
+    [JsonPropertyName("threads")]
+    public List<Thread> Threads { get; set; } = new();
+
+    /// <summary>Thread member objects for the current user in each returned thread.</summary>
+    [JsonPropertyName("members")]
+    public List<ThreadMember> Members { get; set; } = new();
 }

@@ -25,6 +25,7 @@ public class InteractionHandler
     private readonly IDiscordRestClient _restClient;
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _commandHandlers = new();
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _componentHandlers = new();
+    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _modalHandlers = new();
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>>> _autocompleteHandlers = new();
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _userContextMenuHandlers = new();
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _messageContextMenuHandlers = new();
@@ -76,6 +77,14 @@ public class InteractionHandler
     }
 
     /// <summary>
+    /// Registers a modal submit handler by its <c>custom_id</c>.
+    /// </summary>
+    public void RegisterModal(string customId, Func<InteractionCreateEvent, Task> handler)
+    {
+        _modalHandlers[customId] = handler;
+    }
+
+    /// <summary>
     /// Handles an interaction event by routing to the appropriate registered handler.
     /// </summary>
     public async Task HandleInteractionAsync(InteractionCreateEvent interaction)
@@ -110,7 +119,7 @@ public class InteractionHandler
 
             case InteractionType.ModalSubmit:
                 if (interaction.Data?.CustomId != null &&
-                    _componentHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
+                    _modalHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
                 {
                     await modalHandler(interaction);
                 }
@@ -148,6 +157,49 @@ public class InteractionHandler
     public async Task<bool> RespondAsync(ulong interactionId, string interactionToken, InteractionResponse response)
     {
         return await _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to a slash command interaction with an ephemeral (only-visible-to-user) message.
+    /// </summary>
+    public Task<bool> RespondEphemeralAsync(ulong interactionId, string interactionToken, string content)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.ChannelMessageWithSource,
+            Data = new InteractionCallbackData { Content = content, Flags = 64 }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Defers a slash command interaction, showing a "Bot is thinking…" state.
+    /// Use <see cref="EditResponseAsync"/> or <see cref="CreateFollowupAsync"/> to follow up.
+    /// </summary>
+    /// <param name="interactionId">The interaction ID from the event.</param>
+    /// <param name="interactionToken">The interaction token from the event.</param>
+    /// <param name="ephemeral">When <c>true</c>, the follow-up response will only be visible to the invoking user.</param>
+    public Task<bool> DeferAsync(ulong interactionId, string interactionToken, bool ephemeral = false)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.DeferredChannelMessageWithSource,
+            Data = ephemeral ? new InteractionCallbackData { Flags = 64 } : null
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Defers an update for a component interaction (button / select menu).
+    /// The original message is not modified; use <see cref="EditResponseAsync"/> to update it afterwards.
+    /// </summary>
+    public Task<bool> DeferComponentAsync(ulong interactionId, string interactionToken)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.DeferredUpdateMessage
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
     }
 
     /// <summary>
