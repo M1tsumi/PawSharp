@@ -2,7 +2,7 @@
 
 A Discord bot library for .NET 8. Handles the gateway connection, REST calls, caching, slash commands, and voice.
 
-**Version:** 0.7.0-alpha1 | **Discord API:** v10 | **Status:** alpha
+**Version:** 0.10.0-alpha.2 | **Discord API:** v10 | **Status:** alpha
 
 ---
 
@@ -148,7 +148,6 @@ services.AddSingleton<DiscordClient>();
 | Opus audio encode/decode | Framework in place, actual codec calls are TODO |
 | Command module auto-registration | Attribute system exists, reflection scanner missing |
 | Slash command auto-registration | Manual registration works; attribute-driven bulk-register pending |
-| Voice WebSocket server negotiation | ConnectAsync is a stub; DAVE E2EE is complete but audio transport is not wired |
 | Redis cache provider | Exists in tests, not yet published as a real package |
 
 ---

@@ -78,6 +78,8 @@ local/
 # Bot tokens and config (IMPORTANT!)
 config.json
 token.txt
+
+# Local .env files (never commit secrets)
 .env
 .env.local
 **/DonotCommitGITIGNORE/**

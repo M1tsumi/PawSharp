@@ -648,30 +648,46 @@ public class InteractionData
     
     [JsonPropertyName("values")]
     public List<string>? Values { get; set; }
+
+    /// <summary>
+    /// Modal and component submit data. Populated for modal submissions (type=5) and
+    /// component interactions that include sub-components.
+    /// </summary>
+    [JsonPropertyName("components")]
+    public List<MessageComponent>? Components { get; set; }
 }
 
 /// <summary>
 /// Resolved data for interactions.
+/// Keys are Discord snowflake IDs (<see cref="ulong"/>).
+/// Deserialised via <see cref="SnowflakeDictionaryJsonConverterFactory"/> which
+/// translates Discord's string-keyed JSON objects transparently.
 /// </summary>
 public class InteractionResolvedData
 {
     [JsonPropertyName("users")]
-    public Dictionary<string, User>? Users { get; set; }
-    
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, User>? Users { get; set; }
+
     [JsonPropertyName("members")]
-    public Dictionary<string, GuildMember>? Members { get; set; }
-    
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, GuildMember>? Members { get; set; }
+
     [JsonPropertyName("roles")]
-    public Dictionary<string, Role>? Roles { get; set; }
-    
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, Role>? Roles { get; set; }
+
     [JsonPropertyName("channels")]
-    public Dictionary<string, Channel>? Channels { get; set; }
-    
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, Channel>? Channels { get; set; }
+
     [JsonPropertyName("messages")]
-    public Dictionary<string, Message>? Messages { get; set; }
-    
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, Message>? Messages { get; set; }
+
     [JsonPropertyName("attachments")]
-    public Dictionary<string, Attachment>? Attachments { get; set; }
+    [JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]
+    public Dictionary<ulong, Attachment>? Attachments { get; set; }
 }
 
 /// <summary>
@@ -841,6 +857,10 @@ public class GuildBanRemoveEvent : GatewayEvent
 /// </summary>
 public class VoiceStateUpdateEvent : GatewayEvent
 {
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? GuildId { get; set; }
+
     [JsonPropertyName("channel_id")]
     public ulong? ChannelId { get; set; }
     

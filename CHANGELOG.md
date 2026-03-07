@@ -4,6 +4,194 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.10.0-alpha.3] - 2026-03-08
+
+Full developer-ergonomics pass: interactions, components, embeds, voice, webhooks, presence, and gateway events.
+
+### New Features
+
+**`InteractionHandler`** (`PawSharp.Interactions`)
+- `RegisterModal(string customId, Func<InteractionCreateEvent, Task>)` — separate registration for modal submissions (previously shared `RegisterComponent`)
+- `DeferAsync(ulong id, string token, bool ephemeral = false)` — defers a slash command interaction (response type 5)
+- `DeferComponentAsync(ulong id, string token)` — defers a component update without spinner (type 6)
+- `RespondEphemeralAsync(ulong id, string token, string content)` — sends an ephemeral message in one call (type 4, flags=64)
+
+**`InteractionResponseBuilder`** (`PawSharp.Interactions.Builders`)
+- New fluent builder for `InteractionResponse` (types 4 and 7)
+- `WithContent(string)`, `AddEmbed(Embed)`, `AddActionRow(MessageComponent)`, `AddActionRow(Action<ActionRowBuilder>)`
+- `AsEphemeral(bool = true)`, `AsUpdateMessage(bool = true)`, `Build()`
+
+**Component Builders** (`PawSharp.Interactions.Builders`)
+- All builders (`ButtonBuilder`, `SelectMenuBuilder`, `ActionRowBuilder`, etc.) now return `PawSharp.Core.Entities` typed objects (`Button`, `SelectMenu`, `ActionRow`, …), making them directly compatible with `InteractionCallbackData.Components` and `CreateMessageRequest.Components`
+- `ButtonBuilder.SetCustomEmoji(name, id, animated)` — sets a typed `Emoji` on a button
+- `ButtonBuilder.SetSkuId(ulong)` — sets Premium (type 6) button with SKU ID
+- `ButtonStyle.Premium = 6` added to `PawSharp.Core.Entities.ButtonStyle`
+- `ActionRowBuilder` enforces max-5-component guard with `InvalidOperationException`
+- New: `UserSelectMenuBuilder`, `RoleSelectMenuBuilder`, `MentionableSelectMenuBuilder`, `ChannelSelectMenuBuilder` (types 5–8); `ChannelSelectMenuBuilder.SetChannelTypes(params int[])`
+
+**`InteractionExtensions`** (`PawSharp.Interactions.Extensions`)
+- `GetOptionValue<T>` now traverses subcommand/subcommand-group option nesting automatically
+- `GetSubcommandName()` — returns the name of the active sub-command (or null)
+
+**`EmbedBuilder`** (`PawSharp.Core.Builders`)
+- `WithColor(uint color)` overload (hex-friendly: `0xFF5733`)
+- `WithoutFooter()`, `WithoutAuthor()`, `WithoutImage()`, `WithoutThumbnail()`, `ClearFields()` — convenience clear methods
+
+**`PawSharpClientBuilder`** (`PawSharp.Client`)
+- `WithPresence(activityName?, activityType = 0, status = "online", streamUrl?)` — configures the bot's initial presence/status
+
+**`DiscordClient`** (`PawSharp.Client`)
+- Sets presence on `READY` when configured via `WithPresence`
+- 26 new `On…` event wrappers covering all gateway dispatch events previously missing:
+  `OnVoiceServerUpdated`, `OnGuildEmojisUpdated`, `OnGuildStickersUpdated`, `OnGuildMembersChunked`, `OnGuildAuditLogEntryCreated`, `OnWebhooksUpdated`, `OnStageInstance{Created,Updated,Deleted}`, `OnScheduledEventUser{Added,Removed}`, `OnAutoModerationRule{Created,Updated,Deleted}`, `OnIntegration{Created,Updated,Deleted}`, `OnMessagePollVote{Added,Removed}`, `OnEntitlement{Created,Updated,Deleted}`, `OnThreadListSynced`, `OnThreadMemberUpdated`, `OnThreadMembersUpdated`, `OnApplicationCommandPermissionsUpdated`
+
+**REST — Interaction & Webhook follow-ups** (`PawSharp.API`)
+- `GetOriginalInteractionResponseAsync(applicationId, token)`
+- `GetWebhookMessageAsync(webhookId, token, messageId, threadId?)`
+- `EditWebhookMessageAsync(webhookId, token, messageId, request, threadId?)`
+- `DeleteWebhookMessageAsync(webhookId, token, messageId, threadId?)`
+
+**`VoiceConnection`** (`PawSharp.Voice`)
+- `IsPlaying` is now automatically reset to `false` when audio playback finishes (`PlaybackStopped` event)
+- New `StopPlayback()` method — stops the current stream and resets state cleanly
+
+### Bug Fixes
+
+- `InteractionHandler` was routing `ModalSubmit` interactions to `_componentHandlers` instead of the new `_modalHandlers` — now correctly routed
+- `PawSharpOptions.cs` was missing `#nullable enable`, causing spurious CS8632 warnings
+
+### Public API Changes
+
+| Symbol | Before | After |
+|--------|--------|-------|
+| `InteractionHandler.RegisterModal` | _(missing)_ | new method |
+| `InteractionHandler.DeferAsync` | _(missing)_ | new method |
+| `InteractionHandler.DeferComponentAsync` | _(missing)_ | new method |
+| `InteractionHandler.RespondEphemeralAsync` | _(missing)_ | new method |
+| `InteractionResponseBuilder` | _(missing)_ | new class |
+| `ButtonBuilder.Build()` return type | `PawSharp.Interactions.Models.MessageComponent` | `PawSharp.Core.Entities.Button` |
+| `SelectMenuBuilder.Build()` return type | `PawSharp.Interactions.Models.MessageComponent` | `PawSharp.Core.Entities.SelectMenu` |
+| `ActionRowBuilder.Build()` return type | `PawSharp.Interactions.Models.MessageComponent` | `PawSharp.Core.Entities.ActionRow` |
+| `UserSelectMenuBuilder` | _(missing)_ | new builder, returns `UserSelectMenu` |
+| `RoleSelectMenuBuilder` | _(missing)_ | new builder, returns `RoleSelectMenu` |
+| `MentionableSelectMenuBuilder` | _(missing)_ | new builder, returns `MentionableSelectMenu` |
+| `ChannelSelectMenuBuilder` | _(missing)_ | new builder, returns `ChannelSelectMenu` |
+| `EmbedBuilder.WithColor(uint)` | _(missing)_ | new overload |
+| `EmbedBuilder.Without*/ClearFields` | _(missing)_ | 5 new convenience methods |
+| `PawSharpClientBuilder.WithPresence` | _(missing)_ | new method |
+| `VoiceConnection.StopPlayback()` | _(missing)_ | new method |
+| `IDiscordRestClient.GetOriginalInteractionResponseAsync` | _(missing)_ | new method |
+| `IDiscordRestClient.Get/Edit/DeleteWebhookMessageAsync` | _(missing)_ | 3 new methods |
+
+---
+
+## [0.10.0-alpha.2] - 2026-03-07
+
+Developer-ergonomics polish: error hooks, GC-safe singletons, and a simpler DI default.
+
+### New Features
+
+**`CommandsExtension.CommandErrored`** (`PawSharp.Commands`)
+- New `Func<CommandErrorEventArgs, Task>? CommandErrored` property on `CommandsExtension`
+- Assign a handler to receive full context when a command method throws (e.g. to send a user-facing error reply)
+- Without a handler, the original behaviour is preserved: exception is logged at `Error` level and swallowed
+- `CommandErrorEventArgs` exposes `CommandContext Context` and `Exception Exception`
+
+**`AddPawSharpWithMemoryCache`** (`PawSharp.Client.Extensions`)
+- New `services.AddPawSharpWithMemoryCache(options)` convenience overload
+- Equivalent to `AddPawSharp(options, _ => new MemoryCacheProvider())`; removes the most common cause of runtime `InvalidOperationException: IEntityCache` on first bot startup
+
+### Bug Fixes / Cleanup
+
+- **`UseCommands()`** switched from `ConcurrentDictionary` to `ConditionalWeakTable` — consistent with `UseVoice()`, prevents the extension table from extending the `DiscordClient` lifetime beyond its own scope
+- **`PawSharpClientBuilder.Build()`** — removed dead `InteractionHandler` local variable (`interactions`) that was created but never used (client creates its own instance internally)
+
+### Public API Changes
+
+| Symbol | Before | After |
+|--------|--------|-------|
+| `CommandsExtension.CommandErrored` | _(missing)_ | `Func<CommandErrorEventArgs, Task>?` |
+| `CommandErrorEventArgs` | _(missing)_ | new type: `Context`, `Exception` |
+| `AddPawSharpWithMemoryCache` | _(missing)_ | new extension method |
+
+---
+
+## [0.10.0-alpha.1] - 2026-03-07
+
+API correctness, voice connection completion, and developer ergonomics improvements across the whole library. Includes one breaking change in interaction resolved-data types.
+
+### Breaking Changes
+
+- **`InteractionResolvedData` and `ResolvedData` keys changed from `string` to `ulong`** — Discord sends resolved-data maps with snowflake string keys. Both classes in `PawSharp.Gateway.Events` and `PawSharp.Core.Entities` previously used `Dictionary<string, T>`, requiring callers to `.ToString()` every lookup. They now use `Dictionary<ulong, T>` backed by the new `SnowflakeDictionaryJsonConverterFactory`, so lookups use the numeric ID directly.
+- **`DeleteInviteAsync` return type changed from `Task<bool>` to `Task<Invite?>`** — Discord's `DELETE /invites/{code}` returns the deleted invite object. The method now returns that object (or `null` on failure) instead of a boolean.
+- **`GetActiveThreadsAsync` return type changed from `Task<List<Channel>?>` to `Task<ActiveThreadsResponse?>`** — exposes the `threads` and `members` arrays from the Discord response instead of silently returning only a flat channel list.
+
+### New Features
+
+**Serialization — `SnowflakeDictionaryJsonConverterFactory`** (`PawSharp.Core.Serialization`)
+- New `SnowflakeDictionaryJsonConverterFactory` / `SnowflakeDictionaryJsonConverter<TValue>` pair
+- Converts any `Dictionary<ulong, TValue>` property to/from Discord's string-keyed JSON maps transparently
+- Apply via `[JsonConverter(typeof(SnowflakeDictionaryJsonConverterFactory))]`
+
+**Gateway** (`PawSharp.Gateway`)
+- `IGatewayClient.SessionId` — exposes the opaque session ID received in the READY event
+- `IGatewayClient.LastHeartbeatLatency` — round-trip `TimeSpan` measured from the last heartbeat/ACK pair; `null` until the first ACK
+- `VoiceStateUpdateEvent.GuildId` — exposes the `guild_id` field from `VOICE_STATE_UPDATE` payloads, required for multi-guild voice session tracking
+- `GatewayEvents.InteractionData.Components` — exposes modal text-input component data from `INTERACTION_CREATE` events
+
+**REST API** (`PawSharp.API`)
+- `DiscordRestClient` secondary constructor accepting `(HttpClient, PawSharpOptions, ILogger)` — creates a default `AdvancedRateLimiter` internally, fixing DI registration without a manually constructed rate limiter
+- `BulkOverwriteGlobalApplicationCommandsAsync` now logs the Discord error body at `LogError` level on non-success responses (mirrors the existing behaviour of the guild variant)
+- `CreateAutoModerationRuleRequest.EventType` / `TriggerType` — changed from `int` to `AutoModerationEventType` / `AutoModerationTriggerType`
+- `ModifyAutoModerationRuleRequest.EventType` / `TriggerType` — changed from `int?` to `AutoModerationEventType?` / `AutoModerationTriggerType?`
+- `CreateStageInstanceRequest.PrivacyLevel` — changed from `int?` to `StageInstancePrivacyLevel?`
+- `ModifyStageInstanceRequest.PrivacyLevel` — changed from `int?` to `StageInstancePrivacyLevel?`
+- New `ActiveThreadsResponse` model with `List<Thread> Threads` and `List<ThreadMember> Members`
+- `ArchivedThreadsResponse.Threads` changed from `List<Channel>` to `List<Thread>` (exposes `ThreadMetadata`)
+
+**Cache** (`PawSharp.Cache`)
+- `IEntityCache` async overloads: `GetUserAsync`, `GetGuildAsync`, `GetChannelAsync`, `GetMessageAsync`, `GetGuildMemberAsync`, `GetRoleAsync`
+- `MemoryCacheProvider` implements all async overloads via `Task.FromResult` (zero overhead for in-process use)
+- `RedisCacheProvider` implements all async overloads using `StringGetAsync` for true async Redis I/O
+
+**Voice** (`PawSharp.Voice`)
+- `VoiceConnectionState` enum — `Disconnected`, `Connecting`, `Connected`, `Disconnecting`; replaces ad-hoc boolean checks
+- `VoiceConnection.State` property tracks current connection state
+- `VoiceConnection.ConnectAsync(endpoint, guildId, userId, sessionId, token)` — full implementation: strips `:80` suffix, opens `wss://{host}?v=8`, sends op 0 IDENTIFY, starts heartbeat and receive loops
+- `VoiceConnection.ReconnectAsync()` — reconnects using stored handshake parameters without requiring the caller to track them
+- `VoiceClient.ActiveConnections` — `IReadOnlyDictionary<ulong, VoiceConnection>` exposing all live connections keyed by channel ID
+- `VoiceClient` handshake is now fully event-driven: `ConnectAsync` sends gateway op4 and returns; the WebSocket connection is completed when `VOICE_SERVER_UPDATE` arrives
+- `UseVoice()` extension is now idempotent — returns the same `VoiceClient` per `DiscordClient` instance via a `ConditionalWeakTable` singleton cache
+
+**Interactions** (`PawSharp.Interactions`)
+- `GetOptionValue<ulong>` now correctly handles Discord snowflakes sent as JSON strings (e.g. User, Role, Channel option values) in addition to numeric JSON values
+
+### Public API Changes
+
+| Symbol | Before | After |
+|--------|--------|-------|
+| `InteractionResolvedData.Users` | `Dictionary<string, User>?` | `Dictionary<ulong, User>?` |
+| `InteractionResolvedData.Members` | `Dictionary<string, GuildMember>?` | `Dictionary<ulong, GuildMember>?` |
+| `InteractionResolvedData.Roles` | `Dictionary<string, Role>?` | `Dictionary<ulong, Role>?` |
+| `InteractionResolvedData.Channels` | `Dictionary<string, Channel>?` | `Dictionary<ulong, Channel>?` |
+| `InteractionResolvedData.Messages` | `Dictionary<string, Message>?` | `Dictionary<ulong, Message>?` |
+| `InteractionResolvedData.Attachments` | `Dictionary<string, Attachment>?` | `Dictionary<ulong, Attachment>?` |
+| `ResolvedData.*` (Core.Entities) | `Dictionary<string, T>?` | `Dictionary<ulong, T>?` |
+| `DeleteInviteAsync` | `Task<bool>` | `Task<Invite?>` |
+| `GetActiveThreadsAsync` | `Task<List<Channel>?>` | `Task<ActiveThreadsResponse?>` |
+| `CreateAutoModerationRuleRequest.EventType` | `int` | `AutoModerationEventType` |
+| `CreateAutoModerationRuleRequest.TriggerType` | `int` | `AutoModerationTriggerType` |
+| `ModifyAutoModerationRuleRequest.EventType` | `int?` | `AutoModerationEventType?` |
+| `ModifyAutoModerationRuleRequest.TriggerType` | `int?` | `AutoModerationTriggerType?` |
+| `CreateStageInstanceRequest.PrivacyLevel` | `int?` | `StageInstancePrivacyLevel?` |
+| `ModifyStageInstanceRequest.PrivacyLevel` | `int?` | `StageInstancePrivacyLevel?` |
+| `ArchivedThreadsResponse.Threads` | `List<Channel>` | `List<Thread>` |
+| `IGatewayClient` | _(no SessionId/Latency)_ | `SessionId`, `LastHeartbeatLatency` |
+| `VoiceClient` | _(no ActiveConnections)_ | `ActiveConnections` |
+| `IEntityCache` | sync-only | +6 async overloads |
+
+---
+
 ## [0.7.0-alpha.1] - 2026-03-05
 
 Full RFC 9420 MLS (Message Layer Security) implementation for Discord's DAVE E2EE protocol — voice connections are now end-to-end encrypted using the MLS ciphersuite `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`. This release adds a complete, from-scratch cryptographic stack built on top of .NET 8's built-in primitives with zero new NuGet dependencies.
