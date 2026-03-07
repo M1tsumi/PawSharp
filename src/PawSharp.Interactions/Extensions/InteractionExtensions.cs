@@ -78,7 +78,18 @@ public static class InteractionExtensions
                 if (target == typeof(bool))     return (T?)(object?)element.GetBoolean();
                 if (target == typeof(int))      return (T?)(object?)(int)element.GetInt64();
                 if (target == typeof(long))     return (T?)(object?)element.GetInt64();
-                if (target == typeof(ulong))    return (T?)(object?)(ulong)element.GetInt64();
+                if (target == typeof(ulong))
+                {
+                    if (element.ValueKind == System.Text.Json.JsonValueKind.Number)
+                        return (T?)(object?)element.GetUInt64();
+                    if (element.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        var s = element.GetString();
+                        if (ulong.TryParse(s, out var ulongParsed))
+                            return (T?)(object?)ulongParsed;
+                    }
+                    return default;
+                }
                 if (target == typeof(double))   return (T?)(object?)element.GetDouble();
                 if (target == typeof(float))    return (T?)(object?)(float)element.GetDouble();
 

@@ -17,6 +17,12 @@ public interface IGatewayClient
     /// <summary>The current gateway connection state.</summary>
     GatewayState CurrentState { get; }
 
+    /// <summary>The session ID from the most recent READY event. Opaque string — not a numeric snowflake.</summary>
+    string? SessionId { get; }
+
+    /// <summary>Round-trip latency from the last heartbeat–ACK pair. Null until the first ACK is received.</summary>
+    TimeSpan? LastHeartbeatLatency { get; }
+
     /// <summary>Opens the WebSocket connection to Discord's gateway.</summary>
     Task ConnectAsync();
 

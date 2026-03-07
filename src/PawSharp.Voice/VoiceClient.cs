@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.Client;
@@ -19,6 +20,9 @@ public class VoiceClient
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<ulong, VoiceConnection> _connections = new();
     private readonly ConcurrentDictionary<ulong, ReconnectionState> _reconnectionStates = new();
+
+    // guildId → sessionId, populated from VOICE_STATE_UPDATE before VOICE_SERVER_UPDATE arrives
+    private readonly ConcurrentDictionary<ulong, string> _pendingSessions = new();
 
     private const int MaxReconnectionAttempts = 5;
     private const int InitialBackoffMs = 1000;
@@ -40,7 +44,8 @@ public class VoiceClient
     }
 
     /// <summary>
-    /// Connects to a voice channel.
+    /// Connects to a voice channel. The actual WebSocket connection is completed
+    /// asynchronously when Discord sends VOICE_SERVER_UPDATE.
     /// </summary>
     /// <param name="channel">The voice channel to connect to.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
@@ -51,15 +56,13 @@ public class VoiceClient
 
         var guildId = channel.GuildId ?? throw new ArgumentException("Channel must be in a guild.", nameof(channel));
 
-        // Send voice state update to join channel
-        await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId, channel.Id, false, false);
-
-        // Create connection
+        // Create and register the connection object — actual WebSocket connect
+        // happens in OnVoiceServerUpdate when Discord provides the server endpoint.
         var connection = new VoiceConnection(_discordClient, channel, channelId => _ = HandleConnectionFailureAsync(channelId));
         _connections[channel.Id] = connection;
 
-        // Connect to voice
-        await connection.ConnectAsync();
+        // Send op4 — Discord will reply with VOICE_STATE_UPDATE then VOICE_SERVER_UPDATE
+        await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId, channel.Id, false, false);
 
         return connection;
     }
@@ -71,11 +74,16 @@ public class VoiceClient
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task DisconnectAsync(Channel channel)
     {
+        var guildId = channel.GuildId;
         if (_connections.TryRemove(channel.Id, out var connection))
         {
             await connection.DisconnectAsync();
             _reconnectionStates.TryRemove(channel.Id, out _);
         }
+
+        // Send op4 with channel_id=null so Discord removes the bot from the voice channel
+        if (guildId.HasValue)
+            await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId.Value, null, false, false);
     }
 
     /// <summary>
@@ -109,9 +117,8 @@ public class VoiceClient
 
         try
         {
-            // Attempt to reconnect
-            await connection.ConnectAsync();
-            state = new ReconnectionState(); // Reset on success
+            await connection.ReconnectAsync();
+            state = new ReconnectionState();
             _reconnectionStates[channelId] = state;
             _logger.LogInformation("Voice reconnection successful for channel {ChannelId}", channelId);
         }
@@ -119,10 +126,13 @@ public class VoiceClient
         {
             _logger.LogError(ex, "Voice reconnection failed for channel {ChannelId}", channelId);
             state.IsReconnecting = false;
-            // Do not recurse — the connection failure callback will schedule the next attempt,
-            // preventing unbounded call-stack growth under sustained failures.
         }
     }
+
+    /// <summary>
+    /// Gets all currently active voice connections keyed by channel ID.
+    /// </summary>
+    public IReadOnlyDictionary<ulong, VoiceConnection> ActiveConnections => _connections;
 
     /// <summary>
     /// Gets the voice connection for a channel.
@@ -137,7 +147,14 @@ public class VoiceClient
 
     private async Task OnVoiceStateUpdate(VoiceStateUpdateEvent evt)
     {
-        // Handle voice state updates
+        // Capture the bot's own session_id from its VSU events.
+        var botUserId = _discordClient.CurrentUser?.Id;
+        if (evt.GuildId.HasValue && botUserId.HasValue && evt.UserId == botUserId.Value)
+        {
+            _pendingSessions[evt.GuildId.Value] = evt.SessionId;
+            _logger.LogDebug("Captured voice session_id for guild {GuildId}: {SessionId}", evt.GuildId.Value, evt.SessionId);
+        }
+
         if (evt.ChannelId.HasValue && _connections.TryGetValue(evt.ChannelId.Value, out var connection))
         {
             connection.UpdateVoiceState(evt);
@@ -147,16 +164,43 @@ public class VoiceClient
 
     private async Task OnVoiceServerUpdate(VoiceServerUpdateEvent evt)
     {
-        // Handle voice server updates
-        foreach (var connection in _connections.Values)
+        // Find the connection for this guild
+        VoiceConnection? target = null;
+        foreach (var conn in _connections.Values)
         {
-            if (connection.GuildId == evt.GuildId)
+            if (conn.GuildId == evt.GuildId)
             {
-                connection.UpdateVoiceServer(evt);
+                target = conn;
                 break;
             }
         }
-        await Task.CompletedTask;
+
+        if (target is null)
+        {
+            _logger.LogDebug("Received VOICE_SERVER_UPDATE for guild {GuildId} but no pending connection found", evt.GuildId);
+            await Task.CompletedTask;
+            return;
+        }
+
+        if (!_pendingSessions.TryGetValue(evt.GuildId, out var sessionId))
+        {
+            _logger.LogWarning("Received VOICE_SERVER_UPDATE for guild {GuildId} but no session_id is available yet", evt.GuildId);
+            await Task.CompletedTask;
+            return;
+        }
+
+        var botUserId = _discordClient.CurrentUser?.Id ?? 0UL;
+
+        _logger.LogInformation("Initiating voice WebSocket connection for guild {GuildId} via {Endpoint}", evt.GuildId, evt.Endpoint);
+
+        try
+        {
+            await target.ConnectAsync(evt.Endpoint, evt.GuildId, botUserId, sessionId, evt.Token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to connect voice WebSocket for guild {GuildId}", evt.GuildId);
+        }
     }
 }
 

@@ -66,6 +66,16 @@ public class DiscordRestClient : IDiscordRestClient
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.2-alpha1)");
     }
 
+    /// <summary>
+    /// Convenience overload — creates a default <see cref="AdvancedRateLimiter"/> internally.
+    /// Consumers that register <c>DiscordRestClient</c> directly (e.g. via <c>AddHttpClient</c>)
+    /// without calling <c>AddAdvancedRateLimiter()</c> will use this overload automatically.
+    /// </summary>
+    public DiscordRestClient(HttpClient httpClient, PawSharpOptions options, ILogger<DiscordRestClient> logger)
+        : this(httpClient, options, logger, new AdvancedRateLimiter())
+    {
+    }
+
     public async Task<HttpResponseMessage> GetAsync(string endpoint)
     {
         return await SendRequestAsync(HttpMethod.Get, endpoint, null);
@@ -748,6 +758,9 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("BulkOverwriteGlobalApplicationCommands failed ({Status}): {Body}",
+            (int)response.StatusCode, errorBody);
         return null;
     }
     
@@ -759,6 +772,9 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("BulkOverwriteGuildApplicationCommands failed ({Status}): {Body}",
+            (int)response.StatusCode, errorBody);
         return null;
     }
     
@@ -883,13 +899,11 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<Channel>?> GetActiveThreadsAsync(ulong guildId)
+    public async Task<ActiveThreadsResponse?> GetActiveThreadsAsync(ulong guildId)
     {
         var response = await GetAsync($"guilds/{guildId}/threads/active");
         if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
+            return await response.Content.ReadFromJsonAsync<ActiveThreadsResponse>(_jsonOptions);
         return null;
     }
     
@@ -1666,10 +1680,12 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
-    public async Task<bool> DeleteInviteAsync(string inviteCode, string? reason = null)
+    public async Task<Invite?> DeleteInviteAsync(string inviteCode, string? reason = null)
     {
         var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Invite>();
+        return null;
     }
 
     // Guild Templates

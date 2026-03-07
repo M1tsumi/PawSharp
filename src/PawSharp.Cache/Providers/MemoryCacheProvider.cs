@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Core.Entities;
 
@@ -373,6 +374,14 @@ namespace PawSharp.Cache.Providers
             // Rough estimate - would need more sophisticated calculation for accurate numbers
             return GC.GetTotalMemory(false);
         }
+
+        // Async overloads — in-memory provider delegates to sync methods via Task.FromResult
+        public Task<User?> GetUserAsync(ulong userId) => Task.FromResult(GetUser(userId));
+        public Task<Guild?> GetGuildAsync(ulong guildId) => Task.FromResult(GetGuild(guildId));
+        public Task<Channel?> GetChannelAsync(ulong channelId) => Task.FromResult(GetChannel(channelId));
+        public Task<Message?> GetMessageAsync(ulong messageId) => Task.FromResult(GetMessage(messageId));
+        public Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId) => Task.FromResult(GetGuildMember(guildId, userId));
+        public Task<Role?> GetRoleAsync(ulong roleId) => Task.FromResult(GetRole(roleId));
 
         private class CacheItem
         {

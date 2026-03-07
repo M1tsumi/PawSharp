@@ -349,8 +349,8 @@ public class ModifyGuildScheduledEventRequest
 public class CreateAutoModerationRuleRequest
 {
     public string Name { get; set; } = string.Empty;
-    public int EventType { get; set; } // 1 = MESSAGE_SEND
-    public int TriggerType { get; set; } // 1 = KEYWORD, 3 = SPAM, etc.
+    public AutoModerationEventType EventType { get; set; }
+    public AutoModerationTriggerType TriggerType { get; set; }
     public AutoModerationTriggerMetadata? TriggerMetadata { get; set; }
     public List<AutoModerationAction>? Actions { get; set; }
     public bool? Enabled { get; set; }
@@ -361,8 +361,8 @@ public class CreateAutoModerationRuleRequest
 public class ModifyAutoModerationRuleRequest
 {
     public string? Name { get; set; }
-    public int? EventType { get; set; }
-    public int? TriggerType { get; set; }
+    public AutoModerationEventType? EventType { get; set; }
+    public AutoModerationTriggerType? TriggerType { get; set; }
     public AutoModerationTriggerMetadata? TriggerMetadata { get; set; }
     public List<AutoModerationAction>? Actions { get; set; }
     public bool? Enabled { get; set; }
@@ -377,8 +377,8 @@ public class CreateStageInstanceRequest
     public ulong ChannelId { get; set; }
     /// <summary>The topic of the Stage instance (1-120 characters).</summary>
     public string Topic { get; set; } = string.Empty;
-    /// <summary>1 = PUBLIC, 2 = GUILD_ONLY. Defaults to GUILD_ONLY.</summary>
-    public int? PrivacyLevel { get; set; }
+    /// <summary>Privacy level. Defaults to <see cref="StageInstancePrivacyLevel.GuildOnly"/>.</summary>
+    public StageInstancePrivacyLevel? PrivacyLevel { get; set; }
     /// <summary>Notify @everyone that a Stage instance has started.</summary>
     public bool? SendStartNotification { get; set; }
     /// <summary>The id of the scheduled event associated with this Stage instance.</summary>
@@ -388,7 +388,7 @@ public class CreateStageInstanceRequest
 public class ModifyStageInstanceRequest
 {
     public string? Topic { get; set; }
-    public int? PrivacyLevel { get; set; }
+    public StageInstancePrivacyLevel? PrivacyLevel { get; set; }
 }
 
 // Sticker Request Models
@@ -862,9 +862,9 @@ public class UpdateUserApplicationRoleConnectionRequest
 /// </summary>
 public class ArchivedThreadsResponse
 {
-    /// <summary>The archived thread channels.</summary>
+    /// <summary>The archived thread channels (include ThreadMetadata).</summary>
     [JsonPropertyName("threads")]
-    public List<Channel> Threads { get; set; } = new();
+    public List<Thread> Threads { get; set; } = new();
 
     /// <summary>Thread member objects for the current user in each returned thread.</summary>
     [JsonPropertyName("members")]
@@ -873,4 +873,18 @@ public class ArchivedThreadsResponse
     /// <summary>Whether there are additional archived threads beyond this page.</summary>
     [JsonPropertyName("has_more")]
     public bool HasMore { get; set; }
+}
+
+/// <summary>
+/// Response for GET /guilds/{id}/threads/active.
+/// </summary>
+public class ActiveThreadsResponse
+{
+    /// <summary>The active thread channels (include ThreadMetadata).</summary>
+    [JsonPropertyName("threads")]
+    public List<Thread> Threads { get; set; } = new();
+
+    /// <summary>Thread member objects for the current user in each returned thread.</summary>
+    [JsonPropertyName("members")]
+    public List<ThreadMember> Members { get; set; } = new();
 }
