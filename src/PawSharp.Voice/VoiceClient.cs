@@ -14,10 +14,11 @@ namespace PawSharp.Voice;
 /// <summary>
 /// Main voice client for handling Discord voice connections.
 /// </summary>
-public class VoiceClient
+public class VoiceClient : IDisposable
 {
     private readonly DiscordClient _discordClient;
     private readonly ILogger _logger;
+    private bool _disposed;
     private readonly ConcurrentDictionary<ulong, VoiceConnection> _connections = new();
     private readonly ConcurrentDictionary<ulong, ReconnectionState> _reconnectionStates = new();
 
@@ -98,17 +99,29 @@ public class VoiceClient
 
         var state = _reconnectionStates.GetOrAdd(channelId, _ => new ReconnectionState());
 
-        if (state.IsReconnecting || state.Attempts >= MaxReconnectionAttempts)
+        bool shouldProceed;
+        lock (state)
+        {
+            if (state.IsReconnecting || state.Attempts >= MaxReconnectionAttempts)
+            {
+                shouldProceed = false;
+            }
+            else
+            {
+                state.IsReconnecting = true;
+                state.Attempts++;
+                state.CurrentBackoffMs = Math.Min(state.CurrentBackoffMs == 0 ? InitialBackoffMs : state.CurrentBackoffMs * 2, MaxBackoffMs);
+                state.LastAttempt = DateTime.UtcNow;
+                shouldProceed = true;
+            }
+        }
+
+        if (!shouldProceed)
         {
             _logger.LogWarning("Voice reconnection failed for channel {ChannelId} after {Attempts} attempts", channelId, state.Attempts);
             await DisconnectAsync(connection.Channel);
             return;
         }
-
-        state.IsReconnecting = true;
-        state.Attempts++;
-        state.CurrentBackoffMs = Math.Min(state.CurrentBackoffMs == 0 ? InitialBackoffMs : state.CurrentBackoffMs * 2, MaxBackoffMs);
-        state.LastAttempt = DateTime.UtcNow;
 
         _logger.LogInformation("Attempting voice reconnection for channel {ChannelId}, attempt {Attempt}/{MaxAttempts}, backoff {Backoff}ms",
             channelId, state.Attempts, MaxReconnectionAttempts, state.CurrentBackoffMs);
@@ -143,6 +156,17 @@ public class VoiceClient
     {
         _connections.TryGetValue(channelId, out var connection);
         return connection;
+    }
+
+    /// <summary>
+    /// Unsubscribes gateway event handlers to prevent delegate leaks.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _discordClient.Gateway.VoiceStateUpdate -= OnVoiceStateUpdate;
+        _discordClient.Gateway.VoiceServerUpdate -= OnVoiceServerUpdate;
     }
 
     private async Task OnVoiceStateUpdate(VoiceStateUpdateEvent evt)
@@ -184,9 +208,19 @@ public class VoiceClient
 
         if (!_pendingSessions.TryGetValue(evt.GuildId, out var sessionId))
         {
-            _logger.LogWarning("Received VOICE_SERVER_UPDATE for guild {GuildId} but no session_id is available yet", evt.GuildId);
-            await Task.CompletedTask;
-            return;
+            // VOICE_SERVER_UPDATE may arrive before VOICE_STATE_UPDATE has stored the
+            // session_id. Retry a few times with a short delay before giving up.
+            const int retries = 5;
+            const int retryDelayMs = 200;
+            for (int i = 0; i < retries && !_pendingSessions.TryGetValue(evt.GuildId, out sessionId); i++)
+                await Task.Delay(retryDelayMs);
+
+            if (sessionId is null)
+            {
+                _logger.LogWarning("Received VOICE_SERVER_UPDATE for guild {GuildId} but no session_id is available yet", evt.GuildId);
+                await Task.CompletedTask;
+                return;
+            }
         }
 
         var botUserId = _discordClient.CurrentUser?.Id ?? 0UL;

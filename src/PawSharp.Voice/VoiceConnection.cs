@@ -104,19 +104,32 @@ public class VoiceConnection : IDisposable
 
     private void InitializeAudio()
     {
-        // Initialize wave input (microphone)
-        _waveIn = new WaveInEvent
+        try
         {
-            WaveFormat = new WaveFormat(48000, 16, 1),
-            BufferMilliseconds = 20
-        };
-        _waveIn.DataAvailable += OnWaveInDataAvailable;
+            // Initialize wave input (microphone)
+            _waveIn = new WaveInEvent
+            {
+                WaveFormat = new WaveFormat(48000, 16, 1),
+                BufferMilliseconds = 20
+            };
+            _waveIn.DataAvailable += OnWaveInDataAvailable;
 
-        // Initialize wave output (speakers)
-        _waveOut = new WaveOutEvent();
-        _waveProvider = new BufferedWaveProvider(new WaveFormat(48000, 16, 1));
-        _waveOut.Init(_waveProvider);
-        _waveOut.PlaybackStopped += (_, _) => { IsPlaying = false; };
+            // Initialize wave output (speakers)
+            _waveOut = new WaveOutEvent();
+            _waveProvider = new BufferedWaveProvider(new WaveFormat(48000, 16, 1));
+            _waveOut.Init(_waveProvider);
+            _waveOut.PlaybackStopped += (_, _) => { IsPlaying = false; };
+        }
+        catch (Exception)
+        {
+            // Audio hardware is unavailable (e.g. headless server). Audio I/O will
+            // be skipped; voice packet send/receive still works.
+            _waveIn?.Dispose();
+            _waveIn = null;
+            _waveOut?.Dispose();
+            _waveOut = null;
+            _waveProvider = null;
+        }
     }
 
     /// <summary>
@@ -311,7 +324,7 @@ public class VoiceConnection : IDisposable
         var payload = _dave.EncryptFrame(opusData);
 
         // Send via WebSocket (simplified - would need proper voice packet structure)
-        await _webSocket.SendAsync(payload, WebSocketMessageType.Binary, true, CancellationToken.None);
+        await _webSocket.SendAsync(payload, WebSocketMessageType.Binary, true, _cts?.Token ?? CancellationToken.None);
     }
 
     private void OnWaveInDataAvailable(object? sender, WaveInEventArgs e)
@@ -319,8 +332,9 @@ public class VoiceConnection : IDisposable
         if (_disposed)
             return;
 
-        // Send captured audio
-        _ = SendAudioAsync(e.Buffer);
+        // Only forward the bytes that NAudio actually filled (e.BytesRecorded),
+        // not the entire pre-allocated buffer which contains trailing zeroes.
+        _ = SendAudioAsync(e.Buffer[..e.BytesRecorded]);
     }
 
     private byte[] EncodeAudio(byte[] pcmData)
@@ -469,7 +483,7 @@ public class VoiceConnection : IDisposable
             var buffer = System.Text.Encoding.UTF8.GetBytes(json);
             var segment = new ArraySegment<byte>(buffer);
 
-            await _webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+            await _webSocket.SendAsync(segment, WebSocketMessageType.Text, true, _cts?.Token ?? CancellationToken.None);
         }
         catch (Exception ex)
         {
