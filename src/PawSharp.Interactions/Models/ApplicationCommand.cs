@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using PawSharp.Core.Serialization;
 
 namespace PawSharp.Interactions.Models;
 
@@ -50,15 +51,18 @@ public enum ApplicationCommandOptionType
 public class ApplicationCommand
 {
     [JsonPropertyName("id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
     public ulong? Id { get; set; }
     
     [JsonPropertyName("type")]
     public ApplicationCommandType Type { get; set; } = ApplicationCommandType.ChatInput;
     
     [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
     public ulong? ApplicationId { get; set; }
     
     [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
     public ulong? GuildId { get; set; }
     
     [JsonPropertyName("name")]
@@ -117,6 +121,13 @@ public class ApplicationCommandOption
     
     [JsonPropertyName("autocomplete")]
     public bool? Autocomplete { get; set; }
+
+    /// <summary>
+    /// Channel types that can be selected. Only applicable for options of type
+    /// <see cref="ApplicationCommandOptionType.Channel"/>.
+    /// </summary>
+    [JsonPropertyName("channel_types")]
+    public List<int>? ChannelTypes { get; set; }
 }
 
 /// <summary>

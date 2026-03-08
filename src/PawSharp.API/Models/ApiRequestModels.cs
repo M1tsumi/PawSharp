@@ -207,7 +207,10 @@ public class InteractionCallbackData
 /// </summary>
 public class AutocompleteChoice
 {
+    [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("value")]
     public object Value { get; set; } = string.Empty;
 }
 

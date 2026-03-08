@@ -13,13 +13,13 @@ PawSharp.Interactions provides a complete framework for handling Discord's moder
 - Modal dialog handling
 - Type-safe interaction data parsing
 - Permission checking for commands
-- Fully typed component hierarchy — `ActionRow`, `Button`, `SelectMenu` variants, `TextInput`
-- `ModalBuilder` with fluent `AddTextInput(label, customId, TextInputStyle, …)` API
+- Fully typed component hierarchy ï¿½ `ActionRow`, `Button`, `SelectMenu` variants, `TextInput`
+- `ModalBuilder` with fluent `AddTextInput(label, customId, TextInputStyle, ï¿½)` API
 
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Interactions --version 0.6.1-alpha1
+dotnet add package PawSharp.Interactions --version 0.10.0-alpha.3
 ```
 
 ## Quick Start
@@ -160,7 +160,7 @@ await interaction.RespondAsync(embed: embed);
 Components received in interactions are now fully typed:
 
 ```csharp
-// Message.Components is List<MessageComponent>? — deserializes automatically
+// Message.Components is List<MessageComponent>? ï¿½ deserializes automatically
 foreach (var row in message.Components ?? [])
 {
     if (row is ActionRow actionRow)
