@@ -6,7 +6,7 @@
     <AssemblyName>PawSharp.Client</AssemblyName>
     <OutputType>Library</OutputType>
     <PackageId>PawSharp.Client</PackageId>
-    <Version>0.7.0-alpha.1</Version>
+    <Version>0.10.0-alpha.3</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Main Discord client for PawSharp with unified API, gateway, and caching.</Description>
