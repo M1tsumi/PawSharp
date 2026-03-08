@@ -32,7 +32,7 @@ public static class MessageExtensions
         string? emoji = null,
         TimeSpan? timeout = null)
     {
-        var interactivity = new InteractivityExtension();
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
         var tcs = new TaskCompletionSource<Reaction>();
@@ -86,7 +86,7 @@ public static class MessageExtensions
         DiscordClient client,
         TimeSpan? timeout = null)
     {
-        var interactivity = new InteractivityExtension();
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
         var reactions = new List<Reaction>();
