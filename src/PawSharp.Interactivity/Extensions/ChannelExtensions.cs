@@ -36,7 +36,7 @@ public static class ChannelExtensions
         if (!pageList.Any())
             return;
 
-        var interactivity = new InteractivityExtension();
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
         var currentPage = 0;
@@ -98,7 +98,7 @@ public static class ChannelExtensions
         Func<MessageCreateEvent, bool>? predicate = null,
         TimeSpan? timeout = null)
     {
-        var interactivity = new InteractivityExtension();
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
         var tcs = new TaskCompletionSource<MessageCreateEvent>();
@@ -114,7 +114,7 @@ public static class ChannelExtensions
             }
         }
 
-        client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+        var subscription = client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
 
         try
         {
@@ -127,7 +127,7 @@ public static class ChannelExtensions
         }
         finally
         {
-            // Note: EventDispatcher doesn't have Remove method, handlers are persistent
+            subscription.Dispose();
             cts.Dispose();
         }
     }

@@ -9,7 +9,7 @@ namespace PawSharp.Interactivity.Extensions;
 /// </summary>
 public static class InteractivityExtensions
 {
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<DiscordClient, InteractivityExtension> _extensions = new();
+    internal static readonly System.Collections.Concurrent.ConcurrentDictionary<DiscordClient, InteractivityExtension> _extensions = new();
 
     /// <summary>
     /// Enables interactivity for the Discord client.
@@ -23,4 +23,11 @@ public static class InteractivityExtensions
     {
         return _extensions.GetOrAdd(client, c => new InteractivityExtension(config));
     }
+
+    /// <summary>
+    /// Returns the <see cref="InteractivityExtension"/> registered for <paramref name="client"/>,
+    /// or <c>null</c> if <see cref="UseInteractivity"/> has not been called for this client.
+    /// </summary>
+    internal static InteractivityExtension? GetExtension(DiscordClient client)
+        => _extensions.TryGetValue(client, out var ext) ? ext : null;
 }

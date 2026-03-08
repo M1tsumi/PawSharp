@@ -5,7 +5,7 @@
     <RootNamespace>PawSharp.Interactivity</RootNamespace>
     <AssemblyName>PawSharp.Interactivity</AssemblyName>
     <PackageId>PawSharp.Interactivity</PackageId>
-    <Version>0.7.0-alpha.1</Version>
+    <Version>0.10.0-alpha.3</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Interactivity framework for PawSharp with pagination, polls, and user input collection.</Description>
