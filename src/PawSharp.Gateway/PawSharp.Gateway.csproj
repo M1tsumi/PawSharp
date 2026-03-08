@@ -5,7 +5,7 @@
     <RootNamespace>PawSharp.Gateway</RootNamespace>
     <AssemblyName>PawSharp.Gateway</AssemblyName>
     <PackageId>PawSharp.Gateway</PackageId>
-    <Version>0.7.0-alpha.1</Version>
+    <Version>0.10.0-alpha.3</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>WebSocket gateway client for PawSharp with sharding, reconnection, and event handling.</Description>

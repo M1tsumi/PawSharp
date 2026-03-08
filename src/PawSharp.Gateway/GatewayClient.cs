@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.Core.Models;
 using PawSharp.Core.Metrics;
+using PawSharp.Core.Serialization;
 using PawSharp.Gateway.Connection;
 using PawSharp.Gateway.Events;
 using PawSharp.Gateway.Heartbeat;
@@ -33,8 +34,21 @@ namespace PawSharp.Gateway
         /// </remarks>
         private string? _resumeSessionId;
         private int? _resumeSequence;
+        /// <summary>
+        /// The résumé gateway URL sent by Discord in the READY payload.
+        /// Must be used instead of the default gateway URL when reconnecting/resuming,
+        /// per Discord API documentation.
+        /// </summary>
+        private string? _resumeGatewayUrl;
         private DateTimeOffset? _lastHeartbeatSent;
         private TimeSpan? _lastHeartbeatLatency;
+
+        // Options shared by any manual deserialisation that happens outside EventDispatcher
+        // (e.g. VoiceStateUpdate / VoiceServerUpdate mirror-events).
+        private static readonly JsonSerializerOptions _snowflakeOptions = new()
+        {
+            Converters = { new SnowflakeJsonConverter(), new NullableSnowflakeJsonConverter() }
+        };
 
         /// <summary>
         /// Fired when the gateway state changes.
@@ -125,7 +139,14 @@ namespace PawSharp.Gateway
 
             await SetStateAsync(GatewayState.Connecting);
             _cts = new CancellationTokenSource();
-            var uri = new Uri($"wss://gateway.discord.gg/?v={_options.ApiVersion}&encoding=json");
+
+            // Discord requires using resume_gateway_url (from the most recent READY) when
+            // reconnecting to resume a session.  Fall back to the canonical gateway URL for
+            // fresh connections.
+            var gatewayHost = (_resumeSessionId is not null && _resumeGatewayUrl is not null)
+                ? _resumeGatewayUrl
+                : "wss://gateway.discord.gg";
+            var uri = new Uri($"{gatewayHost}?v={_options.ApiVersion}&encoding=json");
 
             try
             {
@@ -431,7 +452,7 @@ namespace PawSharp.Gateway
                         // d is a boolean: true means the session is resumable, false means start fresh
                         bool resumable = d.ValueKind == JsonValueKind.True;
                         string errorMsg = resumable 
-                            ? "Invalid session but resumable - will re-identify" 
+                            ? "Invalid session but resumable - will re-resume" 
                             : "Invalid session - clearing resume data and re-identifying";
                         _logger.LogError(errorMsg);
                         
@@ -439,12 +460,17 @@ namespace PawSharp.Gateway
                         {
                             _resumeSessionId = null;
                             _resumeSequence = null;
+                            _resumeGatewayUrl = null;
                         }
                         
                         OnIdentifyFailed?.Invoke(errorMsg);
                         // Discord requires a small delay before re-identifying after invalid session
                         await Task.Delay(TimeSpan.FromSeconds(resumable ? 1 : 5));
-                        await SendIdentifyAsync();
+                        // When the session is resumable Discord expects a RESUME, not a fresh IDENTIFY.
+                        if (resumable)
+                            await SendResumeAsync();
+                        else
+                            await SendIdentifyAsync();
                         break;
                     case 10: // Hello — Server handshake
                         await HandleHelloAsync(d);
@@ -524,8 +550,8 @@ namespace PawSharp.Gateway
                     op = 4,
                     d = new
                     {
-                        guild_id = guildId,
-                        channel_id = channelId,
+                        guild_id = guildId.ToString(),
+                        channel_id = channelId?.ToString(),
                         self_mute = selfMute,
                         self_deaf = selfDeaf
                     }
@@ -647,7 +673,7 @@ namespace PawSharp.Gateway
                     case "VOICE_STATE_UPDATE":                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
                         if (VoiceStateUpdate != null)
                         {
-                            var voiceStateEvent = JsonSerializer.Deserialize<VoiceStateUpdateEvent>(eventData);
+                            var voiceStateEvent = JsonSerializer.Deserialize<VoiceStateUpdateEvent>(eventData, _snowflakeOptions);
                             if (voiceStateEvent != null)
                             {
                                 await VoiceStateUpdate.Invoke(voiceStateEvent);
@@ -658,7 +684,7 @@ namespace PawSharp.Gateway
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceServerUpdateEvent>(eventType, eventData);
                         if (VoiceServerUpdate != null)
                         {
-                            var voiceServerEvent = JsonSerializer.Deserialize<VoiceServerUpdateEvent>(eventData);
+                            var voiceServerEvent = JsonSerializer.Deserialize<VoiceServerUpdateEvent>(eventData, _snowflakeOptions);
                             if (voiceServerEvent != null)
                             {
                                 await VoiceServerUpdate.Invoke(voiceServerEvent);
@@ -819,7 +845,10 @@ namespace PawSharp.Gateway
                 {
                     var resumeUrl = resumeUrlProp.GetString();
                     if (!string.IsNullOrWhiteSpace(resumeUrl))
+                    {
+                        _resumeGatewayUrl = resumeUrl;
                         _logger.LogDebug("Resume gateway URL: {ResumeUrl}", resumeUrl);
+                    }
                 }
             }
             catch (Exception ex)
