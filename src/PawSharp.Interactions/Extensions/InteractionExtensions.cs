@@ -26,17 +26,18 @@ public static class InteractionExtensions
         var options = interaction.Data?.Options;
         if (options is null) return default;
 
-        // If the first option is a SubCommand (type 1) or SubCommandGroup (type 2),
-        // the actual user-supplied options are nested inside it.
-        if (options.Count == 1 && options[0].Type is 1 or 2)
+        // Unwrap SubCommand (type 1) and SubCommandGroup (type 2) layers so that
+        // options nested inside groups or subcommands are found correctly.
+        while (options.Count >= 1 && options[0].Type is 1 or 2)
             options = options[0].Options;
 
         return GetOptionValueFromList<T>(options, name);
     }
 
     /// <summary>
-    /// Returns the name of the invoked subcommand (type 1) or subcommand group option (type 2),
-    /// or <c>null</c> if the interaction has no subcommand.
+    /// Returns the name of the invoked subcommand (type 1), drilling through a
+    /// subcommand group (type 2) when present, or <c>null</c> if no subcommand
+    /// was used.
     /// </summary>
     public static string? GetSubcommandName(this InteractionCreateEvent interaction)
     {
@@ -44,6 +45,10 @@ public static class InteractionExtensions
         if (options is null || options.Count == 0) return null;
 
         var first = options[0];
+        // SubCommandGroup (type 2) wraps the actual subcommand one level deeper.
+        if (first.Type == 2 && first.Options is { Count: > 0 })
+            first = first.Options[0];
+
         if (first.Type is 1 or 2) return first.Name;
         return null;
     }
