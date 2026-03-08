@@ -19,7 +19,7 @@ PawSharp.Gateway provides the WebSocket connection to Discord's Gateway, handlin
 ## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Gateway --version 0.6.1-alpha1
+dotnet add package PawSharp.Gateway --version 0.10.0-alpha.3
 ```
 
 ## ?? Quick Start
@@ -281,11 +281,11 @@ Console.WriteLine($"Compression Ratio: {metrics.CompressionRatio:P}");
 ```
 PawSharp.Gateway
 +-- GatewayClient (main interface)
-¦   +-- WebSocketConnection (transport layer)
-¦   +-- HeartbeatManager (heartbeat handling)
-¦   +-- ReconnectionManager (reconnection logic)
-¦   +-- ShardManager (sharding support)
-¦   +-- EventDispatcher (event system)
+ï¿½   +-- WebSocketConnection (transport layer)
+ï¿½   +-- HeartbeatManager (heartbeat handling)
+ï¿½   +-- ReconnectionManager (reconnection logic)
+ï¿½   +-- ShardManager (sharding support)
+ï¿½   +-- EventDispatcher (event system)
 +-- Event Types (all Discord events)
 +-- Payload Handling (JSON serialization)
 +-- Compression (zlib/zstd support)

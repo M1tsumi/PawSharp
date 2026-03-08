@@ -8,7 +8,7 @@ namespace PawSharp.Gateway.Connection
 {
     public class WebSocketConnection
     {
-        private readonly ClientWebSocket _webSocket;
+        private ClientWebSocket _webSocket;
 
         // Compression is disabled: permessage-deflate is a WebSocket *extension*, not a
         // subprotocol, and ClientWebSocket does not support extensions. Discord uses
@@ -21,6 +21,13 @@ namespace PawSharp.Gateway.Connection
 
         public async Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
         {
+            // ClientWebSocket cannot be reused after it has been closed. Dispose the
+            // old instance and create a fresh one so that reconnection works correctly.
+            if (_webSocket.State != WebSocketState.None)
+            {
+                _webSocket.Dispose();
+                _webSocket = new ClientWebSocket();
+            }
             await _webSocket.ConnectAsync(uri, cancellationToken);
         }
 
