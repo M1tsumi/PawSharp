@@ -1,10 +1,12 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Concentus.Enums;
 using Concentus.Structs;
 using NAudio.Wave;
 using PawSharp.Client;
@@ -49,11 +51,31 @@ public class VoiceConnection : IDisposable
     private string? _sessionId;
     private string? _token;
 
-    // DAVE E2EE protocol handler (null until DAVE is negotiated)
+    // DAVE E2EE protocol handler
     private readonly DAVEProtocol _dave = new();
 
-    // Audio processing - Opus codec integration planned for future release
-    // TODO: Implement Opus encoding/decoding when Concentus API is finalized
+    // ── Opus codec constants ─────────────────────────────────────────────────
+    private const int OpusSampleRate = 48000;   // Hz
+    private const int OpusChannels   = 1;        // mono
+    private const int OpusFrameSize  = 960;      // samples — 20 ms at 48 kHz
+    private const int PcmFrameBytes  = OpusFrameSize * OpusChannels * sizeof(short); // 1 920 bytes
+    private const int MaxOpusBytes   = 4000;     // conservative max packet per RFC 6716
+
+    // Opus codec handles (Concentus — pure .NET, zero P/Invoke)
+    private OpusEncoder? _opusEncoder;
+    private OpusDecoder? _opusDecoder;
+
+    // RTP sequencing state (per-connection, monotonically increasing)
+    private ushort _rtpSequence;
+    private uint   _rtpTimestamp;
+
+    // Outgoing PCM accumulation — holds partial frames until a full 20 ms chunk is ready
+    private readonly List<byte> _pendingPcm = new();
+
+    // Speaking gate — prevents redundant op-5 transmissions
+    private bool _speaking;
+
+    // NAudio I/O (microphone capture and speaker playback)
     private WaveInEvent? _waveIn;
     private WaveOutEvent? _waveOut;
     private BufferedWaveProvider? _waveProvider;
@@ -104,6 +126,11 @@ public class VoiceConnection : IDisposable
 
     private void InitializeAudio()
     {
+        // Opus codec is always available (pure managed, no audio hardware needed)
+        _opusEncoder = OpusEncoder.Create(OpusSampleRate, OpusChannels, OpusApplication.OPUS_APPLICATION_VOIP);
+        _opusEncoder.Bitrate = 64000;
+        _opusDecoder = OpusDecoder.Create(OpusSampleRate, OpusChannels);
+
         try
         {
             // Initialize wave input (microphone)
@@ -187,6 +214,7 @@ public class VoiceConnection : IDisposable
 
         await _webSocket.ConnectAsync(uri, _cts.Token);
         State = VoiceConnectionState.Connected;
+        _speaking = false;  // reset speaking gate on fresh connection
 
         _receiveTask = Task.Run(ReceiveLoopAsync, _cts.Token);
         _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
@@ -261,24 +289,26 @@ public class VoiceConnection : IDisposable
     }
 
     /// <summary>
-    /// Starts capturing audio from the microphone.
+    /// Starts capturing audio from the microphone and raises the Discord Speaking gate (op 5).
     /// </summary>
     public void StartCapture()
     {
         if (_waveIn != null && !_disposed)
         {
             _waveIn.StartRecording();
+            _ = SetSpeakingAsync(true);
         }
     }
 
     /// <summary>
-    /// Stops capturing audio from the microphone.
+    /// Stops capturing audio from the microphone and lowers the Discord Speaking gate (op 5).
     /// </summary>
     public void StopCapture()
     {
         if (_waveIn != null)
         {
             _waveIn.StopRecording();
+            _ = SetSpeakingAsync(false);
         }
     }
 
@@ -308,23 +338,45 @@ public class VoiceConnection : IDisposable
     }
 
     /// <summary>
-    /// Sends audio data to the voice channel.
+    /// Encodes and sends PCM audio to the voice channel.
+    /// Input must be 16-bit signed mono PCM at 48 kHz (matching the capture <see cref="NAudio.Wave.WaveFormat"/>).
+    /// Internally the method accumulates samples across calls until a complete 20 ms Opus frame
+    /// (<see cref="PcmFrameBytes"/> bytes) is available, then encodes, wraps in an RTP header,
+    /// applies DAVE AES-128-GCM encryption, and transmits the packet.
     /// </summary>
-    /// <param name="audioData">The PCM audio data to send.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <param name="audioData">Raw 16-bit signed PCM bytes to transmit.</param>
     public async Task SendAudioAsync(byte[] audioData)
     {
         if (_webSocket == null || _webSocket.State != WebSocketState.Open || _disposed)
             return;
 
-        // Encode PCM to Opus
-        var opusData = EncodeAudio(audioData);
+        // Buffer incoming PCM and flush complete 20 ms frames as they become available
+        _pendingPcm.AddRange(audioData);
 
-        // Apply DAVE encryption if the protocol is active
-        var payload = _dave.EncryptFrame(opusData);
+        while (_pendingPcm.Count >= PcmFrameBytes)
+        {
+            // Dequeue exactly one 20 ms frame from the head of the accumulation buffer
+            var frameBytes = _pendingPcm.GetRange(0, PcmFrameBytes).ToArray();
+            _pendingPcm.RemoveRange(0, PcmFrameBytes);
 
-        // Send via WebSocket (simplified - would need proper voice packet structure)
-        await _webSocket.SendAsync(payload, WebSocketMessageType.Binary, true, _cts?.Token ?? CancellationToken.None);
+            // Opus-encode the 20 ms PCM frame to a compact variable-length packet
+            var opusPacket = EncodeFrame(frameBytes);
+            if (opusPacket.Length == 0) continue;
+
+            // Build the 12-byte RTP header; also used as AAD for the DAVE cipher
+            var rtpHeader = BuildRtpHeader();
+
+            // DAVE-encrypt the Opus payload, cryptographically binding it to the RTP header
+            var encryptedPayload = _dave.EncryptFrame(opusPacket, rtpHeader);
+
+            // Wire format: [12-byte RTP header][DAVE: nonce || ciphertext || auth-tag]
+            var packet = new byte[rtpHeader.Length + encryptedPayload.Length];
+            rtpHeader.CopyTo(packet, 0);
+            encryptedPayload.CopyTo(packet, rtpHeader.Length);
+
+            await _webSocket.SendAsync(packet, WebSocketMessageType.Binary, true,
+                _cts?.Token ?? CancellationToken.None);
+        }
     }
 
     private void OnWaveInDataAvailable(object? sender, WaveInEventArgs e)
@@ -337,18 +389,148 @@ public class VoiceConnection : IDisposable
         _ = SendAudioAsync(e.Buffer[..e.BytesRecorded]);
     }
 
-    private byte[] EncodeAudio(byte[] pcmData)
+    /// <summary>
+    /// Opus-encodes exactly one 20 ms PCM frame (<see cref="PcmFrameBytes"/> bytes of 16-bit samples).
+    /// Returns <see cref="Array.Empty{T}"/> when the encoder is unavailable or encoding fails.
+    /// </summary>
+    private byte[] EncodeFrame(byte[] pcmFrameBytes)
     {
-        // TODO: Implement Opus encoding with Concentus library
-        // For now, return PCM data as-is (audio framework ready for codec integration)
-        return pcmData;
+        if (_opusEncoder is null || pcmFrameBytes.Length != PcmFrameBytes)
+            return Array.Empty<byte>();
+
+        // Reinterpret the 16-bit PCM byte buffer as a short[] sample array
+        var pcmSamples = new short[OpusFrameSize * OpusChannels];
+        Buffer.BlockCopy(pcmFrameBytes, 0, pcmSamples, 0, pcmFrameBytes.Length);
+
+        var output = new byte[MaxOpusBytes];
+        int encodedLength = _opusEncoder.Encode(pcmSamples, 0, OpusFrameSize, output, 0, output.Length);
+        return encodedLength > 0 ? output[..encodedLength] : Array.Empty<byte>();
     }
 
+    /// <summary>
+    /// Decodes an Opus-encoded packet to 16-bit mono PCM at 48 kHz.
+    /// Returns the input unchanged when the decoder is unavailable.
+    /// </summary>
     private byte[] DecodeAudio(byte[] opusData)
     {
-        // TODO: Implement Opus decoding with Concentus library
-        // For now, return data as-is (audio framework ready for codec integration)
-        return opusData;
+        if (_opusDecoder is null || opusData.Length == 0)
+            return opusData;
+
+        // Maximum decoded frame is 120 ms = 5 760 samples at 48 kHz
+        var pcmSamples = new short[5760 * OpusChannels];
+        int decodedSamples = _opusDecoder.Decode(
+            opusData, 0, opusData.Length,
+            pcmSamples, 0,
+            5760,
+            false);
+
+        // Convert the decoded short[] samples back to a 16-bit PCM byte stream
+        var pcmBytes = new byte[decodedSamples * OpusChannels * sizeof(short)];
+        Buffer.BlockCopy(pcmSamples, 0, pcmBytes, 0, pcmBytes.Length);
+        return pcmBytes;
+    }
+
+    /// <summary>
+    /// Sends the Discord Speaking (op 5) payload to gate audio transmission.
+    /// Raises or lowers the speaking indicator so that Discord shows the microphone
+    /// animation and correctly routes the voice stream.  Call with
+    /// <see langword="true"/> before sending the first audio frame and with
+    /// <see langword="false"/> after the stream ends.
+    /// </summary>
+    /// <param name="speaking"><see langword="true"/> to raise; <see langword="false"/> to lower.</param>
+    public async Task SetSpeakingAsync(bool speaking)
+    {
+        if (_webSocket == null || _webSocket.State != WebSocketState.Open || _disposed)
+            return;
+
+        // Skip redundant gateway messages
+        if (_speaking == speaking)
+            return;
+
+        _speaking = speaking;
+
+        var payload = new
+        {
+            op = 5,
+            d = new
+            {
+                speaking = speaking ? 1 : 0,
+                delay    = 0,
+                ssrc     = (int)_dave.LocalSsrc,
+            },
+        };
+        var json  = JsonSerializer.Serialize(payload);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        await _webSocket.SendAsync(bytes, WebSocketMessageType.Text, true,
+            _cts?.Token ?? CancellationToken.None);
+    }
+
+    // ── RTP helpers ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Builds a 12-byte RTP fixed header (RFC 3550 §5.1) for the next outgoing audio packet.
+    /// Sequence number (uint16) and timestamp (uint32, 48 kHz clock) advance on every call.
+    /// </summary>
+    private byte[] BuildRtpHeader()
+    {
+        var header = new byte[12];
+
+        // Byte 0: V=2, P=0, X=0, CC=0
+        header[0] = 0x80;
+        // Byte 1: M=0, PT=120 (Opus payload type, RFC 7587)
+        header[1] = 0x78;
+
+        // Sequence number — big-endian uint16, wraps naturally
+        header[2] = (byte)(_rtpSequence >> 8);
+        header[3] = (byte)_rtpSequence;
+        _rtpSequence++;
+
+        // Timestamp — big-endian uint32; advances by OpusFrameSize samples per packet
+        header[4] = (byte)(_rtpTimestamp >> 24);
+        header[5] = (byte)(_rtpTimestamp >> 16);
+        header[6] = (byte)(_rtpTimestamp >> 8);
+        header[7] = (byte)_rtpTimestamp;
+        _rtpTimestamp += OpusFrameSize;  // 960 = 20 ms at 48 kHz
+
+        // SSRC — big-endian uint32 (assigned by the server in op 2 READY)
+        var ssrc = _dave.LocalSsrc;
+        header[8]  = (byte)(ssrc >> 24);
+        header[9]  = (byte)(ssrc >> 16);
+        header[10] = (byte)(ssrc >> 8);
+        header[11] = (byte)ssrc;
+
+        return header;
+    }
+
+    /// <summary>
+    /// Parses the fixed 12-byte RTP header from an inbound voice packet.
+    /// Returns the sender SSRC (used for DAVE per-sender key derivation),
+    /// the raw header bytes (passed as DAVE AAD), and the encrypted payload.
+    /// </summary>
+    /// <returns><see langword="true"/> when the packet contains a valid 12-byte header.</returns>
+    private static bool TryParseRtpPacket(
+        byte[] packet,
+        out uint   ssrc,
+        out byte[] rtpHeader,
+        out byte[] payload)
+    {
+        const int RtpHeaderSize = 12;
+        if (packet.Length < RtpHeaderSize)
+        {
+            ssrc      = 0;
+            rtpHeader = Array.Empty<byte>();
+            payload   = packet;
+            return false;
+        }
+
+        rtpHeader = packet[..RtpHeaderSize];
+        // SSRC is at bytes 8–11 in big-endian order (RFC 3550 §5.1)
+        ssrc = ((uint)packet[8]  << 24)
+             | ((uint)packet[9]  << 16)
+             | ((uint)packet[10] <<  8)
+             |  (uint)packet[11];
+        payload = packet[RtpHeaderSize..];
+        return true;
     }
 
     private async Task ReceiveLoopAsync()
@@ -356,7 +538,7 @@ public class VoiceConnection : IDisposable
         if (_webSocket == null || _cts == null)
             return;
 
-        var buffer = new byte[4096];
+        var buffer  = new byte[8192];  // large enough for max encrypted DAVE voice packet
         var segment = new ArraySegment<byte>(buffer);
 
         try
@@ -376,13 +558,18 @@ public class VoiceConnection : IDisposable
                 }
                 else if (result.MessageType == WebSocketMessageType.Binary)
                 {
-                    // Handle incoming voice packets — decrypt with DAVE if active
+                    // Handle incoming voice packets
                     var packet = new byte[result.Count];
                     Array.Copy(buffer, packet, result.Count);
-                    // SSRC would be extracted from the RTP header in a full implementation
-                    // Using 0 as placeholder SSRC for now
-                    var decrypted = _dave.DecryptFrame(packet, ssrc: 0);
-                    await PlayAudioAsync(decrypted);
+
+                    // Parse the RTP header to recover the sender SSRC and raw header bytes.
+                    // The header bytes are passed as AAD so DAVE authentication covers the
+                    // RTP metadata (sequence, timestamp, SSRC) and not just the payload.
+                    if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
+                    {
+                        var opusData = _dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
+                        await PlayAudioAsync(opusData);
+                    }
                 }
             }
         }
@@ -540,6 +727,6 @@ public class VoiceConnection : IDisposable
         _waveIn?.Dispose();
         _waveOut?.Dispose();
         _dave.Dispose();
-        // Note: OpusEncoder and OpusDecoder don't implement IDisposable
+        _pendingPcm.Clear();
     }
 }

@@ -4,6 +4,74 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [0.11.0-alpha.1] - 2026-03-08
+
+Complete Opus audio encode/decode, full DAVE E2EE frame pipeline (with proper RTP framing and AAD), Speaking gate (op 5), and comprehensive DocFX documentation site.
+
+### New Features
+
+**`VoiceConnection`** (`PawSharp.Voice`) — Opus encode/decode now fully functional
+
+- `OpusEncoder` and `OpusDecoder` initialised at construction via **Concentus 1.1.0** (pure .NET, zero P/Invoke, zero extra dependencies)
+  - `OpusEncoder.Create(48000, 1, OPUS_APPLICATION_VOIP)` — 64 kbps VOIP mono encoder
+  - `OpusDecoder.Create(48000, 1)` — stereo-capable 48 kHz decoder (up to 120 ms per call)
+- **PCM frame accumulation buffer** (`_pendingPcm: List<byte>`)
+  — NAudio callback bytes are queued and flushed in exact 20 ms / 1 920-byte Opus frames; partial frames are never sent
+- **`EncodeFrame(byte[])`** — converts one 1 920-byte (960-sample mono) PCM frame to a variable-length Opus packet via `encoder.Encode(short[], 0, 960, byte[], 0, 4000)`. Returns `Array.Empty<byte>()` on failure; callers skip the packet rather than transmitting silence.
+- **`DecodeAudio(byte[])`** — decodes an incoming Opus packet back to 16-bit PCM via `decoder.Decode(byte[], 0, len, short[], 0, 5760, false)`. Supports up to 120 ms per call. Converts the resulting `short[]` to a PCM byte stream via `Buffer.BlockCopy`.
+
+**RTP framing (RFC 3550 §5.1)**
+
+- **`BuildRtpHeader()`** — synthesises the 12-byte fixed RTP header for each outgoing packet:
+  - Version = 2, Padding = 0, Extension = 0, CSRC count = 0
+  - Payload type = 120 (Opus, per RFC 7587)
+  - Sequence number (big-endian `uint16`) — monotonically increasing, wraps naturally
+  - Timestamp (big-endian `uint32`, 48 kHz clock) — advances by 960 per packet
+  - SSRC (big-endian `uint32`) — sourced from `_dave.LocalSsrc` (set from op 2 READY)
+- **`TryParseRtpPacket()`** — extracts `ssrc`, `rtpHeader`, and encrypted payload from inbound packets; returns `false` for packets shorter than 12 bytes
+
+**DAVE E2EE — RTP header as Additional Authenticated Data (AAD)**
+
+- Outbound: `_dave.EncryptFrame(opusPacket, rtpHeader)` — the 12-byte RTP header is passed as DAVE AAD so the AES-128-GCM authentication tag covers the full wire metadata (sequence number, timestamp, SSRC)
+- Inbound: `_dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader)` — sender SSRC resolves the correct per-epoch key via `MLSState.GetSenderKey(ssrc)`; header bytes verify the AAD
+- Wire format: `[12-byte RTP header][DAVE: 12-byte nonce || ciphertext || 16-byte GCM tag]`
+
+**`SetSpeakingAsync(bool)`** (`VoiceConnection`) — Discord Speaking gate (op 5)
+
+- Sends `{"op":5,"d":{"speaking":<0|1>,"delay":0,"ssrc":<ssrc>}}` to the voice gateway
+- Idempotent: a `_speaking` guard prevents redundant transmissions
+- `StartCapture()` now raises the gate; `StopCapture()` lowers it automatically
+- Speaking state resets to `false` on every fresh WebSocket connection
+
+**`VoiceConnection` receive loop hardened**
+
+- Receive buffer enlarged from 4 096 → **8 192 bytes** to accommodate worst-case DAVE ciphertext (max Opus 120 ms frame = ~480 bytes; nonce + tag add 28 bytes; buffer is still generous)
+- Binary messages now always parsed through `TryParseRtpPacket` before DAVE decryption, preventing a `CryptographicException` from a malformed packet crashing the loop
+
+**DocFX documentation site** (`docs/`)
+
+- Full `docfx.json` rewrite: `modern` template, custom metadata, global filter config, cross-references, `_appTitle`, `_appFaviconPath`, footer links
+- Root `toc.yml` linking Introduction articles and API reference
+- `docs/toc.yml` — structured guide navigation
+- `index.md` — landing page with installation, quickstart, and package summary table
+- `docs/VOICE_GUIDE.md` — end-to-end voice + DAVE guide with Opus send/receive examples
+- `docs/API_REFERENCE.md` — per-namespace type index with cross-links
+- `filterConfig.yml` — excludes internal implementation types from the API reference
+
+### Changes
+
+- `Concentus` version pinned to **1.1.0** in `PawSharp.Voice.csproj` (was `>= 1.0.4`; 1.0.4 never shipped to NuGet and caused `NU1603` restores)
+- Root `README.md` updated: Opus TODO removed, voice quickstart updated with `SendAudioAsync` + `SetSpeakingAsync`, package table updated to 0.11.0-alpha.1
+- `src/PawSharp.Voice/README.md` fully rewritten: real Opus codec examples, DAVE AAD diagram, RTP frame layout table, Speaking gate lifecycle
+- All `<Version>` elements bumped from `0.10.0-alpha.3` → `0.11.0-alpha.1` in `src/Directory.Build.props` and each individual `.csproj`
+
+### Bug Fixes
+
+- Removed stale `// Note: OpusEncoder and OpusDecoder don't implement IDisposable` comment in `VoiceConnection.Dispose()` — Concentus encoders/decoders are GC-managed; the comment was misleading
+- Removed stale `System.IO` using directive from `VoiceConnection.cs` (was never used)
+
+---
+
 ## [0.10.0-alpha.3] - 2026-03-08
 
 Full developer-ergonomics pass: interactions, components, embeds, voice, webhooks, presence, and gateway events.

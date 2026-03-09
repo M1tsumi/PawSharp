@@ -1,0 +1,26 @@
+apiRules:
+  # Drop the internal MLS crypto primitives from the public API reference.
+  # These are implementation details of the DAVE E2EE stack and aren't meant
+  # to be called directly by library consumers.
+  - exclude:
+      uidRegex: ^PawSharp\.Voice\.DAVE\.MLS\.Crypto
+      type: Namespace
+  - exclude:
+      uidRegex: ^PawSharp\.Voice\.DAVE\.MLS\.Encoding
+      type: Namespace
+  - exclude:
+      uidRegex: ^PawSharp\.Voice\.DAVE\.MLS\.Messages
+      type: Namespace
+  - exclude:
+      uidRegex: ^PawSharp\.Voice\.DAVE\.MLS\.State
+      type: Namespace
+  - exclude:
+      uidRegex: ^PawSharp\.Voice\.DAVE\.MLS\.Tree
+      type: Namespace
+
+  # Keep the public DAVE surface (DAVEProtocol, MLSState, key derivation)
+  # but strip anything marked internal.
+  - exclude:
+      hasAttribute:
+        uid: System.Runtime.CompilerServices.InternalsVisibleToAttribute
+      type: Type

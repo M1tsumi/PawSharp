@@ -1,336 +1,231 @@
-# PawSharp.Voice
+﻿# PawSharp.Voice
 
-Professional-grade voice channel connectivity with automatic reconnection, dynamic heartbeat management, and full **Discord DAVE E2EE** (RFC 9420 MLS end-to-end encryption).
+Voice channel connectivity for PawSharp bots, with full support for Discord's
+**DAVE end-to-end encryption** protocol (RFC 9420 MLS).
 
-PawSharp.Voice provides complete encrypted voice channel support for Discord bots: automatic heartbeat interval detection, exponential backoff reconnection, per-epoch AES-128-GCM frame encryption, and a complete MLS group-state engine built entirely on .NET 8 BCL cryptography primitives.
+As of 0.11.0-alpha.1 the audio pipeline is fully functional end-to-end:
 
-## Features
+- 16-bit signed mono PCM at 48 kHz captured from the microphone (NAudio)
+- Encoded to Opus with Concentus (pure .NET, no P/Invoke)
+- Wrapped in a 12-byte RTP header (RFC 3550 §5.1, payload type 120)
+- Encrypted with AES-128-GCM; the RTP header is used as Additional Authenticated Data
+- Sent over the Discord voice WebSocket
 
-- **DAVE E2EE** — full RFC 9420 MLS stack for end-to-end encrypted voice (see below)
-- Voice channel connectivity with automatic negotiation
-- Dynamic heartbeat interval detection from Discord's HELLO events
-- Exponential backoff reconnection (1s to 30s max, 5 attempts)
-- Audio capture and speaker playback with NAudio
-- Voice state and server update handling
-- Opus codec integration framework
-- Real-time voice data transmission
-- Thread-safe operations
-- Connection resilience with automatic recovery
+Incoming packets go through the reverse: decrypt → Opus decode → PCM → speaker.
 
-## ?? Installation
+The entire crypto stack (X25519, Ed25519, HPKE, HKDF, ratchet tree, MLS key
+schedule) is built on `System.Security.Cryptography` with zero extra NuGet
+dependencies.
+
+---
+
+## Installation
 
 ```bash
-dotnet add package PawSharp.Voice --version 0.7.0-alpha.1
+dotnet add package PawSharp.Voice  # 0.11.0-alpha.1
 ```
 
-## ?? Quick Start
+The package pulls in `NAudio` (audio I/O) and `Concentus` (Opus codec).
+Everything else comes from the .NET 8 BCL.
+
+---
+
+## Quick start
 
 ```csharp
 using PawSharp.Client;
 using PawSharp.Voice;
 
-// Create Discord client
-var client = new DiscordClient(new PawSharpOptions { Token = "your-token" });
+var client = new PawSharpClientBuilder()
+    .WithToken(Environment.GetEnvironmentVariable("DISCORD_TOKEN")!)
+    .WithIntents(GatewayIntents.AllNonPrivileged)
+    .Build();
 
-// Get voice client
-var voice = client.UseVoice();
+await client.ConnectAsync();
 
-// Connect to voice channel
-Channel voiceChannel = await client.Rest.GetChannelAsync(channelId);
-var connection = await voice.ConnectAsync(voiceChannel);
+var voice      = client.UseVoice();
+var channel    = await client.Rest.GetChannelAsync(voiceChannelId);
+var connection = await voice.ConnectAsync(channel);
 
-// Start voice capture
+// Signal Discord that we're about to speak (required before sending audio)
+await connection.SetSpeakingAsync(true);
+
+// This starts the mic pipeline — PCM is captured in 20 ms chunks,
+// Opus-encoded, DAVE-encrypted, and sent automatically.
 connection.StartCapture();
 
-// Bot now transmits microphone audio to the channel
-// Received audio from other users can be played back
+// Do other work here...
 
-// Stop when done
 connection.StopCapture();
+await connection.SetSpeakingAsync(false);
 await connection.DisconnectAsync();
 ```
 
-## ?? Voice Connection Lifecycle
+---
 
-### 1. Connection Establishment
+## Sending pre-recorded audio
 
-```csharp
-// Join voice channel
-var connection = await voice.ConnectAsync(voiceChannel);
-
-// Connection automatically:
-// - Sends voice state update to Discord
-// - Receives voice server information
-// - Establishes WebSocket connection
-// - Negotiates voice protocol
-// - Starts heartbeat with proper interval
-```
-
-### 2. Audio Transmission
+If you have raw PCM (e.g. decoded from a file) instead of live microphone input:
 
 ```csharp
-// Start microphone capture
-connection.StartCapture();
-
-// Audio is automatically:
-// - Captured from microphone
-// - Encoded (when Opus is implemented)
-// - Sent via WebSocket
-// - Received by other channel members
+// audioBytes must be 16-bit signed little-endian, mono, 48 kHz
+// The method batches internally, so you can pass any number of bytes at once.
+await connection.SetSpeakingAsync(true);
+await connection.SendAudioAsync(audioBytes);
+await connection.SetSpeakingAsync(false);
 ```
 
-### 3. Audio Reception & Playback
+`SendAudioAsync` accumulates bytes in an internal buffer and flushes complete
+20 ms frames (1 920 bytes = 960 samples × 2 bytes) as they become available.
+Partial frames at the end are held until the next call, so you can stream audio
+in any chunk size.
+
+---
+
+## Playing received audio
 
 ```csharp
-// Handle incoming voice data
-connection.OnAudioReceived += async (audioData) =>
-{
-    // Decode and play received audio
-    await connection.PlayAudioAsync(audioData);
-};
-
-// Start playback
-connection.StartPlayback();
+// Incoming packets are decrypted and decoded automatically when they arrive.
+// The decoded PCM is passed straight to PlayAudioAsync, which feeds NAudio:
+await connection.PlayAudioAsync(pcmBytes);
 ```
 
-## ?? Advanced Configuration
+If the process is running on a headless server (no audio hardware), `PlayAudioAsync`
+is a no-op — packets are still received and decrypted, you just need to handle
+the PCM yourself (e.g. write to a file or process it in-memory).
 
-### Voice Client Options
+---
+
+## Speaking gate (op 5)
+
+Discord requires an op-5 `Speaking` payload before the server will route your
+RTP stream to other clients. `SetSpeakingAsync` handles this:
 
 ```csharp
-var voiceOptions = new VoiceOptions
-{
-    AudioQuality = AudioQuality.High,
-    EnableNoiseSuppression = true,
-    EnableEchoCancellation = true,
-    JitterBufferSize = 20, // milliseconds
-    EncoderComplexity = 10 // Opus encoder setting
-};
-
-var voice = client.UseVoice(voiceOptions);
+await connection.SetSpeakingAsync(true);   // raise the gate
+// ... send audio ...
+await connection.SetSpeakingAsync(false);  // lower the gate when done
 ```
 
-### Connection Monitoring
+`StartCapture()` and `StopCapture()` call `SetSpeakingAsync` automatically, so
+you only need to call it manually when using `SendAudioAsync` directly.
+
+---
+
+## DAVE E2EE — how it works
+
+Discord's DAVE protocol uses **MLS (Message Layer Security, RFC 9420)** to
+establish a shared encryption context among all participants in a voice channel.
+
+Here's the rough lifecycle:
+
+1. Server sends op 22 — requests our MLS key package
+2. We send op 21 — our `KeyPackage` (X25519 init key + Ed25519 signing key)
+3. Server sends op 25 (Welcome) or op 26 (Commit) — we join the MLS group
+4. Server sends op 24 — encryption is now active
+5. Every outgoing Opus frame is encrypted; every incoming frame is decrypted
+
+**Wire format for a single voice packet:**
+
+```
+[ 12 bytes RTP header ][ 12 bytes DAVE nonce ][ N bytes ciphertext ][ 16 bytes GCM tag ]
+  ^-- used as AAD --^   ^---- encrypted payload (nonce + ciphertext + tag) ----^
+```
+
+The nonce is constructed from the sender's SSRC (4 bytes, big-endian) and a
+monotonically increasing per-connection frame counter (8 bytes, little-endian).
+
+Per-sender AES-128 keys are derived from the epoch secret using HKDF-SHA256
+with the label `"Discord DAVE 1.0 sender key\0"` + 4-byte big-endian SSRC.
+Keys are cached for the lifetime of an epoch and invalidated on every Commit
+or Welcome.
+
+| Operation | Algorithm |
+|-----------|-----------|
+| Media encryption | AES-128-GCM |
+| Key derivation | HKDF-SHA256 |
+| Key agreement | X25519 (RFC 7748) |
+| Signing | Ed25519 (RFC 8032) |
+| HPKE | DHKEM-X25519-AES128GCM (RFC 9180) |
+| Ratchet tree | TreeKEM (RFC 9420) |
+| Key schedule | RFC 9420 §8 |
+
+---
+
+## Connection lifecycle
 
 ```csharp
-// Monitor connection health
-connection.OnConnectionLost += async () =>
-{
-    Console.WriteLine("Voice connection lost - automatic reconnection in progress");
-};
+// Connect returns once the WebSocket handshake is complete.
+// DAVE key exchange happens asynchronously in the background.
+var conn = await voice.ConnectAsync(channel);
 
-connection.OnReconnected += async () =>
-{
-    Console.WriteLine("Voice connection restored");
-};
+// State machine: Disconnected → Connecting → Connected → Disconnecting
+Console.WriteLine(conn.State);   // VoiceConnectionState.Connected
+
+// Reconnection is automatic (exponential backoff, up to 5 attempts).
+// If all attempts fail, the connection transitions to Disconnected and
+// the onConnectionFailed callback fires.
+
+await conn.DisconnectAsync();
+Console.WriteLine(conn.State);   // VoiceConnectionState.Disconnected
 ```
 
-## ?? Audio Processing
+---
 
-### Current Implementation
+## Working with multiple channels
 
 ```csharp
-// Audio capture (implemented)
-connection.StartCapture();  // Begins microphone recording
-connection.StopCapture();   // Stops microphone recording
+var voice = client.UseVoice();
 
-// Audio playback (implemented)
-await connection.PlayAudioAsync(pcmData);  // Plays PCM audio
-connection.StopPlayback();  // Stops playback
+// Connect to two channels in the same guild (common for music bots with
+// a separate staff channel)
+var conn1 = await voice.ConnectAsync(publicChannel);
+var conn2 = await voice.ConnectAsync(staffChannel);
+
+// ActiveConnections is keyed by channel ID
+foreach (var (channelId, conn) in voice.ActiveConnections)
+    Console.WriteLine($"{channelId}: {conn.State}");
+
+await conn1.DisconnectAsync();
+await conn2.DisconnectAsync();
 ```
 
-### Opus Codec Integration (Framework Ready)
+---
 
-```csharp
-// When Opus is fully integrated:
-var opusData = await connection.EncodeAudioAsync(pcmData);
-var pcmData = await connection.DecodeAudioAsync(opusData);
-```
+## Error handling
 
-### Audio Quality Settings
-
-- **Sample Rate**: 48kHz (CD quality)
-- **Channels**: Mono (optimized for voice)
-- **Frame Size**: 20ms (standard for VoIP)
-- **Bitrate**: Variable (configurable)
-- **Codec**: Opus ready (when implemented)
-
-## ?? Automatic Reconnection
-
-PawSharp.Voice includes intelligent reconnection logic:
-
-```csharp
-// Reconnection happens automatically on:
-// - Network interruptions
-// - Voice server changes
-// - WebSocket connection drops
-// - Discord service issues
-
-// Exponential backoff: 1s ? 2s ? 4s ? 8s ? 16s ? 30s (max)
-// Maximum 5 reconnection attempts
-// Automatic cleanup on final failure
-```
-
-## ?? Voice Events
-
-### Voice State Updates
-
-```csharp
-client.Gateway.Events.On<VoiceStateUpdateEvent>("VOICE_STATE_UPDATE", async evt =>
-{
-    if (evt.ChannelId.HasValue)
-    {
-        Console.WriteLine($"{evt.UserId} joined voice channel {evt.ChannelId}");
-    }
-    else
-    {
-        Console.WriteLine($"{evt.UserId} left voice channel");
-    }
-});
-```
-
-### Voice Server Updates
-
-```csharp
-client.Gateway.Events.On<VoiceServerUpdateEvent>("VOICE_SERVER_UPDATE", async evt =>
-{
-    // Voice server information updated
-    // Connection automatically renegotiates
-    Console.WriteLine($"Voice server updated for guild {evt.GuildId}");
-});
-```
-
-## Architecture
-
-```
-PawSharp.Voice
-+-- VoiceClient
-|   +-- Connection management
-|   +-- Reconnection logic
-|   +-- State tracking
-+-- VoiceConnection
-|   +-- WebSocket communication
-|   +-- Heartbeat management
-|   +-- Audio capture/playback
-|   +-- Protocol handling
-+-- DAVE/
-|   +-- DAVEProtocol       -- orchestrates MLS handshake
-|   +-- DAVEEncryption     -- AES-128-GCM per-frame encryption
-|   +-- DAVEKeyDerivation  -- epoch-secret -> sender-key HKDF
-|   +-- MLS/
-|       +-- Crypto/
-|       |   +-- Curve25519   (RFC 7748 X25519)
-|       |   +-- Ed25519      (RFC 8032 sign/verify)
-|       |   +-- MlsHkdf      (RFC 9420 label functions)
-|       |   +-- HpkeX25519   (RFC 9180 HPKE Base mode)
-|       +-- Encoding/
-|       |   +-- TlsReader    (zero-copy span reader)
-|       |   +-- TlsWriter    (MemoryStream writer)
-|       +-- Tree/
-|       |   +-- TreeMath     (left-balanced tree indexes)
-|       |   +-- TreeNode     (leaf/parent with HPKE keys)
-|       |   +-- RatchetTree  (TreeKEM operations)
-|       +-- Messages/
-|       |   +-- Credential, LeafNode, KeyPackage
-|       |   +-- GroupContext, Proposal, Welcome
-|       +-- State/
-|           +-- MLSKeySchedule  (RFC 9420 key schedule)
-|           +-- MLSGroupState   (full group state engine)
-+-- Audio Processing
-|   +-- NAudio integration
-|   +-- PCM handling
-|   +-- Opus framework (ready)
-+-- Events and State
-    +-- Voice state updates
-    +-- Server updates
-    +-- Connection events
-```
-
-## DAVE E2EE Details
-
-Discord's DAVE protocol encrypts voice frames using MLS group keys. PawSharp implements the full MLS stack from scratch:
-
-**Ciphersuite:** `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
-
-| Layer | Implementation |
-|-------|---------------|
-| Key agreement | RFC 7748 X25519 (5x51-bit Montgomery ladder) |
-| Signatures | RFC 8032 Ed25519 (twisted Edwards, GF(2^255-19)) |
-| HPKE | RFC 9180 Base mode (DHKEM-X25519 + AES-128-GCM) |
-| Tree | RFC 9420 TreeKEM ratchet tree |
-| Key schedule | RFC 9420 s8 (joiner -> epoch -> exporter) |
-| Frame encryption | AES-128-GCM with per-SSRC sender keys |
-
-## ?? Error Handling
+Most errors during connection are handled internally via the reconnect logic.
+For application-level error handling:
 
 ```csharp
 try
 {
-    var connection = await voice.ConnectAsync(voiceChannel);
+    var conn = await voice.ConnectAsync(channel);
 }
-catch (VoiceConnectionException ex)
+catch (ArgumentException ex)
 {
-    Console.WriteLine($"Voice connection failed: {ex.Message}");
-    // Automatic reconnection will be attempted
+    // Channel isn't a voice channel, or not in a guild
+    Console.WriteLine(ex.Message);
 }
-catch (AudioDeviceException ex)
-{
-    Console.WriteLine($"Audio device error: {ex.Message}");
-    // Check microphone/speaker configuration
-}
+
+// Crypto failures on inbound frames are swallowed to protect the receive loop
+// (a single tampered packet doesn't crash the loop). For outbound errors,
+// SendAudioAsync will throw if the WebSocket is closed.
 ```
 
-## ?? Dependencies
+---
 
-- **PawSharp.Client** - Discord client integration
-- **PawSharp.Core** - Entity models
-- **NAudio** - Cross-platform audio I/O
-- **Concentus** - Opus codec (framework ready)
-- **.NET 8.0** - Modern runtime
+## Dependencies
 
-## ?? Related Packages
+| Package | Version | Purpose |
+|---------|---------|---------|
+| Concentus | 1.1.0 | Opus audio codec (pure .NET) |
+| NAudio | 2.2.1 | Audio device I/O |
+| PawSharp.Client | 0.11.0-alpha.1 | DiscordClient integration |
+| .NET 8.0 BCL | — | AES-GCM, HKDF, Ed25519, X25519, WebSocket |
 
-- **[PawSharp.Client](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Client)** - Main Discord client
-- **[PawSharp.Gateway](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Gateway)** - Gateway connectivity
-- **[PawSharp.Commands](https://github.com/yourorg/PawSharp/tree/main/src/PawSharp.Commands)** - Command framework
+---
 
-## ?? Best Practices
+## License
 
-### Connection Management
-
-```csharp
-// Always dispose connections properly
-using (var connection = await voice.ConnectAsync(channel))
-{
-    // Use connection
-}
-// Automatic cleanup
-```
-
-### Error Recovery
-
-```csharp
-// Let automatic reconnection handle most issues
-connection.OnConnectionFailed += async () =>
-{
-    // Log for monitoring, but reconnection is automatic
-    await LogAsync("Voice reconnection initiated");
-};
-```
-
-### Audio Quality
-
-```csharp
-// Configure for voice communication
-var options = new VoiceOptions
-{
-    SampleRate = 48000,
-    Channels = 1, // Mono
-    FrameSize = 20, // 20ms frames
-    Complexity = 5 // Balance quality vs CPU
-};
-```
-
-## ?? License
-
-MIT License - see [LICENSE](../LICENSE) for details.
+MIT — see [LICENSE](../../LICENSE).
