@@ -1,8 +1,9 @@
 ﻿# PawSharp
 
-A Discord bot library for .NET 8. Handles the gateway connection, REST calls, caching, slash commands, and voice.
+A Discord bot library for .NET 8. Handles the gateway connection, REST calls,
+caching, slash commands, and voice with full DAVE E2EE.
 
-**Version:** 0.10.0-alpha.2 | **Discord API:** v10 | **Status:** alpha
+**Version:** 0.11.0-alpha.1 | **Discord API:** v10 | **Status:** alpha | [Changelog](CHANGELOG.md)
 
 ---
 
@@ -10,7 +11,7 @@ A Discord bot library for .NET 8. Handles the gateway connection, REST calls, ca
 
 ```bash
 # Everything in one package
-dotnet add package PawSharp.Client
+dotnet add package PawSharp.Client  # 0.11.0-alpha.1
 
 # Or pick only what you need
 dotnet add package PawSharp.API           # REST endpoints only
@@ -27,8 +28,9 @@ dotnet add package PawSharp.Voice         # Voice channels + DAVE E2EE
 
 ```csharp
 var client = new PawSharpClientBuilder()
-    .WithToken("YOUR_TOKEN")
+    .WithToken(Environment.GetEnvironmentVariable("DISCORD_TOKEN")!)
     .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+    .WithPresence("pinging", status: "online")
     .UseConsoleLogging()
     .Build();
 
@@ -55,7 +57,7 @@ More examples in [examples/](examples/).
 - **Rate limiting** — per-route bucket tracking, automatic retry on 429s
 - **Slash commands & interactions** — routing, response builders, and follow-up helpers
 - **Prefix commands** — attribute-based command modules (reflection scanner in progress, see below)
-- **DAVE E2EE voice** — full RFC 9420 MLS stack for end-to-end encrypted voice, no extra dependencies
+- **Voice + DAVE E2EE** — Opus encode/decode (Concentus), RTP framing, AES-128-GCM per RFC 9420 MLS — zero extra crypto dependencies
 - **CDN helpers** — typed URL builders for avatars, guild icons, banners, emojis, and stickers
 
 ---
@@ -95,19 +97,30 @@ client.Interactions.RegisterCommand("ping", async interaction =>
 ## Voice (DAVE E2EE)
 
 ```csharp
-var voice = client.UseVoice();
+var voice      = client.UseVoice();
 var connection = await voice.ConnectAsync(voiceChannel);
 
-connection.StartCapture();                   // mic -> encrypted stream
-await connection.PlayAudioAsync(audioData);  // received stream -> speaker
+// Tell Discord you're about to speak, then start the mic pipeline
+await connection.SetSpeakingAsync(true);
+connection.StartCapture();   // PCM captured → Opus encoded → DAVE encrypted → RTP packet → sent
 
+// Push pre-recorded PCM (16-bit signed mono 48 kHz) directly
+await connection.SendAudioAsync(pcmBytes);
+
+// Incoming packets are automatically decrypted and decoded; push to speaker:
+await connection.PlayAudioAsync(receivedPcm);
+
+await connection.SetSpeakingAsync(false);
+connection.StopCapture();
 await connection.DisconnectAsync();
 ```
 
-Voice frames are automatically encrypted with AES-128-GCM keys derived from the MLS group epoch.
-
-> **Note:** Real-time Opus audio encode/decode is not implemented yet. The codec infrastructure
-> is in place but the actual encode/decode calls are still TODO. See the table below.
+Each outgoing frame is a 20 ms Opus packet wrapped in a 12-byte RTP header
+(RFC 3550 §5.1, payload type 120). The header is passed as Additional
+Authenticated Data to AES-128-GCM so the auth tag covers the full packet, not
+just the payload. Keys are derived per-sender via HKDF-SHA256 from the MLS
+epoch secret — the entire crypto stack is built on `System.Security.Cryptography`
+primitives without any third-party crypto libraries.
 
 ---
 
@@ -145,10 +158,9 @@ services.AddSingleton<DiscordClient>();
 
 | Feature | Status |
 |---------|--------|
-| Opus audio encode/decode | Framework in place, actual codec calls are TODO |
-| Command module auto-registration | Attribute system exists, reflection scanner missing |
-| Slash command auto-registration | Manual registration works; attribute-driven bulk-register pending |
-| Redis cache provider | Exists in tests, not yet published as a real package |
+| Command module auto-registration | Attribute system works; reflection scanner not shipped yet |
+| Slash command attribute auto-register | Manual registration works; `[SlashCommand]` scanner pending |
+| Redis cache as published package | Provider exists and is tested; not yet on NuGet |
 
 ---
 
@@ -164,10 +176,10 @@ src/
   PawSharp.Commands      - prefix command framework
   PawSharp.Interactions  - slash commands, buttons, modals
   PawSharp.Interactivity - reaction waiting, polls, pagination
-  PawSharp.Voice         - voice connections + DAVE E2EE
-tests/                   - unit and integration tests
-examples/                - sample bots
-docs/                    - guides
+  PawSharp.Voice         - voice connections + DAVE E2EE (Opus + MLS + RTP)
+tests/                   - unit and integration tests (94+ passing)
+examples/                - sample bots (DashboardBot, ModerationBot, MusicBot)
+docs/                    - developer guides + DocFX API reference
 ```
 
 ---
