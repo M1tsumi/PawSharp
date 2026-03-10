@@ -277,6 +277,14 @@ public class Command
     public BaseCommandModule Module { get; }
 
     /// <summary>
+    /// Gets the precondition checks for this command, collected once at registration.
+    /// Stored here so attribute instances (and their state, e.g. <see cref="CooldownAttribute._buckets"/>)
+    /// are reused across invocations rather than being reconstructed by each
+    /// <c>GetCustomAttributes</c> call.
+    /// </summary>
+    public IReadOnlyList<IPrecondition> Preconditions { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Command"/> class.
     /// </summary>
     /// <param name="name">The command name.</param>
@@ -284,13 +292,15 @@ public class Command
     /// <param name="description">The command description.</param>
     /// <param name="method">The command method.</param>
     /// <param name="module">The command module.</param>
-    public Command(string name, string[] aliases, string? description, MethodInfo method, BaseCommandModule module)
+    /// <param name="preconditions">Pre-collected precondition instances for this command.</param>
+    public Command(string name, string[] aliases, string? description, MethodInfo method, BaseCommandModule module, IReadOnlyList<IPrecondition> preconditions)
     {
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Aliases = aliases ?? throw new ArgumentNullException(nameof(aliases));
         Description = description;
         Method = method ?? throw new ArgumentNullException(nameof(method));
         Module = module ?? throw new ArgumentNullException(nameof(module));
+        Preconditions = preconditions ?? throw new ArgumentNullException(nameof(preconditions));
     }
 }
 
@@ -390,7 +400,17 @@ public class CommandsExtension
             var aliases = aliasesAttr?.Aliases ?? Array.Empty<string>();
             var description = descriptionAttr?.Description;
 
-            var command = new Command(commandAttr.Name, aliases, description, method, module);
+            // Collect preconditions once at registration so that stateful instances
+            // (e.g. CooldownAttribute with its _buckets dictionary) are reused across
+            // invocations.  GetCustomAttributes creates NEW attribute objects on every
+            // call, so we must NOT call it at execution time for stateful preconditions.
+            var preconditions = method.GetCustomAttributes(typeof(IPrecondition), inherit: true)
+                .Concat(type.GetCustomAttributes(typeof(IPrecondition), inherit: true))
+                .Cast<IPrecondition>()
+                .ToList()
+                .AsReadOnly();
+
+            var command = new Command(commandAttr.Name, aliases, description, method, module, preconditions);
 
             _commands[commandAttr.Name] = command;
             foreach (var alias in aliases)
@@ -453,7 +473,13 @@ public class CommandsExtension
             var aliases = aliasesAttr?.Aliases ?? Array.Empty<string>();
             var description = descriptionAttr?.Description;
 
-            var command = new Command(commandAttr.Name, aliases, description, method, module);
+            var preconditions = method.GetCustomAttributes(typeof(IPrecondition), inherit: true)
+                .Concat(type.GetCustomAttributes(typeof(IPrecondition), inherit: true))
+                .Cast<IPrecondition>()
+                .ToList()
+                .AsReadOnly();
+
+            var command = new Command(commandAttr.Name, aliases, description, method, module, preconditions);
 
             _commands[commandAttr.Name] = command;
             foreach (var alias in aliases)
@@ -504,11 +530,7 @@ public class CommandsExtension
         var ctx = new CommandContext(_client!, message, _prefix, commandName, args, rawArgs, evt.Member);
 
         // ── Precondition checks ─────────────────────────────────────────────────
-        var preconditions = command.Method.GetCustomAttributes(typeof(IPrecondition), inherit: true)
-            .Concat(command.Module.GetType().GetCustomAttributes(typeof(IPrecondition), inherit: true))
-            .Cast<IPrecondition>();
-
-        foreach (var check in preconditions)
+        foreach (var check in command.Preconditions)
         {
             var result = await check.CheckAsync(ctx);
             if (!result.IsSuccess)
