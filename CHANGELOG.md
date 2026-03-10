@@ -4,11 +4,49 @@ All notable changes to PawSharp are documented here.
 
 ---
 
-## [0.11.0-alpha.1] - 2026-03-08
+## [0.11.0-alpha.1] - 2026-03-10
 
-Complete Opus audio encode/decode, full DAVE E2EE frame pipeline (with proper RTP framing and AAD), Speaking gate (op 5), and comprehensive DocFX documentation site.
+> **Last `0.x.0` release on .NET 8.**  The next major version cycle will target **.NET 10** and take advantage of its new runtime improvements.  No further `0.x.0` versions are planned until that migration is complete.
+
+Complete Opus audio encode/decode, full DAVE E2EE frame pipeline (with proper RTP framing and AAD), Speaking gate (op 5), comprehensive DocFX documentation site, command precondition system, `ReplyAsync` on `CommandContext`, and component-interaction waiting in `PawSharp.Interactivity`.
 
 ### New Features
+
+**Command Preconditions** (`PawSharp.Commands`)
+
+A first-class precondition system allows restricting command execution before any module code runs.  Implement `IPrecondition` or use the three built-in attributes:
+
+- **`IPrecondition`** interface — `Task<PreconditionResult> CheckAsync(CommandContext)` contract for custom checks
+- **`PreconditionResult`** — `FromSuccess()` / `FromError(string)` factory
+- **`[RequireGuild]`** — blocks commands invoked outside a guild (DM invocations receive a `PreconditionFailedException` via `CommandErrored`)
+- **`[RequirePermissions(ulong permissions)]`** — parses the computed `member.permissions` bitfield that Discord includes on `MESSAGE_CREATE` gateway events; `IgnoreAdmins = true` (default) lets administrator-bit holders through unconditionally
+- **`[Cooldown(int maxUses, double perSeconds, CooldownBucketType)]`** — per-user / per-channel / per-guild / global rolling-window rate limiter backed by a `ConcurrentDictionary`; remaining time is surfaced in the `PreconditionFailedException` message
+- **`CooldownBucketType`** enum — `User` (default), `Channel`, `Guild`, `Global`
+- **`PreconditionFailedException`** — dedicated exception type delivered to `CommandErrored` when a precondition blocks execution; callers can `catch` on this type to distinguish it from command handler errors
+
+Preconditions are evaluated in attribute declaration order; the first failure short-circuits execution.  Both method-level and class-level attributes are evaluated (class-level checked after method-level).
+
+**`CommandContext.ReplyAsync`** (`PawSharp.Commands`)
+
+- `ReplyAsync(string content)` — sends a Discord reply thread on the triggering message (sets `message_reference` with `message_id` and `channel_id`)
+- `ReplyAsync(Embed embed)` — same but with an embed; renders inline under the original message in Discord clients
+
+**`CommandContext.Member`** (`PawSharp.Commands`)
+
+- `CommandContext.Member` — exposes the `GuildMember` received on the `MESSAGE_CREATE` gateway event; `null` for DM commands.  Provides `Member.Permissions` (computed bitfield) consumed by `[RequirePermissions]`, and `Member.Roles` for custom precondition logic.
+
+**Component interaction waiting** (`PawSharp.Interactivity`)
+
+Two new extension methods on `Message` allow waiting for a user to interact with a button or select menu on a specific message, replacing ad-hoc `TaskCompletionSource` boilerplate in command handlers:
+
+- **`WaitForButtonAsync(DiscordClient, user?, customId?, timeout?)`** — registers an ephemeral `INTERACTION_CREATE` listener; resolves when an `INTERACTION_CREATE` event with `type = MessageComponent`, `component_type = Button (2)`, and `message.id` matching the callee arrives.  `user` and `customId` are optional filters.  The subscription is always disposed via `IDisposable` — no leak on timeout.
+- **`WaitForSelectAsync(DiscordClient, user?, customId?, timeout?)`** — same semantics but accepts all select-menu component types (String, User, Role, Mentionable, Channel — component types 3 and 5–8).  `evt.Data.Values` contains the selected values.
+
+Both methods return `InteractivityResult<InteractionCreateEvent>`, consistent with the existing `WaitForReactionAsync` pattern.  After receiving the interaction, callers should acknowledge it via `client.Interactions.DeferComponentAsync` or respond directly.
+
+**Bug Fixes**
+
+- **`CommandsExtension`** — `OnMessageCreate` previously built the `Message` manually, silently dropping `GuildId` (and other fields mapped in `ToMessage()`).  Now uses `evt.ToMessage()` so `CommandContext.GuildId` is correctly populated for guild-channel commands.  This also fixes `[RequireGuild]` which previously always returned "Not in a guild" even for guild messages.
 
 **`VoiceConnection`** (`PawSharp.Voice`) — Opus encode/decode now fully functional
 
@@ -67,8 +105,26 @@ Complete Opus audio encode/decode, full DAVE E2EE frame pipeline (with proper RT
 
 ### Bug Fixes
 
+- **`CommandsExtension.OnMessageCreate`** — `GuildId` and other `ToMessage()` fields (attachments, embeds, roles) were dropped during manual `Message` construction; replaced with `evt.ToMessage()`
 - Removed stale `// Note: OpusEncoder and OpusDecoder don't implement IDisposable` comment in `VoiceConnection.Dispose()` — Concentus encoders/decoders are GC-managed; the comment was misleading
 - Removed stale `System.IO` using directive from `VoiceConnection.cs` (was never used)
+
+### Public API Changes
+
+| Symbol | Before | After |
+|--------|--------|-------|
+| `IPrecondition` | _(missing)_ | new interface in `PawSharp.Commands.Preconditions` |
+| `PreconditionResult` | _(missing)_ | new class: `FromSuccess()`, `FromError(string)` |
+| `PreconditionFailedException` | _(missing)_ | new exception type |
+| `[RequireGuild]` | _(missing)_ | new precondition attribute |
+| `[RequirePermissions(ulong)]` | _(missing)_ | new precondition attribute; `IgnoreAdmins` property |
+| `[Cooldown(int, double, CooldownBucketType)]` | _(missing)_ | new precondition attribute |
+| `CooldownBucketType` | _(missing)_ | new enum: `User`, `Channel`, `Guild`, `Global` |
+| `CommandContext.Member` | _(missing)_ | `GuildMember?` from gateway event |
+| `CommandContext.ReplyAsync(string)` | _(missing)_ | new method — Discord reply thread |
+| `CommandContext.ReplyAsync(Embed)` | _(missing)_ | new method — Discord reply thread with embed |
+| `Message.WaitForButtonAsync(…)` | _(missing)_ | new extension method |
+| `Message.WaitForSelectAsync(…)` | _(missing)_ | new extension method |
 
 ---
 
