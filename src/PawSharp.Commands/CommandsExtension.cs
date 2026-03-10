@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PawSharp.API.Models;
 using PawSharp.Client;
+using PawSharp.Commands.Preconditions;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
 
@@ -64,6 +65,13 @@ public class CommandContext
     public string RawArguments { get; }
 
     /// <summary>
+    /// Gets the guild member who invoked the command, or <see langword="null"/> for DM invocations.
+    /// Populated from the <c>member</c> field of the gateway <c>MESSAGE_CREATE</c> event.
+    /// Use <see cref="Member"/> in <see cref="IPrecondition"/> checks to access computed permissions.
+    /// </summary>
+    public GuildMember? Member { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="CommandContext"/> class.
     /// </summary>
     /// <param name="client">The Discord client.</param>
@@ -72,13 +80,15 @@ public class CommandContext
     /// <param name="commandName">The command name.</param>
     /// <param name="arguments">The command arguments.</param>
     /// <param name="rawArguments">The raw arguments.</param>
+    /// <param name="member">The guild member who triggered the command, if in a guild.</param>
     public CommandContext(
         DiscordClient client,
         Message message,
         string prefix,
         string commandName,
         string[] arguments,
-        string rawArguments)
+        string rawArguments,
+        GuildMember? member = null)
     {
         Client = client ?? throw new ArgumentNullException(nameof(client));
         Message = message ?? throw new ArgumentNullException(nameof(message));
@@ -86,6 +96,7 @@ public class CommandContext
         CommandName = commandName ?? throw new ArgumentNullException(nameof(commandName));
         Arguments = arguments ?? throw new ArgumentNullException(nameof(arguments));
         RawArguments = rawArguments ?? throw new ArgumentNullException(nameof(rawArguments));
+        Member = member;
     }
 
     /// <summary>
@@ -106,6 +117,34 @@ public class CommandContext
     public async Task RespondAsync(Embed embed)
     {
         await Client.Rest.CreateMessageAsync(ChannelId, new CreateMessageRequest { Embeds = new List<Embed> { embed } });
+    }
+
+    /// <summary>
+    /// Replies to the triggering message (creates a Discord message reply thread).
+    /// </summary>
+    /// <param name="content">The reply content.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task ReplyAsync(string content)
+    {
+        await Client.Rest.CreateMessageAsync(ChannelId, new CreateMessageRequest
+        {
+            Content          = content,
+            MessageReference = new MessageReference { MessageId = Message.Id, ChannelId = ChannelId }
+        });
+    }
+
+    /// <summary>
+    /// Replies to the triggering message with an embed.
+    /// </summary>
+    /// <param name="embed">The embed to include in the reply.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task ReplyAsync(Embed embed)
+    {
+        await Client.Rest.CreateMessageAsync(ChannelId, new CreateMessageRequest
+        {
+            Embeds           = new List<Embed> { embed },
+            MessageReference = new MessageReference { MessageId = Message.Id, ChannelId = ChannelId }
+        });
     }
 }
 
@@ -455,55 +494,65 @@ public class CommandsExtension
         var rawArgs = parts.Length > 1 ? parts[1] : string.Empty;
         var args = rawArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-        if (_commands.TryGetValue(commandName, out var command))
+        if (!_commands.TryGetValue(commandName, out var command))
+            return;
+
+        // Use ToMessage() so all fields (including GuildId) are correctly propagated.
+        var message = evt.ToMessage();
+
+        // _client is guaranteed non-null here: OnMessageCreate is only registered after _client is set
+        var ctx = new CommandContext(_client!, message, _prefix, commandName, args, rawArgs, evt.Member);
+
+        // ── Precondition checks ─────────────────────────────────────────────────
+        var preconditions = command.Method.GetCustomAttributes(typeof(IPrecondition), inherit: true)
+            .Concat(command.Module.GetType().GetCustomAttributes(typeof(IPrecondition), inherit: true))
+            .Cast<IPrecondition>();
+
+        foreach (var check in preconditions)
         {
-            // Create a Message object from the event
-            var message = new Message
+            var result = await check.CheckAsync(ctx);
+            if (!result.IsSuccess)
             {
-                Id = evt.Id,
-                ChannelId = evt.ChannelId,
-                Author = evt.Author!, // author is always present on gateway MESSAGE_CREATE events
-                Content = evt.Content,
-                Timestamp = evt.Timestamp,
-                EditedTimestamp = evt.EditedTimestamp,
-                Tts = evt.Tts,
-                MentionEveryone = evt.MentionEveryone,
-                Mentions = evt.Mentions,
-                // Add other properties as needed
-            };
+                _logger.LogDebug(
+                    "Precondition {Check} blocked command {Command} for user {UserId}: {Reason}",
+                    check.GetType().Name, commandName, evt.Author?.Id, result.ErrorMessage);
 
-            // _client is guaranteed non-null here: OnMessageCreate is only registered after _client is set
-            var ctx = new CommandContext(_client!, message, _prefix, commandName, args, rawArgs);
-
-            try
-            {
-                await command.Module.BeforeExecutionAsync(ctx);
-
-                var parameters = command.Method.GetParameters();
-                if (parameters.Length == 1 && parameters[0].ParameterType == typeof(CommandContext))
-                {
-                    await (Task)command.Method.Invoke(command.Module, new object[] { ctx })!;
-                }
-                else
-                {
-                    // Handle parameter parsing here
-                    await (Task)command.Method.Invoke(command.Module, new object[] { ctx })!;
-                }
-
-                await command.Module.AfterExecutionAsync(ctx);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error executing command {Command} for user {UserId}",
-                    commandName, evt.Author?.Id);
-
+                // Surface the failure through CommandErrored so callers can respond to the user
                 if (CommandErrored != null)
                 {
-                    try { await CommandErrored(new CommandErrorEventArgs(ctx, ex)); }
+                    try
+                    {
+                        await CommandErrored(new CommandErrorEventArgs(
+                            ctx, new PreconditionFailedException(result.ErrorMessage ?? string.Empty)));
+                    }
                     catch (Exception handlerEx)
                     {
-                        _logger.LogError(handlerEx, "CommandErrored handler itself threw for command {Command}", commandName);
+                        _logger.LogError(handlerEx,
+                            "CommandErrored handler threw while reporting precondition failure for {Command}",
+                            commandName);
                     }
+                }
+                return;
+            }
+        }
+
+        try
+        {
+            await command.Module.BeforeExecutionAsync(ctx);
+            await (Task)command.Method.Invoke(command.Module, new object[] { ctx })!;
+            await command.Module.AfterExecutionAsync(ctx);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing command {Command} for user {UserId}",
+                commandName, evt.Author?.Id);
+
+            if (CommandErrored != null)
+            {
+                try { await CommandErrored(new CommandErrorEventArgs(ctx, ex)); }
+                catch (Exception handlerEx)
+                {
+                    _logger.LogError(handlerEx, "CommandErrored handler itself threw for command {Command}", commandName);
                 }
             }
         }
