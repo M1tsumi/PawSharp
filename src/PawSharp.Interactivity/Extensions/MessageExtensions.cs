@@ -49,7 +49,7 @@ public static class MessageExtensions
                 var reaction = new Reaction
                 {
                     Count = 1,
-                    Me = false, // TODO: Check if current user reacted
+                    Me = evt.UserId == client.CurrentUser?.Id,
                     Emoji = evt.Emoji
                 };
                 tcs.TrySetResult(reaction);
@@ -103,7 +103,7 @@ public static class MessageExtensions
                 var reaction = new Reaction
                 {
                     Count = 1,
-                    Me = false,
+                    Me = evt.UserId == client.CurrentUser?.Id,
                     Emoji = evt.Emoji
                 };
                 reactions.Add(reaction);

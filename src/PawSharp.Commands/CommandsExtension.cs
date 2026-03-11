@@ -1,8 +1,10 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -566,12 +568,17 @@ public class CommandsExtension
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error executing command {Command} for user {UserId}",
+            // Unwrap TargetInvocationException so callers see the real exception
+            var unwrapped = ex is TargetInvocationException tie && tie.InnerException != null
+                ? tie.InnerException
+                : ex;
+
+            _logger.LogError(unwrapped, "Error executing command {Command} for user {UserId}",
                 commandName, evt.Author?.Id);
 
             if (CommandErrored != null)
             {
-                try { await CommandErrored(new CommandErrorEventArgs(ctx, ex)); }
+                try { await CommandErrored(new CommandErrorEventArgs(ctx, unwrapped)); }
                 catch (Exception handlerEx)
                 {
                     _logger.LogError(handlerEx, "CommandErrored handler itself threw for command {Command}", commandName);
@@ -579,6 +586,179 @@ public class CommandsExtension
             }
         }
     }
+
+    // ── Slash command auto-registration ──────────────────────────────────────
+
+    /// <summary>
+    /// Scans a module for <see cref="SlashCommandAttribute"/>-decorated methods, registers each
+    /// discovered command with the Discord API, and wires the interaction handlers automatically.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="module">The command module to scan.</param>
+    /// <param name="applicationId">The bot application ID used to register commands with Discord.</param>
+    /// <param name="guildId">
+    /// When non-null, commands are registered as guild-scoped (instant propagation, ideal during
+    /// development). Pass <see langword="null"/> to register as global commands (may take up to
+    /// one hour to propagate to all clients).
+    /// </param>
+    public async Task RegisterSlashModuleAsync(
+        DiscordClient client,
+        BaseCommandModule module,
+        ulong applicationId,
+        ulong? guildId = null)
+    {
+        if (client == null) throw new ArgumentNullException(nameof(client));
+        if (module == null) throw new ArgumentNullException(nameof(module));
+
+        var type = module.GetType();
+        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var method in methods)
+        {
+            var slashAttr = method.GetCustomAttribute<SlashCommandAttribute>();
+            if (slashAttr == null) continue;
+
+            // Build the option list from every parameter that is NOT InteractionCreateEvent
+            var parameters = method.GetParameters();
+            var options = new List<ApplicationCommandOption>();
+
+            foreach (var param in parameters)
+            {
+                if (param.ParameterType == typeof(InteractionCreateEvent)) continue;
+
+                var optAttr  = param.GetCustomAttribute<SlashOptionAttribute>();
+                var optName  = optAttr?.Name ?? param.Name ?? "option";
+                var optDesc  = optAttr?.Description ?? "No description provided.";
+                var required = optAttr?.Required ?? !IsOptionalType(param.ParameterType);
+
+                options.Add(new ApplicationCommandOption
+                {
+                    Name        = optName,
+                    Description = optDesc,
+                    Required    = required,
+                    Type        = MapTypeToOptionType(param.ParameterType),
+                });
+            }
+
+            var request = new CreateApplicationCommandRequest
+            {
+                Name        = slashAttr.Name,
+                Description = slashAttr.Description,
+                Type        = 1, // CHAT_INPUT
+                Options     = options.Count > 0 ? options : null,
+            };
+
+            // Register with Discord REST API
+            try
+            {
+                if (guildId.HasValue)
+                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, request);
+                else
+                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register slash command /{Name} with Discord", slashAttr.Name);
+                continue;
+            }
+
+            // Capture loop variables for the async closure
+            var capturedMethod    = method;
+            var capturedModule    = module;
+            var capturedParams    = parameters;
+            var capturedSlashAttr = slashAttr;
+
+            // Wire the interaction handler
+            client.Interactions.RegisterCommand(slashAttr.Name, async interaction =>
+            {
+                var args = new object?[capturedParams.Length];
+                for (var i = 0; i < capturedParams.Length; i++)
+                {
+                    var param = capturedParams[i];
+                    if (param.ParameterType == typeof(InteractionCreateEvent))
+                    {
+                        args[i] = interaction;
+                        continue;
+                    }
+
+                    var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
+                    var optName = optAttr?.Name ?? param.Name ?? "option";
+                    args[i] = GetOptionValueForType(interaction, optName, param.ParameterType);
+                }
+
+                try
+                {
+                    var result = capturedMethod.Invoke(capturedModule, args);
+                    if (result is Task task) await task;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error executing slash command /{Name}", capturedSlashAttr.Name);
+
+                    if (CommandErrored != null)
+                    {
+                        // Build a minimal CommandContext for the error event (no message — slash context)
+                        try
+                        {
+                            await CommandErrored(new CommandErrorEventArgs(
+                                new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
+                        }
+                        catch { /* swallow handler exceptions */ }
+                    }
+                }
+            });
+
+            _logger.LogDebug("Registered slash command /{Name} for application {AppId}", slashAttr.Name, applicationId);
+        }
+    }
+
+    // Maps a C# parameter type to the corresponding Discord ApplicationCommandOptionType.
+    private static ApplicationCommandOptionType MapTypeToOptionType(Type type)
+    {
+        // Unwrap Nullable<T> — Discord doesn't have a nullable concept; Required=false handles optionality.
+        var inner = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (inner == typeof(string))                       return ApplicationCommandOptionType.String;
+        if (inner == typeof(int) || inner == typeof(long)) return ApplicationCommandOptionType.Integer;
+        if (inner == typeof(bool))                         return ApplicationCommandOptionType.Boolean;
+        if (inner == typeof(double) || inner == typeof(float)) return ApplicationCommandOptionType.Number;
+
+        // Default to string for any type we don't recognise
+        return ApplicationCommandOptionType.String;
+    }
+
+    // Returns true for types that are inherently "optional" (nullable/reference), used to
+    // infer Required when no [SlashOption] attribute specifies it explicitly.
+    private static bool IsOptionalType(Type type)
+        => !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+
+    // Extracts and converts one named option value from the interaction for the given target type.
+    private static object? GetOptionValueForType(InteractionCreateEvent interaction, string name, Type targetType)
+    {
+        var options = interaction.Data?.Options;
+        if (options == null) return GetDefault(targetType);
+
+        var option = options.FirstOrDefault(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (option?.Value == null) return GetDefault(targetType);
+
+        var inner = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        if (option.Value is JsonElement element)
+        {
+            if (inner == typeof(string))  return element.ValueKind == JsonValueKind.String ? element.GetString() : element.GetRawText();
+            if (inner == typeof(int))     return element.GetInt32();
+            if (inner == typeof(long))    return element.GetInt64();
+            if (inner == typeof(bool))    return element.GetBoolean();
+            if (inner == typeof(double))  return element.GetDouble();
+            if (inner == typeof(float))   return (float)element.GetDouble();
+        }
+
+        try { return Convert.ChangeType(option.Value, inner, CultureInfo.InvariantCulture); }
+        catch { return GetDefault(targetType); }
+    }
+
+    private static object? GetDefault(Type type)
+        => type.IsValueType ? Activator.CreateInstance(type) : null;
 }
 
 /// <summary>
@@ -596,5 +776,89 @@ public sealed class CommandErrorEventArgs
     {
         Context   = context   ?? throw new ArgumentNullException(nameof(context));
         Exception = exception ?? throw new ArgumentNullException(nameof(exception));
+    }
+}
+
+/// <summary>
+/// A lightweight <see cref="CommandContext"/> surrogate used for slash command error reporting.
+/// Unlike a normal <see cref="CommandContext"/>, there is no backing <see cref="Message"/>; the
+/// context wraps the raw <see cref="InteractionCreateEvent"/> instead.
+/// </summary>
+public sealed class SlashCommandContext : CommandContext
+{
+    /// <summary>The interaction that triggered this slash command invocation.</summary>
+    public InteractionCreateEvent Interaction { get; }
+
+    internal SlashCommandContext(DiscordClient client, InteractionCreateEvent interaction, string commandName)
+        : base(
+            client,
+            new PawSharp.Core.Entities.Message
+            {
+                Id        = interaction.Id,
+                ChannelId = interaction.ChannelId,
+                GuildId   = interaction.GuildId,
+                Author    = interaction.Member?.User ?? interaction.User,
+            },
+            prefix: "/",
+            commandName: commandName,
+            arguments: Array.Empty<string>(),
+            rawArguments: string.Empty,
+            member: interaction.Member)
+    {
+        Interaction = interaction;
+    }
+}
+
+/// <summary>
+/// Marks a method in a <see cref="BaseCommandModule"/> as a Discord application (slash) command.
+/// Use <see cref="CommandsExtension.RegisterSlashModuleAsync"/> to auto-register all methods
+/// decorated with this attribute in a module.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class SlashCommandAttribute : Attribute
+{
+    /// <summary>Gets the slash command name (1–32 characters, lowercase, no spaces).</summary>
+    public string Name { get; }
+
+    /// <summary>Gets the slash command description shown in the Discord UI (1–100 characters).</summary>
+    public string Description { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SlashCommandAttribute"/> class.
+    /// </summary>
+    /// <param name="name">The command name.</param>
+    /// <param name="description">The command description.</param>
+    public SlashCommandAttribute(string name, string description)
+    {
+        Name        = name        ?? throw new ArgumentNullException(nameof(name));
+        Description = description ?? throw new ArgumentNullException(nameof(description));
+    }
+}
+
+/// <summary>
+/// Marks a method parameter as a Discord slash command option.
+/// Applied to parameters of methods decorated with <see cref="SlashCommandAttribute"/>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Parameter)]
+public sealed class SlashOptionAttribute : Attribute
+{
+    /// <summary>Gets the option name shown in the Discord UI (1–32 characters).</summary>
+    public string Name { get; }
+
+    /// <summary>Gets the option description shown in the Discord UI (1–100 characters).</summary>
+    public string Description { get; }
+
+    /// <summary>Gets or sets whether this option is required. Defaults to <see langword="true"/>.</summary>
+    public bool Required { get; set; } = true;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SlashOptionAttribute"/> class.
+    /// </summary>
+    /// <param name="name">The option name.</param>
+    /// <param name="description">The option description.</param>
+    public SlashOptionAttribute(string name, string description)
+    {
+        Name        = name        ?? throw new ArgumentNullException(nameof(name));
+        Description = description ?? throw new ArgumentNullException(nameof(description));
     }
 }
