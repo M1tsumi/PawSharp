@@ -39,6 +39,9 @@ public static class ChannelExtensions
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
+        var emojis = interactivity.PaginationEmojis;
+        var behaviour = interactivity.PollBehaviour;
+
         var currentPage = 0;
         var message = await client.Rest.CreateMessageAsync(channel.Id, new CreateMessageRequest
         {
@@ -52,36 +55,71 @@ public static class ChannelExtensions
         if (pageList.Count == 1)
             return; // No need for pagination controls
 
-        // Add reaction controls
-        await client.Rest.CreateReactionAsync(channel.Id, message.Id, "◀");
-        await client.Rest.CreateReactionAsync(channel.Id, message.Id, "▶");
+        // Add all navigation reaction controls
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.SkipLeft);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Left);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Stop);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Right);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.SkipRight);
 
-        // Capture the delay value now — timeout is guaranteed non-null after the ??= above,
-        // but the compiler cannot verify this through a lambda closure capture.
-        var paginationDelay = timeout!.Value;
+        var tcs = new TaskCompletionSource<bool>();
+        using var cts = new CancellationTokenSource(timeout!.Value);
+        cts.Token.Register(() => tcs.TrySetResult(false));
 
-        // Handle reactions (simplified - would need event handling)
-        _ = Task.Run(async () =>
+        async Task OnReactionAdd(MessageReactionAddEvent evt)
         {
+            if (evt.MessageId != message.Id || evt.UserId != user.Id)
+                return;
+
+            // Remove the user's reaction so they can click the same arrow again
+            var emojiName = evt.Emoji.Name ?? string.Empty;
             try
             {
-                await Task.Delay(paginationDelay);
+                await client.Rest.DeleteUserReactionAsync(channel.Id, message.Id, emojiName, user.Id);
+            }
+            catch { /* ignore — we can still update the page even if reaction cleanup fails */ }
 
-                // Clean up reactions
-                try
-                {
-                    // await client.Rest.DeleteAllReactionsAsync(channel.Id, message.Id); // TODO: Implement when API supports it
-                }
-                catch
-                {
-                    // Ignore cleanup errors
-                }
-            }
-            catch
+            var previousPage = currentPage;
+
+            if (emojiName == emojis.Left       && currentPage > 0)                        currentPage--;
+            else if (emojiName == emojis.Right  && currentPage < pageList.Count - 1)      currentPage++;
+            else if (emojiName == emojis.SkipLeft  && currentPage != 0)                   currentPage = 0;
+            else if (emojiName == emojis.SkipRight && currentPage != pageList.Count - 1)  currentPage = pageList.Count - 1;
+            else if (emojiName == emojis.Stop)  { tcs.TrySetResult(true); return; }
+            else return; // unrecognised emoji — ignore
+
+            if (currentPage == previousPage) return; // no-op (already at boundary)
+
+            try
             {
-                // Ignore timeout errors
+                await client.Rest.EditMessageAsync(channel.Id, message.Id, new EditMessageRequest
+                {
+                    Content = pageList[currentPage].Content,
+                    Embeds = pageList[currentPage].Embed != null
+                        ? new List<Embed> { pageList[currentPage].Embed! }
+                        : new List<Embed>()
+                });
             }
-        });
+            catch { /* ignore edit errors; the user can try again */ }
+        }
+
+        var subscription = client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
+
+        try
+        {
+            await tcs.Task;
+        }
+        finally
+        {
+            subscription.Dispose();
+
+            // Clean up navigation reactions according to the configured behaviour
+            if (behaviour == PollBehaviour.DeleteEmojis)
+            {
+                try { await client.Rest.DeleteAllReactionsAsync(channel.Id, message.Id); }
+                catch { /* ignore cleanup errors */ }
+            }
+        }
     }
 
     /// <summary>

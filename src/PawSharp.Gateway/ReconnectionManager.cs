@@ -14,9 +14,13 @@ public class ReconnectionManager
     private const int MaxReconnectionAttempts = 10;
     private const int InitialBackoffMs = 1000; // 1 second
     private const int MaxBackoffMs = 16000; // 16 seconds
+    // Up to ±25 % jitter is applied so that many shards reconnecting at the same
+    // time do not all hammer the gateway in lock-step (thundering-herd prevention).
+    private const double JitterFactor = 0.25;
 
     private readonly ILogger _logger;
     private readonly IPerformanceMetrics? _metrics;
+    private readonly Random _rng = new();
     private int _reconnectionAttempts;
     private int _currentBackoffMs;
 
@@ -69,11 +73,16 @@ public class ReconnectionManager
         }
 
         _reconnectionAttempts++;
-        _logger.LogWarning("Reconnection attempt {Attempt}/{Max} in {BackoffMs}ms", _reconnectionAttempts, MaxReconnectionAttempts, _currentBackoffMs);
+        
+        // Apply ±JitterFactor jitter to spread reconnects across time.
+        var jitter = (int)(_currentBackoffMs * JitterFactor * (2.0 * _rng.NextDouble() - 1.0));
+        var delayMs = Math.Max(0, _currentBackoffMs + jitter);
+        
+        _logger.LogWarning("Reconnection attempt {Attempt}/{Max} in {BackoffMs}ms (jitter: {JitterMs}ms)", _reconnectionAttempts, MaxReconnectionAttempts, delayMs, jitter);
 
         _metrics?.RecordReconnection();
 
-        await Task.Delay(_currentBackoffMs);
+        await Task.Delay(delayMs);
 
         if (OnReconnectionAttempt is { } attemptHandler) await attemptHandler(_reconnectionAttempts);
 

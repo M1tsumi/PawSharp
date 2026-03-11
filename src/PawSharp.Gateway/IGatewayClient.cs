@@ -41,7 +41,13 @@ public interface IGatewayClient
     /// Requests guild member chunks (Opcode 8).
     /// Responses are delivered via <see cref="GuildMembersChunkEvent"/>.
     /// </summary>
-    Task RequestGuildMembersAsync(ulong guildId, int limit = 0, string? query = null);
+    Task RequestGuildMembersAsync(ulong guildId, int limit = 0, string? query = null, bool? presences = null, ulong[]? userIds = null);
+
+    /// <summary>
+    /// Requests soundboard sounds for one or more guilds (Opcode 31).
+    /// Discord responds with a <see cref="GuildSoundboardSoundsUpdateEvent"/> for each requested guild.
+    /// </summary>
+    Task RequestSoundboardSoundsAsync(params ulong[] guildIds);
 
     /// <summary>Fires when a voice state update is received from Discord.</summary>
     event Func<VoiceStateUpdateEvent, Task>? VoiceStateUpdate;

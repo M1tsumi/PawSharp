@@ -134,6 +134,16 @@ public class InteractivityExtension
     public TimeSpan Timeout => _config.Timeout;
 
     /// <summary>
+    /// Gets the pagination emojis used by <c>SendPaginatedMessageAsync</c>.
+    /// </summary>
+    public PaginationEmojis PaginationEmojis => _config.PaginationEmojis;
+
+    /// <summary>
+    /// Gets the poll behaviour (reaction cleanup) used by <c>SendPaginatedMessageAsync</c>.
+    /// </summary>
+    public PollBehaviour PollBehaviour => _config.PollBehaviour;
+
+    /// <summary>
     /// Generates pages from content.
     /// </summary>
     /// <param name="content">The content to paginate.</param>

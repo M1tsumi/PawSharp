@@ -48,6 +48,20 @@ public sealed class MLSState : IDisposable
     // Per-SSRC sender keys, derived lazily from the current epoch secret
     private readonly ConcurrentDictionary<uint, byte[]> _senderKeyCache = new();
 
+    // ── Key-package generation ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generates (or reuses) a TLS-encoded KeyPackage for the local client.
+    ///
+    /// The associated private key material (init key, HPKE leaf key, signing key) is
+    /// stored inside the group state so that a subsequent <see cref="ProcessWelcome"/>
+    /// call can decrypt the EncryptedGroupSecrets entry addressed to us.
+    /// </summary>
+    /// <param name="identity">The caller's Discord user ID encoded as UTF-8 bytes.</param>
+    /// <returns>TLS-encoded KeyPackage bytes, suitable for sending as op 21.</returns>
+    public byte[] GenerateKeyPackage(byte[] identity)
+        => _group.GetOrGenerateKeyPackage(identity).Encode();
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     /// <summary>

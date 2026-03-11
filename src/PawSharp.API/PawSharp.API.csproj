@@ -6,7 +6,7 @@
     <AssemblyName>PawSharp.API</AssemblyName>
     <OutputType>Library</OutputType>
     <PackageId>PawSharp.API</PackageId>
-    <Version>0.10.0-alpha.3</Version>
+    <Version>0.11.0-alpha.1</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>REST API client for PawSharp Discord API wrapper with automatic rate limiting and error handling.</Description>
