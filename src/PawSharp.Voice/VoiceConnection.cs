@@ -41,8 +41,10 @@ public class VoiceConnection : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _receiveTask;
     private Task? _heartbeatTask;
+    private Task? _keepAliveTask;
     private bool _disposed;
     private int _heartbeatInterval = 5000; // Default 5 seconds, updated from HELLO
+    private long _lastFrameSentTick;       // TickCount64 of the last outgoing audio frame (for silence keep-alive)
 
     // Stored handshake parameters for reconnects
     private string? _endpoint;
@@ -60,6 +62,12 @@ public class VoiceConnection : IDisposable
     private const int OpusFrameSize  = 960;      // samples — 20 ms at 48 kHz
     private const int PcmFrameBytes  = OpusFrameSize * OpusChannels * sizeof(short); // 1 920 bytes
     private const int MaxOpusBytes   = 4000;     // conservative max packet per RFC 6716
+
+    // UDP keep-alive: send an Opus silence frame every 5 s during silence to keep NAT mappings
+    // alive and prevent Discord's voice server from timing out the session.
+    private static readonly byte[] SilenceFrame = [0xF8, 0xFF, 0xFE];
+    private const int KeepAliveIntervalMs = 5_000;  // how often to check / send
+    private const int SilenceThresholdMs  = 5_000;  // treat connection as silent after this many ms
 
     // Opus codec handles (Concentus — pure .NET, zero P/Invoke)
     private OpusEncoder? _opusEncoder;
@@ -225,8 +233,9 @@ public class VoiceConnection : IDisposable
         State = VoiceConnectionState.Connected;
         _speaking = false;  // reset speaking gate on fresh connection
 
-        _receiveTask = Task.Run(ReceiveLoopAsync, _cts.Token);
+        _receiveTask   = Task.Run(ReceiveLoopAsync,   _cts.Token);
         _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
+        _keepAliveTask = Task.Run(KeepAliveLoopAsync, _cts.Token);
 
         // Send Opcode 0 IDENTIFY immediately after WebSocket upgrade
         await SendIdentifyAsync();
@@ -278,8 +287,9 @@ public class VoiceConnection : IDisposable
         State = VoiceConnectionState.Disconnected;
 
         await Task.WhenAll(
-            _receiveTask ?? Task.CompletedTask,
-            _heartbeatTask ?? Task.CompletedTask
+            _receiveTask   ?? Task.CompletedTask,
+            _heartbeatTask ?? Task.CompletedTask,
+            _keepAliveTask ?? Task.CompletedTask
         );
 
         _cts?.Dispose();
@@ -477,6 +487,7 @@ public class VoiceConnection : IDisposable
 
             await _webSocket.SendAsync(packet, WebSocketMessageType.Binary, true,
                 _cts?.Token ?? CancellationToken.None);
+            Interlocked.Exchange(ref _lastFrameSentTick, Environment.TickCount64);
         }
     }
 
@@ -782,6 +793,47 @@ public class VoiceConnection : IDisposable
         catch (Exception ex)
         {
             Console.WriteLine($"Error sending voice heartbeat: {ex.Message}");
+        }
+    }
+
+    private async Task KeepAliveLoopAsync()
+    {
+        if (_cts == null)
+            return;
+
+        try
+        {
+            while (!_cts.Token.IsCancellationRequested)
+            {
+                await Task.Delay(KeepAliveIntervalMs, _cts.Token).ConfigureAwait(false);
+
+                if (_webSocket?.State != WebSocketState.Open || _disposed)
+                    continue;
+
+                // Recent audio was sent — no need for a synthetic silence frame.
+                if (Environment.TickCount64 - Interlocked.Read(ref _lastFrameSentTick) < SilenceThresholdMs)
+                    continue;
+
+                // Build a full RTP + DAVE-encrypted silence packet so the server sees a
+                // well-formed voice packet and keeps the SSRC / NAT mapping alive.
+                var rtpHeader        = BuildRtpHeader();
+                var encryptedPayload = _dave.EncryptFrame(SilenceFrame, rtpHeader);
+                var packet           = new byte[rtpHeader.Length + encryptedPayload.Length];
+                rtpHeader.CopyTo(packet, 0);
+                encryptedPayload.CopyTo(packet, rtpHeader.Length);
+
+                await _webSocket.SendAsync(packet, WebSocketMessageType.Binary, true,
+                    _cts.Token).ConfigureAwait(false);
+                Interlocked.Exchange(ref _lastFrameSentTick, Environment.TickCount64);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on disconnect
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Voice keep-alive error: {ex.Message}");
         }
     }
 

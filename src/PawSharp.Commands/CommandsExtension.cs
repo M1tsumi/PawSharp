@@ -712,6 +712,141 @@ public class CommandsExtension
         }
     }
 
+    /// <summary>
+    /// Scans every module in <paramref name="modules"/> for <see cref="SlashCommandAttribute"/>-decorated
+    /// methods, registers all discovered commands with Discord in a single bulk-overwrite call, then wires
+    /// all interaction handlers.  Prefer this over calling <see cref="RegisterSlashModuleAsync"/> per
+    /// module on startup — it uses one REST round-trip instead of <em>N</em>, avoiding rate limits.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="modules">The command modules to scan.</param>
+    /// <param name="applicationId">The bot application ID.</param>
+    /// <param name="guildId">
+    /// When non-null, registers commands as guild-scoped (instant propagation, ideal for development).
+    /// Pass <see langword="null"/> to register as global commands (up to one hour propagation).
+    /// </param>
+    public async Task BulkRegisterSlashModulesAsync(
+        DiscordClient client,
+        IEnumerable<BaseCommandModule> modules,
+        ulong applicationId,
+        ulong? guildId = null)
+    {
+        if (client == null)  throw new ArgumentNullException(nameof(client));
+        if (modules == null) throw new ArgumentNullException(nameof(modules));
+
+        var requests        = new List<CreateApplicationCommandRequest>();
+        var handlerBuilders = new List<(string Name, Func<InteractionCreateEvent, Task> Handler)>();
+
+        foreach (var module in modules)
+        {
+            if (module == null) continue;
+            var type = module.GetType();
+
+            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+            {
+                var slashAttr = method.GetCustomAttribute<SlashCommandAttribute>();
+                if (slashAttr == null) continue;
+
+                var parameters = method.GetParameters();
+                var options    = new List<ApplicationCommandOption>();
+
+                foreach (var param in parameters)
+                {
+                    if (param.ParameterType == typeof(InteractionCreateEvent)) continue;
+
+                    var optAttr  = param.GetCustomAttribute<SlashOptionAttribute>();
+                    var optName  = optAttr?.Name ?? param.Name ?? "option";
+                    var optDesc  = optAttr?.Description ?? "No description provided.";
+                    var required = optAttr?.Required ?? !IsOptionalType(param.ParameterType);
+
+                    options.Add(new ApplicationCommandOption
+                    {
+                        Name        = optName,
+                        Description = optDesc,
+                        Required    = required,
+                        Type        = MapTypeToOptionType(param.ParameterType),
+                    });
+                }
+
+                requests.Add(new CreateApplicationCommandRequest
+                {
+                    Name        = slashAttr.Name,
+                    Description = slashAttr.Description,
+                    Type        = 1, // CHAT_INPUT
+                    Options     = options.Count > 0 ? options : null,
+                });
+
+                // Capture loop variables for the async closure.
+                var capturedMethod    = method;
+                var capturedModule    = module;
+                var capturedParams    = parameters;
+                var capturedSlashAttr = slashAttr;
+
+                handlerBuilders.Add((slashAttr.Name, async interaction =>
+                {
+                    var args = new object?[capturedParams.Length];
+                    for (var i = 0; i < capturedParams.Length; i++)
+                    {
+                        var param = capturedParams[i];
+                        if (param.ParameterType == typeof(InteractionCreateEvent))
+                        {
+                            args[i] = interaction;
+                            continue;
+                        }
+                        var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
+                        var optName = optAttr?.Name ?? param.Name ?? "option";
+                        args[i] = GetOptionValueForType(interaction, optName, param.ParameterType);
+                    }
+
+                    try
+                    {
+                        var result = capturedMethod.Invoke(capturedModule, args);
+                        if (result is Task task) await task;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error executing slash command /{Name}", capturedSlashAttr.Name);
+                        if (CommandErrored != null)
+                        {
+                            try
+                            {
+                                await CommandErrored(new CommandErrorEventArgs(
+                                    new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
+                            }
+                            catch { /* swallow handler exceptions */ }
+                        }
+                    }
+                }));
+            }
+        }
+
+        if (requests.Count == 0)
+            return;
+
+        // Single bulk-overwrite call — one round-trip regardless of command count.
+        try
+        {
+            if (guildId.HasValue)
+                await client.Rest.BulkOverwriteGuildApplicationCommandsAsync(applicationId, guildId.Value, requests);
+            else
+                await client.Rest.BulkOverwriteGlobalApplicationCommandsAsync(applicationId, requests);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Bulk slash command registration failed for application {AppId}", applicationId);
+            return;
+        }
+
+        foreach (var (name, handler) in handlerBuilders)
+        {
+            client.Interactions.RegisterCommand(name, handler);
+            _logger.LogDebug("Wired slash command handler /{Name} for application {AppId}", name, applicationId);
+        }
+
+        _logger.LogInformation("Bulk-registered {Count} slash command(s) for application {AppId}",
+            requests.Count, applicationId);
+    }
+
     // Maps a C# parameter type to the corresponding Discord ApplicationCommandOptionType.
     private static ApplicationCommandOptionType MapTypeToOptionType(Type type)
     {
