@@ -1,0 +1,289 @@
+PawSharp — Missing / Incomplete Features vs Discord API v10
+Generated: 2026-03-10
+============================================================
+
+This file covers GAPS only. Everything already implemented is NOT listed here.
+References: https://discord.com/developers/docs/reference
+
+============================================================
+SECTION 1 — REST API ENDPOINTS
+============================================================
+
+--- Channels ---
+[ ] GET  /channels/{id}/messages/{id}/threads
+      → Fetch the thread started from a message (GetThreadFromMessageAsync)
+
+--- Threads ---
+[ ] GET  /channels/{id}/thread-members  (with_member + pagination)
+      → GetThreadMembersAsync currently omits the `with_member` (bool) and
+        `after` / `limit` query params required for paginating large member lists.
+        Must return List<ThreadMember> with the full GuildMember sub-object
+        when with_member=true.
+
+--- Invites ---
+[ ] GET  /invites/{code}?with_counts=true&with_expiration=true&guild_scheduled_event_id=...
+      → GetInviteAsync exists but missing query params:
+        with_counts (bool), with_expiration (bool), guild_scheduled_event_id (ulong?)
+
+--- Guild ---
+[ ] GET  /guilds/{id}/audit-logs  — missing `user_id` string[] filter
+      (currently only single user_id; Discord allows filtering by action type
+       AND user ID together; the `event_type` alias is also undocumented in
+       the current wrapper param name)
+
+[ ] POST /guilds/{id}/bulk-ban — BulkGuildBanRequest is missing
+        `delete_message_seconds` (int, 0–604800); currently only sends
+        `user_ids`. The `delete_message_days` param name is deprecated.
+
+[ ] GET  /guilds/{id}/members?after=&limit=
+      → GetGuildMembersAsync missing `after` (ulong?) parameter for
+        cursor-based pagination through all members.
+
+[ ] GET  /guilds/{id}/bans?before=&after=&limit=
+      → GetGuildBansAsync missing before/after/limit query params.
+
+[ ] GET  /guilds/{id}/widget.json  (public widget, no auth needed)
+      → GetGuildWidgetAsync(guildId) — not the settings, but the rendered JSON
+
+--- Webhooks ---
+[ ] GET  /webhooks/{id}/{token}/messages/{messageId}?thread_id=
+      → GetWebhookMessageAsync missing thread_id query param
+
+--- Stage Instances ---
+[ ] StageInstance entity missing `guild_id` field (present in Discord docs)
+
+--- Application Commands ---
+[ ] ApplicationCommandOption missing sub-fields introduced in API v10:
+      - `min_length` / `max_length` (int) for STRING options
+      - `default_member_permissions` (string?) on command level (present but
+        not mapped on the CreateApplicationCommandRequest model)
+
+--- Polls ---
+[ ] GET  /channels/{id}/polls/{message_id}/answers/{answer_id}
+      → GetAnswerVotersAsync exists but is missing `after` (ulong?) and
+        `limit` (int?) pagination query params.
+
+--- Entitlements ---
+[ ] ListEntitlementsAsync missing query params:
+      - `user_id` (ulong?)
+      - `sku_ids` (ulong[]?)
+      - `before` / `after` (ulong?) cursor pagination
+      - `exclude_ended` (bool?)
+      - `exclude_deleted` (bool?)
+      - `guild_id` (ulong?)
+
+--- Subscriptions ---
+[ ] ListSkuSubscriptionsAsync missing query params:
+      - `before` / `after` (ulong?) cursor pagination
+      - `limit` (int?)
+      - `user_id` (ulong?)
+
+--- Soundboard ---
+[ ] SendSoundboardSoundRequest missing `source_guild_id` (ulong?) field
+      (required when sending a sound from a different guild)
+
+--- OAuth2 ---
+[ ] POST /oauth2/token/revoke  — RevokeTokenAsync not implemented
+      (form body: token + token_type_hint + client credentials)
+
+--- Application ---
+[ ] GET  /applications/{id}/skus  — ListSkusAsync exists but
+      Sku entity missing `dependent_sku_id`, `manifest_labels`, `release_date`
+
+============================================================
+SECTION 2 — GATEWAY EVENTS
+============================================================
+
+[ ] GUILD_MEMBERS_CHUNK
+      → GuildMembersChunkEvent exists, but the model is missing:
+        `presences` (List<Presence>?) — populated when presences=true was
+        requested on the RequestGuildMembers op8 payload.
+
+[ ] PRESENCE_UPDATE
+      → PresenceUpdateEvent exists, but the Presence entity is thin.
+        Missing: `activities` (List<Activity>), `client_status` object.
+
+[ ] TYPING_START
+      → TypingStartEvent exists. Missing: `member` (GuildMember?) inline field
+        (Discord includes partial member object since 2020).
+
+[ ] MESSAGE_CREATE / MESSAGE_UPDATE
+      → MessageCreateEvent / MessageUpdateEvent inherit from Message.
+        Missing on the Message entity:
+          - `message_reference` thread/forwarded message sub-fields
+            (`type`, `channel_id` optional)
+          - `poll` (Poll?) inline field
+          - `call` (MessageCall?) object (voice call messages)
+          - `message_snapshots` (list) for forwarded messages
+
+[ ] VOICE_CHANNEL_STATUS_UPDATE  (undocumented but dispatched by Discord)
+      → No event class or dispatch case
+        Fields: guild_id, id (channel_id), status (string?)
+
+[ ] GUILD_SOUNDBOARD_SOUND_CREATE/UPDATE/DELETE events exist but
+      SoundboardSound entity missing `available` (bool) field.
+
+[ ] ENTITLEMENT_CREATE / UPDATE / DELETE
+      → Events exist, but Entitlement entity missing:
+        `subscription_id` (ulong?), `type` full enum coverage
+
+============================================================
+SECTION 3 — MODELS / ENTITIES
+============================================================
+
+--- Message entity ---
+[ ] Missing `poll` (Poll?) property
+[ ] Missing `call` (MessageCall?) — for voice/video call message types
+[ ] Missing `message_snapshots` (List<MessageSnapshot>?) — forwarded messages
+[ ] Missing `interaction_metadata` (MessageInteractionMetadata?) —
+      replaces the deprecated `interaction` field in API v10
+[ ] `components` field exists but MessageComponent model is very thin:
+      missing `placeholder`, `min_values`, `max_values`, `disabled`,
+      `default_values` (for select menus), `emoji` on buttons,
+      `channel_types` filter on channel-select menus
+
+--- Embed entity ---
+[ ] Missing `type` field (not required to send but present on received embeds)
+
+--- Interaction entity ---
+[ ] Missing `app_permissions` (string?) — added in API v10
+[ ] Missing `locale` (string?) and `guild_locale` (string?)
+[ ] InteractionData (ApplicationCommandInteractionData) entity lacks:
+      - `guild_id` (ulong?) for guild app commands
+      - `target_id` (ulong?) for context-menu commands
+      - `resolved.attachments` map
+
+--- ApplicationCommand entity ---
+[ ] Missing `integration_types` (List<int>?)  — install context (user/guild)
+[ ] Missing `contexts` (List<int>?)  — where the command can be used
+[ ] Missing `handler` (int?) — NEW in 2025 (premium upsell handler)
+
+--- GuildMember entity ---
+[ ] Missing `flags` (GuildMemberFlags, int)
+[ ] Missing `unusual_dm_activity_until` (DateTimeOffset?)
+[ ] Missing `avatar_decoration_data` (AvatarDecorationData?)
+
+--- User entity ---
+[ ] Missing `avatar_decoration_data` (AvatarDecorationData?)
+[ ] Missing `global_name` (string?) — display name added ~2023
+[ ] Missing `clan` (UserClan?) — added 2024
+
+--- Guild entity ---
+[ ] Missing `safety_alerts_channel_id` (ulong?)  (ModifyGuildRequest has it;
+      the read-side Guild entity doesn't)
+[ ] Missing `incidents_data` (GuildIncidentsData?) on Guild read entity
+[ ] Missing `home_header` (string?) — server guide banner hash
+[ ] Missing `latest_onboarding_question_id` (ulong?)
+
+--- Channel entity ---
+[ ] Missing `status` (string?) — voice channel status
+[ ] Missing `icon` (string?) — group DM icon hash
+[ ] Missing `recipients` (List<User>?) — group DM participants
+[ ] Missing `last_pin_timestamp` (DateTimeOffset?)
+[ ] Missing `managed` (bool?) — webbooks/bots managed channel
+[ ] Missing `applied_tags` (List<ulong>?) — thread: applied forum tags
+
+--- Role entity ---
+[ ] Missing `flags` (RoleFlags, int)
+[ ] Missing `subscription_listing_id` (ulong?) — role subscription
+
+--- Invite entity ---
+[ ] Missing `expires_at` (DateTimeOffset?)
+[ ] Missing `guild_scheduled_event` (GuildScheduledEvent?)
+[ ] Missing `type` (int) — API v10 added invite types
+
+--- AuditLog / AuditLogEntry ---
+[ ] AuditLogEntry missing `reason` (string?) field
+[ ] AuditLogChange missing most change key types (only raw object)
+[ ] No strongly-typed change structures per action type
+
+--- AutoModerationRule ---
+[ ] Missing `exempt_channels` / `exempt_roles` audit change handling
+[ ] AutoModerationTriggerType enum may be incomplete (type 5 = Mention Spam)
+
+--- Sticker entity ---
+[ ] Missing `available` (bool) field
+
+--- GuildOnboarding ---
+[ ] OnboardingPromptOption missing `emoji_id` / `emoji_name` separate fields
+    (currently uses an Emoji object; API sends them split)
+
+--- New entities not modelled at all ---
+[ ] AvatarDecorationData  { asset: string, sku_id: ulong }
+[ ] MessageCall           { participants: List<ulong>, ended_timestamp: DateTimeOffset? }
+[ ] MessageSnapshot       { message: Message (partial) }
+[ ] MessageInteractionMetadata
+[ ] Activity / ActivityAssets / ActivityParty (for Presence)
+[ ] ClientStatus          { desktop/mobile/web: string? }
+[ ] UserClan              { identity_guild_id, badge, tag, identity_enabled }
+[ ] GuildIncidentsData    { dms_disabled_until, raid_detected_at, ... }
+
+============================================================
+SECTION 4 — GATEWAY OPCODES / FEATURES
+============================================================
+
+[ ] Opcode 8 — Request Guild Members
+      → RequestGuildMembersAsync exists but missing:
+        `presences` (bool?) query field
+        `user_ids` (ulong[]?) targeted member fetch by ID
+
+[ ] Opcode 14 — Request Soundboard Sounds already done (op31 in codebase
+      actually matches op14 in some versions — verify correct opcode number)
+      NOTE: Discord docs list Request Soundboard Sounds as op 31. Verify
+      this against the Gateway version targeted.
+
+[ ] Guild subscription (op 14 in v9/v10) —
+      GUILD_SUBSCRIBE opcode (lazy guild / member list subscription)
+      used by the official client; not part of the bot gateway spec but
+      relevant if targeting user tokens
+
+============================================================
+SECTION 5 — LIBRARY / INFRASTRUCTURE
+============================================================
+
+[ ] No caching of Guild/Channel/Member objects in the high-level client
+      (CacheManager exists but cache population on GUILD_CREATE etc. is
+       not wired through the GatewayClient dispatch pipeline)
+
+[ ] No reconnection back-off jitter — ReconnectionManager uses linear/
+      exponential but no randomised jitter to prevent thundering herd
+      on mass restarts
+
+[ ] No webhook signature verification helper
+      (X-Signature-Ed25519 / X-Signature-Timestamp for Interactions)
+      Needed for HTTP-based interaction endpoints.
+
+[ ] No built-in rate limit tracking for the global 50 ws events/second limit
+
+[ ] ExchangeCodeAsync / RefreshTokenAsync bypass the rate limiter entirely
+      (they call _httpClient.PostAsync directly, not SendRequestAsync)
+      → Should route through SendRequestAsync or a dedicated OAuth2 rate
+        limiter bucket
+
+[ ] IDiscordRestClient interface is not fully satisfied in places where
+      RestClient methods have different signatures than the interface declares
+      (e.g. GetThreadMembersAsync, GetGuildMembersAsync param mismatches)
+      → Run `dotnet build` with -warnaserror to surface these
+
+[ ] No ETag / conditional GET support for cacheable resources
+
+[ ] PawSharp.Commands package has no slash command auto-registration
+      (registers text commands only; slash integration is entirely manual)
+
+[ ] PawSharp.Interactivity has no button/select-menu collector
+      (only message-based collectors; no component interaction waiting)
+
+[ ] Voice: PlayAsync uses MediaFoundationResampler (Windows-only MF API)
+      → Not portable to Linux/macOS; should fall back to NAudio's
+        WdlResamplingSampleProvider or use a cross-platform resampler
+
+[ ] Voice: No UDP keep-alive / heartbeat during long silences
+      (Discord requires speaking=false heartbeats but PawSharp only
+       sets speaking state when actively sending frames)
+
+[ ] No DAVE (MLS E2EE) key ratcheting / epoch advancement implementation
+      (DAVE directory in Voice exists but MLS operations are stubs)
+
+============================================================
+END OF FILE
+============================================================
