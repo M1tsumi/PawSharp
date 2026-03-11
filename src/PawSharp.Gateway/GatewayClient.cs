@@ -258,6 +258,34 @@ namespace PawSharp.Gateway
         }
 
         /// <summary>
+        /// Requests soundboard sounds for one or more guilds (Opcode 31).
+        /// Discord will respond with a GUILD_SOUNDBOARD_SOUNDS_UPDATE event for each requested guild.
+        /// </summary>
+        /// <param name="guildIds">The IDs of the guilds whose soundboard sounds to request.</param>
+        public async Task RequestSoundboardSoundsAsync(params ulong[] guildIds)
+        {
+            try
+            {
+                var requestPayload = new
+                {
+                    op = 31, // Request Soundboard Sounds
+                    d = new
+                    {
+                        guild_ids = System.Array.ConvertAll(guildIds, id => id.ToString())
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(requestPayload);
+                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                _logger.LogInformation("Requested soundboard sounds for {Count} guild(s)", guildIds.Length);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error requesting soundboard sounds");
+            }
+        }
+
+        /// <summary>
         /// Gracefully reconnect with exponential backoff on transient errors.
         /// </summary>
         private async Task ReconnectAsync()
@@ -775,6 +803,9 @@ namespace PawSharp.Gateway
                         break;
                     case "GUILD_SOUNDBOARD_SOUNDS_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundsUpdateEvent>(eventType, eventData);
+                        break;
+                    case "VOICE_CHANNEL_EFFECT_SEND":
+                        await _eventDispatcher.DispatchFromJsonAsync<VoiceChannelEffectSendEvent>(eventType, eventData);
                         break;
                     case "SUBSCRIPTION_CREATE":
                         await _eventDispatcher.DispatchFromJsonAsync<SubscriptionCreateEvent>(eventType, eventData);
