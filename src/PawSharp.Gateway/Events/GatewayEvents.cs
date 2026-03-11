@@ -93,6 +93,9 @@ public class MessageCreateEvent : GatewayEvent
     
     [JsonPropertyName("member")]
     public GuildMember? Member { get; set; }
+
+    [JsonPropertyName("poll")]
+    public Poll? Poll { get; set; }
     
     public Message ToMessage()
     {
@@ -138,6 +141,9 @@ public class MessageUpdateEvent : GatewayEvent
     
     [JsonPropertyName("guild_id")]
     public ulong? GuildId { get; set; }
+
+    [JsonPropertyName("poll")]
+    public Poll? Poll { get; set; }
 }
 
 /// <summary>
@@ -1327,6 +1333,10 @@ public class GuildMembersChunkEvent : GatewayEvent
     [JsonPropertyName("not_found")]
     public List<ulong>? NotFound { get; set; }
 
+    /// <summary>Presences of the returned members. Only present when presences=true was sent on the op8 payload.</summary>
+    [JsonPropertyName("presences")]
+    public List<PresenceUpdateEvent>? Presences { get; set; }
+
     [JsonPropertyName("nonce")]
     public string? Nonce { get; set; }
 }
@@ -2250,4 +2260,24 @@ public class VoiceChannelEffectSendEvent : GatewayEvent
     /// <summary>The volume of the soundboard sound, from 0 to 1. Null when not a soundboard effect.</summary>
     [JsonPropertyName("sound_volume")]
     public double? SoundVolume { get; set; }
+}
+
+/// <summary>
+/// VOICE_CHANNEL_STATUS_UPDATE event — fired when a voice channel's status text changes.
+/// </summary>
+public class VoiceChannelStatusUpdateEvent : GatewayEvent
+{
+    /// <summary>The ID of the voice channel whose status changed.</summary>
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ChannelId { get; set; }
+
+    /// <summary>The ID of the guild.</summary>
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    /// <summary>The new status text, or null if the status was cleared.</summary>
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
 }
