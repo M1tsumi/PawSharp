@@ -243,6 +243,41 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    /// <summary>
+    /// Sends up to 10 file attachments in a single message.
+    /// Each element is a <c>(Stream stream, string fileName)</c> pair.
+    /// </summary>
+    public async Task<Message?> SendFilesAsync(
+        ulong channelId,
+        IEnumerable<(Stream Stream, string FileName)> files,
+        CreateMessageRequest? messageRequest = null,
+        CancellationToken cancellationToken = default)
+    {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+
+        using var form = new MultipartFormDataContent();
+
+        int index = 0;
+        foreach (var (stream, fileName) in files)
+        {
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(fileContent, $"files[{index}]", fileName);
+            index++;
+        }
+
+        if (messageRequest is not null)
+        {
+            var json = JsonSerializer.Serialize(messageRequest, _jsonOptions);
+            form.Add(new StringContent(json, Encoding.UTF8, "application/json"), "payload_json");
+        }
+
+        var response = await PostAsync($"channels/{channelId}/messages", form, cancellationToken: cancellationToken);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions, cancellationToken);
+        return null;
+    }
+
     public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
     {
         var response = await GetAsync($"channels/{channelId}/messages/{messageId}");
