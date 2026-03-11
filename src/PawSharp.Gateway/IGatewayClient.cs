@@ -41,7 +41,7 @@ public interface IGatewayClient
     /// Requests guild member chunks (Opcode 8).
     /// Responses are delivered via <see cref="GuildMembersChunkEvent"/>.
     /// </summary>
-    Task RequestGuildMembersAsync(ulong guildId, int limit = 0, string? query = null);
+    Task RequestGuildMembersAsync(ulong guildId, int limit = 0, string? query = null, bool? presences = null, ulong[]? userIds = null);
 
     /// <summary>
     /// Requests soundboard sounds for one or more guilds (Opcode 31).

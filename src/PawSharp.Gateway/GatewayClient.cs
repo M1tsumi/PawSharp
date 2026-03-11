@@ -231,21 +231,30 @@ namespace PawSharp.Gateway
 
         /// <summary>
         /// Request guild members list (Opcode 8). Used for member chunking.
+        /// Provide <paramref name="userIds"/> for targeted member fetches (mutually exclusive with <paramref name="query"/>).
         /// </summary>
-        public async Task RequestGuildMembersAsync(ulong guildId, int limit = 0, string? query = null)
+        public async Task RequestGuildMembersAsync(ulong guildId, int limit = 0, string? query = null, bool? presences = null, ulong[]? userIds = null)
         {
             try
             {
-                var requestPayload = new
-                {
-                    op = 8, // Request Guild Members
-                    d = new
+                // Build d payload — user_ids and query are mutually exclusive per Discord docs.
+                object d = userIds is { Length: > 0 }
+                    ? new
+                    {
+                        guild_id = guildId.ToString(),
+                        user_ids = Array.ConvertAll(userIds, id => id.ToString()),
+                        limit,
+                        presences
+                    }
+                    : (object)new
                     {
                         guild_id = guildId.ToString(),
                         query = query ?? "",
-                        limit = limit
-                    }
-                };
+                        limit,
+                        presences
+                    };
+
+                var requestPayload = new { op = 8, d };
 
                 var json = JsonSerializer.Serialize(requestPayload);
                 await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
