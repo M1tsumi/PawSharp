@@ -114,12 +114,12 @@ internal sealed class MLSGroupState : IDisposable
     /// </summary>
     public void ProcessWelcome(byte[] welcomeBytes, byte[]? groupId = null)
     {
-        if (_localInitPrivKey == null)
-            throw new InvalidOperationException(
-                "No key package has been generated yet. Call GetOrGenerateKeyPackage before joining a group.");
-
         try
         {
+            if (_localInitPrivKey == null)
+                throw new InvalidOperationException(
+                    "No key package has been generated yet. Call GetOrGenerateKeyPackage before joining a group.");
+
             ProcessWelcomeFull(welcomeBytes, groupId);
         }
         catch
