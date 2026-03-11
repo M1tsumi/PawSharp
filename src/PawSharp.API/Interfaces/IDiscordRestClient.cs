@@ -106,12 +106,12 @@ public interface IDiscordRestClient
     Task<bool> DeleteGuildAsync(ulong guildId);
     Task<int?> ModifyGuildMfaLevelAsync(ulong guildId, int level);
     Task<List<Channel>?> GetGuildChannelsAsync(ulong guildId);
-    Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000);
+    Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000, ulong? after = null);
     Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId);
     Task<GuildMember?> AddGuildMemberAsync(ulong guildId, ulong userId, AddGuildMemberRequest request);
     Task<GuildMember?> ModifyGuildMemberAsync(ulong guildId, ulong userId, ModifyGuildMemberRequest request);
     Task<bool> RemoveGuildMemberAsync(ulong guildId, ulong userId);
-    Task<List<Ban>?> GetGuildBansAsync(ulong guildId);
+    Task<List<Ban>?> GetGuildBansAsync(ulong guildId, ulong? before = null, ulong? after = null, int? limit = null);
     Task<Ban?> GetGuildBanAsync(ulong guildId, ulong userId);
     Task<bool> CreateGuildBanAsync(ulong guildId, ulong userId, int? deleteMessageDays = null, string? reason = null);
     Task<bool> RemoveGuildBanAsync(ulong guildId, ulong userId);
@@ -170,7 +170,7 @@ public interface IDiscordRestClient
     Task<bool> LeaveThreadAsync(ulong channelId);
     Task<bool> RemoveThreadMemberAsync(ulong channelId, ulong userId);
     Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId);
-    Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId);
+    Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId, bool withMember = false, ulong? after = null, int? limit = null);
     Task<ActiveThreadsResponse?> GetActiveThreadsAsync(ulong guildId);
     Task<ArchivedThreadsResponse?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
     Task<ArchivedThreadsResponse?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null);
@@ -298,6 +298,7 @@ public interface IDiscordRestClient
 
     // Guild widget
     Task<GuildWidgetSettings?> GetGuildWidgetSettingsAsync(ulong guildId);
+    Task<GuildWidget?> GetGuildWidgetAsync(ulong guildId);
     Task<GuildWidgetSettings?> ModifyGuildWidgetAsync(ulong guildId, ModifyGuildWidgetRequest request);
 
     // Guild vanity URL
@@ -392,6 +393,7 @@ public interface IDiscordRestClient
     // OAuth2
     Task<OAuth2TokenResponse?> ExchangeCodeAsync(string code, string clientId, string clientSecret, string redirectUri);
     Task<OAuth2TokenResponse?> RefreshTokenAsync(string refreshToken, string clientId, string clientSecret);
+    Task<bool> RevokeTokenAsync(string token, string clientId, string clientSecret, string? tokenTypeHint = null);
 
     // Group DM
     Task<Channel?> CreateGroupDmAsync(List<string> accessTokens, Dictionary<string, string>? nicks = null);

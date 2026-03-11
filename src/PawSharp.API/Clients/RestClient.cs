@@ -533,9 +533,11 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000)
+    public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000, ulong? after = null)
     {
-        var response = await GetAsync($"guilds/{guildId}/members?limit={limit}");
+        var qs = $"limit={limit}";
+        if (after.HasValue) qs += $"&after={after}";
+        var response = await GetAsync($"guilds/{guildId}/members?{qs}");
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<GuildMember>>();
@@ -581,9 +583,14 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
     
-    public async Task<List<Ban>?> GetGuildBansAsync(ulong guildId)
+    public async Task<List<Ban>?> GetGuildBansAsync(ulong guildId, ulong? before = null, ulong? after = null, int? limit = null)
     {
-        var response = await GetAsync($"guilds/{guildId}/bans");
+        var qs = new System.Text.StringBuilder();
+        if (before.HasValue) qs.Append($"before={before}&");
+        if (after.HasValue)  qs.Append($"after={after}&");
+        if (limit.HasValue)  qs.Append($"limit={limit}&");
+        var query = qs.Length > 0 ? "?" + qs.ToString().TrimEnd('&') : string.Empty;
+        var response = await GetAsync($"guilds/{guildId}/bans{query}");
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<Ban>>();
@@ -949,9 +956,14 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId)
+    public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId, bool withMember = false, ulong? after = null, int? limit = null)
     {
-        var response = await GetAsync($"channels/{channelId}/thread-members");
+        var qs = new System.Text.StringBuilder();
+        if (withMember)     qs.Append("with_member=true&");
+        if (after.HasValue) qs.Append($"after={after}&");
+        if (limit.HasValue) qs.Append($"limit={limit}&");
+        var query = qs.Length > 0 ? "?" + qs.ToString().TrimEnd('&') : string.Empty;
+        var response = await GetAsync($"channels/{channelId}/thread-members{query}");
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<ThreadMember>>();
@@ -1723,6 +1735,15 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    /// <summary>GET /guilds/{id}/widget.json — public rendered widget (no auth required).</summary>
+    public async Task<GuildWidget?> GetGuildWidgetAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/widget.json");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildWidget>(_jsonOptions);
+        return null;
+    }
+
     public async Task<GuildWidgetSettings?> ModifyGuildWidgetAsync(ulong guildId, ModifyGuildWidgetRequest request)
     {
         var content = JsonContent(request);
@@ -2232,6 +2253,25 @@ public class DiscordRestClient : IDiscordRestClient
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
         return null;
+    }
+
+    /// <summary>
+    /// Revokes an OAuth2 access or refresh token. POST /oauth2/token/revoke.
+    /// The client's bot token is NOT attached to this request.
+    /// </summary>
+    public async Task<bool> RevokeTokenAsync(string token, string clientId, string clientSecret, string? tokenTypeHint = null)
+    {
+        var fields = new List<KeyValuePair<string, string>>
+        {
+            new("token",         token),
+            new("client_id",     clientId),
+            new("client_secret", clientSecret),
+        };
+        if (tokenTypeHint != null)
+            fields.Add(new("token_type_hint", tokenTypeHint));
+
+        var response = await _httpClient.PostAsync("oauth2/token/revoke", new FormUrlEncodedContent(fields));
+        return response.IsSuccessStatusCode;
     }
 
     // -- Group DM ------------------------------------------------------------

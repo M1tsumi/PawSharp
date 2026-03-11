@@ -380,6 +380,10 @@ public class CreateApplicationCommandRequest
     public List<int>? Contexts { get; set; }
     /// <summary>Whether the command is age-restricted.</summary>
     public bool? Nsfw { get; set; }
+    /// <summary>Determines how the interaction is handled (e.g. 1 = APP_HANDLER, 2 = DISCORD_LAUNCH_ACTIVITY).</summary>
+    [JsonPropertyName("handler")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Handler { get; set; }
 }
 
 // Thread/Forum Models
@@ -706,6 +710,63 @@ public class ModifyGuildWidgetRequest
     public bool? Enabled { get; set; }
     /// <summary>The widget channel ID, or null to remove.</summary>
     public ulong? ChannelId { get; set; }
+}
+
+/// <summary>Public rendered guild widget returned by GET /guilds/{id}/widget.json (no auth).</summary>
+public class GuildWidget
+{
+    [JsonPropertyName("id")]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("instant_invite")]
+    public string? InstantInvite { get; set; }
+
+    [JsonPropertyName("presence_count")]
+    public int PresenceCount { get; set; }
+
+    [JsonPropertyName("channels")]
+    public List<GuildWidgetChannel> Channels { get; set; } = new();
+
+    [JsonPropertyName("members")]
+    public List<GuildWidgetMember> Members { get; set; } = new();
+}
+
+/// <summary>Minimal channel object embedded in a public guild widget.</summary>
+public class GuildWidgetChannel
+{
+    [JsonPropertyName("id")]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("position")]
+    public int Position { get; set; }
+}
+
+/// <summary>Minimal member (presence) object embedded in a public guild widget.</summary>
+public class GuildWidgetMember
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty; // obfuscated ID in the public widget
+
+    [JsonPropertyName("username")]
+    public string Username { get; set; } = string.Empty;
+
+    [JsonPropertyName("discriminator")]
+    public string Discriminator { get; set; } = string.Empty;
+
+    [JsonPropertyName("avatar")]
+    public string? Avatar { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("avatar_url")]
+    public string? AvatarUrl { get; set; }
 }
 
 public class ModifyGuildWelcomeScreenRequest
