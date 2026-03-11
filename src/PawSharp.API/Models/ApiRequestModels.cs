@@ -284,6 +284,17 @@ public class CreateThreadRequest
     public int Type { get; set; } // 10 = NEWS_THREAD, 11 = PUBLIC_THREAD, 12 = PRIVATE_THREAD
     public bool? Invitable { get; set; }
     public int? RateLimitPerUser { get; set; }
+
+    // Forum / Media channel: the initial message to create with the thread.
+    // Required when creating a thread in a GUILD_FORUM or GUILD_MEDIA channel.
+    [System.Text.Json.Serialization.JsonPropertyName("message")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CreateMessageRequest? Message { get; set; }
+
+    // Forum / Media channel: IDs of the forum tags to apply to this thread.
+    [System.Text.Json.Serialization.JsonPropertyName("applied_tags")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<ulong>? AppliedTags { get; set; }
 }
 
 public class ModifyThreadRequest

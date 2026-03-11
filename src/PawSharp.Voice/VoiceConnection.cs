@@ -109,6 +109,15 @@ public class VoiceConnection : IDisposable
     public bool IsPlaying { get; private set; }
 
     /// <summary>
+    /// Raised whenever a decoded PCM audio frame is received from another speaker.
+    /// The first argument is the sender SSRC and the second is the raw 16-bit signed
+    /// mono PCM byte array at 48 kHz — identical to what is fed to the local speaker.
+    /// Subscribe to this event to capture or process incoming voice audio
+    /// (e.g. speech-to-text transcription) without relying on NAudio playback.
+    /// </summary>
+    public event Action<uint, byte[]>? VoicePacketReceived;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="VoiceConnection"/> class.
     /// </summary>
     /// <param name="discordClient">The Discord client.</param>
@@ -326,6 +335,27 @@ public class VoiceConnection : IDisposable
         var pcmData = DecodeAudio(audioData);
 
         // Add to playback buffer
+        _waveProvider.AddSamples(pcmData, 0, pcmData.Length);
+
+        if (!IsPlaying)
+        {
+            _waveOut?.Play();
+            IsPlaying = true;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Plays already-decoded 16-bit signed mono PCM data at 48 kHz through the local speaker.
+    /// Called internally by the receive loop after Opus decoding; also available for external use.
+    /// </summary>
+    /// <param name="pcmData">Raw PCM bytes (16-bit signed LE, mono, 48 kHz).</param>
+    public async Task PlayAudioFromPcmAsync(byte[] pcmData)
+    {
+        if (_waveProvider == null || _disposed || pcmData.Length == 0)
+            return;
+
         _waveProvider.AddSamples(pcmData, 0, pcmData.Length);
 
         if (!IsPlaying)
@@ -568,7 +598,13 @@ public class VoiceConnection : IDisposable
                     if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
                     {
                         var opusData = _dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
-                        await PlayAudioAsync(opusData);
+                        var pcm = DecodeAudio(opusData);
+
+                        // Fire the receive event before feeding audio to local playback so that
+                        // subscribers (e.g. speech-to-text) can process the PCM independently.
+                        VoicePacketReceived?.Invoke(ssrc, pcm);
+
+                        await PlayAudioFromPcmAsync(pcm);
                     }
                 }
             }
