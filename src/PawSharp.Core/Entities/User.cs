@@ -100,11 +100,10 @@ public class User : DiscordEntity
     public UserFlags? PublicFlags { get; set; }
     
     /// <summary>
-    /// The user's avatar decoration hash.
+    /// The user's avatar decoration data (asset hash and SKU id).
     /// </summary>
     [JsonPropertyName("avatar_decoration_data")]
-    public object? AvatarDecorationData { get; set; }
-
+    public AvatarDecorationData? AvatarDecorationData { get; set; }
     
     /// <summary>
     /// Gets the user's avatar URL.

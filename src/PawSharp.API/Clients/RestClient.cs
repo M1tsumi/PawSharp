@@ -63,7 +63,7 @@ public class DiscordRestClient : IDiscordRestClient
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.6.2-alpha1)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.11.0-alpha.1)");
     }
 
     /// <summary>
@@ -143,9 +143,9 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null)
+    public async Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null, string? banner = null, string? avatarDecorationData = null)
     {
-        var payload = new { username, avatar };
+        var payload = new { username, avatar, banner, avatar_decoration_data = avatarDecorationData };
         var content = JsonContent(payload);
         return await PatchAsync("users/@me", content);
     }
@@ -230,6 +230,41 @@ public class DiscordRestClient : IDiscordRestClient
         var fileContent = new StreamContent(fileStream);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         form.Add(fileContent, "files[0]", fileName);
+
+        if (messageRequest is not null)
+        {
+            var json = JsonSerializer.Serialize(messageRequest, _jsonOptions);
+            form.Add(new StringContent(json, Encoding.UTF8, "application/json"), "payload_json");
+        }
+
+        var response = await PostAsync($"channels/{channelId}/messages", form, cancellationToken: cancellationToken);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions, cancellationToken);
+        return null;
+    }
+
+    /// <summary>
+    /// Sends up to 10 file attachments in a single message.
+    /// Each element is a <c>(Stream stream, string fileName)</c> pair.
+    /// </summary>
+    public async Task<Message?> SendFilesAsync(
+        ulong channelId,
+        IEnumerable<(Stream Stream, string FileName)> files,
+        CreateMessageRequest? messageRequest = null,
+        CancellationToken cancellationToken = default)
+    {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+
+        using var form = new MultipartFormDataContent();
+
+        int index = 0;
+        foreach (var (stream, fileName) in files)
+        {
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(fileContent, $"files[{index}]", fileName);
+            index++;
+        }
 
         if (messageRequest is not null)
         {
@@ -470,6 +505,23 @@ public class DiscordRestClient : IDiscordRestClient
         var response = await DeleteAsync($"guilds/{guildId}");
         return response.IsSuccessStatusCode;
     }
+
+    /// <summary>
+    /// Modifies the guild's MFA level (requires the current user to be the guild owner).
+    /// Returns the updated MFA level on success.
+    /// </summary>
+    public async Task<int?> ModifyGuildMfaLevelAsync(ulong guildId, int level)
+    {
+        var content = JsonContent(new ModifyGuildMfaLevelRequest { Level = level });
+        var response = await PostAsync($"guilds/{guildId}/mfa", content);
+        if (response.IsSuccessStatusCode)
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            if (doc.RootElement.TryGetProperty("level", out var lv))
+                return lv.GetInt32();
+        }
+        return null;
+    }
     
     public async Task<List<Channel>?> GetGuildChannelsAsync(ulong guildId)
     {
@@ -481,9 +533,11 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000)
+    public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000, ulong? after = null)
     {
-        var response = await GetAsync($"guilds/{guildId}/members?limit={limit}");
+        var qs = $"limit={limit}";
+        if (after.HasValue) qs += $"&after={after}";
+        var response = await GetAsync($"guilds/{guildId}/members?{qs}");
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<GuildMember>>();
@@ -529,9 +583,14 @@ public class DiscordRestClient : IDiscordRestClient
         return response.IsSuccessStatusCode;
     }
     
-    public async Task<List<Ban>?> GetGuildBansAsync(ulong guildId)
+    public async Task<List<Ban>?> GetGuildBansAsync(ulong guildId, ulong? before = null, ulong? after = null, int? limit = null)
     {
-        var response = await GetAsync($"guilds/{guildId}/bans");
+        var qs = new System.Text.StringBuilder();
+        if (before.HasValue) qs.Append($"before={before}&");
+        if (after.HasValue)  qs.Append($"after={after}&");
+        if (limit.HasValue)  qs.Append($"limit={limit}&");
+        var query = qs.Length > 0 ? "?" + qs.ToString().TrimEnd('&') : string.Empty;
+        var response = await GetAsync($"guilds/{guildId}/bans{query}");
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<Ban>>();
@@ -897,9 +956,14 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId)
+    public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId, bool withMember = false, ulong? after = null, int? limit = null)
     {
-        var response = await GetAsync($"channels/{channelId}/thread-members");
+        var qs = new System.Text.StringBuilder();
+        if (withMember)     qs.Append("with_member=true&");
+        if (after.HasValue) qs.Append($"after={after}&");
+        if (limit.HasValue) qs.Append($"limit={limit}&");
+        var query = qs.Length > 0 ? "?" + qs.ToString().TrimEnd('&') : string.Empty;
+        var response = await GetAsync($"channels/{channelId}/thread-members{query}");
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<ThreadMember>>();
@@ -1042,8 +1106,11 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Message?> ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId = null)
     {
+        var queryParts = new List<string>();
+        if (threadId.HasValue) queryParts.Add($"thread_id={threadId.Value}");
+        if (request.Wait) queryParts.Add("wait=true");
         var endpoint = $"webhooks/{webhookId}/{token}";
-        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        if (queryParts.Count > 0) endpoint += "?" + string.Join("&", queryParts);
         var content = JsonContent(request);
         var response = await PostAsync(endpoint, content);
         if (response.IsSuccessStatusCode)
@@ -1079,6 +1146,26 @@ public class DiscordRestClient : IDiscordRestClient
         var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
         if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
         var response = await DeleteAsync(endpoint);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Executes a webhook using the Slack-compatible endpoint.</summary>
+    public async Task<bool> ExecuteSlackCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/slack";
+        if (wait) endpoint += "?wait=true";
+        var content = JsonContent(payload);
+        var response = await PostAsync(endpoint, content);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Executes a webhook using the GitHub-compatible endpoint.</summary>
+    public async Task<bool> ExecuteGitHubCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/github";
+        if (wait) endpoint += "?wait=true";
+        var content = JsonContent(payload);
+        var response = await PostAsync(endpoint, content);
         return response.IsSuccessStatusCode;
     }
     
@@ -1151,12 +1238,13 @@ public class DiscordRestClient : IDiscordRestClient
     }
     
     // Audit Log operations
-    public async Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, int? limit = null)
+    public async Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, ulong? after = null, int? limit = null)
     {
         var query = new List<string>();
         if (userId.HasValue) query.Add($"user_id={userId.Value}");
         if (actionType.HasValue) query.Add($"action_type={(int)actionType.Value}");
         if (before.HasValue) query.Add($"before={before.Value}");
+        if (after.HasValue) query.Add($"after={after.Value}");
         if (limit.HasValue) query.Add($"limit={limit.Value}");
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
@@ -1647,6 +1735,15 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    /// <summary>GET /guilds/{id}/widget.json — public rendered widget (no auth required).</summary>
+    public async Task<GuildWidget?> GetGuildWidgetAsync(ulong guildId)
+    {
+        var response = await GetAsync($"guilds/{guildId}/widget.json");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<GuildWidget>(_jsonOptions);
+        return null;
+    }
+
     public async Task<GuildWidgetSettings?> ModifyGuildWidgetAsync(ulong guildId, ModifyGuildWidgetRequest request)
     {
         var content = JsonContent(request);
@@ -2106,6 +2203,93 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    // -- OAuth2 token helpers -----------------------------------------------
+
+    /// <summary>
+    /// Exchanges an authorization code for an access token.
+    /// Sends a direct <c>POST oauth2/token</c> with form-encoded body —
+    /// the client's bot token is NOT attached to this request.
+    /// </summary>
+    public async Task<OAuth2TokenResponse?> ExchangeCodeAsync(
+        string code,
+        string clientId,
+        string clientSecret,
+        string redirectUri)
+    {
+        var form = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("grant_type",    "authorization_code"),
+            new KeyValuePair<string, string>("code",          code),
+            new KeyValuePair<string, string>("redirect_uri",  redirectUri),
+            new KeyValuePair<string, string>("client_id",     clientId),
+            new KeyValuePair<string, string>("client_secret", clientSecret),
+        });
+
+        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token", form, skipBotAuth: true);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
+        return null;
+    }
+
+    /// <summary>
+    /// Uses a refresh token to obtain a new access token.
+    /// Sends a direct <c>POST oauth2/token</c> with form-encoded body —
+    /// the client's bot token is NOT attached to this request.
+    /// </summary>
+    public async Task<OAuth2TokenResponse?> RefreshTokenAsync(
+        string refreshToken,
+        string clientId,
+        string clientSecret)
+    {
+        var form = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("grant_type",    "refresh_token"),
+            new KeyValuePair<string, string>("refresh_token", refreshToken),
+            new KeyValuePair<string, string>("client_id",     clientId),
+            new KeyValuePair<string, string>("client_secret", clientSecret),
+        });
+
+        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token", form, skipBotAuth: true);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
+        return null;
+    }
+
+    /// <summary>
+    /// Revokes an OAuth2 access or refresh token. POST /oauth2/token/revoke.
+    /// The client's bot token is NOT attached to this request.
+    /// </summary>
+    public async Task<bool> RevokeTokenAsync(string token, string clientId, string clientSecret, string? tokenTypeHint = null)
+    {
+        var fields = new List<KeyValuePair<string, string>>
+        {
+            new("token",         token),
+            new("client_id",     clientId),
+            new("client_secret", clientSecret),
+        };
+        if (tokenTypeHint != null)
+            fields.Add(new("token_type_hint", tokenTypeHint));
+
+        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token/revoke", new FormUrlEncodedContent(fields), skipBotAuth: true);
+        return response.IsSuccessStatusCode;
+    }
+
+    // -- Group DM ------------------------------------------------------------
+
+    /// <summary>
+    /// Creates a new Group DM channel. POST /users/@me/channels.
+    /// Requires access tokens of the target users with the <c>gdm.join</c> OAuth2 scope.
+    /// </summary>
+    public async Task<Channel?> CreateGroupDmAsync(List<string> accessTokens, Dictionary<string, string>? nicks = null)
+    {
+        var body = new CreateGroupDmRequest { AccessTokens = accessTokens, Nicks = nicks };
+        var content = JsonContent(body);
+        var response = await PostAsync("users/@me/channels", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Channel>(_jsonOptions);
+        return null;
+    }
+
     private const int MaxRateLimitRetries = 5;
 
     private async Task<HttpResponseMessage> SendRequestAsync(
@@ -2116,7 +2300,8 @@ public class DiscordRestClient : IDiscordRestClient
         CancellationToken cancellationToken = default,
         int retryCount = 0,
         byte[]? bufferedContentBytes = null,
-        string? bufferedContentType = null)
+        string? bufferedContentType = null,
+        bool skipBotAuth = false)
     {
         // Buffer request body once so retries can reconstruct fresh HttpContent.
         // HttpClient disposes the content object after SendAsync; reusing it throws
@@ -2154,7 +2339,8 @@ public class DiscordRestClient : IDiscordRestClient
         // Authorization is set here rather than on DefaultRequestHeaders so that
         // credentials are scoped to individual request objects.
         var request = new HttpRequestMessage(method, endpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
+        if (!skipBotAuth)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
         if (bufferedContentBytes is { Length: > 0 })
         {
             var bc = new ByteArrayContent(bufferedContentBytes);
@@ -2201,7 +2387,7 @@ public class DiscordRestClient : IDiscordRestClient
 
             // Pass buffered bytes so the retry reconstructs a fresh HttpContent.
             return await SendRequestAsync(method, endpoint, null, reason, cancellationToken,
-                retryCount + 1, bufferedContentBytes, bufferedContentType); // Retry
+                retryCount + 1, bufferedContentBytes, bufferedContentType, skipBotAuth); // Retry
         }
 
         // Mark request as complete

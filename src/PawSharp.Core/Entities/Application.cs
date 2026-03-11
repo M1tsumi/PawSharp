@@ -316,3 +316,14 @@ public enum ApplicationFlags
     /// </summary>
     GatewayGuildModerationConfiguration = 1 << 20
 }
+
+/// <summary>
+/// Partial application object returned inside the READY gateway event.
+/// Only <see cref="Id"/> and <see cref="Flags"/> are guaranteed to be present.
+/// </summary>
+public class PartialApplication : DiscordEntity
+{
+    /// <summary>Application flags bitfield.</summary>
+    [JsonPropertyName("flags")]
+    public ApplicationFlags Flags { get; set; }
+}
