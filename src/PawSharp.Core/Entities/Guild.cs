@@ -241,6 +241,32 @@ public class Guild : DiscordEntity
     /// </summary>
     [JsonPropertyName("unavailable")]
     public bool? Unavailable { get; set; }
+
+    /// <summary>
+    /// The id of the channel where admins and moderators of Community guilds receive safety alerts.
+    /// </summary>
+    [JsonPropertyName("safety_alerts_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? SafetyAlertsChannelId { get; set; }
+
+    /// <summary>
+    /// Active incidents and raid-detection data for the guild.
+    /// </summary>
+    [JsonPropertyName("incidents_data")]
+    public GuildIncidentsData? IncidentsData { get; set; }
+
+    /// <summary>
+    /// Hash of the guild's home header banner (server guide feature).
+    /// </summary>
+    [JsonPropertyName("home_header")]
+    public string? HomeHeader { get; set; }
+
+    /// <summary>
+    /// ID of the most recent onboarding question shown to new members.
+    /// </summary>
+    [JsonPropertyName("latest_onboarding_question_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? LatestOnboardingQuestionId { get; set; }
 }
 
 /// <summary>
@@ -320,4 +346,53 @@ public class GuildMember
     /// </summary>
     [JsonPropertyName("communication_disabled_until")]
     public DateTimeOffset? CommunicationDisabledUntil { get; set; }
+
+    /// <summary>
+    /// Timestamp until which the member will have unusual DM activity restricted.
+    /// </summary>
+    [JsonPropertyName("unusual_dm_activity_until")]
+    public DateTimeOffset? UnusualDmActivityUntil { get; set; }
+
+    /// <summary>
+    /// Data for the member's avatar decoration (the SKU and asset hash).
+    /// </summary>
+    [JsonPropertyName("avatar_decoration_data")]
+    public AvatarDecorationData? AvatarDecorationData { get; set; }
+}
+
+/// <summary>
+/// Active incidents detected in a guild (raid mode, DM spam lockdown, etc.).
+/// </summary>
+public class GuildIncidentsData
+{
+    /// <summary>Timestamp until when DMs from non-friends are disabled.</summary>
+    [JsonPropertyName("dms_disabled_until")]
+    public DateTimeOffset? DmsDisabledUntil { get; set; }
+
+    /// <summary>Timestamp until when invites are disabled.</summary>
+    [JsonPropertyName("invites_disabled_until")]
+    public DateTimeOffset? InvitesDisabledUntil { get; set; }
+
+    /// <summary>Timestamp when a raid was detected.</summary>
+    [JsonPropertyName("raid_detected_at")]
+    public DateTimeOffset? RaidDetectedAt { get; set; }
+
+    /// <summary>Timestamp until when DMs to unknown users are disabled.</summary>
+    [JsonPropertyName("dm_spam_detected_at")]
+    public DateTimeOffset? DmSpamDetectedAt { get; set; }
+}
+
+/// <summary>
+/// Decoration data attached to a user's or member's avatar (cosmetic SKU item).
+/// </summary>
+public class AvatarDecorationData
+{
+    /// <summary>The hash of the avatar decoration asset.</summary>
+    [JsonPropertyName("asset")]
+    public string Asset { get; set; } = string.Empty;
+
+    /// <summary>The id of the avatar decoration's SKU.</summary>
+    [JsonPropertyName("sku_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong SkuId { get; set; }
 }
