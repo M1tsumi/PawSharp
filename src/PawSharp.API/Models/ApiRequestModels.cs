@@ -329,6 +329,16 @@ public class ExecuteWebhookRequest
     public string? AvatarUrl { get; set; }
     public bool? Tts { get; set; }
     public List<MessageComponent>? Components { get; set; }
+    /// <summary>
+    /// If true, Discord returns the created message object. The caller must pass
+    /// <c>wait=true</c> as a query parameter via <see cref="PawSharp.API.Clients.RestClient.ExecuteWebhookAsync"/>.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool Wait { get; set; } = false;
+    /// <summary>Name of the thread to create (only for forum/media channels).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("thread_name")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ThreadName { get; set; }
 }
 
 // Scheduled Event Request Models
