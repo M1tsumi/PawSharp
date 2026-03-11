@@ -298,6 +298,77 @@ public class VoiceConnection : IDisposable
     }
 
     /// <summary>
+    /// Stops the current audio playback. Alias for <see cref="StopPlayback"/> with an async signature
+    /// for use in async pipelines.
+    /// </summary>
+    public Task StopAsync()
+    {
+        StopPlayback();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Reads an audio file, resamples it to 48 kHz mono PCM if necessary, encodes it with Opus,
+    /// and streams it to the voice channel. Raises the Discord Speaking gate automatically.
+    /// </summary>
+    /// <param name="filePath">Path to an audio file readable by NAudio (WAV, MP3, AIFF, etc.).</param>
+    /// <param name="cancellationToken">Token to cancel mid-stream playback.</param>
+    public async Task PlayAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        using var reader = new AudioFileReader(filePath);
+        await PlayAsync(reader, cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads 16-bit signed mono PCM at 48 kHz from <paramref name="pcmStream"/> and streams
+    /// it to the voice channel. Use <see cref="PlayAsync(string, CancellationToken)"/> when
+    /// you have a file in another format — it handles resampling automatically.
+    /// </summary>
+    /// <param name="pcmStream">
+    /// A <see cref="WaveStream"/> whose format is (or will be resampled to) 48 kHz, mono, 16-bit PCM.
+    /// If the format does not match the Opus requirements it is automatically resampled via
+    /// <see cref="MediaFoundationResampler"/>.
+    /// </param>
+    /// <param name="cancellationToken">Token to cancel mid-stream playback.</param>
+    public async Task PlayAsync(WaveStream pcmStream, CancellationToken cancellationToken = default)
+    {
+        // Target format required by Opus: 48 kHz, 1 channel, 16-bit
+        var targetFormat = new WaveFormat(OpusSampleRate, 16, OpusChannels);
+
+        // Use the raw stream when it already matches; otherwise wrap in a resampler
+        IWaveProvider source = pcmStream.WaveFormat.Equals(targetFormat)
+            ? (IWaveProvider)pcmStream
+            : new MediaFoundationResampler(pcmStream, targetFormat);
+        MediaFoundationResampler? resampler = source as MediaFoundationResampler;
+
+        try
+        {
+            await SetSpeakingAsync(true);
+
+            var buffer = new byte[PcmFrameBytes];
+            int bytesRead;
+            while (!cancellationToken.IsCancellationRequested &&
+                   (bytesRead = source.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                // Zero-pad the last (potentially partial) frame so Opus always gets PcmFrameBytes
+                if (bytesRead < buffer.Length)
+                    Array.Clear(buffer, bytesRead, buffer.Length - bytesRead);
+
+                await SendAudioAsync(buffer);
+
+                // Pace delivery: one 20 ms frame every 20 ms to avoid flooding the UDP socket
+                await Task.Delay(18, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { /* caller cancelled — normal exit */ }
+        finally
+        {
+            await SetSpeakingAsync(false);
+            resampler?.Dispose();
+        }
+    }
+
+    /// <summary>
     /// Starts capturing audio from the microphone and raises the Discord Speaking gate (op 5).
     /// </summary>
     public void StartCapture()
