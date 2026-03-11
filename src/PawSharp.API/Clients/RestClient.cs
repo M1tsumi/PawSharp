@@ -143,9 +143,9 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
     
-    public async Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null)
+    public async Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null, string? banner = null, string? avatarDecorationData = null)
     {
-        var payload = new { username, avatar };
+        var payload = new { username, avatar, banner, avatar_decoration_data = avatarDecorationData };
         var content = JsonContent(payload);
         return await PatchAsync("users/@me", content);
     }
@@ -1042,8 +1042,11 @@ public class DiscordRestClient : IDiscordRestClient
     
     public async Task<Message?> ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId = null)
     {
+        var queryParts = new List<string>();
+        if (threadId.HasValue) queryParts.Add($"thread_id={threadId.Value}");
+        if (request.Wait) queryParts.Add("wait=true");
         var endpoint = $"webhooks/{webhookId}/{token}";
-        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        if (queryParts.Count > 0) endpoint += "?" + string.Join("&", queryParts);
         var content = JsonContent(request);
         var response = await PostAsync(endpoint, content);
         if (response.IsSuccessStatusCode)
@@ -1079,6 +1082,26 @@ public class DiscordRestClient : IDiscordRestClient
         var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
         if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
         var response = await DeleteAsync(endpoint);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Executes a webhook using the Slack-compatible endpoint.</summary>
+    public async Task<bool> ExecuteSlackCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/slack";
+        if (wait) endpoint += "?wait=true";
+        var content = JsonContent(payload);
+        var response = await PostAsync(endpoint, content);
+        return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>Executes a webhook using the GitHub-compatible endpoint.</summary>
+    public async Task<bool> ExecuteGitHubCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false)
+    {
+        var endpoint = $"webhooks/{webhookId}/{token}/github";
+        if (wait) endpoint += "?wait=true";
+        var content = JsonContent(payload);
+        var response = await PostAsync(endpoint, content);
         return response.IsSuccessStatusCode;
     }
     
@@ -1151,12 +1174,13 @@ public class DiscordRestClient : IDiscordRestClient
     }
     
     // Audit Log operations
-    public async Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, int? limit = null)
+    public async Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, ulong? after = null, int? limit = null)
     {
         var query = new List<string>();
         if (userId.HasValue) query.Add($"user_id={userId.Value}");
         if (actionType.HasValue) query.Add($"action_type={(int)actionType.Value}");
         if (before.HasValue) query.Add($"before={before.Value}");
+        if (after.HasValue) query.Add($"after={after.Value}");
         if (limit.HasValue) query.Add($"limit={limit.Value}");
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         

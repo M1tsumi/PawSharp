@@ -72,7 +72,7 @@ public interface IDiscordRestClient
     
     // User operations
     Task<User?> GetUserAsync(ulong userId);
-    Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null);
+    Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null, string? banner = null, string? avatarDecorationData = null);
     Task<List<Guild>?> GetCurrentUserGuildsAsync(int limit = 200, ulong? before = null, ulong? after = null);
     Task<bool> LeaveGuildAsync(ulong guildId);
     
@@ -188,6 +188,8 @@ public interface IDiscordRestClient
     Task<Message?> GetWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null);
     Task<Message?> EditWebhookMessageAsync(ulong webhookId, string token, ulong messageId, EditMessageRequest request, ulong? threadId = null);
     Task<bool> DeleteWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null);
+    Task<bool> ExecuteSlackCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false);
+    Task<bool> ExecuteGitHubCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false);
     
     // Scheduled Event operations
     Task<GuildScheduledEvent?> CreateGuildScheduledEventAsync(ulong guildId, CreateGuildScheduledEventRequest request);
@@ -198,7 +200,7 @@ public interface IDiscordRestClient
     Task<List<User>?> GetGuildScheduledEventUsersAsync(ulong guildId, ulong eventId, int? limit = null, bool? withMember = null, ulong? before = null, ulong? after = null);
     
     // Audit Log operations
-    Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, int? limit = null);
+    Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, ulong? after = null, int? limit = null);
     
     // Auto Moderation operations
     Task<List<AutoModerationRule>?> ListAutoModerationRulesAsync(ulong guildId);
