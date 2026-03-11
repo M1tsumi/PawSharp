@@ -39,6 +39,15 @@ public sealed class DAVEProtocol : IDisposable
     // Set when op 24 has been received — encryption is active
     private volatile bool _active;
 
+    // External sender package received from the server via op 31.
+    // In DAVE, Discord’s server acts as an “external sender” and produces commits
+    // on behalf of the group.  We store the package for future signature validation.
+    private byte[]? _externalSenderPackage;
+
+    // Set when op 29 (AnnounceCommitTransition) has been received and we are
+    // waiting for the commit + op 24 to re-activate encryption.
+    private volatile bool _transitionPending;
+
     /// <summary>Creates a DAVEProtocol with an anonymous identity.</summary>
     public DAVEProtocol() : this("discord-dave-client") { }
 
@@ -124,19 +133,38 @@ public sealed class DAVEProtocol : IDisposable
                 break;
 
             case DAVEVoiceOpcode.DaveProtocolReady:
-                // Switch to DAVE encryption
+                // Switch to DAVE encryption; also clears any pending-transition flag.
                 _active = true;
+                _transitionPending = false;
                 break;
 
             case DAVEVoiceOpcode.DaveMlsExternalSenderPackage:
-                // Distribute external sender key package
+                // Server sends the external sender’s MLS credential + HPKE key.
+                // We store it for commit-signature validation in future epochs.
                 var extBytes = ExtractBinaryPayload(data);
-                _ = extBytes; // stored/forwarded by a real implementation
+                if (extBytes != null)
+                    _externalSenderPackage = extBytes;
                 break;
 
             case DAVEVoiceOpcode.DaveMlsAnnounceCommitTransition:
+                // Server is announcing that a commit transition is imminent.
+                // Deactivate encryption until op 24 (ProtocolReady) confirms the
+                // new epoch is established, so frames are passed through rather than
+                // encrypted/decrypted with the about-to-be-stale epoch key.
+                _transitionPending = true;
+                _active = false;
+                break;
+
             case DAVEVoiceOpcode.DaveMlsInvalidCommitWelcome:
-                // Informational — a real implementation would re-sync if invalid
+                // Server says the Commit or Welcome it sent was invalid.
+                // Re-sync: reset our MLS state, generate a fresh key package,
+                // and re-send it so the server can include us in the next Welcome.
+                _active = false;
+                _transitionPending = false;
+                _mls.Reset();
+                Interlocked.Exchange(ref _outgoingFrameCounter, 0L);
+                if (webSocket != null)
+                    await SendKeyPackageAsync(webSocket, ct);
                 break;
         }
     }
@@ -195,13 +223,12 @@ public sealed class DAVEProtocol : IDisposable
 
     /// <summary>
     /// Generates a production-quality MLS KeyPackage for this DAVE session.
+    /// The key material is stored inside <see cref="MLSState"/> so a subsequent
+    /// Welcome message can be decrypted using the correct init private key.
     /// Returns TLS-encoded KeyPackage bytes per RFC 9420 §10.
     /// </summary>
     private byte[] GenerateKeyPackage()
-    {
-        var kp = MLS.Messages.KeyPackage.Generate(_localIdentity);
-        return kp.Encode();
-    }
+        => _mls.GenerateKeyPackage(_localIdentity);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -226,6 +253,8 @@ public sealed class DAVEProtocol : IDisposable
     public void Reset()
     {
         _active = false;
+        _transitionPending = false;
+        _externalSenderPackage = null;
         Interlocked.Exchange(ref _outgoingFrameCounter, 0L);
         _mls.Reset();
     }

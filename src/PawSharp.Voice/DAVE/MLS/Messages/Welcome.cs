@@ -168,35 +168,14 @@ internal sealed class WelcomeMessage
 
     public static WelcomeMessage Decode(ReadOnlySpan<byte> data)
     {
-        var r     = new TlsReader(data);
-        var suite = (CipherSuite)r.ReadUint16();
-        var count = r.ReadUint32();
-
-        var secrets = new List<EncryptedGroupSecrets>((int)count);
-        for (uint i = 0; i < count; i++)
-            secrets.Add(EncryptedGroupSecrets.Decode(data.Slice(r.Position)));
-
-        // Re-read position after all secrets (need to re-advance r)
-        // Use a fresh reader starting at the right offset
-        foreach (var s in secrets)
-        {
-            var encoded = s.Encode();
-            _ = encoded; // advance via encoded length in real impl
-        }
-
-        // Encode each to find the real offset (simple approach: re-read linearly)
-        // For correctness, decode from scratch keeping position
-        var r2     = new TlsReader(data);
-        r2.ReadUint16();
-        uint n     = r2.ReadUint32();
-        var secs2  = new List<EncryptedGroupSecrets>((int)n);
+        var r2    = new TlsReader(data);
+        var suite = (CipherSuite)r2.ReadUint16();
+        uint n    = r2.ReadUint32();
+        var secs  = new List<EncryptedGroupSecrets>((int)n);
         for (uint i = 0; i < n; i++)
-        {
-            var s     = EncryptedGroupSecrets.DecodeAdvancing(ref r2, data);
-            secs2.Add(s);
-        }
+            secs.Add(EncryptedGroupSecrets.DecodeAdvancing(ref r2, data));
         var eGroupInfo = r2.ReadVector32();
-        return new WelcomeMessage(suite, secs2, eGroupInfo);
+        return new WelcomeMessage(suite, secs, eGroupInfo);
     }
 
     // ── Process helpers ───────────────────────────────────────────────────────
