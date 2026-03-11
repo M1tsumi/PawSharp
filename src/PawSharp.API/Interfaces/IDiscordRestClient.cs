@@ -103,6 +103,7 @@ public interface IDiscordRestClient
     Task<Guild?> CreateGuildAsync(CreateGuildRequest request);
     Task<Guild?> ModifyGuildAsync(ulong guildId, ModifyGuildRequest request);
     Task<bool> DeleteGuildAsync(ulong guildId);
+    Task<int?> ModifyGuildMfaLevelAsync(ulong guildId, int level);
     Task<List<Channel>?> GetGuildChannelsAsync(ulong guildId);
     Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000);
     Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId);
