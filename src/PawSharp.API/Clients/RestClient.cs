@@ -470,6 +470,23 @@ public class DiscordRestClient : IDiscordRestClient
         var response = await DeleteAsync($"guilds/{guildId}");
         return response.IsSuccessStatusCode;
     }
+
+    /// <summary>
+    /// Modifies the guild's MFA level (requires the current user to be the guild owner).
+    /// Returns the updated MFA level on success.
+    /// </summary>
+    public async Task<int?> ModifyGuildMfaLevelAsync(ulong guildId, int level)
+    {
+        var content = JsonContent(new ModifyGuildMfaLevelRequest { Level = level });
+        var response = await PostAsync($"guilds/{guildId}/mfa", content);
+        if (response.IsSuccessStatusCode)
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            if (doc.RootElement.TryGetProperty("level", out var lv))
+                return lv.GetInt32();
+        }
+        return null;
+    }
     
     public async Task<List<Channel>?> GetGuildChannelsAsync(ulong guildId)
     {

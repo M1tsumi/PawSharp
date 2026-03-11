@@ -62,6 +62,38 @@ public class CreateChannelRequest
     public int? Position { get; set; }
     public ulong? ParentId { get; set; }
     public bool? Nsfw { get; set; }
+    /// <summary>Voice channel region override. Null = automatic.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("rtc_region")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? RtcRegion { get; set; }
+    /// <summary>Video quality mode (1 = AUTO, 2 = FULL). Voice channels only.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("video_quality_mode")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? VideoQualityMode { get; set; }
+    /// <summary>Forum/Media: available tags that can be applied to threads.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("available_tags")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<ForumTag>? AvailableTags { get; set; }
+    /// <summary>Forum/Media: the emoji to show in the add-reaction button.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_reaction_emoji")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DefaultReaction? DefaultReactionEmoji { get; set; }
+    /// <summary>Forum/Media: default rate limit (seconds) per user for new threads.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_thread_rate_limit_per_user")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DefaultThreadRateLimitPerUser { get; set; }
+    /// <summary>Forum: default sort order (0 = LATEST_ACTIVITY, 1 = CREATION_DATE).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_sort_order")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DefaultSortOrder { get; set; }
+    /// <summary>Forum: default layout (0 = NOT_SET, 1 = LIST_VIEW, 2 = GALLERY_VIEW).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_forum_layout")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DefaultForumLayout { get; set; }
+    /// <summary>Explicit permission overwrites for members and roles.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("permission_overwrites")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<Overwrite>? PermissionOverwrites { get; set; }
 }
 
 public class ModifyChannelRequest
@@ -75,6 +107,38 @@ public class ModifyChannelRequest
     public int? Bitrate { get; set; }
     public int? UserLimit { get; set; }
     public ulong? ParentId { get; set; }
+    /// <summary>Voice channel region override. Null = automatic.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("rtc_region")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? RtcRegion { get; set; }
+    /// <summary>Video quality mode (1 = AUTO, 2 = FULL). Voice channels only.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("video_quality_mode")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? VideoQualityMode { get; set; }
+    /// <summary>Forum/Media: available tags that can be applied to threads.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("available_tags")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<ForumTag>? AvailableTags { get; set; }
+    /// <summary>Forum/Media: the emoji to show in the add-reaction button.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_reaction_emoji")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DefaultReaction? DefaultReactionEmoji { get; set; }
+    /// <summary>Forum/Media: default rate limit (seconds) per user for new threads.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_thread_rate_limit_per_user")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DefaultThreadRateLimitPerUser { get; set; }
+    /// <summary>Forum: default sort order (0 = LATEST_ACTIVITY, 1 = CREATION_DATE).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_sort_order")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DefaultSortOrder { get; set; }
+    /// <summary>Forum: default layout (0 = NOT_SET, 1 = LIST_VIEW, 2 = GALLERY_VIEW).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("default_forum_layout")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? DefaultForumLayout { get; set; }
+    /// <summary>Explicit permission overwrites for members and roles.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("permission_overwrites")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<Overwrite>? PermissionOverwrites { get; set; }
 }
 
 // Guild Request Models
@@ -104,6 +168,48 @@ public class ModifyGuildRequest
     public string? Splash { get; set; }
     public string? Banner { get; set; }
     public ulong? SystemChannelId { get; set; }
+    /// <summary>System channel flags bitfield.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("system_channel_flags")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? SystemChannelFlags { get; set; }
+    /// <summary>ID of the channel where rules or community guidelines are displayed.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("rules_channel_id")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ulong? RulesChannelId { get; set; }
+    /// <summary>ID of the channel where admins and moderators receive notices from Discord.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("public_updates_channel_id")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ulong? PublicUpdatesChannelId { get; set; }
+    /// <summary>IETF language tag for the preferred locale (e.g. "en-US").</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("preferred_locale")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PreferredLocale { get; set; }
+    /// <summary>Enabled guild feature strings (requires community guilds).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("features")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Features { get; set; }
+    /// <summary>Guild description (community guilds only).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("description")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
+    /// <summary>Whether the guild's boost progress bar is shown.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("premium_progress_bar_enabled")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? PremiumProgressBarEnabled { get; set; }
+    /// <summary>ID of the channel where Discord posts safety alerts.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("safety_alerts_channel_id")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ulong? SafetyAlertsChannelId { get; set; }
+}
+
+/// <summary>
+/// Request body for PATCH /guilds/{guild_id}/mfa.
+/// </summary>
+public class ModifyGuildMfaLevelRequest
+{
+    /// <summary>MFA level: 0 = NONE, 1 = ELEVATED (requires 2FA for moderator actions).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("level")]
+    public int Level { get; set; }
 }
 
 // Member Request Models
