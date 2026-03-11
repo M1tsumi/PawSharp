@@ -388,4 +388,11 @@ public interface IDiscordRestClient
     // User application role connection
     Task<ApplicationRoleConnection?> GetUserApplicationRoleConnectionAsync(ulong applicationId);
     Task<ApplicationRoleConnection?> UpdateUserApplicationRoleConnectionAsync(ulong applicationId, UpdateUserApplicationRoleConnectionRequest request);
+
+    // OAuth2
+    Task<OAuth2TokenResponse?> ExchangeCodeAsync(string code, string clientId, string clientSecret, string redirectUri);
+    Task<OAuth2TokenResponse?> RefreshTokenAsync(string refreshToken, string clientId, string clientSecret);
+
+    // Group DM
+    Task<Channel?> CreateGroupDmAsync(List<string> accessTokens, Dictionary<string, string>? nicks = null);
 }

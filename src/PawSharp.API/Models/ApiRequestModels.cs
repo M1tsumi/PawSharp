@@ -1018,3 +1018,38 @@ public class ActiveThreadsResponse
     [JsonPropertyName("members")]
     public List<ThreadMember> Members { get; set; } = new();
 }
+
+// -- OAuth2 ------------------------------------------------------------------
+
+/// <summary>Response returned by Discord's OAuth2 token endpoint.</summary>
+public class OAuth2TokenResponse
+{
+    [JsonPropertyName("access_token")]
+    public string AccessToken { get; set; } = string.Empty;
+
+    [JsonPropertyName("token_type")]
+    public string TokenType { get; set; } = string.Empty;
+
+    /// <summary>Lifetime of the access token in seconds.</summary>
+    [JsonPropertyName("expires_in")]
+    public int ExpiresIn { get; set; }
+
+    [JsonPropertyName("refresh_token")]
+    public string RefreshToken { get; set; } = string.Empty;
+
+    [JsonPropertyName("scope")]
+    public string Scope { get; set; } = string.Empty;
+}
+
+/// <summary>Request body for creating a Group DM channel via POST /users/@me/channels.</summary>
+public class CreateGroupDmRequest
+{
+    /// <summary>Access tokens of up to 10 users that have granted the <c>gdm.join</c> scope.</summary>
+    [JsonPropertyName("access_tokens")]
+    public List<string> AccessTokens { get; set; } = new();
+
+    /// <summary>Optional map of user IDs to their nicknames inside the DM.</summary>
+    [JsonPropertyName("nicks")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? Nicks { get; set; }
+}

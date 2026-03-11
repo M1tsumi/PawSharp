@@ -2182,6 +2182,74 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    // -- OAuth2 token helpers -----------------------------------------------
+
+    /// <summary>
+    /// Exchanges an authorization code for an access token.
+    /// Sends a direct <c>POST oauth2/token</c> with form-encoded body —
+    /// the client's bot token is NOT attached to this request.
+    /// </summary>
+    public async Task<OAuth2TokenResponse?> ExchangeCodeAsync(
+        string code,
+        string clientId,
+        string clientSecret,
+        string redirectUri)
+    {
+        var form = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("grant_type",    "authorization_code"),
+            new KeyValuePair<string, string>("code",          code),
+            new KeyValuePair<string, string>("redirect_uri",  redirectUri),
+            new KeyValuePair<string, string>("client_id",     clientId),
+            new KeyValuePair<string, string>("client_secret", clientSecret),
+        });
+
+        var response = await _httpClient.PostAsync("oauth2/token", form);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
+        return null;
+    }
+
+    /// <summary>
+    /// Uses a refresh token to obtain a new access token.
+    /// Sends a direct <c>POST oauth2/token</c> with form-encoded body —
+    /// the client's bot token is NOT attached to this request.
+    /// </summary>
+    public async Task<OAuth2TokenResponse?> RefreshTokenAsync(
+        string refreshToken,
+        string clientId,
+        string clientSecret)
+    {
+        var form = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("grant_type",    "refresh_token"),
+            new KeyValuePair<string, string>("refresh_token", refreshToken),
+            new KeyValuePair<string, string>("client_id",     clientId),
+            new KeyValuePair<string, string>("client_secret", clientSecret),
+        });
+
+        var response = await _httpClient.PostAsync("oauth2/token", form);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
+        return null;
+    }
+
+    // -- Group DM ------------------------------------------------------------
+
+    /// <summary>
+    /// Creates a new Group DM channel. POST /users/@me/channels.
+    /// Requires access tokens of the target users with the <c>gdm.join</c> OAuth2 scope.
+    /// </summary>
+    public async Task<Channel?> CreateGroupDmAsync(List<string> accessTokens, Dictionary<string, string>? nicks = null)
+    {
+        var body = new CreateGroupDmRequest { AccessTokens = accessTokens, Nicks = nicks };
+        var content = JsonContent(body);
+        var response = await PostAsync("users/@me/channels", content);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<Channel>(_jsonOptions);
+        return null;
+    }
+
     private const int MaxRateLimitRetries = 5;
 
     private async Task<HttpResponseMessage> SendRequestAsync(
