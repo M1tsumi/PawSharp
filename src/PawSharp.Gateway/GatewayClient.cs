@@ -43,6 +43,11 @@ namespace PawSharp.Gateway
         private DateTimeOffset? _lastHeartbeatSent;
         private TimeSpan? _lastHeartbeatLatency;
 
+        // Discord allows 120 gateway commands per 60-second sliding window (per-connection).
+        // Heartbeat opcodes are exempt from this limit.
+        // SemaphoreSlim token-bucket: each acquired token is returned after 60 s.
+        private readonly SemaphoreSlim _wsRateLimiter = new(120, 120);
+
         // Options shared by any manual deserialisation that happens outside EventDispatcher
         // (e.g. VoiceStateUpdate / VoiceServerUpdate mirror-events).
         private static readonly JsonSerializerOptions _snowflakeOptions = new()
@@ -220,7 +225,7 @@ namespace PawSharp.Gateway
                 };
 
                 var json = JsonSerializer.Serialize(presencePayload);
-                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Updated presence to: {Status}", status);
             }
             catch (Exception ex)
@@ -257,7 +262,7 @@ namespace PawSharp.Gateway
                 var requestPayload = new { op = 8, d };
 
                 var json = JsonSerializer.Serialize(requestPayload);
-                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Requested guild members for guild {GuildId}", guildId);
             }
             catch (Exception ex)
@@ -285,7 +290,7 @@ namespace PawSharp.Gateway
                 };
 
                 var json = JsonSerializer.Serialize(requestPayload);
-                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Requested soundboard sounds for {Count} guild(s)", guildIds.Length);
             }
             catch (Exception ex)
@@ -359,7 +364,7 @@ namespace PawSharp.Gateway
 
                 var json = JsonSerializer.Serialize(identifyPayload);
                 // SECURITY: Do not log the 'json' variable — it contains the bot token in plaintext.
-                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Sent identify payload.");
             }
             catch (Exception ex)
@@ -394,7 +399,7 @@ namespace PawSharp.Gateway
                 };
 
                 var json = JsonSerializer.Serialize(resumePayload);
-                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogInformation("Sent resume payload.");
             }
             catch (Exception ex)
@@ -555,6 +560,28 @@ namespace PawSharp.Gateway
             await Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Sends a serialised payload through the WebSocket, optionally subject to the
+        /// 120-commands-per-60-second gateway rate limit.  Heartbeat opcodes (op 1) should
+        /// pass <paramref name="isHeartbeat"/>&#xA0;=&#xA0;<see langword="true"/> to bypass
+        /// the throttle — they must always be sent on time to keep the connection alive.
+        /// </summary>
+        private async Task GatewaySendAsync(string json, CancellationToken ct, bool isHeartbeat = false)
+        {
+            if (!isHeartbeat)
+            {
+                await _wsRateLimiter.WaitAsync(ct);
+                // Return the token to the bucket after 60 s (sliding window).
+                _ = Task.Delay(60_000, ct)
+                    .ContinueWith(_ => _wsRateLimiter.Release(),
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnRanToCompletion,
+                        TaskScheduler.Default);
+            }
+
+            await _webSocket.SendAsync(json, ct);
+        }
+
         private async Task SendHeartbeatAsync()
         {
             try
@@ -562,7 +589,7 @@ namespace PawSharp.Gateway
                 _lastHeartbeatSent = DateTimeOffset.UtcNow;
                 var heartbeatPayload = new { op = 1, d = _resumeSequence ?? (object?)null };
                 var json = JsonSerializer.Serialize(heartbeatPayload);
-                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None, isHeartbeat: true);
                 _logger.LogDebug("Sent heartbeat (seq={Seq})", _resumeSequence);
             }
             catch (Exception ex)
@@ -594,7 +621,7 @@ namespace PawSharp.Gateway
                     }
                 };
                 var json = JsonSerializer.Serialize(voiceStatePayload);
-                await _webSocket.SendAsync(json, _cts?.Token ?? CancellationToken.None);
+                await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None);
                 _logger.LogDebug("Sent voice state update for guild {GuildId}, channel {ChannelId}", guildId, channelId);
             }
             catch (Exception ex)

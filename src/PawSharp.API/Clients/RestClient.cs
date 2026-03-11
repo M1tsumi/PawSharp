@@ -2225,7 +2225,7 @@ public class DiscordRestClient : IDiscordRestClient
             new KeyValuePair<string, string>("client_secret", clientSecret),
         });
 
-        var response = await _httpClient.PostAsync("oauth2/token", form);
+        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token", form, skipBotAuth: true);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
         return null;
@@ -2249,7 +2249,7 @@ public class DiscordRestClient : IDiscordRestClient
             new KeyValuePair<string, string>("client_secret", clientSecret),
         });
 
-        var response = await _httpClient.PostAsync("oauth2/token", form);
+        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token", form, skipBotAuth: true);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
         return null;
@@ -2270,7 +2270,7 @@ public class DiscordRestClient : IDiscordRestClient
         if (tokenTypeHint != null)
             fields.Add(new("token_type_hint", tokenTypeHint));
 
-        var response = await _httpClient.PostAsync("oauth2/token/revoke", new FormUrlEncodedContent(fields));
+        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token/revoke", new FormUrlEncodedContent(fields), skipBotAuth: true);
         return response.IsSuccessStatusCode;
     }
 
@@ -2300,7 +2300,8 @@ public class DiscordRestClient : IDiscordRestClient
         CancellationToken cancellationToken = default,
         int retryCount = 0,
         byte[]? bufferedContentBytes = null,
-        string? bufferedContentType = null)
+        string? bufferedContentType = null,
+        bool skipBotAuth = false)
     {
         // Buffer request body once so retries can reconstruct fresh HttpContent.
         // HttpClient disposes the content object after SendAsync; reusing it throws
@@ -2338,7 +2339,8 @@ public class DiscordRestClient : IDiscordRestClient
         // Authorization is set here rather than on DefaultRequestHeaders so that
         // credentials are scoped to individual request objects.
         var request = new HttpRequestMessage(method, endpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
+        if (!skipBotAuth)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
         if (bufferedContentBytes is { Length: > 0 })
         {
             var bc = new ByteArrayContent(bufferedContentBytes);
@@ -2385,7 +2387,7 @@ public class DiscordRestClient : IDiscordRestClient
 
             // Pass buffered bytes so the retry reconstructs a fresh HttpContent.
             return await SendRequestAsync(method, endpoint, null, reason, cancellationToken,
-                retryCount + 1, bufferedContentBytes, bufferedContentType); // Retry
+                retryCount + 1, bufferedContentBytes, bufferedContentType, skipBotAuth); // Retry
         }
 
         // Mark request as complete
