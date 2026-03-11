@@ -67,6 +67,13 @@ public class Entitlement : DiscordEntity
     /// </summary>
     [JsonPropertyName("consumed")]
     public bool? Consumed { get; set; }
+
+    /// <summary>
+    /// ID of the subscription that granted this entitlement.
+    /// </summary>
+    [JsonPropertyName("subscription_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? SubscriptionId { get; set; }
 }
 
 /// <summary>

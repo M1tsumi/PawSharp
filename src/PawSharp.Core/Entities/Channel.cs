@@ -196,4 +196,10 @@ public class Channel : DiscordEntity
     /// </summary>
     [JsonPropertyName("default_forum_layout")]
     public int? DefaultForumLayout { get; set; }
+
+    /// <summary>
+    /// The voice channel status text (set by members with permission). Null when cleared.
+    /// </summary>
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
 }
