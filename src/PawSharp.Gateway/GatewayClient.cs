@@ -807,6 +807,9 @@ namespace PawSharp.Gateway
                     case "VOICE_CHANNEL_EFFECT_SEND":
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceChannelEffectSendEvent>(eventType, eventData);
                         break;
+                    case "VOICE_CHANNEL_STATUS_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<VoiceChannelStatusUpdateEvent>(eventType, eventData);
+                        break;
                     case "SUBSCRIPTION_CREATE":
                         await _eventDispatcher.DispatchFromJsonAsync<SubscriptionCreateEvent>(eventType, eventData);
                         break;
