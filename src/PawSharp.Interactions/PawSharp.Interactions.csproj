@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>PawSharp.Interactions</RootNamespace>
     <AssemblyName>PawSharp.Interactions</AssemblyName>
     <PackageId>PawSharp.Interactions</PackageId>
-    <Version>0.11.0-alpha.1</Version>
+    <Version>1.0.0-alpha.1</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Interaction handlers for PawSharp including slash commands and component interactions.</Description>
