@@ -4,6 +4,27 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.0.0-alpha.1] - 2026-03-11 ⚠️ IN DEVELOPMENT
+
+> **This branch is actively under development.** The API surface, package dependencies, and feature set are subject to change without notice before a stable `1.0.0` tag is cut. Several additional features, fixes, and breaking-change reviews are planned before this version is considered release-ready.
+
+> **First .NET 10 release.** Migrates the entire solution — all library, test, and tooling projects — from `net8.0` to `net10.0`. All `Microsoft.Extensions.*` packages updated to `10.0.0`, test toolchain unified to xunit `2.9.2` / `Microsoft.NET.Test.Sdk` `17.12.0` / `FluentAssertions` `7.0.0`. Version bumped to `1.0.0-alpha.1` to reflect the breaking TFM change and start of the stable-API series.
+
+### Breaking Changes
+
+- **Target framework** changed from `net8.0` to `net10.0` across all packages. Consumers must target `net10.0` (or be `net10.0`-compatible) to consume PawSharp NuGet packages from this release onwards.
+- `System.Net.Http.Json` package reference removed from `PawSharp.API` — the types are now provided directly by the .NET 10 BCL.
+
+### Changes
+
+- All `Microsoft.Extensions.*` package references updated: `DependencyInjection`, `Logging`, `Logging.Console`, `Http`, `Options` → `10.0.0`.
+- `StackExchange.Redis` updated to `2.8.16` in `PawSharp.Cache`.
+- `Newtonsoft.Json` updated to `13.0.3` in `PawSharp.Core` and `PawSharp.API`.
+- Test toolchain harmonised: `xunit` `2.9.2`, `xunit.runner.visualstudio` `2.8.2`, `Microsoft.NET.Test.Sdk` `17.12.0`, `Moq` `4.20.72`, `FluentAssertions` `7.0.0`.
+- `BenchmarkDotNet` updated to `0.14.0` in `PawSharp.Benchmarks`.
+
+---
+
 ## [0.11.0-alpha.1] - 2026-03-10
 
 > **Last `0.x.0` release on .NET 8.**  The next major version cycle will target **.NET 10** and take advantage of its new runtime improvements.  No further `0.x.0` versions are planned until that migration is complete.
