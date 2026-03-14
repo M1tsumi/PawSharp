@@ -19,7 +19,7 @@ PawSharp.Interactions provides a complete framework for handling Discord's moder
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Interactions --version 0.10.0-alpha.3
+dotnet add package PawSharp.Interactions --version 1.0.0-alpha.1
 ```
 
 ## Quick Start
@@ -267,7 +267,7 @@ await client.Rest.EditApplicationCommandPermissionsAsync(applicationId, guildId,
 
 - PawSharp.Core - Entity models
 - PawSharp.Client - Discord client integration
-- .NET 8.0 - Modern runtime
+- .NET 10 - Modern runtime
 
 ## Related Packages
 

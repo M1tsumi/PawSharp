@@ -2,7 +2,7 @@
 
 REST API client for Discord with automatic rate limiting and error handling.
 
-PawSharp.API provides a complete, production-ready REST client for Discord's API v10. Built on .NET 8.0 with modern async patterns, comprehensive error handling, and intelligent rate limiting that just works.
+PawSharp.API provides a complete, production-ready REST client for Discord's API v10. Built on .NET 10 with modern async patterns, comprehensive error handling, and intelligent rate limiting that just works.
 
 ## Features
 
@@ -18,7 +18,7 @@ PawSharp.API provides a complete, production-ready REST client for Discord's API
 ## ?? Installation
 
 ```bash
-dotnet add package PawSharp.API --version 0.6.1-alpha1
+dotnet add package PawSharp.API --version 1.0.0-alpha.1
 ```
 
 ## ?? Quick Start
@@ -311,7 +311,7 @@ Console.WriteLine($"Average Response Time: {metrics.AverageResponseTime}ms");
 ## ?? Dependencies
 
 - **PawSharp.Core** - Entity models and types
-- **.NET 8.0** - Runtime requirements
+- **.NET 10** - Runtime requirements
 - **Microsoft.Extensions.Http** - HTTP client factory
 - **Microsoft.Extensions.Logging** - Structured logging
 

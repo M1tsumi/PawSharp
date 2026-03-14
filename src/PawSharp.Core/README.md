@@ -20,7 +20,7 @@ PawSharp.Core provides the fundamental data models and entities that represent D
 ## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Core --version 0.6.1-alpha1
+dotnet add package PawSharp.Core --version 1.0.0-alpha.1
 ```
 
 ## ?? Quick Start
@@ -129,7 +129,7 @@ string json = JsonSerializer.Serialize(embed);
 
 ## ?? Dependencies
 
-- **.NET 8.0** - Modern .NET runtime
+- **.NET 10** - Modern .NET runtime
 - **System.Text.Json** - High-performance JSON serialization
 
 ## ?? Related Packages
