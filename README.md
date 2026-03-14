@@ -19,7 +19,7 @@
 
 PawSharp is a feature-complete, modular Discord API library for C# and .NET. It covers the full gateway lifecycle, ~140 REST endpoints, prefix commands with preconditions, slash command routing, in-memory caching, per-route rate limiting, interactivity helpers, and full voice support including Discord's **DAVE end-to-end encryption** — all in a single cohesive package suite with zero mandatory third-party dependencies outside the .NET runtime.
 
-> **Status:** `0.11.0-alpha.1` — public alpha. APIs may change between minor versions. See the [versioning policy][versioning].
+> **Status:** `1.0.0-alpha.1` — public alpha. APIs may change between minor versions. See the [versioning policy][versioning].
 
 ---
 

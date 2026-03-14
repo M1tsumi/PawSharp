@@ -3,7 +3,7 @@
 Voice channel connectivity for PawSharp bots, with full support for Discord's
 **DAVE end-to-end encryption** protocol (RFC 9420 MLS).
 
-As of 0.11.0-alpha.1 the audio pipeline is fully functional end-to-end:
+As of 1.0.0-alpha.1 the audio pipeline is fully functional end-to-end:
 
 - 16-bit signed mono PCM at 48 kHz captured from the microphone (NAudio)
 - Encoded to Opus with Concentus (pure .NET, no P/Invoke)
@@ -22,11 +22,11 @@ dependencies.
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice  # 0.11.0-alpha.1
+dotnet add package PawSharp.Voice  # 1.0.0-alpha.1
 ```
 
 The package pulls in `NAudio` (audio I/O) and `Concentus` (Opus codec).
-Everything else comes from the .NET 8 BCL.
+Everything else comes from the .NET 10 BCL.
 
 ---
 
@@ -221,8 +221,8 @@ catch (ArgumentException ex)
 |---------|---------|---------|
 | Concentus | 1.1.0 | Opus audio codec (pure .NET) |
 | NAudio | 2.2.1 | Audio device I/O |
-| PawSharp.Client | 0.11.0-alpha.1 | DiscordClient integration |
-| .NET 8.0 BCL | — | AES-GCM, HKDF, Ed25519, X25519, WebSocket |
+| PawSharp.Client | 1.0.0-alpha.1 | DiscordClient integration |
+| .NET 10 BCL | — | AES-GCM, HKDF, Ed25519, X25519, WebSocket |
 
 ---
 
