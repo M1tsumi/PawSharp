@@ -15,6 +15,13 @@ All notable changes to PawSharp are documented here.
 - **Target framework** changed from `net8.0` to `net10.0` across all packages. Consumers must target `net10.0` (or be `net10.0`-compatible) to consume PawSharp NuGet packages from this release onwards.
 - `System.Net.Http.Json` package reference removed from `PawSharp.API` — the types are now provided directly by the .NET 10 BCL.
 
+### New Features
+
+- **`GetActivityInstanceAsync(ulong applicationId, string instanceId)`** — Fetches a running Discord embedded-application (Activity) instance.  Maps to `GET /applications/{application.id}/activity-instances/{instance.id}`.  Returns the new `ActivityInstance` entity (with `InstanceId`, `LaunchId`, `Location`, and `Users`) or `null` on a 404/error response.
+- **`ActivityInstance`** entity (`PawSharp.Core.Entities`) — models the top-level activity-instance object returned by the endpoint above.
+- **`ActivityLocation`** entity — nested object inside `ActivityInstance` describing the channel/guild context.
+- **`ActivityLocationKind`** static class — string constants `"gc"` (guild channel) and `"pc"` (private/DM channel) for `ActivityLocation.Kind`.
+
 ### Changes
 
 - All `Microsoft.Extensions.*` package references updated: `DependencyInjection`, `Logging`, `Logging.Console`, `Http`, `Options` → `10.0.0`.
@@ -22,6 +29,11 @@ All notable changes to PawSharp are documented here.
 - `Newtonsoft.Json` updated to `13.0.3` in `PawSharp.Core` and `PawSharp.API`.
 - Test toolchain harmonised: `xunit` `2.9.2`, `xunit.runner.visualstudio` `2.8.2`, `Microsoft.NET.Test.Sdk` `17.12.0`, `Moq` `4.20.72`, `FluentAssertions` `7.0.0`.
 - `BenchmarkDotNet` updated to `0.14.0` in `PawSharp.Benchmarks`.
+
+### Fixes
+
+- `DiscordRestClient` `User-Agent` header corrected from `0.11.0-alpha.1` to `1.0.0-alpha.1` to match the published package version.
+- `PawSharp.Core` `Newtonsoft.Json` package reference corrected from `13.0.1` to `13.0.3` (consistent with `PawSharp.API`).
 
 ---
 

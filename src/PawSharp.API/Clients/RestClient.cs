@@ -63,7 +63,7 @@ public class DiscordRestClient : IDiscordRestClient
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.11.0-alpha.1)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.0.0-alpha.1)");
     }
 
     /// <summary>
@@ -2287,6 +2287,14 @@ public class DiscordRestClient : IDiscordRestClient
         var response = await PostAsync("users/@me/channels", content);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<Channel>(_jsonOptions);
+        return null;
+    }
+
+    public async Task<ActivityInstance?> GetActivityInstanceAsync(ulong applicationId, string instanceId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/activity-instances/{Uri.EscapeDataString(instanceId)}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<ActivityInstance>(_jsonOptions);
         return null;
     }
 

@@ -1055,7 +1055,7 @@ public class ArchivedThreadsResponse
 {
     /// <summary>The archived thread channels (include ThreadMetadata).</summary>
     [JsonPropertyName("threads")]
-    public List<Thread> Threads { get; set; } = new();
+    public List<PawSharp.Core.Entities.Thread> Threads { get; set; } = new();
 
     /// <summary>Thread member objects for the current user in each returned thread.</summary>
     [JsonPropertyName("members")]
@@ -1073,7 +1073,7 @@ public class ActiveThreadsResponse
 {
     /// <summary>The active thread channels (include ThreadMetadata).</summary>
     [JsonPropertyName("threads")]
-    public List<Thread> Threads { get; set; } = new();
+    public List<PawSharp.Core.Entities.Thread> Threads { get; set; } = new();
 
     /// <summary>Thread member objects for the current user in each returned thread.</summary>
     [JsonPropertyName("members")]

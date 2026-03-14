@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Concentus" Version="1.1.0" />
-    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Concentus" />
+    <PackageReference Include="NAudio" />
   </ItemGroup>
 
   <ItemGroup>
