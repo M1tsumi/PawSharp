@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    Shared settings applied to every project under tests/ and sub-folders.
+    This file is automatically imported by MSBuild due to its name.
+  -->
+  <PropertyGroup>
+    <!-- Test projects are never packed as NuGet packages. -->
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <IsTestProject Condition="$([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">true</IsTestProject>
+
+    <!-- Enforce nullable reference analysis in test code. -->
+    <Nullable>enable</Nullable>
+
+    <!-- Implicit global usings reduce boilerplate in test files. -->
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Use latest stable language features available on .NET 10. -->
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>

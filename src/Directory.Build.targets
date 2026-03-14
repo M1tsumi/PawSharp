@@ -1,0 +1,35 @@
+<Project>
+
+  <!--
+    Source Link: embeds source-file URLs pointing to the GitHub commit into the
+    PDB/symbol package so debuggers (VS, Rider, VS Code) can step into PawSharp
+    source from NuGet packages.
+
+    Microsoft.SourceLink.GitHub is listed in Directory.Packages.props so no
+    version is required here.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Embed source-repo URL in the NuGet package metadata. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+
+    <!-- Embed sources that are not tracked by Git (e.g. generated code). -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <!-- Produce a .snupkg symbols package alongside the .nupkg. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!--
+      Deterministic builds: identical inputs always produce byte-for-byte
+      identical outputs.  The CI flag ensures path-normalisation occurs on
+      GitHub Actions even when the checkout path differs between runners.
+    -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>

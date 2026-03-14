@@ -1,16 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
+    <!-- ── Package metadata shared by every library project ──────────────── -->
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>A modular Discord API wrapper for .NET 10</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/M1tsumi/PawSharp</PackageProjectUrl>
     <RepositoryUrl>https://github.com/M1tsumi/PawSharp</RepositoryUrl>
-    <PackageTags>discord api wrapper bot csharp dotnet</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>discord;api;wrapper;bot;csharp;dotnet</PackageTags>
     <Version>1.0.0-alpha.1</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppress missing XML doc warnings — covered by explicit #nullable enable per-file. -->
     <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!-- ── Compiler / language ───────────────────────────────────────────── -->
+    <!-- Use the latest stable C# language version available on .NET 10. -->
+    <LangVersion>latest</LangVersion>
+    <!-- Enable nullable reference type analysis project-wide. -->
+    <Nullable>enable</Nullable>
+    <!-- Reduce boilerplate — BCL namespaces are available implicitly. -->
+    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 </Project>

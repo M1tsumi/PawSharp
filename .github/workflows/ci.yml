@@ -27,7 +27,7 @@ jobs:
 
     strategy:
       matrix:
-        dotnet: [ '8.0.x' ]
+        dotnet: [ '10.0.x' ]
 
     steps:
       - name: Checkout
@@ -45,7 +45,10 @@ jobs:
         run: dotnet build PawSharp.sln -c Release --no-restore --nologo
 
       - name: Test
-        run: dotnet test PawSharp.sln -c Release --no-build --nologo --verbosity normal
+        run: |
+          dotnet test PawSharp.sln -c Release --no-build --nologo \
+            --logger "trx;LogFileName=results.trx" \
+            --results-directory ./test-results
 
       - name: Upload test results
         if: always()
@@ -68,7 +71,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore PawSharp.sln
@@ -102,7 +105,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore & Build for DocFX
         run: |
@@ -110,13 +113,12 @@ jobs:
           dotnet build PawSharp.sln -c Release --no-restore --nologo
 
       - name: Install DocFX
-        run: dotnet tool install -g docfx
+        run: dotnet tool restore
 
       - name: Generate Documentation
         run: |
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          docfx metadata
-          docfx build
+          dotnet docfx metadata
+          dotnet docfx build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
