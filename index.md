@@ -4,10 +4,10 @@ _disableToc: false
 
 # PawSharp
 
-A modular Discord API wrapper for **.NET 8** — REST, Gateway, caching, slash
+A modular Discord API wrapper for **.NET 10** — REST, Gateway, caching, slash
 commands, prefix commands, interactivity, and voice with full DAVE E2EE.
 
-**Current version:** `0.11.0-alpha.1` | **Discord API:** v10
+**Current version:** `1.0.0-alpha.1` | **Discord API:** v10
 
 ---
 
