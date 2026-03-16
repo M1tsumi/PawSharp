@@ -9,12 +9,12 @@ end-to-end encryption layer works underneath.
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice  # 0.11.0-alpha.1
+dotnet add package PawSharp.Voice  # 1.0.0-alpha.1
 ```
 
 This pulls in NAudio (audio device I/O) and Concentus (Opus codec). The entire
 crypto stack (AES-GCM, HKDF, X25519, Ed25519, MLS key schedule) comes from the
-.NET 8 BCL — no extra crypto NuGet packages needed.
+.NET 10 BCL — no extra crypto NuGet packages needed.
 
 ---
 
