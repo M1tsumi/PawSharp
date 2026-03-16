@@ -476,9 +476,10 @@ namespace PawSharp.Gateway
                     case 4: // Voice State Update — Client voice state (handled elsewhere, client-only)
                         _logger.LogDebug("Opcode 4 (Voice State Update) should not be received from server");
                         break;
-                    case 5: // Voice Server Ping — Server voice ping
-                        _logger.LogDebug("Received voice server ping (voice support not yet implemented)");
-                        // Voice support planned for future phase
+                    case 5: // Reserved — No longer used in modern Discord Gateway
+                        _logger.LogDebug("Received opcode 5 (reserved/unused in current Gateway spec)");
+                        // Voice server updates are handled via VOICE_SERVER_UPDATE dispatch events (opcode 0)
+                        // and are fully supported via PawSharp.Voice component
                         break;
                     case 6: // Resume — Client session resume (handled elsewhere, client-only)
                         _logger.LogDebug("Opcode 6 (Resume) should not be received from server");
