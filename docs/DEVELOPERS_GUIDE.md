@@ -21,7 +21,7 @@ Welcome to PawSharp! This documentation will guide you through building Discord 
 
 ### Prerequisites
 
-- **.NET 8.0 SDK** or later ([download](https://dotnet.microsoft.com/download/dotnet/8.0))
+- **.NET 10.0 SDK** or later ([download](https://dotnet.microsoft.com/download/dotnet/10.0))
 - A Discord bot token ([create application](https://discord.com/developers/applications))
 - Basic C# knowledge
 
