@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.API.Interfaces;
+using PawSharp.API.Security;
 using PawSharp.API.RateLimit;
 using PawSharp.API.Models;
 using PawSharp.Core.Entities;
@@ -825,9 +826,7 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
-        var errorBody = await response.Content.ReadAsStringAsync();
-        _logger.LogError("BulkOverwriteGlobalApplicationCommands failed ({Status}): {Body}",
-            (int)response.StatusCode, errorBody);
+        await LogSanitizedApiErrorAsync("BulkOverwriteGlobalApplicationCommands failed", response);
         return null;
     }
     
@@ -839,9 +838,7 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
-        var errorBody = await response.Content.ReadAsStringAsync();
-        _logger.LogError("BulkOverwriteGuildApplicationCommands failed ({Status}): {Body}",
-            (int)response.StatusCode, errorBody);
+        await LogSanitizedApiErrorAsync("BulkOverwriteGuildApplicationCommands failed", response);
         return null;
     }
     
@@ -2389,7 +2386,7 @@ public class DiscordRestClient : IDiscordRestClient
             if (retryCount >= MaxRateLimitRetries)
             {
                 _logger.LogError("Rate limit retry limit ({Max}) exceeded for {Method} {Endpoint}",
-                    MaxRateLimitRetries, method, RedactWebhookToken(endpoint));
+                    MaxRateLimitRetries, method, LogSanitizer.RedactSensitiveEndpoint(endpoint));
                 return response; // Return the 429 response rather than looping forever
             }
 
@@ -2416,9 +2413,18 @@ public class DiscordRestClient : IDiscordRestClient
         return response;
     }
 
-    /// <summary>Replaces webhook token segments in endpoint paths with REDACTED for safe log output.</summary>
-    private static string RedactWebhookToken(string endpoint) =>
-        System.Text.RegularExpressions.Regex.Replace(endpoint, @"(?<=webhooks/\d+/)[^/?]+", "REDACTED");
+    /// <summary>
+    /// Logs API failures with sanitized response content to prevent accidental secret exposure.
+    /// Keep response-body logging behind this helper for consistency across future call sites.
+    /// </summary>
+    private async Task LogSanitizedApiErrorAsync(string operation, HttpResponseMessage response)
+    {
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("{Operation} ({Status}): {Body}",
+            operation,
+            (int)response.StatusCode,
+            LogSanitizer.SanitizeHttpErrorBody(errorBody));
+    }
 
     private void ParseAndUpdateRateLimits(HttpResponseMessage response, string route, ref string? bucketHash)
     {
