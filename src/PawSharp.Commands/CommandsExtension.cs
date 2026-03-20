@@ -932,7 +932,14 @@ public sealed class SlashCommandContext : CommandContext
                 Id        = interaction.Id,
                 ChannelId = interaction.ChannelId,
                 GuildId   = interaction.GuildId,
-                Author    = interaction.Member?.User ?? interaction.User,
+                Author    = interaction.Member?.User
+                            ?? interaction.User
+                            ?? new PawSharp.Core.Entities.User
+                            {
+                                Id = 0,
+                                Username = "unknown",
+                                Discriminator = "0"
+                            },
             },
             prefix: "/",
             commandName: commandName,

@@ -28,8 +28,8 @@ public static class InteractionExtensions
 
         // Unwrap SubCommand (type 1) and SubCommandGroup (type 2) layers so that
         // options nested inside groups or subcommands are found correctly.
-        while (options.Count >= 1 && options[0].Type is 1 or 2)
-            options = options[0].Options;
+        while (options.Count >= 1 && options[0].Type is 1 or 2 && options[0].Options is { } nested)
+            options = nested;
 
         return GetOptionValueFromList<T>(options, name);
     }

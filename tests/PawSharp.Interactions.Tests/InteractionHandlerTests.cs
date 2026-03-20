@@ -196,14 +196,14 @@ public class InteractionHandlerTests
     // ─────────────────────────────────────────────
 
     [Fact]
-    public void RegisterCommand_Overwrites_Previous_Handler()
+    public async Task RegisterCommand_Overwrites_Previous_Handler()
     {
         var callCount = 0;
         _handler.RegisterCommand("test", _ => { callCount++; return Task.CompletedTask; });
         _handler.RegisterCommand("test", _ => { callCount += 10; return Task.CompletedTask; });
 
         var interaction = BuildApplicationCommandInteraction("test", commandType: 1);
-        _handler.HandleInteractionAsync(interaction).Wait();
+        await _handler.HandleInteractionAsync(interaction);
 
         // Only the second handler should have run
         callCount.Should().Be(10);

@@ -319,7 +319,7 @@ public enum ApplicationFlags
 
 /// <summary>
 /// Partial application object returned inside the READY gateway event.
-/// Only <see cref="Id"/> and <see cref="Flags"/> are guaranteed to be present.
+/// Only <see cref="DiscordEntity.Id"/> and <see cref="Flags"/> are guaranteed to be present.
 /// </summary>
 public class PartialApplication : DiscordEntity
 {
