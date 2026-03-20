@@ -20,20 +20,21 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter
     /// </summary>
     /// <param name="route">The API route (e.g., "POST /channels/{channel.id}/messages")</param>
     /// <param name="bucketHash">The bucket hash from Discord's X-RateLimit-Bucket header</param>
-    public async Task WaitForRateLimitAsync(string route, string? bucketHash = null)
+    /// <param name="cancellationToken">Token used to cancel waiting for rate-limit clearance.</param>
+    public async Task WaitForRateLimitAsync(string route, string? bucketHash = null, CancellationToken cancellationToken = default)
     {
         // Check global rate limit first
         if (DateTimeOffset.UtcNow < _globalResetAt)
         {
             var globalDelay = _globalResetAt - DateTimeOffset.UtcNow;
-            await Task.Delay(globalDelay);
+            await Task.Delay(globalDelay, cancellationToken);
         }
 
         // Get or create bucket for this route
         var bucketKey = bucketHash ?? route;
         var bucket = _buckets.GetOrAdd(bucketKey, _ => new RateLimitBucket());
 
-        await bucket.WaitAsync();
+        await bucket.WaitAsync(cancellationToken);
     }
 
     /// <summary>
@@ -78,9 +79,9 @@ public class RateLimitBucket
     private DateTimeOffset _resetAt = DateTimeOffset.MinValue;
     private readonly object _lock = new();
 
-    public async Task WaitAsync()
+    public async Task WaitAsync(CancellationToken cancellationToken = default)
     {
-        await _semaphore.WaitAsync();
+        await _semaphore.WaitAsync(cancellationToken);
 
         TimeSpan delay;
         lock (_lock)
@@ -103,7 +104,7 @@ public class RateLimitBucket
         // Yield outside the lock so we don't block threads while waiting
         if (delay > TimeSpan.Zero)
         {
-            await Task.Delay(delay);
+            await Task.Delay(delay, cancellationToken);
         }
     }
 
