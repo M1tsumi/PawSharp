@@ -4,9 +4,7 @@ All notable changes to PawSharp are documented here.
 
 ---
 
-## [1.0.0-alpha.1] - 2026-03-11 ⚠️ IN DEVELOPMENT
-
-> **This branch is actively under development.** The API surface, package dependencies, and feature set are subject to change without notice before a stable `1.0.0` tag is cut. Several additional features, fixes, and breaking-change reviews are planned before this version is considered release-ready.
+## [1.0.0-alpha.1] - 2026-03-11
 
 > **First .NET 10 release.** Migrates the entire solution — all library, test, and tooling projects — from `net8.0` to `net10.0`. All `Microsoft.Extensions.*` packages updated to `10.0.0`, test toolchain unified to xunit `2.9.2` / `Microsoft.NET.Test.Sdk` `17.12.0` / `FluentAssertions` `7.0.0`. Version bumped to `1.0.0-alpha.1` to reflect the breaking TFM change and start of the stable-API series.
 
