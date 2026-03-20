@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PawSharp.API.RateLimit;
@@ -9,7 +10,7 @@ namespace PawSharp.API.RateLimit;
 /// </summary>
 public interface IAdvancedRateLimiter
 {
-    Task WaitForRateLimitAsync(string route, string? bucketHash = null);
+    Task WaitForRateLimitAsync(string route, string? bucketHash = null, CancellationToken cancellationToken = default);
 
     void UpdateRateLimits(string route, string? bucketHash, int? remaining, DateTimeOffset? resetAt, bool isGlobal = false);
 
