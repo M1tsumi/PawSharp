@@ -63,6 +63,9 @@ public sealed class DAVEProtocol : IDisposable
     /// <summary>True when DAVE encryption is fully active (op 24 received).</summary>
     public bool IsActive => _active;
 
+    /// <summary>True while a commit transition is in progress and encryption is awaiting reactivation.</summary>
+    public bool IsTransitionPending => _transitionPending;
+
     /// <summary>Current MLS epoch number (advances on every Commit or Welcome).</summary>
     public ulong EpochNumber => _mls.EpochNumber;
 

@@ -441,7 +441,7 @@ public class ExecuteWebhookRequest
     public List<MessageComponent>? Components { get; set; }
     /// <summary>
     /// If true, Discord returns the created message object. The caller must pass
-    /// <c>wait=true</c> as a query parameter via <see cref="PawSharp.API.Clients.RestClient.ExecuteWebhookAsync"/>.
+    /// <c>wait=true</c> as a query parameter on webhook execute calls.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool Wait { get; set; } = false;
