@@ -370,7 +370,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send identify payload");
-                OnIdentifyFailed?.Invoke($"Failed to send identify: {ex.Message}");
+                OnIdentifyFailed?.Invoke("Failed to send identify payload.");
                 throw;
             }
         }
@@ -405,7 +405,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send resume payload");
-                OnResumeFailed?.Invoke($"Failed to send resume: {ex.Message}");
+                OnResumeFailed?.Invoke("Failed to send resume payload.");
                 throw;
             }
         }
@@ -907,7 +907,7 @@ namespace PawSharp.Gateway
                     if (!string.IsNullOrWhiteSpace(sessionIdStr))
                     {
                         _resumeSessionId = sessionIdStr;
-                        _logger.LogInformation("Stored session ID for resumption: {SessionId}", sessionIdStr);
+                        _logger.LogInformation("Stored session ID for resumption.");
                     }
                 }
 
@@ -918,7 +918,7 @@ namespace PawSharp.Gateway
                     if (!string.IsNullOrWhiteSpace(resumeUrl))
                     {
                         _resumeGatewayUrl = resumeUrl;
-                        _logger.LogDebug("Resume gateway URL: {ResumeUrl}", resumeUrl);
+                        _logger.LogDebug("Resume gateway URL received.");
                     }
                 }
             }
