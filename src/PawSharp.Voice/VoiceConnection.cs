@@ -6,6 +6,7 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Concentus;
 using Concentus.Enums;
 using Concentus.Structs;
 using NAudio.Wave;
@@ -70,8 +71,8 @@ public class VoiceConnection : IDisposable
     private const int SilenceThresholdMs  = 5_000;  // treat connection as silent after this many ms
 
     // Opus codec handles (Concentus — pure .NET, zero P/Invoke)
-    private OpusEncoder? _opusEncoder;
-    private OpusDecoder? _opusDecoder;
+    private IOpusEncoder? _opusEncoder;
+    private IOpusDecoder? _opusDecoder;
 
     // RTP sequencing state (per-connection, monotonically increasing)
     private ushort _rtpSequence;
@@ -144,9 +145,9 @@ public class VoiceConnection : IDisposable
     private void InitializeAudio()
     {
         // Opus codec is always available (pure managed, no audio hardware needed)
-        _opusEncoder = OpusEncoder.Create(OpusSampleRate, OpusChannels, OpusApplication.OPUS_APPLICATION_VOIP);
+        _opusEncoder = OpusCodecFactory.CreateEncoder(OpusSampleRate, OpusChannels, OpusApplication.OPUS_APPLICATION_VOIP, null);
         _opusEncoder.Bitrate = 64000;
-        _opusDecoder = OpusDecoder.Create(OpusSampleRate, OpusChannels);
+        _opusDecoder = OpusCodecFactory.CreateDecoder(OpusSampleRate, OpusChannels, null);
 
         try
         {
@@ -515,7 +516,7 @@ public class VoiceConnection : IDisposable
         Buffer.BlockCopy(pcmFrameBytes, 0, pcmSamples, 0, pcmFrameBytes.Length);
 
         var output = new byte[MaxOpusBytes];
-        int encodedLength = _opusEncoder.Encode(pcmSamples, 0, OpusFrameSize, output, 0, output.Length);
+        int encodedLength = _opusEncoder.Encode(pcmSamples.AsSpan(), OpusFrameSize, output.AsSpan(), output.Length);
         return encodedLength > 0 ? output[..encodedLength] : Array.Empty<byte>();
     }
 
@@ -530,11 +531,7 @@ public class VoiceConnection : IDisposable
 
         // Maximum decoded frame is 120 ms = 5 760 samples at 48 kHz
         var pcmSamples = new short[5760 * OpusChannels];
-        int decodedSamples = _opusDecoder.Decode(
-            opusData, 0, opusData.Length,
-            pcmSamples, 0,
-            5760,
-            false);
+        int decodedSamples = _opusDecoder.Decode(opusData.AsSpan(), pcmSamples.AsSpan(), 5760, false);
 
         // Convert the decoded short[] samples back to a 16-bit PCM byte stream
         var pcmBytes = new byte[decodedSamples * OpusChannels * sizeof(short)];

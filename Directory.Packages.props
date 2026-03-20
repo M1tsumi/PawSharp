@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Audio / Voice">
-    <PackageVersion Include="Concentus"                                Version="1.1.0" />
+    <PackageVersion Include="Concentus"                                Version="2.2.2" />
     <PackageVersion Include="NAudio"                                   Version="2.2.1" />
   </ItemGroup>
 
