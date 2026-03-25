@@ -117,7 +117,7 @@ public sealed class EventInterestMetadata
     public bool ValidateIntents(GatewayIntents enabledIntents, out GatewayIntents missingIntents)
     {
         missingIntents = RequiredIntents & ~enabledIntents;
-        return missingIntents == GatewayIntents.None;
+        return missingIntents == (GatewayIntents)0;
     }
 
     /// <summary>
@@ -125,7 +125,7 @@ public sealed class EventInterestMetadata
     /// </summary>
     public string GetMissingIntentsDescription(GatewayIntents missingIntents)
     {
-        if (missingIntents == GatewayIntents.None)
+        if (missingIntents == (GatewayIntents)0)
             return "All required intents are enabled";
 
         var intentNames = new List<string>();
@@ -133,11 +133,8 @@ public sealed class EventInterestMetadata
         // Check each intent flag
         foreach (GatewayIntents intent in Enum.GetValues(typeof(GatewayIntents)))
         {
-            if (intent != GatewayIntents.None && intent != GatewayIntents.All && intent != GatewayIntents.AllNonPrivileged)
-            {
-                if ((missingIntents & intent) != 0)
-                    intentNames.Add(intent.ToString());
-            }
+            if (intent != (GatewayIntents)0 && (missingIntents & intent) != 0)
+                intentNames.Add(intent.ToString());
         }
 
         return intentNames.Count == 0
@@ -156,7 +153,7 @@ public sealed class EventInterestMetadata
     public override string ToString()
     {
         var eventList = string.Join(", ", EventTypes.OrderBy(x => x));
-        var intentList = RequiredIntents == GatewayIntents.None
+        var intentList = RequiredIntents == (GatewayIntents)0
             ? "None"
             : RequiredIntents.ToString();
         return $"EventInterest {{ Events: [{eventList}], Intents: {intentList} }}";

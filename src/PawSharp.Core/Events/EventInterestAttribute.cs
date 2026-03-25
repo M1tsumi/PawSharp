@@ -57,11 +57,11 @@ public sealed class EventInterestAttribute : Attribute
     /// </summary>
     /// <remarks>
     /// This mapping is based on Discord's official documentation of which intents
-    /// are required for each event type. Unknown events return GatewayIntents.None.
+    /// are required for each event type. Unknown events return (GatewayIntents)0.
     /// </remarks>
     private static GatewayIntents CalculateRequiredIntents(IEnumerable<string> eventTypes)
     {
-        GatewayIntents intents = GatewayIntents.None;
+        GatewayIntents intents = (GatewayIntents)0;
 
         foreach (var eventType in eventTypes)
         {
@@ -93,45 +93,36 @@ public sealed class EventInterestAttribute : Attribute
                 // Guild voice states
                 "VOICE_STATE_UPDATE" => GatewayIntents.GuildVoiceStates,
 
-                // Guild messages (default channel)
-                "MESSAGE_CREATE" or "MESSAGE_UPDATE" or "MESSAGE_DELETE" or "MESSAGE_BULK_DELETE" => GatewayIntents.GuildMessages | GatewayIntents.DirectMessages,
+                // Messages (guild + DM + content)
+                "MESSAGE_CREATE" or "MESSAGE_UPDATE" or "MESSAGE_DELETE" or "MESSAGE_BULK_DELETE" => GatewayIntents.GuildMessages | GatewayIntents.DirectMessages | GatewayIntents.MessageContent,
 
-                // Guild message reactions
+                // Message reactions (guild + DM)
                 "MESSAGE_REACTION_ADD" or "MESSAGE_REACTION_REMOVE" or "MESSAGE_REACTION_REMOVE_ALL" or "MESSAGE_REACTION_REMOVE_EMOJI" => GatewayIntents.GuildMessageReactions | GatewayIntents.DirectMessageReactions,
 
-                // Guild message typing
+                // Message typing (guild + DM)
                 "TYPING_START" => GatewayIntents.GuildMessageTyping | GatewayIntents.DirectMessageTyping,
 
                 // Guild scheduled events
                 "GUILD_SCHEDULED_EVENT_CREATE" or "GUILD_SCHEDULED_EVENT_UPDATE" or "GUILD_SCHEDULED_EVENT_DELETE" or "GUILD_SCHEDULED_EVENT_USER_ADD" or "GUILD_SCHEDULED_EVENT_USER_REMOVE" => GatewayIntents.GuildScheduledEvents,
 
-                // Guild message polls
+                // Message polls (guild + DM)
                 "MESSAGE_POLL_VOTE_ADD" or "MESSAGE_POLL_VOTE_REMOVE" => GatewayIntents.GuildMessagePolls | GatewayIntents.DirectMessagePolls,
 
-                // Guild members (requires GUILD_MEMBERS intent)
+                // Guild members (requires GUILD_MEMBERS intent - privileged)
                 "GUILD_MEMBER_ADD" or "GUILD_MEMBER_UPDATE" or "GUILD_MEMBER_REMOVE" => GatewayIntents.GuildMembers,
 
-                // Guild presences (requires GUILD_PRESENCES intent)
+                // Guild presences (requires GUILD_PRESENCES intent - privileged)
                 "PRESENCE_UPDATE" => GatewayIntents.GuildPresences,
 
                 // Auto moderation
                 "AUTO_MODERATION_RULE_CREATE" or "AUTO_MODERATION_RULE_UPDATE" or "AUTO_MODERATION_RULE_DELETE" => GatewayIntents.AutoModerationConfiguration,
                 "AUTO_MODERATION_ACTION_EXECUTION" => GatewayIntents.AutoModerationExecution,
 
-                // Direct message events
-                "CHANNEL_CREATE" when true => GatewayIntents.DirectMessages, // DM channel create
-                "MESSAGE_CREATE" when true => GatewayIntents.DirectMessages,  // DM message
-                "MESSAGE_REACTION_ADD" when true => GatewayIntents.DirectMessageReactions,
-                "TYPING_START" when true => GatewayIntents.DirectMessageTyping,
-
-                // Message content (required to read .Content field)
-                "MESSAGE_CREATE" when true => GatewayIntents.MessageContent,
-
                 // Special events (no intent needed)
-                "READY" or "RESUMED" or "APPLICATION_COMMAND_PERMISSIONS_UPDATE" => GatewayIntents.None,
+                "READY" or "RESUMED" or "APPLICATION_COMMAND_PERMISSIONS_UPDATE" => (GatewayIntents)0,
 
-                // Unknown events return None (no validation)
-                _ => GatewayIntents.None
+                // Unknown events return no requirements (no validation)
+                _ => (GatewayIntents)0
             };
         }
 

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using PawSharp.Core.Enums;
 using PawSharp.Core.Events;
-using PawSharp.Core.Logging;
+using PawSharp.Gateway.Events;
 
 namespace PawSharp.Client;
 
@@ -16,7 +18,7 @@ public static class DiscordClientIntentValidationExtensions
 {
     /// <summary>
     /// Validates that all registered gateway event handlers have their required intents enabled.
-    /// Should be called before or after connecting to the gateway.
+    /// Logs warnings for any mismatches and collects detailed validation results.
     /// </summary>
     /// <remarks>
     /// Example usage:
@@ -29,37 +31,42 @@ public static class DiscordClientIntentValidationExtensions
     /// // Register handlers...
     /// client.OnMessageCreated(async msg => { ... });
     /// 
-    /// // Validate before connecting
-    /// var issues = client.ValidateIntents();
-    /// if (issues.Count > 0)
+    /// // Validate intent configuration
+    /// var enabledIntents = GatewayIntents.AllNonPrivileged;
+    /// var issues = client.ValidateIntents(enabledIntents);
+    /// if (!issues.IsValid)
     /// {
-    ///     console.WriteLine("Intent configuration has issues. See warnings above.");
+    ///     foreach (var (eventType, required, missing) in issues.Issues)
+    ///         Console.WriteLine($"{eventType} needs {missing}");
     /// }
     /// 
     /// await client.ConnectAsync();
     /// </code>
     /// </remarks>
     /// <param name="client">The Discord client</param>
+    /// <param name="enabledIntents">The intents that are currently enabled</param>
     /// <returns>A summary of intent validation issues (empty if all valid)</returns>
-    public static IntentValidationResult ValidateIntents(this DiscordClient client)
+    public static IntentValidationResult ValidateIntents(
+        this DiscordClient client,
+        GatewayIntents enabledIntents)
     {
         if (client == null)
             throw new ArgumentNullException(nameof(client));
 
-        var enabledIntents = client.Config.Intents;
         var result = new IntentValidationResult(enabledIntents);
 
         // Validate handlers in the gateway
         if (client.Gateway?.Events != null)
         {
-            client.Gateway.Events.ValidateHandlerIntents(enabledIntents, client.Logger);
+            // Validate and log warnings to console
+            client.Gateway.Events.ValidateHandlerIntents(enabledIntents);
             
-            // Collect details for result
+            // Collect detailed results
             var registeredIntents = client.Gateway.Events.GetRegisteredIntents();
             foreach (var (eventType, requiredIntents) in registeredIntents)
             {
                 var missing = requiredIntents & ~enabledIntents;
-                if (missing != GatewayIntents.None)
+                if (missing != (GatewayIntents)0)
                 {
                     result.AddMissingIntent(eventType, requiredIntents, missing);
                 }
@@ -78,13 +85,13 @@ public static class DiscordClientIntentValidationExtensions
     /// This is useful when you want to determine the minimal permission set your bot needs.
     /// </remarks>
     /// <param name="client">The Discord client</param>
-    /// <returns>Recommended intents, or GatewayIntents.None if no handlers are registered</returns>
+    /// <returns>Recommended intents, or (GatewayIntents)0 if no handlers are registered</returns>
     public static GatewayIntents GetRecommendedIntents(this DiscordClient client)
     {
         if (client == null)
             throw new ArgumentNullException(nameof(client));
 
-        return client.Gateway?.Events?.GetRecommendedIntents() ?? GatewayIntents.None;
+        return client.Gateway?.Events?.GetRecommendedIntents() ?? (GatewayIntents)0;
     }
 
     /// <summary>
@@ -92,18 +99,17 @@ public static class DiscordClientIntentValidationExtensions
     /// Useful for debugging intent configuration at startup.
     /// </summary>
     /// <param name="client">The Discord client</param>
-    public static void LogIntentSummary(this DiscordClient client)
+    /// <param name="enabledIntents">The intents that are currently enabled</param>
+    public static void LogIntentSummary(this DiscordClient client, GatewayIntents enabledIntents)
     {
         if (client == null)
             throw new ArgumentNullException(nameof(client));
 
-        var enabled = client.Config.Intents;
         var recommended = client.GetRecommendedIntents();
         var registeredIntents = client.Gateway?.Events?.GetRegisteredIntents() ?? 
-            new System.Collections.Generic.List<(string, GatewayIntents)>();
+            new List<(string, GatewayIntents)>();
 
-        var message = $"Intent configuration: enabled={enabled}, recommended={recommended}";
-        client.Logger?.Info(message);
+        var message = $"Intent configuration: enabled={enabledIntents}, recommended={recommended}";
         Console.WriteLine($"[INFO] {message}");
 
         if (registeredIntents.Count > 0)
@@ -111,7 +117,7 @@ public static class DiscordClientIntentValidationExtensions
             Console.WriteLine($"[INFO] Registered {registeredIntents.Count} event type(s) with intent requirements:");
             foreach (var (eventType, requiredIntents) in registeredIntents.OrderBy(x => x.Item1))
             {
-                var isMissing = (requiredIntents & ~enabled) != GatewayIntents.None;
+                var isMissing = (requiredIntents & ~enabledIntents) != (GatewayIntents)0;
                 var status = isMissing ? "[WARN]" : "[OK]";
                 Console.WriteLine($"  {status} {eventType}: {requiredIntents}");
             }
