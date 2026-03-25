@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>PawSharp.Core</RootNamespace>
     <AssemblyName>PawSharp.Core</AssemblyName>
     <OutputType>Library</OutputType>
     <PackageId>PawSharp.Core</PackageId>
-    <Version>0.11.0-alpha.1</Version>
+    <Version>1.0.0-alpha.1</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Core entities, models, and utilities for PawSharp Discord API wrapper.</Description>
@@ -17,10 +17,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
 
 </Project>

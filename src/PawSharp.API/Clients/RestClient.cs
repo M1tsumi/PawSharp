@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.API.Interfaces;
+using PawSharp.API.Security;
 using PawSharp.API.RateLimit;
 using PawSharp.API.Models;
 using PawSharp.Core.Entities;
@@ -63,7 +64,7 @@ public class DiscordRestClient : IDiscordRestClient
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 0.11.0-alpha.1)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.0.0-alpha.1)");
     }
 
     /// <summary>
@@ -825,9 +826,7 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
-        var errorBody = await response.Content.ReadAsStringAsync();
-        _logger.LogError("BulkOverwriteGlobalApplicationCommands failed ({Status}): {Body}",
-            (int)response.StatusCode, errorBody);
+        await LogSanitizedApiErrorAsync("BulkOverwriteGlobalApplicationCommands failed", response);
         return null;
     }
     
@@ -839,9 +838,7 @@ public class DiscordRestClient : IDiscordRestClient
         {
             return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>();
         }
-        var errorBody = await response.Content.ReadAsStringAsync();
-        _logger.LogError("BulkOverwriteGuildApplicationCommands failed ({Status}): {Body}",
-            (int)response.StatusCode, errorBody);
+        await LogSanitizedApiErrorAsync("BulkOverwriteGuildApplicationCommands failed", response);
         return null;
     }
     
@@ -2290,6 +2287,14 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    public async Task<ActivityInstance?> GetActivityInstanceAsync(ulong applicationId, string instanceId)
+    {
+        var response = await GetAsync($"applications/{applicationId}/activity-instances/{Uri.EscapeDataString(instanceId)}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<ActivityInstance>(_jsonOptions);
+        return null;
+    }
+
     private const int MaxRateLimitRetries = 5;
 
     private async Task<HttpResponseMessage> SendRequestAsync(
@@ -2317,7 +2322,7 @@ public class DiscordRestClient : IDiscordRestClient
         {
             var delay = _globalReset - DateTimeOffset.UtcNow;
             _logger.LogWarning("Global rate limit hit, delaying {Delay}", delay);
-            await Task.Delay(delay);
+            await Task.Delay(delay, cancellationToken);
         }
 
         // Per-route rate limit coordination
@@ -2327,7 +2332,11 @@ public class DiscordRestClient : IDiscordRestClient
         {
             var path = endpoint.Split('?')[0];
             route = $"{method.Method} {path}";
-            await _rateLimiter.WaitForRateLimitAsync(route);
+            await _rateLimiter.WaitForRateLimitAsync(route, cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -2363,7 +2372,7 @@ public class DiscordRestClient : IDiscordRestClient
         // Handle rate limiting
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
-            var retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(1);
+            var retryAfter = await GetRetryAfterDelayAsync(response, cancellationToken);
             _logger.LogWarning("Rate limited, retrying after {RetryAfter}", retryAfter);
             
             // Update limiter with 429 info for bucket-aware retry
@@ -2371,17 +2380,16 @@ public class DiscordRestClient : IDiscordRestClient
             {
                 bucketHash = bucketValues.FirstOrDefault();
             }
-            var isGlobal = response.Headers.TryGetValues("X-RateLimit-Global", out var globalValues) && 
-                          bool.Parse(globalValues.FirstOrDefault() ?? "false");
+            var isGlobal = HeaderValueIsTrue(response, "X-RateLimit-Global");
             _rateLimiter.UpdateRateLimits(route, bucketHash, 0, DateTimeOffset.UtcNow.Add(retryAfter), isGlobal);
             
             // Wait for rate limiter to allow retry
-            await _rateLimiter.WaitForRateLimitAsync(route, bucketHash);
+            await _rateLimiter.WaitForRateLimitAsync(route, bucketHash, cancellationToken);
 
             if (retryCount >= MaxRateLimitRetries)
             {
                 _logger.LogError("Rate limit retry limit ({Max}) exceeded for {Method} {Endpoint}",
-                    MaxRateLimitRetries, method, RedactWebhookToken(endpoint));
+                    MaxRateLimitRetries, method, LogSanitizer.RedactSensitiveEndpoint(endpoint));
                 return response; // Return the 429 response rather than looping forever
             }
 
@@ -2394,8 +2402,7 @@ public class DiscordRestClient : IDiscordRestClient
         _rateLimiter.MarkRequestComplete(route, bucketHash);
 
         // Use TryGetValues to avoid InvalidOperationException when Retry-After is absent.
-        if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalVals) &&
-            bool.Parse(globalVals.FirstOrDefault() ?? "false") &&
+        if (HeaderValueIsTrue(response, "X-RateLimit-Global") &&
             response.Headers.TryGetValues("Retry-After", out var retryAfterVals) &&
             double.TryParse(retryAfterVals.FirstOrDefault(),
                 System.Globalization.NumberStyles.Any,
@@ -2408,9 +2415,53 @@ public class DiscordRestClient : IDiscordRestClient
         return response;
     }
 
-    /// <summary>Replaces webhook token segments in endpoint paths with REDACTED for safe log output.</summary>
-    private static string RedactWebhookToken(string endpoint) =>
-        System.Text.RegularExpressions.Regex.Replace(endpoint, @"(?<=webhooks/\d+/)[^/?]+", "REDACTED");
+    private static bool HeaderValueIsTrue(HttpResponseMessage response, string headerName)
+        => response.Headers.TryGetValues(headerName, out var values)
+           && bool.TryParse(values.FirstOrDefault(), out var parsed)
+           && parsed;
+
+    private static async Task<TimeSpan> GetRetryAfterDelayAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.Headers.RetryAfter?.Delta is { } headerDelay && headerDelay > TimeSpan.Zero)
+            return headerDelay;
+
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("retry_after", out var retryAfterElement))
+                {
+                    if (retryAfterElement.ValueKind == JsonValueKind.Number)
+                    {
+                        var retryAfterSeconds = retryAfterElement.GetDouble();
+                        if (retryAfterSeconds > 0)
+                            return TimeSpan.FromSeconds(retryAfterSeconds);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore malformed/unexpected payloads and use a safe fallback.
+        }
+
+        return TimeSpan.FromSeconds(1);
+    }
+
+    /// <summary>
+    /// Logs API failures with sanitized response content to prevent accidental secret exposure.
+    /// Keep response-body logging behind this helper for consistency across future call sites.
+    /// </summary>
+    private async Task LogSanitizedApiErrorAsync(string operation, HttpResponseMessage response)
+    {
+        var errorBody = await response.Content.ReadAsStringAsync();
+        _logger.LogError("{Operation} ({Status}): {Body}",
+            operation,
+            (int)response.StatusCode,
+            LogSanitizer.SanitizeHttpErrorBody(errorBody));
+    }
 
     private void ParseAndUpdateRateLimits(HttpResponseMessage response, string route, ref string? bucketHash)
     {
@@ -2443,10 +2494,7 @@ public class DiscordRestClient : IDiscordRestClient
                 }
             }
 
-            if (response.Headers.TryGetValues("X-RateLimit-Global", out var globalValues))
-            {
-                isGlobal = bool.Parse(globalValues.FirstOrDefault() ?? "false");
-            }
+            isGlobal = HeaderValueIsTrue(response, "X-RateLimit-Global");
 
             if (remaining.HasValue || resetAt.HasValue || isGlobal)
             {

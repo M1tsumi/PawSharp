@@ -20,7 +20,7 @@ PawSharp.Cache provides intelligent caching for Discord entities with automatic 
 
 ```bash
 # Core caching functionality
-dotnet add package PawSharp.Cache --version 0.6.1-alpha1
+dotnet add package PawSharp.Cache --version 1.0.0-alpha.1
 
 # For Redis support
 dotnet add package StackExchange.Redis --version 2.7.33
@@ -299,15 +299,15 @@ if (metrics.HitRate < 0.8)
 ```
 PawSharp.Cache
 +-- ICacheProvider (interface)
-¦   +-- MemoryCacheProvider (default implementation)
-¦   +-- Custom providers (Redis, Database, etc.)
+ï¿½   +-- MemoryCacheProvider (default implementation)
+ï¿½   +-- Custom providers (Redis, Database, etc.)
 +-- CacheOptions (configuration)
 +-- CacheStatistics (metrics)
 +-- Entity-specific caches
-¦   +-- GuildCache
-¦   +-- UserCache
-¦   +-- ChannelCache
-¦   +-- MemberCache
+ï¿½   +-- GuildCache
+ï¿½   +-- UserCache
+ï¿½   +-- ChannelCache
+ï¿½   +-- MemberCache
 +-- Automatic invalidation system
 ```
 

@@ -267,7 +267,7 @@ namespace PawSharp.Cache.Providers
 
             foreach (var messageIdStr in messageIds)
             {
-                if (ulong.TryParse(messageIdStr, out var messageId))
+                if (ulong.TryParse((string?)messageIdStr, out var messageId))
                 {
                     var message = GetMessage(messageId);
                     if (message != null)

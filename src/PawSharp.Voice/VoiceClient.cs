@@ -176,7 +176,7 @@ public class VoiceClient : IDisposable
         if (evt.GuildId.HasValue && botUserId.HasValue && evt.UserId == botUserId.Value)
         {
             _pendingSessions[evt.GuildId.Value] = evt.SessionId;
-            _logger.LogDebug("Captured voice session_id for guild {GuildId}: {SessionId}", evt.GuildId.Value, evt.SessionId);
+            _logger.LogDebug("Captured voice session_id for guild {GuildId}", evt.GuildId.Value);
         }
 
         if (evt.ChannelId.HasValue && _connections.TryGetValue(evt.ChannelId.Value, out var connection))
@@ -225,7 +225,7 @@ public class VoiceClient : IDisposable
 
         var botUserId = _discordClient.CurrentUser?.Id ?? 0UL;
 
-        _logger.LogInformation("Initiating voice WebSocket connection for guild {GuildId} via {Endpoint}", evt.GuildId, evt.Endpoint);
+        _logger.LogInformation("Initiating voice WebSocket connection for guild {GuildId}", evt.GuildId);
 
         try
         {

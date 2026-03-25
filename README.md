@@ -19,7 +19,7 @@
 
 PawSharp is a feature-complete, modular Discord API library for C# and .NET. It covers the full gateway lifecycle, ~140 REST endpoints, prefix commands with preconditions, slash command routing, in-memory caching, per-route rate limiting, interactivity helpers, and full voice support including Discord's **DAVE end-to-end encryption** — all in a single cohesive package suite with zero mandatory third-party dependencies outside the .NET runtime.
 
-> **Status:** `0.11.0-alpha.1` — public alpha. APIs may change between minor versions. See the [versioning policy][versioning].
+> **Status:** `1.0.0-alpha.1` — public alpha. APIs may change between minor versions. See the [versioning policy][versioning].
 
 ---
 
@@ -265,11 +265,11 @@ PawSharp is distributed under the [MIT License][license].
 
 <!-- Reference links -->
 [nuget]:             https://www.nuget.org/packages/PawSharp.Client
-[nuget-badge]:       https://img.shields.io/nuget/v/PawSharp.Client?style=flat-square&color=5865F2&label=nuget
+[nuget-badge]:       https://img.shields.io/nuget/vpre/PawSharp.Client?style=flat-square&color=5865F2&label=nuget
 [discord-api-badge]: https://img.shields.io/badge/Discord%20API-v10-5865F2?style=flat-square
 [discord-docs]:      https://discord.com/developers/docs
-[dotnet-badge]:      https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square
-[dotnet-link]:       https://dotnet.microsoft.com/en-us/download/dotnet/8.0
+[dotnet-badge]:      https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square
+[dotnet-link]:       https://dotnet.microsoft.com/en-us/download/dotnet/10.0
 [license-badge]:     https://img.shields.io/badge/license-MIT-22c55e?style=flat-square
 [license]:           LICENSE
 [build-badge]:       https://img.shields.io/github/actions/workflow/status/M1tsumi/PawSharp/build.yml?style=flat-square

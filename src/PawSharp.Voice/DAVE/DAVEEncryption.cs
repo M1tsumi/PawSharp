@@ -25,7 +25,7 @@ namespace PawSharp.Voice.DAVE;
 ///   on it when it is no longer needed so the material is wiped from memory before GC.
 ///
 /// Replay protection:
-///   Callers must ensure <paramref name="frameCounter"/> is monotonically increasing
+///   Callers must ensure the frame counter is monotonically increasing
 ///   per (key, SSRC) pair. The library does not maintain counter state.
 /// </summary>
 public static class DAVEEncryption

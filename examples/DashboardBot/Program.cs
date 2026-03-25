@@ -21,7 +21,8 @@ public class Program
         // Configure PawSharp
         var options = new PawSharpOptions
         {
-            Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN") ?? "your-bot-token-here",
+            Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
+                ?? throw new InvalidOperationException("DISCORD_TOKEN environment variable is required"),
             Intents = PawSharp.Core.Enums.GatewayIntents.AllNonPrivileged
         };
 

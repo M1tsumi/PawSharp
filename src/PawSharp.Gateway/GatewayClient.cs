@@ -370,7 +370,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send identify payload");
-                OnIdentifyFailed?.Invoke($"Failed to send identify: {ex.Message}");
+                OnIdentifyFailed?.Invoke("Failed to send identify payload.");
                 throw;
             }
         }
@@ -405,7 +405,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send resume payload");
-                OnResumeFailed?.Invoke($"Failed to send resume: {ex.Message}");
+                OnResumeFailed?.Invoke("Failed to send resume payload.");
                 throw;
             }
         }
@@ -476,9 +476,10 @@ namespace PawSharp.Gateway
                     case 4: // Voice State Update — Client voice state (handled elsewhere, client-only)
                         _logger.LogDebug("Opcode 4 (Voice State Update) should not be received from server");
                         break;
-                    case 5: // Voice Server Ping — Server voice ping
-                        _logger.LogDebug("Received voice server ping (voice support not yet implemented)");
-                        // Voice support planned for future phase
+                    case 5: // Reserved — No longer used in modern Discord Gateway
+                        _logger.LogDebug("Received opcode 5 (reserved/unused in current Gateway spec)");
+                        // Voice server updates are handled via VOICE_SERVER_UPDATE dispatch events (opcode 0)
+                        // and are fully supported via PawSharp.Voice component
                         break;
                     case 6: // Resume — Client session resume (handled elsewhere, client-only)
                         _logger.LogDebug("Opcode 6 (Resume) should not be received from server");
@@ -906,7 +907,7 @@ namespace PawSharp.Gateway
                     if (!string.IsNullOrWhiteSpace(sessionIdStr))
                     {
                         _resumeSessionId = sessionIdStr;
-                        _logger.LogInformation("Stored session ID for resumption: {SessionId}", sessionIdStr);
+                        _logger.LogInformation("Stored session ID for resumption.");
                     }
                 }
 
@@ -917,7 +918,7 @@ namespace PawSharp.Gateway
                     if (!string.IsNullOrWhiteSpace(resumeUrl))
                     {
                         _resumeGatewayUrl = resumeUrl;
-                        _logger.LogDebug("Resume gateway URL: {ResumeUrl}", resumeUrl);
+                        _logger.LogDebug("Resume gateway URL received.");
                     }
                 }
             }

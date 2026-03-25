@@ -55,11 +55,18 @@ public class ModerationSystem
     private readonly ILogger _logger;
     private readonly HashSet<ulong> _mutedUsers = new();
     private readonly Dictionary<ulong, List<string>> _userWarnings = new();
+    private readonly Dictionary<ulong, Queue<long>> _userMessageTimestamps = new(); // For rate limiting
 
     // Configurable settings
     private readonly string[] _bannedWords = { "spam", "inappropriate", "offensive" };
     private readonly int _maxWarnings = 3;
     private readonly TimeSpan _muteDuration = TimeSpan.FromMinutes(10);
+    
+    // Spam detection settings
+    private readonly int _maxMessagesPerWindow = 5;           // Max messages allowed in a time window
+    private readonly TimeSpan _messageTimeWindow = TimeSpan.FromSeconds(10); // Time window for rate limiting
+    private readonly int _maxMentions = 10;                    // Max mentions in a single message
+    private readonly double _spamCharacterThreshold = 0.5;     // % of repeated chars considered spam
 
     public ModerationSystem(DiscordClient client, ILogger logger)
     {
@@ -306,9 +313,89 @@ public class ModerationSystem
 
     private bool IsSpam(Message message)
     {
-        // Simple spam detection - in a real bot, you'd implement more sophisticated logic
-        // This is just a placeholder
+        if (message.Author?.Id == null) return false;
+
+        var userId = message.Author.Id.Value;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Check 1: Rate limiting (too many messages in a short time)
+        if (_userMessageTimestamps.TryGetValue(userId, out var timestamps))
+        {
+            // Remove old timestamps outside the window
+            while (timestamps.Count > 0 && now - timestamps.Peek() > _messageTimeWindow.TotalMilliseconds)
+            {
+                timestamps.Dequeue();
+            }
+
+            // Check if user has sent too many messages
+            if (timestamps.Count >= _maxMessagesPerWindow)
+            {
+                _logger.LogWarning("Spam detected: User {UserId} exceeded message rate limit", userId);
+                return true;
+            }
+
+            timestamps.Enqueue(now);
+        }
+        else
+        {
+            _userMessageTimestamps[userId] = new Queue<long> { now };
+        }
+
+        if (string.IsNullOrEmpty(message.Content))
+            return false;
+
+        var content = message.Content;
+
+        // Check 2: Excessive mentions (pinging spam)
+        var mentionCount = Regex.Matches(content, @"<@[!&]?\d+>").Count;
+        if (mentionCount > _maxMentions)
+        {
+            _logger.LogWarning("Spam detected: User {UserId} exceeded mention limit ({Count})", userId, mentionCount);
+            return true;
+        }
+
+        // Check 3: Repeated character patterns (ASCII spam)
+        if (HasExcessiveRepeatedCharacters(content))
+        {
+            _logger.LogWarning("Spam detected: User {UserId} sent excessive repeated characters", userId);
+            return true;
+        }
+
+        // Check 4: All caps with excessive length
+        if (content.Length > 50 && content.All(c => !char.IsLower(c) && char.IsLetter(c)))
+        {
+            _logger.LogWarning("Spam detected: User {UserId} sent excessive all-caps message", userId);
+            return true;
+        }
+
         return false;
+    }
+
+    private bool HasExcessiveRepeatedCharacters(string content)
+    {
+        if (content.Length < 5) return false;
+
+        int repeatedCharCount = 0;
+        char lastChar = '\0';
+        int consecutiveCount = 0;
+
+        foreach (char c in content)
+        {
+            if (c == lastChar)
+            {
+                consecutiveCount++;
+                if (consecutiveCount >= 3) // 3+ repeats of same char
+                    repeatedCharCount++;
+            }
+            else
+            {
+                consecutiveCount = 1;
+                lastChar = c;
+            }
+        }
+
+        double spamRatio = (double)repeatedCharCount / content.Length;
+        return spamRatio > _spamCharacterThreshold;
     }
 
     private ulong ParseUserId(string input)
