@@ -18,7 +18,7 @@ PawSharp.Client is the main entry point for Discord bot development with PawShar
 ## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Client --version 0.6.1-alpha1
+dotnet add package PawSharp.Client --version 1.0.0-alpha.1
 ```
 
 ## ?? Quick Start
@@ -257,10 +257,10 @@ client.Gateway.Events.On<MessageCreateEvent>(async evt =>
 ```
 PawSharp.Client
 +-- DiscordClient (main interface)
-¦   +-- Rest (IDiscordRestClient)
-¦   +-- Gateway (IGatewayClient)
-¦   +-- Cache (ICacheProvider)
-¦   +-- Extensions (commands, voice, etc.)
+ï¿½   +-- Rest (IDiscordRestClient)
+ï¿½   +-- Gateway (IGatewayClient)
+ï¿½   +-- Cache (ICacheProvider)
+ï¿½   +-- Extensions (commands, voice, etc.)
 +-- PawSharpOptions (configuration)
 +-- ServiceCollectionExtensions (DI)
 +-- Health monitoring & metrics

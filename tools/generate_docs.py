@@ -46,8 +46,8 @@ def parse_xml_file(path):
     return assembly, members
 
 def find_xml_docs():
-    patterns = [os.path.join(SRC, '*', 'bin', 'Debug', 'net8.0', '*.xml'),
-                os.path.join(SRC, '*', 'bin', 'Release', 'net8.0', '*.xml')]
+    patterns = [os.path.join(SRC, '*', 'bin', 'Debug',   'net10.0', '*.xml'),
+                os.path.join(SRC, '*', 'bin', 'Release',  'net10.0', '*.xml')]
     files = []
     for p in patterns:
         files.extend(glob.glob(p))

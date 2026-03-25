@@ -19,7 +19,7 @@ PawSharp.Commands provides a clean, extensible command system for Discord bots. 
 ## ?? Installation
 
 ```bash
-dotnet add package PawSharp.Commands --version 0.6.1-alpha1
+dotnet add package PawSharp.Commands --version 1.0.0-alpha.1
 ```
 
 ## ?? Quick Start
@@ -250,7 +250,7 @@ public class ErrorHandlingModule : BaseCommandModule
 
 - **PawSharp.Client** - Discord client integration
 - **PawSharp.Core** - Entity models
-- **.NET 8.0** - Modern runtime
+- **.NET 10** - Modern runtime
 - **Microsoft.Extensions.DependencyInjection** - DI container
 
 ## ?? Related Packages

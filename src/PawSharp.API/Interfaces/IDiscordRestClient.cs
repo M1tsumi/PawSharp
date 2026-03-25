@@ -397,4 +397,11 @@ public interface IDiscordRestClient
 
     // Group DM
     Task<Channel?> CreateGroupDmAsync(List<string> accessTokens, Dictionary<string, string>? nicks = null);
+
+    // Application Activity Instances
+    /// <summary>
+    /// Fetches a running embedded-application (Activity) instance.
+    /// GET /applications/{application.id}/activity-instances/{instance.id}
+    /// </summary>
+    Task<ActivityInstance?> GetActivityInstanceAsync(ulong applicationId, string instanceId);
 }

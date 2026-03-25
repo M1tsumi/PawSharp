@@ -38,22 +38,22 @@ internal sealed class MLSKeySchedule
     // ── Derived epoch secrets ─────────────────────────────────────────────────
 
     /// <summary>The init secret carried forward to the next epoch.</summary>
-    public byte[] InitSecret { get; private set; }
+    public byte[] InitSecret { get; private set; } = Array.Empty<byte>();
 
     /// <summary>32-byte joiner secret (used to produce welcome_secret for new members).</summary>
-    public byte[] JoinerSecret { get; private set; }
+    public byte[] JoinerSecret { get; private set; } = Array.Empty<byte>();
 
     /// <summary>32-byte epoch secret (root of all per-epoch key derivations).</summary>
-    public byte[] EpochSecret { get; private set; }
+    public byte[] EpochSecret { get; private set; } = Array.Empty<byte>();
 
     /// <summary>32-byte exporter secret — exposed to DAVE as the top-level epoch secret.</summary>
-    public byte[] ExporterSecret { get; private set; }
+    public byte[] ExporterSecret { get; private set; } = Array.Empty<byte>();
 
     /// <summary>32-byte confirmation key — HMAC key for the confirmation tag.</summary>
-    public byte[] ConfirmationKey { get; private set; }
+    public byte[] ConfirmationKey { get; private set; } = Array.Empty<byte>();
 
     /// <summary>32-byte welcome secret — used to encrypt GroupInfo for new members.</summary>
-    public byte[] WelcomeSecret { get; private set; }
+    public byte[] WelcomeSecret { get; private set; } = Array.Empty<byte>();
 
     // ── Initialisation ────────────────────────────────────────────────────────
 

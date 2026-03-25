@@ -441,7 +441,7 @@ public class ExecuteWebhookRequest
     public List<MessageComponent>? Components { get; set; }
     /// <summary>
     /// If true, Discord returns the created message object. The caller must pass
-    /// <c>wait=true</c> as a query parameter via <see cref="PawSharp.API.Clients.RestClient.ExecuteWebhookAsync"/>.
+    /// <c>wait=true</c> as a query parameter on webhook execute calls.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool Wait { get; set; } = false;
@@ -1055,7 +1055,7 @@ public class ArchivedThreadsResponse
 {
     /// <summary>The archived thread channels (include ThreadMetadata).</summary>
     [JsonPropertyName("threads")]
-    public List<Thread> Threads { get; set; } = new();
+    public List<PawSharp.Core.Entities.Thread> Threads { get; set; } = new();
 
     /// <summary>Thread member objects for the current user in each returned thread.</summary>
     [JsonPropertyName("members")]
@@ -1073,7 +1073,7 @@ public class ActiveThreadsResponse
 {
     /// <summary>The active thread channels (include ThreadMetadata).</summary>
     [JsonPropertyName("threads")]
-    public List<Thread> Threads { get; set; } = new();
+    public List<PawSharp.Core.Entities.Thread> Threads { get; set; } = new();
 
     /// <summary>Thread member objects for the current user in each returned thread.</summary>
     [JsonPropertyName("members")]
