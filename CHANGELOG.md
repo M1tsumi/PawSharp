@@ -4,6 +4,22 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.0.0-alpha.2] - 2026-03-29
+
+> **Stabilization release for alpha.2 packaging and runtime hardening.** This release focuses on making package metadata authoritative in source and tightening voice-path logging behavior.
+
+### Changes
+
+- All package project files now declare `1.0.0-alpha.2` directly in `<Version>` metadata, eliminating drift between source metadata and packed artifacts.
+- `VoiceConnection` now uses structured `ILogger`-based logging instead of `Console.WriteLine` in receive, heartbeat, keep-alive, and control-payload parsing paths.
+
+### Fixes
+
+- Voice transport error handling no longer emits raw ad-hoc console exception strings; failures are routed through standard logging and connection-failure callbacks.
+- `VoiceClient` now passes its logger into `VoiceConnection`, ensuring consistent voice diagnostics and central log configuration behavior.
+
+---
+
 ## [1.0.0-alpha.1] - 2026-03-11
 
 > **First .NET 10 release.** Migrates the entire solution — all library, test, and tooling projects — from `net8.0` to `net10.0`. All `Microsoft.Extensions.*` packages updated to `10.0.0`, test toolchain unified to xunit `2.9.2` / `Microsoft.NET.Test.Sdk` `17.12.0` / `FluentAssertions` `7.0.0`. Version bumped to `1.0.0-alpha.1` to reflect the breaking TFM change and start of the stable-API series.
