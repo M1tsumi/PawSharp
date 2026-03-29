@@ -207,6 +207,43 @@ dispatcher.Use(async (eventName, eventData) =>
             await _auditLog.RecordBotMessageAsync(msg);
     }
 });
+
+### Best practices for event handlers
+
+- Keep handlers short and non-blocking — offload heavy work to a background processor or queue.
+
+```csharp
+// Background worker using System.Threading.Channels
+var workQueue = System.Threading.Channels.Channel.CreateUnbounded<Func<Task>>();
+_ = Task.Run(async () =>
+{
+    await foreach (var work in workQueue.Reader.ReadAllAsync())
+    {
+        try { await work(); }
+        catch (Exception ex) { logger.LogError(ex, "Background task failed"); }
+    }
+});
+
+client.OnMessageCreated(msg =>
+{
+    // Enqueue expensive processing; keep handler fast
+    workQueue.Writer.TryWrite(() => ProcessMessageAsync(msg));
+    return Task.CompletedTask;
+});
+```
+
+- Dispose subscription tokens to avoid handler leaks:
+
+```csharp
+IDisposable sub = client.OnGuildMemberJoined(WelcomeMemberAsync);
+// ...later
+sub.Dispose();
+```
+
+- Avoid blocking calls like `.Result` or `.Wait()` inside handlers — prefer async/await.
+
+- Be mindful of intents: handlers that rely on message content require `GatewayIntents.MessageContent`.
+
 ```
 
 ---

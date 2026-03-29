@@ -19,6 +19,54 @@ A comprehensive guide to using PawSharp's REST API for interacting with Discord.
 
 ## Core Concepts
 
+## Quickstart — run a bot in two minutes
+
+Two common ways to create a working `DiscordClient`: dependency-injection (`AddPawSharp`) or the lightweight `PawSharpClientBuilder` when you don't want to use DI.
+
+### DI (recommended)
+
+```csharp
+var services = new ServiceCollection()
+    .AddLogging(b => b.AddConsole())
+    .AddSingleton(new PawSharp.Core.Models.PawSharpOptions
+    {
+        Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")!,
+        Intents = PawSharp.Core.Enums.GatewayIntents.AllNonPrivileged | PawSharp.Core.Enums.GatewayIntents.MessageContent,
+    })
+    .AddPawSharp(); // Registers DiscordClient, REST, Gateway, Cache, Interactions
+
+var provider = services.BuildServiceProvider();
+var client = provider.GetRequiredService<PawSharp.Client.DiscordClient>();
+
+client.OnReady(_ => { Console.WriteLine("Ready"); return Task.CompletedTask; });
+client.OnMessageCreated(async msg =>
+{
+    if (!msg.Author.IsBot && msg.Content == "!ping")
+        await client.SendMessageAsync(msg.ChannelId, "🏓 Pong!"); // convenience helper
+});
+
+await client.ConnectAsync();
+```
+
+### Non-DI: `PawSharpClientBuilder`
+
+```csharp
+var client = new PawSharp.Client.PawSharpClientBuilder()
+    .WithToken("Bot YOUR_TOKEN_HERE")
+    .WithIntents(PawSharp.Core.Enums.GatewayIntents.AllNonPrivileged | PawSharp.Core.Enums.GatewayIntents.MessageContent)
+    .UseConsoleLogging(Microsoft.Extensions.Logging.LogLevel.Information)
+    .UseMemoryCache() // default in-memory cache
+    .Build();
+
+client.OnMessageCreated(msg => Console.WriteLine($"[{msg.ChannelId}] {msg.Author?.Username}: {msg.Content}"));
+
+await client.ConnectAsync();
+```
+
+Notes:
+- `client.SendMessageAsync(channelId, string)` and `client.SendMessageAsync(channelId, CreateMessageRequest)` are convenience helpers on `DiscordClient` that call the underlying `client.Rest.CreateMessageAsync(...)`.
+- Use `AddPawSharpWithMemoryCache` or supply a `IEntityCache` factory to `AddPawSharp(...)` when registering via DI.
+
 ### REST Client Access
 
 ```csharp
@@ -249,7 +297,7 @@ var embed = new EmbedBuilder()
     .AddField("Field 1", "Value 1", inline: true)  // max 25 fields
     .AddField("Field 2", "Value 2", inline: true)
     .AddField("Non-inline field", "Full-width value")
-    .WithFooter("PawSharp v0.6.1-alpha1", iconUrl: "https://example.com/footer.png")
+    .WithFooter("PawSharp v1.0.0-alpha.2", iconUrl: "https://example.com/footer.png")
     .WithTimestamp()                                // defaults to now
     .Build();                                       // throws if > 6000 total chars
 

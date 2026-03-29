@@ -205,6 +205,34 @@ var handler = new HttpClientHandler
 
 ---
 
+## Voice / DAVE decryption failures
+
+**Symptom:** audio is silent or decryption errors appear in logs after joining voice.
+
+**Causes & Solutions:**
+
+- Missing or out-of-order VOICE_STATE_UPDATE / VOICE_SERVER_UPDATE handling. Ensure
+    your bot captures the session id from VOICE_STATE_UPDATE and passes it to the
+    voice connection when VOICE_SERVER_UPDATE arrives (the library does this by
+    default via `VoiceClient`). Look for logs mentioning "Captured voice session_id".
+
+- Key exchange incomplete (MLS/DAVE). The client processes Welcome/Commit messages
+    to establish MLS state; if these are dropped or delayed the DAVE crypto won't be
+    active and frames will fail decryption. Check network reliability and log output
+    for "Initiating voice WebSocket connection" and subsequent key exchange messages.
+
+- Incorrect system clock or time skew may cause replay/nonce checks to fail. Keep
+    server clock in sync (NTP).
+
+- Debugging tips:
+    - Increase logging to `Debug`/`Trace` for `PawSharp.Voice` and `PawSharp.Gateway`.
+    - Confirm `VOICE_SERVER_UPDATE` and `VOICE_STATE_UPDATE` reach the client in order.
+    - Reproduce locally with a headful client and compare logs for Welcome/Commit events.
+
+If problems persist, capture gateway logs and the voice handshake sequence and
+open an issue with the logs attached.
+
+
 ## REST API Errors
 
 ### Rate Limit Exceeded
@@ -670,7 +698,7 @@ catch (Exception ex)
 
 Include:
 ```
-**Version:** 0.6.1-alpha1
+**Version:** 1.0.0-alpha.2
 **Environment:** Windows 11, .NET 8.0
 **Intents Used:** [list intents]
 
