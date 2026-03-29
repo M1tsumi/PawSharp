@@ -59,7 +59,11 @@ public class VoiceClient : IDisposable
 
         // Create and register the connection object — actual WebSocket connect
         // happens in OnVoiceServerUpdate when Discord provides the server endpoint.
-        var connection = new VoiceConnection(_discordClient, channel, channelId => _ = HandleConnectionFailureAsync(channelId));
+        var connection = new VoiceConnection(
+            _discordClient,
+            channel,
+            channelId => _ = HandleConnectionFailureAsync(channelId),
+            _logger);
         _connections[channel.Id] = connection;
 
         // Send op4 — Discord will reply with VOICE_STATE_UPDATE then VOICE_SERVER_UPDATE
