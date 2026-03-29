@@ -5,7 +5,7 @@
     <RootNamespace>PawSharp.Commands</RootNamespace>
     <AssemblyName>PawSharp.Commands</AssemblyName>
     <PackageId>PawSharp.Commands</PackageId>
-    <Version>1.0.0-alpha.1</Version>
+    <Version>1.0.0-alpha.2</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Command framework for PawSharp with attribute-based commands and slash command support.</Description>
