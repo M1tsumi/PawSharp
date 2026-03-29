@@ -5,7 +5,7 @@
     <RootNamespace>PawSharp.Voice</RootNamespace>
     <AssemblyName>PawSharp.Voice</AssemblyName>
     <PackageId>PawSharp.Voice</PackageId>
-    <Version>1.0.0-alpha.1</Version>
+    <Version>1.0.0-alpha.2</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Full-featured voice support for PawSharp — Opus encode/decode via Concentus, RFC 3550 RTP framing, and Discord DAVE end-to-end encryption (RFC 9420 MLS) built entirely on .NET 10 BCL cryptography.</Description>
