@@ -130,6 +130,36 @@ dotnet run
 
 ---
 
+## Non-DI Quickstart (PawSharpClientBuilder)
+
+If you prefer a lightweight, non-DI approach (for small scripts or quick tests), `PawSharpClientBuilder` constructs a fully-wired `DiscordClient` without Microsoft DI:
+
+```csharp
+var client = new PawSharp.Client.PawSharpClientBuilder()
+    .WithToken("Bot YOUR_TOKEN_HERE")
+    .WithIntents(PawSharp.Core.Enums.GatewayIntents.AllNonPrivileged | PawSharp.Core.Enums.GatewayIntents.MessageContent)
+    .UseConsoleLogging(Microsoft.Extensions.Logging.LogLevel.Information)
+    .UseMemoryCache() // in-memory cache (MemoryCacheProvider)
+    .Build();
+
+client.OnReady(ready =>
+{
+    Console.WriteLine($"Logged in as {ready.User.Username}");
+    return Task.CompletedTask;
+});
+
+client.OnMessageCreated(async msg =>
+{
+    if (!msg.Author.IsBot && msg.Content == "!hello")
+        await client.SendMessageAsync(msg.ChannelId, $"Hello, {msg.Author.Username}!");
+});
+
+await client.ConnectAsync();
+```
+
+`PawSharpClientBuilder` exposes the same configuration options as DI wiring: token, intents, API version, sharding, compression, logging, HTTP client and cache injection (`UseCache(IEntityCache)` / `UseMemoryCache()`).
+
+
 ## Configuration
 
 ### PawSharpOptions

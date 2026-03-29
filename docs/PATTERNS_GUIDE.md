@@ -158,6 +158,35 @@ router.Register("hello", msg => rest.CreateMessageAsync(msg.ChannelId, new()
 client.OnMessageCreated(router.HandleAsync);
 ```
 
+---
+
+### Throttling heavy handlers
+
+When handling high volumes of events (e.g. busy large servers), throttle
+expensive processing to avoid overwhelming CPU or I/O. A simple pattern uses
+`SemaphoreSlim` to limit concurrency:
+
+```csharp
+private readonly SemaphoreSlim _throttle = new SemaphoreSlim(10); // max concurrency
+
+async Task HandleMessageWithThrottle(MessageCreateEvent msg)
+{
+    await _throttle.WaitAsync();
+    try
+    {
+        await DoCpuOrIoBoundWorkAsync(msg);
+    }
+    finally
+    {
+        _throttle.Release();
+    }
+}
+
+client.OnMessageCreated(HandleMessageWithThrottle);
+```
+
+This keeps the gateway handlers responsive while bounding background work.
+
 ### Command with Arguments
 
 ```csharp
