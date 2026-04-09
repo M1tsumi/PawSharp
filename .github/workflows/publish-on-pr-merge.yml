@@ -21,6 +21,8 @@ jobs:
     name: Build, Pack, Publish (merged PR)
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    env:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
     steps:
       - name: Checkout merged commit
@@ -78,9 +80,14 @@ jobs:
           retention-days: 14
 
       - name: Publish to NuGet.org
-        if: secrets.NUGET_API_KEY != ''
+        shell: bash
         run: |
+          if [[ -z "$NUGET_API_KEY" ]]; then
+            echo "Skipping NuGet publish because NUGET_API_KEY is not configured."
+            exit 0
+          fi
+
           dotnet nuget push "nupkgs/*.nupkg" \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
