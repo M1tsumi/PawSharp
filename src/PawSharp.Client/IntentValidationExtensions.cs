@@ -51,16 +51,15 @@ public static class DiscordClientIntentValidationExtensions
         GatewayIntents enabledIntents)
     {
         if (client == null)
+        {
             throw new ArgumentNullException(nameof(client));
+        }
 
         var result = new IntentValidationResult(enabledIntents);
 
-        // Validate handlers in the gateway
+        // Collect handler intent requirements in the gateway
         if (client.Gateway?.Events != null)
         {
-            // Validate and log warnings to console
-            client.Gateway.Events.ValidateHandlerIntents(enabledIntents);
-            
             // Collect detailed results
             var registeredIntents = client.Gateway.Events.GetRegisteredIntents();
             foreach (var (eventType, requiredIntents) in registeredIntents)
@@ -89,7 +88,9 @@ public static class DiscordClientIntentValidationExtensions
     public static GatewayIntents GetRecommendedIntents(this DiscordClient client)
     {
         if (client == null)
+        {
             throw new ArgumentNullException(nameof(client));
+        }
 
         return client.Gateway?.Events?.GetRecommendedIntents() ?? (GatewayIntents)0;
     }
@@ -103,7 +104,9 @@ public static class DiscordClientIntentValidationExtensions
     public static void LogIntentSummary(this DiscordClient client, GatewayIntents enabledIntents)
     {
         if (client == null)
+        {
             throw new ArgumentNullException(nameof(client));
+        }
 
         var recommended = client.GetRecommendedIntents();
         var registeredIntents = client.Gateway?.Events?.GetRegisteredIntents() ?? 
@@ -170,7 +173,9 @@ public sealed class IntentValidationResult
     public override string ToString()
     {
         if (IsValid)
+        {
             return $"Intents valid: {EnabledIntents}";
+        }
 
         var summary = $"Intent validation failed ({Count} issue{(Count != 1 ? "s" : "")}):";
         return summary + " " + string.Join("; ", Issues.Select(i => $"{i.EventType} needs {i.Missing}"));

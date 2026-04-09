@@ -27,7 +27,7 @@ namespace PawSharp.API.Clients;
 /// <summary>
 /// Implementation of Discord REST API client with rate limiting.
 /// </summary>
-public class DiscordRestClient : IDiscordRestClient
+public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 {
     /// <summary>
     /// Shared serializer options: Discord's REST API requires lowercase snake_case field names.
@@ -51,6 +51,9 @@ public class DiscordRestClient : IDiscordRestClient
     private readonly ILogger<DiscordRestClient> _logger;
     private readonly IAdvancedRateLimiter _rateLimiter;
     private DateTimeOffset _globalReset = DateTimeOffset.MinValue;
+
+    /// <inheritdoc />
+    public event EventHandler<RateLimitTelemetryEvent>? RateLimitObserved;
 
     public DiscordRestClient(HttpClient httpClient, PawSharpOptions options, ILogger<DiscordRestClient> logger, IAdvancedRateLimiter rateLimiter)
     {
@@ -237,6 +240,31 @@ public class DiscordRestClient : IDiscordRestClient
             return await response.Content.ReadFromJsonAsync<Message>();
         }
         return null;
+    }
+
+    public async Task<Message?> ForwardMessageAsync(
+        ulong targetChannelId,
+        ulong sourceChannelId,
+        ulong sourceMessageId,
+        string? content = null,
+        bool failIfNotExists = true)
+    {
+        SnowflakeValidator.ValidateSnowflake(targetChannelId, nameof(targetChannelId));
+        SnowflakeValidator.ValidateSnowflake(sourceChannelId, nameof(sourceChannelId));
+        SnowflakeValidator.ValidateSnowflake(sourceMessageId, nameof(sourceMessageId));
+
+        if (content != null)
+        {
+            ContentValidator.ValidateMessageContent(content);
+        }
+
+        var request = new CreateMessageRequest
+        {
+            Content = content,
+            MessageReference = MessageReference.Forward(sourceChannelId, sourceMessageId, failIfNotExists)
+        };
+
+        return await CreateMessageAsync(targetChannelId, request);
     }
 
     public async Task<Message?> SendFileAsync(
@@ -2846,6 +2874,9 @@ public class DiscordRestClient : IDiscordRestClient
         string? bufferedContentType = null,
         bool skipBotAuth = false)
     {
+        var path = endpoint.Split('?')[0];
+        var route = $"{method.Method} {path}";
+
         // Buffer request body once so retries can reconstruct fresh HttpContent.
         // HttpClient disposes the content object after SendAsync; reusing it throws
         // ObjectDisposedException on any rate-limited POST/PATCH/PUT retry.
@@ -2860,16 +2891,23 @@ public class DiscordRestClient : IDiscordRestClient
         {
             var delay = _globalReset - DateTimeOffset.UtcNow;
             _logger.LogWarning("Global rate limit hit, delaying {Delay}", delay);
+            EmitRateLimitTelemetry(new RateLimitTelemetryEvent
+            {
+                Kind = RateLimitTelemetryKind.GlobalDelayApplied,
+                Route = route,
+                IsGlobal = true,
+                RetryAfter = delay,
+                ResetAt = _globalReset,
+                RetryCount = retryCount
+            });
+
             await Task.Delay(delay, cancellationToken);
         }
 
         // Per-route rate limit coordination
         string? bucketHash = null;
-        string route;
         try
         {
-            var path = endpoint.Split('?')[0];
-            route = $"{method.Method} {path}";
             await _rateLimiter.WaitForRateLimitAsync(route, cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException)
@@ -2879,7 +2917,6 @@ public class DiscordRestClient : IDiscordRestClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Rate limiter wait failed, proceeding with request");
-            route = $"{method.Method} {endpoint.Split('?')[0]}";
         }
 
         // Build a fresh HttpRequestMessage per attempt.
@@ -2925,7 +2962,19 @@ public class DiscordRestClient : IDiscordRestClient
                 bucketHash = bucketValues.FirstOrDefault();
             }
             var isGlobal = HeaderValueIsTrue(response, "X-RateLimit-Global");
-            _rateLimiter.UpdateRateLimits(route, bucketHash, 0, DateTimeOffset.UtcNow.Add(retryAfter), isGlobal);
+            var resetAt = DateTimeOffset.UtcNow.Add(retryAfter);
+            _rateLimiter.UpdateRateLimits(route, bucketHash, 0, resetAt, isGlobal);
+            EmitRateLimitTelemetry(new RateLimitTelemetryEvent
+            {
+                Kind = RateLimitTelemetryKind.RetryScheduled,
+                Route = route,
+                BucketHash = bucketHash,
+                Remaining = 0,
+                ResetAt = resetAt,
+                IsGlobal = isGlobal,
+                RetryAfter = retryAfter,
+                RetryCount = retryCount + 1
+            });
             
             // Wait for rate limiter to allow retry
             await _rateLimiter.WaitForRateLimitAsync(route, bucketHash, cancellationToken);
@@ -3047,11 +3096,39 @@ public class DiscordRestClient : IDiscordRestClient
             if (remaining.HasValue || resetAt.HasValue || isGlobal)
             {
                 _rateLimiter.UpdateRateLimits(route, bucket, remaining, resetAt, isGlobal);
+                EmitRateLimitTelemetry(new RateLimitTelemetryEvent
+                {
+                    Kind = RateLimitTelemetryKind.HeaderUpdate,
+                    Route = route,
+                    BucketHash = bucket,
+                    Remaining = remaining,
+                    ResetAt = resetAt,
+                    IsGlobal = isGlobal,
+                    RetryCount = 0
+                });
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to parse rate limit headers");
+        }
+    }
+
+    private void EmitRateLimitTelemetry(RateLimitTelemetryEvent telemetry)
+    {
+        var handler = RateLimitObserved;
+        if (handler is null)
+        {
+            return;
+        }
+
+        try
+        {
+            handler.Invoke(this, telemetry);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "A rate-limit telemetry subscriber threw an exception");
         }
     }
 }

@@ -12,6 +12,7 @@ This document defines the official rules for version numbers, branch names, comm
 - [Release Workflow](#release-workflow)
 - [NuGet Package Rules](#nuget-package-rules)
 - [CHANGELOG Requirements](#changelog-requirements)
+- [Release Hygiene Checks](#release-hygiene-checks)
 - [Quick Reference](#quick-reference)
 
 ---
@@ -204,6 +205,28 @@ git push origin v1.0.0-alpha.2
 - Unreleased changes sit under `## [X.Y.Z-pre] - Unreleased` until the release date is known.
 - Sections within each release: `### New Features`, `### Bug Fixes`, `### Breaking Changes`, `### Performance`, `### Internal / Tooling`.
 - **Do not delete** historical sections — the full changelog is the source-of-truth for the GitHub Release body (extracted automatically by `release.yml`).
+
+---
+
+## Release Hygiene Checks
+
+Before opening or merging a release PR, verify user-facing version references are consistent with `src/Directory.Build.props`:
+
+1. Root docs and package READMEs mention the current release version.
+2. Example bots do not contain stale hardcoded historical versions.
+3. Branding assets (for example `assets/pawsharp-banner.svg`) show the current version and target framework.
+4. `CHANGELOG.md` includes the release section with the correct date/version format.
+
+Recommended quick scan from repository root:
+
+```bash
+pwsh ./tools/check-release-hygiene.ps1
+
+# Windows PowerShell 5.1
+powershell -ExecutionPolicy Bypass -File .\tools\check-release-hygiene.ps1
+```
+
+The script validates that user-facing examples/assets are aligned with `src/Directory.Build.props` version and current target framework.
 
 ---
 

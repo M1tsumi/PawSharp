@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,37 @@ namespace PawSharp.Gateway.Events;
 /// </summary>
 public static class EventDispatcherIntentExtensions
 {
+    private static IEnumerable<KeyValuePair<string, List<Delegate>>> GetHandlers(EventDispatcher dispatcher)
+    {
+        var handlersField = dispatcher.GetType().GetField(
+            "_eventHandlers",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        if (handlersField?.GetValue(dispatcher) is ConcurrentDictionary<string, List<Delegate>> concurrentHandlers)
+        {
+            return concurrentHandlers.ToArray();
+        }
+
+        if (handlersField?.GetValue(dispatcher) is Dictionary<string, List<Delegate>> dictionaryHandlers)
+        {
+            return dictionaryHandlers.ToArray();
+        }
+
+        return Array.Empty<KeyValuePair<string, List<Delegate>>>();
+    }
+
+    private static void WriteWarning(ILogger? logger, string message)
+    {
+        if (logger != null)
+        {
+            logger.LogWarning(message);
+        }
+        else
+        {
+            Console.WriteLine($"[WARN] {message}");
+        }
+    }
+
     /// <summary>
     /// Validates that all registered handlers have their required intents enabled.
     /// Logs warnings for any mismatches.
@@ -33,27 +65,20 @@ public static class EventDispatcherIntentExtensions
         ILogger? logger = null)
     {
         if (dispatcher == null)
+        {
             throw new ArgumentNullException(nameof(dispatcher));
+        }
 
         var warnings = new List<(string EventType, EventInterestMetadata Metadata, GatewayIntents Missing)>();
 
-        // Get all registered handlers by examining internal state through reflection
-        // (EventDispatcher stores them in _eventHandlers ConcurrentDictionary)
-        var handlersField = dispatcher.GetType().GetField(
-            "_eventHandlers",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        if (handlersField?.GetValue(dispatcher) is Dictionary<string, List<Delegate>> handlers)
+        foreach (var (eventType, handlerList) in GetHandlers(dispatcher))
         {
-            foreach (var (eventType, handlerList) in handlers)
+            foreach (var handler in handlerList)
             {
-                foreach (var handler in handlerList)
+                var metadata = EventInterestMetadata.FromHandler(handler);
+                if (metadata != null && !metadata.ValidateIntents(enabledIntents, out var missingIntents))
                 {
-                    var metadata = EventInterestMetadata.FromHandler(handler);
-                    if (metadata != null && !metadata.ValidateIntents(enabledIntents, out var missingIntents))
-                    {
-                        warnings.Add((eventType, metadata, missingIntents));
-                    }
+                    warnings.Add((eventType, metadata, missingIntents));
                 }
             }
         }
@@ -62,8 +87,7 @@ public static class EventDispatcherIntentExtensions
         if (warnings.Count > 0)
         {
             var summary = $"Found {warnings.Count} handler(s) with missing required intent(s):";
-            logger?.LogWarning(summary);
-            Console.WriteLine($"[WARN] {summary}");
+            WriteWarning(logger, summary);
 
             var groupedByMissing = warnings
                 .GroupBy(w => w.Missing)
@@ -74,28 +98,28 @@ public static class EventDispatcherIntentExtensions
                 var intentDesc = group.First().Metadata.GetMissingIntentsDescription(group.Key);
                 var handlerCount = group.Count();
                 var handlerSummary = $"  Missing intent(s): {intentDesc} ({handlerCount} handler{(handlerCount > 1 ? "s" : "")})";
-                
-                logger?.LogWarning(handlerSummary);
-                Console.WriteLine($"  [WARN] {handlerSummary}");
+
+                WriteWarning(logger, handlerSummary);
 
                 // Show which event types and handlers are affected
                 foreach (var (eventType, _, _) in group.Take(3))
                 {
                     var eventSummary = $"    - Event: {eventType}";
-                    logger?.LogWarning(eventSummary);
-                    Console.WriteLine($"    {eventSummary}");
+                    WriteWarning(logger, eventSummary);
                 }
 
                 if (group.Count() > 3)
                 {
                     var moreCount = group.Count() - 3;
                     var moreSummary = $"    ... and {moreCount} more";
-                    logger?.LogWarning(moreSummary);
-                    Console.WriteLine($"    {moreSummary}");
+                    WriteWarning(logger, moreSummary);
                 }
             }
 
-            Console.WriteLine();
+            if (logger == null)
+            {
+                Console.WriteLine();
+            }
         }
     }
 
@@ -109,28 +133,27 @@ public static class EventDispatcherIntentExtensions
         this EventDispatcher dispatcher)
     {
         if (dispatcher == null)
+        {
             throw new ArgumentNullException(nameof(dispatcher));
+        }
 
         var result = new List<(string, GatewayIntents)>();
 
-        var handlersField = dispatcher.GetType().GetField(
-            "_eventHandlers",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        if (handlersField?.GetValue(dispatcher) is Dictionary<string, List<Delegate>> handlers)
+        foreach (var (eventType, handlerList) in GetHandlers(dispatcher))
         {
-            foreach (var (eventType, handlerList) in handlers)
+            var intents = (GatewayIntents)0;
+            foreach (var handler in handlerList)
             {
-                var intents = (GatewayIntents)0;
-                foreach (var handler in handlerList)
+                var metadata = EventInterestMetadata.FromHandler(handler);
+                if (metadata != null)
                 {
-                    var metadata = EventInterestMetadata.FromHandler(handler);
-                    if (metadata != null)
-                        intents |= metadata.RequiredIntents;
+                    intents |= metadata.RequiredIntents;
                 }
+            }
 
-                if (intents != (GatewayIntents)0)
-                    result.Add((eventType, intents));
+            if (intents != (GatewayIntents)0)
+            {
+                result.Add((eventType, intents));
             }
         }
 
@@ -146,23 +169,20 @@ public static class EventDispatcherIntentExtensions
     public static GatewayIntents GetRecommendedIntents(this EventDispatcher dispatcher)
     {
         if (dispatcher == null)
+        {
             throw new ArgumentNullException(nameof(dispatcher));
+        }
 
         GatewayIntents recommended = (GatewayIntents)0;
 
-        var handlersField = dispatcher.GetType().GetField(
-            "_eventHandlers",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        if (handlersField?.GetValue(dispatcher) is Dictionary<string, List<Delegate>> handlers)
+        foreach (var handlerList in GetHandlers(dispatcher).Select(x => x.Value))
         {
-            foreach (var handlerList in handlers.Values)
+            foreach (var handler in handlerList)
             {
-                foreach (var handler in handlerList)
+                var metadata = EventInterestMetadata.FromHandler(handler);
+                if (metadata != null)
                 {
-                    var metadata = EventInterestMetadata.FromHandler(handler);
-                    if (metadata != null)
-                        recommended |= metadata.RequiredIntents;
+                    recommended |= metadata.RequiredIntents;
                 }
             }
         }
