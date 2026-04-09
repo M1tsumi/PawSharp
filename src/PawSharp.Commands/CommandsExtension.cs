@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ using PawSharp.Client;
 using PawSharp.Commands.Preconditions;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
+using PawSharp.Interactions;
 
 namespace PawSharp.Commands;
 
@@ -590,6 +592,87 @@ public class CommandsExtension
     // ── Slash command auto-registration ──────────────────────────────────────
 
     /// <summary>
+    /// Registers slash commands from a single module.
+    /// This is a discoverable alias for <see cref="RegisterSlashModuleAsync"/>.
+    /// </summary>
+    public Task RegisterSlashCommandsAsync(
+        DiscordClient client,
+        BaseCommandModule module,
+        ulong applicationId,
+        ulong? guildId = null)
+        => RegisterSlashModuleAsync(client, module, applicationId, guildId);
+
+    /// <summary>
+    /// Registers slash commands from multiple modules.
+    /// This is a discoverable alias for <see cref="BulkRegisterSlashModulesAsync"/>.
+    /// </summary>
+    public Task RegisterSlashCommandsAsync(
+        DiscordClient client,
+        IEnumerable<BaseCommandModule> modules,
+        ulong applicationId,
+        ulong? guildId = null)
+        => BulkRegisterSlashModulesAsync(client, modules, applicationId, guildId);
+
+    /// <summary>
+    /// Discovers every non-abstract <see cref="BaseCommandModule"/> in an assembly and registers
+    /// the slash commands it exposes.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="assembly">The assembly to scan for command modules.</param>
+    /// <param name="applicationId">The bot application ID used to register commands with Discord.</param>
+    /// <param name="guildId">
+    /// When non-null, commands are registered as guild-scoped (instant propagation, ideal during
+    /// development). Pass <see langword="null"/> to register as global commands (may take up to
+    /// one hour to propagate to all clients).
+    /// </param>
+    /// <param name="moduleFactory">
+    /// Optional factory used to construct module instances. When omitted, each module type must have
+    /// a public parameterless constructor.
+    /// </param>
+    public async Task RegisterSlashCommandsFromAssemblyAsync(
+        DiscordClient client,
+        Assembly assembly,
+        ulong applicationId,
+        ulong? guildId = null,
+        Func<Type, BaseCommandModule>? moduleFactory = null)
+    {
+        if (client == null)   throw new ArgumentNullException(nameof(client));
+        if (assembly == null) throw new ArgumentNullException(nameof(assembly));
+
+        var moduleTypes = assembly.GetTypes()
+            .Where(type => !type.IsAbstract && !type.IsInterface && typeof(BaseCommandModule).IsAssignableFrom(type))
+            .OrderBy(type => type.FullName, StringComparer.Ordinal)
+            .ToList();
+
+        var modules = new List<BaseCommandModule>(moduleTypes.Count);
+        foreach (var moduleType in moduleTypes)
+        {
+            BaseCommandModule? module = null;
+
+            if (moduleFactory != null)
+            {
+                module = moduleFactory(moduleType)
+                    ?? throw new InvalidOperationException($"The slash command module factory returned null for {moduleType.FullName}.");
+            }
+            else
+            {
+                if (moduleType.GetConstructor(Type.EmptyTypes) == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Slash command module {moduleType.FullName} does not have a public parameterless constructor. " +
+                        "Provide a moduleFactory or add a public default constructor.");
+                }
+
+                module = (BaseCommandModule)Activator.CreateInstance(moduleType)!;
+            }
+
+            modules.Add(module);
+        }
+
+        await BulkRegisterSlashModulesAsync(client, modules, applicationId, guildId);
+    }
+
+    /// <summary>
     /// Scans a module for <see cref="SlashCommandAttribute"/>-decorated methods, registers each
     /// discovered command with the Discord API, and wires the interaction handlers automatically.
     /// </summary>
@@ -612,43 +695,15 @@ public class CommandsExtension
 
         var type = module.GetType();
         var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+        var registeredNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var method in methods)
         {
             var slashAttr = method.GetCustomAttribute<SlashCommandAttribute>();
             if (slashAttr == null) continue;
 
-            // Build the option list from every parameter that is NOT InteractionCreateEvent
-            var parameters = method.GetParameters();
-            var options = new List<ApplicationCommandOption>();
+            BuildSlashCommandRegistration(client, module, method, slashAttr, registeredNames, out var request, out var handler);
 
-            foreach (var param in parameters)
-            {
-                if (param.ParameterType == typeof(InteractionCreateEvent)) continue;
-
-                var optAttr  = param.GetCustomAttribute<SlashOptionAttribute>();
-                var optName  = optAttr?.Name ?? param.Name ?? "option";
-                var optDesc  = optAttr?.Description ?? "No description provided.";
-                var required = optAttr?.Required ?? !IsOptionalType(param.ParameterType);
-
-                options.Add(new ApplicationCommandOption
-                {
-                    Name        = optName,
-                    Description = optDesc,
-                    Required    = required,
-                    Type        = MapTypeToOptionType(param.ParameterType),
-                });
-            }
-
-            var request = new CreateApplicationCommandRequest
-            {
-                Name        = slashAttr.Name,
-                Description = slashAttr.Description,
-                Type        = 1, // CHAT_INPUT
-                Options     = options.Count > 0 ? options : null,
-            };
-
-            // Register with Discord REST API
             try
             {
                 if (guildId.HasValue)
@@ -662,51 +717,7 @@ public class CommandsExtension
                 continue;
             }
 
-            // Capture loop variables for the async closure
-            var capturedMethod    = method;
-            var capturedModule    = module;
-            var capturedParams    = parameters;
-            var capturedSlashAttr = slashAttr;
-
-            // Wire the interaction handler
-            client.Interactions.RegisterCommand(slashAttr.Name, async interaction =>
-            {
-                var args = new object?[capturedParams.Length];
-                for (var i = 0; i < capturedParams.Length; i++)
-                {
-                    var param = capturedParams[i];
-                    if (param.ParameterType == typeof(InteractionCreateEvent))
-                    {
-                        args[i] = interaction;
-                        continue;
-                    }
-
-                    var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
-                    var optName = optAttr?.Name ?? param.Name ?? "option";
-                    args[i] = GetOptionValueForType(interaction, optName, param.ParameterType);
-                }
-
-                try
-                {
-                    var result = capturedMethod.Invoke(capturedModule, args);
-                    if (result is Task task) await task;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error executing slash command /{Name}", capturedSlashAttr.Name);
-
-                    if (CommandErrored != null)
-                    {
-                        // Build a minimal CommandContext for the error event (no message — slash context)
-                        try
-                        {
-                            await CommandErrored(new CommandErrorEventArgs(
-                                new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
-                        }
-                        catch { /* swallow handler exceptions */ }
-                    }
-                }
-            });
+            client.Interactions.RegisterCommand(slashAttr.Name, handler);
 
             _logger.LogDebug("Registered slash command /{Name} for application {AppId}", slashAttr.Name, applicationId);
         }
@@ -736,6 +747,7 @@ public class CommandsExtension
 
         var requests        = new List<CreateApplicationCommandRequest>();
         var handlerBuilders = new List<(string Name, Func<InteractionCreateEvent, Task> Handler)>();
+        var registeredNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var module in modules)
         {
@@ -747,76 +759,16 @@ public class CommandsExtension
                 var slashAttr = method.GetCustomAttribute<SlashCommandAttribute>();
                 if (slashAttr == null) continue;
 
-                var parameters = method.GetParameters();
-                var options    = new List<ApplicationCommandOption>();
-
-                foreach (var param in parameters)
+                try
                 {
-                    if (param.ParameterType == typeof(InteractionCreateEvent)) continue;
-
-                    var optAttr  = param.GetCustomAttribute<SlashOptionAttribute>();
-                    var optName  = optAttr?.Name ?? param.Name ?? "option";
-                    var optDesc  = optAttr?.Description ?? "No description provided.";
-                    var required = optAttr?.Required ?? !IsOptionalType(param.ParameterType);
-
-                    options.Add(new ApplicationCommandOption
-                    {
-                        Name        = optName,
-                        Description = optDesc,
-                        Required    = required,
-                        Type        = MapTypeToOptionType(param.ParameterType),
-                    });
+                    BuildSlashCommandRegistration(client, module, method, slashAttr, registeredNames, out var request, out var handler);
+                    requests.Add(request);
+                    handlerBuilders.Add((slashAttr.Name, handler));
                 }
-
-                requests.Add(new CreateApplicationCommandRequest
+                catch (Exception ex)
                 {
-                    Name        = slashAttr.Name,
-                    Description = slashAttr.Description,
-                    Type        = 1, // CHAT_INPUT
-                    Options     = options.Count > 0 ? options : null,
-                });
-
-                // Capture loop variables for the async closure.
-                var capturedMethod    = method;
-                var capturedModule    = module;
-                var capturedParams    = parameters;
-                var capturedSlashAttr = slashAttr;
-
-                handlerBuilders.Add((slashAttr.Name, async interaction =>
-                {
-                    var args = new object?[capturedParams.Length];
-                    for (var i = 0; i < capturedParams.Length; i++)
-                    {
-                        var param = capturedParams[i];
-                        if (param.ParameterType == typeof(InteractionCreateEvent))
-                        {
-                            args[i] = interaction;
-                            continue;
-                        }
-                        var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
-                        var optName = optAttr?.Name ?? param.Name ?? "option";
-                        args[i] = GetOptionValueForType(interaction, optName, param.ParameterType);
-                    }
-
-                    try
-                    {
-                        var result = capturedMethod.Invoke(capturedModule, args);
-                        if (result is Task task) await task;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error executing slash command /{Name}", capturedSlashAttr.Name);
-                        if (CommandErrored != null)
-                        {
-                            try
-                            {
-                                await CommandErrored(new CommandErrorEventArgs(
-                                    new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
-                            }
-                            catch { /* swallow handler exceptions */ }
-                        }
-                    }
-                }));
+                    _logger.LogError(ex, "Failed to prepare slash command /{Name} from module {Module}", slashAttr.Name, type.FullName);
+                }
             }
         }
 
@@ -857,6 +809,7 @@ public class CommandsExtension
         if (inner == typeof(int) || inner == typeof(long)) return ApplicationCommandOptionType.Integer;
         if (inner == typeof(bool))                         return ApplicationCommandOptionType.Boolean;
         if (inner == typeof(double) || inner == typeof(float)) return ApplicationCommandOptionType.Number;
+        if (inner.IsEnum)                                  return ApplicationCommandOptionType.String;
 
         // Default to string for any type we don't recognise
         return ApplicationCommandOptionType.String;
@@ -878,6 +831,34 @@ public class CommandsExtension
 
         var inner = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
+        if (inner.IsEnum)
+        {
+            var raw = option.Value is JsonElement enumElement
+                ? enumElement.ValueKind == JsonValueKind.String
+                    ? enumElement.GetString()
+                    : enumElement.GetRawText()
+                : option.Value?.ToString();
+
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return GetDefault(targetType);
+            }
+
+            try
+            {
+                return Enum.Parse(inner, raw, ignoreCase: true);
+            }
+            catch
+            {
+                if (long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numericValue))
+                {
+                    return Enum.ToObject(inner, numericValue);
+                }
+
+                return GetDefault(targetType);
+            }
+        }
+
         if (option.Value is JsonElement element)
         {
             if (inner == typeof(string))  return element.ValueKind == JsonValueKind.String ? element.GetString() : element.GetRawText();
@@ -891,6 +872,277 @@ public class CommandsExtension
         try { return Convert.ChangeType(option.Value, inner, CultureInfo.InvariantCulture); }
         catch { return GetDefault(targetType); }
     }
+
+    private void BuildSlashCommandRegistration(
+        DiscordClient client,
+        BaseCommandModule module,
+        MethodInfo method,
+        SlashCommandAttribute slashAttr,
+        HashSet<string> registeredNames,
+        out CreateApplicationCommandRequest request,
+        out Func<InteractionCreateEvent, Task> handler)
+    {
+        if (client == null) throw new ArgumentNullException(nameof(client));
+        if (module == null) throw new ArgumentNullException(nameof(module));
+        if (method == null) throw new ArgumentNullException(nameof(method));
+        if (slashAttr == null) throw new ArgumentNullException(nameof(slashAttr));
+        if (registeredNames == null) throw new ArgumentNullException(nameof(registeredNames));
+
+        ValidateSlashCommandMetadata(slashAttr.Name, slashAttr.Description, method, module);
+
+        var parameters = method.GetParameters();
+        var options = new List<ApplicationCommandOption>(parameters.Length);
+        var seenOptionNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var parameter in parameters)
+        {
+            if (IsInjectedSlashParameter(parameter.ParameterType))
+            {
+                continue;
+            }
+
+            if (parameter.IsOut || parameter.ParameterType.IsByRef)
+            {
+                throw new InvalidOperationException(
+                    $"Slash command '/{slashAttr.Name}' on {module.GetType().FullName} cannot use ref/out parameter '{parameter.Name}'.");
+            }
+
+            var option = BuildSlashOption(parameter);
+            if (!seenOptionNames.Add(option.Name))
+            {
+                throw new InvalidOperationException(
+                    $"Slash command '/{slashAttr.Name}' on {module.GetType().FullName} defines duplicate option '{option.Name}'.");
+            }
+
+            options.Add(option);
+        }
+
+        request = new CreateApplicationCommandRequest
+        {
+            Name                     = slashAttr.Name,
+            Description              = slashAttr.Description,
+            Type                     = (int)ApplicationCommandType.ChatInput,
+            Options                  = options.Count > 0 ? options : null,
+            DefaultMemberPermissions = slashAttr.DefaultMemberPermissions,
+            DmPermission             = slashAttr.DmPermission,
+            Nsfw                     = slashAttr.Nsfw,
+            IntegrationTypes         = slashAttr.IntegrationTypes?.ToList(),
+            Contexts                 = slashAttr.Contexts?.ToList(),
+        };
+
+        if (!registeredNames.Add(slashAttr.Name))
+        {
+            throw new InvalidOperationException(
+                $"Duplicate slash command name '/{slashAttr.Name}' was discovered while registering module {module.GetType().FullName}.");
+        }
+
+        handler = BuildSlashCommandHandler(client, module, method, slashAttr);
+    }
+
+    private Func<InteractionCreateEvent, Task> BuildSlashCommandHandler(
+        DiscordClient client,
+        BaseCommandModule module,
+        MethodInfo method,
+        SlashCommandAttribute slashAttr)
+    {
+        var parameters = method.GetParameters();
+
+        return async interaction =>
+        {
+            var args = new object?[parameters.Length];
+            SlashCommandContext? slashContext = null;
+
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var parameter = parameters[i];
+
+                if (parameter.ParameterType == typeof(InteractionCreateEvent))
+                {
+                    args[i] = interaction;
+                    continue;
+                }
+
+                if (parameter.ParameterType == typeof(SlashCommandContext))
+                {
+                    slashContext ??= new SlashCommandContext(client, interaction, slashAttr.Name);
+                    args[i] = slashContext;
+                    continue;
+                }
+
+                if (parameter.ParameterType == typeof(DiscordClient))
+                {
+                    args[i] = client;
+                    continue;
+                }
+
+                var optAttr = parameter.GetCustomAttribute<SlashOptionAttribute>();
+                var optName = optAttr?.Name ?? parameter.Name ?? "option";
+                args[i] = GetOptionValueForType(interaction, optName, parameter.ParameterType);
+            }
+
+            try
+            {
+                var result = method.Invoke(module, args);
+                if (result is Task task)
+                {
+                    await task;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error executing slash command /{Name}", slashAttr.Name);
+
+                if (CommandErrored != null)
+                {
+                    try
+                    {
+                        var context = slashContext ??= new SlashCommandContext(client, interaction, slashAttr.Name);
+                        await CommandErrored(new CommandErrorEventArgs(context, ex));
+                    }
+                    catch (Exception handlerEx)
+                    {
+                        _logger.LogError(handlerEx, "CommandErrored handler threw while reporting slash command /{Name}", slashAttr.Name);
+                    }
+                }
+            }
+        };
+    }
+
+    private static ApplicationCommandOption BuildSlashOption(ParameterInfo parameter)
+    {
+        var optionAttribute = parameter.GetCustomAttribute<SlashOptionAttribute>();
+        var optionName = optionAttribute?.Name ?? parameter.Name ?? "option";
+        var optionDescription = optionAttribute?.Description ?? "No description provided.";
+
+        ValidateSlashMetadata(
+            optionName,
+            optionDescription,
+            $"slash option for parameter '{parameter.Name ?? parameter.Position.ToString(CultureInfo.InvariantCulture)}'");
+
+        var optionType = MapTypeToOptionType(parameter.ParameterType);
+        var option = new ApplicationCommandOption
+        {
+            Name = optionName,
+            Description = optionDescription,
+            Required = optionAttribute?.Required ?? !IsOptionalType(parameter.ParameterType),
+            Type = optionType,
+        };
+
+        if (optionAttribute?.Autocomplete == true)
+        {
+            option.Autocomplete = true;
+        }
+
+        if (optionAttribute?.ChannelTypes?.Length > 0)
+        {
+            option.ChannelTypes = optionAttribute.ChannelTypes.ToList();
+        }
+
+        var choices = BuildSlashChoices(parameter, optionType);
+        if (choices.Count > 0)
+        {
+            if (option.Autocomplete == true)
+            {
+                throw new InvalidOperationException(
+                    $"Slash option '{optionName}' cannot define both autocomplete and static choices.");
+            }
+
+            option.Choices = choices;
+        }
+
+        return option;
+    }
+
+    private static List<ApplicationCommandOptionChoice> BuildSlashChoices(ParameterInfo parameter, ApplicationCommandOptionType optionType)
+    {
+        var choiceAttributes = parameter.GetCustomAttributes<SlashChoiceAttribute>().ToList();
+        if (choiceAttributes.Count > 0)
+        {
+            if (optionType is not ApplicationCommandOptionType.String and not ApplicationCommandOptionType.Integer and not ApplicationCommandOptionType.Number)
+            {
+                throw new InvalidOperationException(
+                    $"Slash option '{parameter.Name}' only supports choices for string, integer, and number parameters.");
+            }
+
+            return choiceAttributes
+                .Select(choice => new ApplicationCommandOptionChoice
+                {
+                    Name = choice.Name,
+                    Value = NormalizeSlashChoiceValue(choice.Value, optionType)
+                })
+                .ToList();
+        }
+
+        var inner = Nullable.GetUnderlyingType(parameter.ParameterType) ?? parameter.ParameterType;
+        if (!inner.IsEnum)
+        {
+            return new List<ApplicationCommandOptionChoice>();
+        }
+
+        return Enum.GetNames(inner)
+            .Select(name => new ApplicationCommandOptionChoice
+            {
+                Name = name,
+                Value = name
+            })
+            .ToList();
+    }
+
+    private static object NormalizeSlashChoiceValue(object value, ApplicationCommandOptionType optionType)
+        => optionType switch
+        {
+            ApplicationCommandOptionType.Integer => Convert.ToInt64(value, CultureInfo.InvariantCulture),
+            ApplicationCommandOptionType.Number   => Convert.ToDouble(value, CultureInfo.InvariantCulture),
+            _ => value?.ToString() ?? string.Empty,
+        };
+
+    private static void ValidateSlashCommandMetadata(string name, string description, MethodInfo method, BaseCommandModule module)
+        => ValidateSlashMetadata(name, description, $"slash command method {method.Name} on {module.GetType().FullName}");
+
+    private static void ValidateSlashMetadata(string name, string description, string subject)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException($"{subject} must define a non-empty name.");
+        }
+
+        if (name.Length is < 1 or > 32)
+        {
+            throw new ArgumentOutOfRangeException(nameof(name), $"{subject} name must be between 1 and 32 characters.");
+        }
+
+        foreach (var character in name)
+        {
+            if ((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '_' || character == '-')
+            {
+                continue;
+            }
+
+            throw new ArgumentException(
+                $"{subject} name '{name}' contains an invalid character. Slash command names must use lowercase letters, digits, underscores, or hyphens.",
+                nameof(name));
+        }
+
+        if (name.Any(char.IsUpper))
+        {
+            throw new ArgumentException($"{subject} name '{name}' must be lowercase.", nameof(name));
+        }
+
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            throw new ArgumentException($"{subject} must define a non-empty description.");
+        }
+
+        if (description.Length is < 1 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(description), $"{subject} description must be between 1 and 100 characters.");
+        }
+    }
+
+    private static bool IsInjectedSlashParameter(Type type)
+        => type == typeof(InteractionCreateEvent)
+        || type == typeof(SlashCommandContext)
+        || type == typeof(DiscordClient);
 
     private static object? GetDefault(Type type)
         => type.IsValueType ? Activator.CreateInstance(type) : null;
@@ -949,11 +1201,37 @@ public sealed class SlashCommandContext : CommandContext
     {
         Interaction = interaction;
     }
+
+    /// <summary>Responds to the interaction with a message.</summary>
+    public Task<bool> RespondAsync(string content, bool ephemeral = false)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.ChannelMessageWithSource,
+            Data = new InteractionCallbackData
+            {
+                Content = content,
+                Flags = ephemeral ? 64 : null,
+            }
+        };
+
+        return Client.Interactions.RespondAsync(Interaction.Id, Interaction.Token, response);
+    }
+
+    /// <summary>Responds to the interaction with an ephemeral message.</summary>
+    public Task<bool> RespondEphemeralAsync(string content)
+        => RespondAsync(content, ephemeral: true);
+
+    /// <summary>Defers the interaction, showing Discord's loading state.</summary>
+    public Task<bool> DeferAsync(bool ephemeral = false)
+        => Client.Interactions.DeferAsync(Interaction.Id, Interaction.Token, ephemeral);
 }
 
 /// <summary>
 /// Marks a method in a <see cref="BaseCommandModule"/> as a Discord application (slash) command.
-/// Use <see cref="CommandsExtension.RegisterSlashModuleAsync"/> to auto-register all methods
+/// Use <see cref="CommandsExtension.RegisterSlashCommandsAsync(DiscordClient,BaseCommandModule,System.UInt64,System.Nullable{System.UInt64})"/>
+/// or <see cref="CommandsExtension.RegisterSlashCommandsFromAssemblyAsync(DiscordClient,System.Reflection.Assembly,System.UInt64,System.Nullable{System.UInt64},System.Func{System.Type,PawSharp.Commands.BaseCommandModule})"/>
+/// to auto-register all methods
 /// decorated with this attribute in a module.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method)]
@@ -964,6 +1242,25 @@ public sealed class SlashCommandAttribute : Attribute
 
     /// <summary>Gets the slash command description shown in the Discord UI (1–100 characters).</summary>
     public string Description { get; }
+
+    /// <summary>Gets or sets the command's default member permissions bitset, encoded as a decimal string.</summary>
+    public string? DefaultMemberPermissions { get; set; }
+
+    /// <summary>Gets or sets whether the command is available in direct messages.</summary>
+    public bool DmPermission { get; set; }
+
+    /// <summary>Gets or sets whether the command is age-restricted.</summary>
+    public bool Nsfw { get; set; }
+
+    /// <summary>Gets or sets the installation contexts in which the command is available.</summary>
+    public int[]? IntegrationTypes { get; set; }
+
+    /// <summary>Gets or sets the interaction contexts in which the command is available.</summary>
+    public int[]? Contexts { get; set; }
+
+    /// <summary>Gets or sets the deprecated default-permission flag for legacy installs.</summary>
+    [Obsolete("Use DefaultMemberPermissions instead.")]
+    public bool DefaultPermission { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SlashCommandAttribute"/> class.
@@ -993,6 +1290,12 @@ public sealed class SlashOptionAttribute : Attribute
     /// <summary>Gets or sets whether this option is required. Defaults to <see langword="true"/>.</summary>
     public bool Required { get; set; } = true;
 
+    /// <summary>Gets or sets whether autocomplete is enabled for string, integer, or number options.</summary>
+    public bool Autocomplete { get; set; }
+
+    /// <summary>Gets or sets the channel types allowed for channel options.</summary>
+    public int[]? ChannelTypes { get; set; }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="SlashOptionAttribute"/> class.
     /// </summary>
@@ -1002,5 +1305,30 @@ public sealed class SlashOptionAttribute : Attribute
     {
         Name        = name        ?? throw new ArgumentNullException(nameof(name));
         Description = description ?? throw new ArgumentNullException(nameof(description));
+    }
+}
+
+/// <summary>
+/// Declares a static choice for a slash command option.
+/// Apply multiple instances to the same parameter to provide a dropdown list of choices.
+/// </summary>
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true)]
+public sealed class SlashChoiceAttribute : Attribute
+{
+    /// <summary>Gets the choice label shown in the Discord UI.</summary>
+    public string Name { get; }
+
+    /// <summary>Gets the choice value sent back to the command handler.</summary>
+    public object Value { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SlashChoiceAttribute"/> class.
+    /// </summary>
+    /// <param name="name">The visible choice label.</param>
+    /// <param name="value">The choice value.</param>
+    public SlashChoiceAttribute(string name, object value)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Value = value ?? throw new ArgumentNullException(nameof(value));
     }
 }

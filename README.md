@@ -91,7 +91,7 @@ await Task.Delay(Timeout.Infinite);
 - `PawSharp.Core`: entities, enums, exceptions, validation, utility builders
 - `PawSharp.API`: raw REST layer with advanced rate-limit handling
 - `PawSharp.Gateway`: gateway connection and event dispatcher
-- `PawSharp.Commands`: attribute-based prefix command framework
+- `PawSharp.Commands`: attribute-based prefix and slash command framework
 - `PawSharp.Interactions`: slash commands and interaction routing
 - `PawSharp.Interactivity`: wait helpers for reactions/components and polls
 - `PawSharp.Voice`: voice transport, Opus codec integration, DAVE E2EE support
@@ -122,10 +122,10 @@ services.AddPawSharpInteractions();
 - Message forwarding support using Discord message reference forwarding
 - Structured rate-limit telemetry from the REST client (`RateLimitObserved`)
 - `EmbedTemplates` helpers for common success/error/info/warning responses
+- Slash-command auto-registration with module scanning and typed slash contexts
 
 ## Still In Progress
 
-- Slash command attribute auto-registration scanner (manual registration works today)
 - Dedicated Redis cache package publication (provider implementation exists)
 
 ## Documentation And Examples

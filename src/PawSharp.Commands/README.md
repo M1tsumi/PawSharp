@@ -1,8 +1,8 @@
 # PawSharp.Commands
 
-PawSharp.Commands adds a clean, attribute-based prefix command framework on top of PawSharp.Client.
+PawSharp.Commands adds a clean, attribute-based command framework on top of PawSharp.Client.
 
-It is built for maintainable bot command modules with async support, readable command metadata, and guardrails such as permissions and preconditions.
+It is built for maintainable bot command modules with async support, readable command metadata, slash-command auto-registration, and guardrails such as permissions and preconditions.
 
 ## Why Use This Package
 
@@ -10,6 +10,8 @@ It is built for maintainable bot command modules with async support, readable co
 - Async command handlers and module registration
 - Aliases, descriptions, and structured command metadata
 - Permission and precondition support
+- Slash-command module scanning and bulk registration
+- Typed slash command contexts and option choices
 - Great fit for mature prefix-command bots
 
 ## Requirements
@@ -29,17 +31,16 @@ dotnet add package PawSharp.Commands --version 1.0.0-alpha.2
 using PawSharp.Client;
 using PawSharp.Commands;
 
-var commands = client.UseCommands(prefix: "!");
+var commands = client.UseSlashCommands();
 
 public sealed class GeneralCommands : BaseCommandModule
 {
-    [Command("ping")]
-    [Description("Check whether the bot is responsive")]
-    public async Task PingAsync(CommandContext ctx)
-        => await ctx.ReplyAsync("Pong!");
+    [SlashCommand("ping", "Check whether the bot is responsive")]
+    public async Task PingAsync(SlashCommandContext ctx)
+        => await ctx.RespondAsync("Pong!");
 }
 
-commands.RegisterModule(client, new GeneralCommands());
+await commands.RegisterSlashCommandsFromAssemblyAsync(client, typeof(GeneralCommands).Assembly, applicationId: 123UL, guildId: 456UL);
 ```
 
 ## Typical Use Cases

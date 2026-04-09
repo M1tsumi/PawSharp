@@ -24,4 +24,15 @@ public static class CommandsExtensions
     /// <returns>The <see cref="CommandsExtension"/> bound to this client.</returns>
     public static CommandsExtension UseCommands(this DiscordClient client, string prefix = "!")
         => _instances.GetValue(client, c => new CommandsExtension(prefix));
+
+    /// <summary>
+    /// Returns the shared command framework instance for slash-command registration.
+    /// This is an alias for <see cref="UseCommands(DiscordClient,string)"/> with a name that is
+    /// easier to discover when you are only working with application commands.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="prefix">The command prefix (still used for prefix commands in the same module).</param>
+    /// <returns>The <see cref="CommandsExtension"/> bound to this client.</returns>
+    public static CommandsExtension UseSlashCommands(this DiscordClient client, string prefix = "!")
+        => _instances.GetValue(client, c => new CommandsExtension(prefix));
 }

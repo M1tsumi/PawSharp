@@ -1,6 +1,6 @@
 # Contributing to PawSharp
 
-Thank you for your interest in contributing to PawSharp! This document outlines guidelines, best practices, and development workflows for contributing code, documentation, and ideas to the project.
+Use this guide to set up the repository, make changes, run tests, and open a pull request.
 
 ## Development Environment Setup
 
@@ -10,25 +10,20 @@ Thank you for your interest in contributing to PawSharp! This document outlines 
 - IDE: [Visual Studio 2022](https://visualstudio.microsoft.com/), [VS Code](https://code.visualstudio.com/), or [Rider](https://www.jetbrains.com/rider/)
 
 ### Getting Started
-1. **Fork the repository** on GitHub
-2. **Clone your fork**:
+1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/PawSharp.git
+    git clone https://github.com/M1tsumi/PawSharp.git
    cd PawSharp
    ```
-3. **Add upstream remote**:
+2. **Create a feature branch**:
    ```bash
-   git remote add upstream https://github.com/original-owner/PawSharp.git
+    git checkout -b feature/add-message-cache
    ```
-4. **Create a feature branch**:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-5. **Build the solution**:
+3. **Build the solution**:
    ```bash
    dotnet build
    ```
-6. **Run tests**:
+4. **Run tests**:
    ```bash
    dotnet test
    ```
@@ -67,7 +62,7 @@ src/
 ## Development Workflow
 
 ### 1. Choose an Issue
-- Check [GitHub Issues](https://github.com/your-org/PawSharp/issues) for open tasks
+- Check [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues) for open tasks
 - Look for "good first issue" or "help wanted" labels
 - Comment on the issue to indicate you're working on it
 
@@ -96,7 +91,7 @@ git commit -m "feat: add new feature
 
 - Description of changes
 - Related issue: #123"
-git push origin feature/your-feature-name
+git push origin feature/add-message-cache
 ```
 
 ### 6. Create Pull Request
@@ -257,7 +252,7 @@ PawSharp follows [Semantic Versioning](https://semver.org/):
 
 - **Issues**: For bugs and feature requests
 - **Discussions**: For questions and ideas
-- **Discord**: Community chat (link coming soon)
+- **Discord**: Community chat
 - **Documentation**: Check docs/ and examples/
 
 ## Recognition

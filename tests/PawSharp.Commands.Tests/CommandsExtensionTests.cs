@@ -344,6 +344,156 @@ public class CommandsExtensionTests
 
         module.SlashInvoked.Should().BeTrue("the slash command handler should have been called");
     }
+
+    [Fact]
+    public async Task RegisterSlashCommandsAsync_Alias_Wires_Interaction_Handler()
+    {
+        var restMock    = new Mock<IDiscordRestClient>();
+        var cacheMock   = new Mock<IEntityCache>();
+        var dispatcher  = new EventDispatcher();
+        var gatewayMock = new Mock<IGatewayClient>();
+
+        gatewayMock.SetupGet(g => g.Events).Returns(dispatcher);
+        gatewayMock.Setup(g => g.CurrentState).Returns(GatewayState.Connected);
+
+        restMock.Setup(r => r.CreateMessageAsync(It.IsAny<ulong>(), It.IsAny<CreateMessageRequest>()))
+                .ReturnsAsync(new Message { Id = 1UL });
+        restMock.Setup(r => r.CreateGlobalApplicationCommandAsync(
+                    It.IsAny<ulong>(), It.IsAny<CreateApplicationCommandRequest>()))
+                .ReturnsAsync(new ApplicationCommand { Id = 1UL, Name = "greet" });
+        restMock.Setup(r => r.CreateInteractionResponseAsync(
+                    It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<InteractionResponse>()))
+                .ReturnsAsync(true);
+
+        var options = new PawSharpOptions { Token = "Bot test.token.value" };
+        var client  = new DiscordClient(
+            options, cacheMock.Object, NullLogger<DiscordClient>.Instance,
+            restMock.Object, gatewayMock.Object);
+
+        var module = new SlashModule();
+        var ext    = new CommandsExtension("!");
+
+        await ext.RegisterSlashCommandsAsync(client, module, applicationId: 12345UL);
+
+        var slashEvent = new InteractionCreateEvent
+        {
+            Id        = 1UL,
+            Token     = "tok",
+            Type      = 2,
+            Data      = new PawSharp.Gateway.Events.InteractionData { Name = "greet", Type = 1 },
+            ChannelId = 1UL,
+        };
+
+        await dispatcher.DispatchAsync("INTERACTION_CREATE", slashEvent);
+
+        module.SlashInvoked.Should().BeTrue("the alias registration path should wire the same slash handler");
+    }
+
+    [Fact]
+    public async Task RegisterSlashModuleAsync_Binds_SlashCommandContext()
+    {
+        var restMock    = new Mock<IDiscordRestClient>();
+        var cacheMock   = new Mock<IEntityCache>();
+        var dispatcher  = new EventDispatcher();
+        var gatewayMock = new Mock<IGatewayClient>();
+
+        gatewayMock.SetupGet(g => g.Events).Returns(dispatcher);
+        gatewayMock.Setup(g => g.CurrentState).Returns(GatewayState.Connected);
+
+        restMock.Setup(r => r.CreateMessageAsync(It.IsAny<ulong>(), It.IsAny<CreateMessageRequest>()))
+                .ReturnsAsync(new Message { Id = 1UL });
+        restMock.Setup(r => r.CreateGlobalApplicationCommandAsync(
+                    It.IsAny<ulong>(), It.IsAny<CreateApplicationCommandRequest>()))
+                .ReturnsAsync(new ApplicationCommand { Id = 1UL, Name = "context" });
+
+        var options = new PawSharpOptions { Token = "Bot test.token.value" };
+        var client  = new DiscordClient(
+            options, cacheMock.Object, NullLogger<DiscordClient>.Instance,
+            restMock.Object, gatewayMock.Object);
+
+        var module = new ContextSlashModule();
+        var ext    = new CommandsExtension("!");
+
+        await ext.RegisterSlashModuleAsync(client, module, applicationId: 12345UL);
+
+        var slashEvent = new InteractionCreateEvent
+        {
+            Id        = 99UL,
+            Token     = "tok",
+            Type      = 2,
+            Data      = new PawSharp.Gateway.Events.InteractionData { Name = "context", Type = 1 },
+            ChannelId = 1UL,
+        };
+
+        await dispatcher.DispatchAsync("INTERACTION_CREATE", slashEvent);
+
+        module.LastContext.Should().NotBeNull();
+        module.LastContext!.Interaction.Id.Should().Be(99UL);
+        module.LastContext.Client.Should().BeSameAs(client);
+    }
+
+    [Fact]
+    public async Task RegisterSlashModuleAsync_Maps_Metadata_And_Enum_Choices()
+    {
+        var restMock    = new Mock<IDiscordRestClient>();
+        var cacheMock   = new Mock<IEntityCache>();
+        var dispatcher  = new EventDispatcher();
+        var gatewayMock = new Mock<IGatewayClient>();
+
+        gatewayMock.SetupGet(g => g.Events).Returns(dispatcher);
+        gatewayMock.Setup(g => g.CurrentState).Returns(GatewayState.Connected);
+
+        CreateApplicationCommandRequest? capturedRequest = null;
+
+        restMock.Setup(r => r.CreateMessageAsync(It.IsAny<ulong>(), It.IsAny<CreateMessageRequest>()))
+                .ReturnsAsync(new Message { Id = 1UL });
+        restMock.Setup(r => r.CreateGlobalApplicationCommandAsync(
+                    It.IsAny<ulong>(), It.IsAny<CreateApplicationCommandRequest>()))
+                .Callback<ulong, CreateApplicationCommandRequest>((_, request) => capturedRequest = request)
+                .ReturnsAsync(new ApplicationCommand { Id = 1UL, Name = "paint" });
+
+        var options = new PawSharpOptions { Token = "Bot test.token.value" };
+        var client  = new DiscordClient(
+            options, cacheMock.Object, NullLogger<DiscordClient>.Instance,
+            restMock.Object, gatewayMock.Object);
+
+        var module = new MetadataAndEnumSlashModule();
+        var ext    = new CommandsExtension("!");
+
+        await ext.RegisterSlashModuleAsync(client, module, applicationId: 12345UL);
+
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.DefaultMemberPermissions.Should().Be("8");
+        capturedRequest.DmPermission.Should().BeFalse();
+        capturedRequest.Nsfw.Should().BeTrue();
+        capturedRequest.Contexts.Should().Equal(0, 2);
+        capturedRequest.IntegrationTypes.Should().Equal(0);
+
+        capturedRequest.Options.Should().ContainSingle();
+        capturedRequest.Options![0].Choices.Should().Contain(choice => choice.Name == "Sunny")
+            .And.Contain(choice => choice.Name == "Rainy");
+
+        var slashEvent = new InteractionCreateEvent
+        {
+            Id        = 100UL,
+            Token     = "tok",
+            Type      = 2,
+            Data      = new PawSharp.Gateway.Events.InteractionData
+            {
+                Name = "paint",
+                Type = 1,
+                Options = new List<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>
+                {
+                    new() { Name = "mode", Type = 3, Value = "Rainy" }
+                }
+            },
+            ChannelId = 1UL,
+        };
+
+        await dispatcher.DispatchAsync("INTERACTION_CREATE", slashEvent);
+
+        module.LastMode.Should().Be(WeatherMode.Rainy);
+    }
 }
 
 // ── Test command modules ──────────────────────────────────────────────────────
@@ -404,6 +554,43 @@ internal class SlashModule : BaseCommandModule
         [SlashOption("name", "The person to greet")] string name = "World")
     {
         SlashInvoked = true;
+        return Task.CompletedTask;
+    }
+}
+
+internal class ContextSlashModule : BaseCommandModule
+{
+    public SlashCommandContext? LastContext { get; private set; }
+
+    [SlashCommand("context", "Capture the slash context")]
+    public Task CaptureAsync(SlashCommandContext context)
+    {
+        LastContext = context;
+        return Task.CompletedTask;
+    }
+}
+
+internal enum WeatherMode
+{
+    Sunny,
+    Rainy
+}
+
+internal class MetadataAndEnumSlashModule : BaseCommandModule
+{
+    public WeatherMode LastMode { get; private set; }
+
+    [SlashCommand(
+        "paint",
+        "Pick a weather mode",
+        DefaultMemberPermissions = "8",
+        DmPermission = false,
+        Nsfw = true,
+        IntegrationTypes = new[] { 0 },
+        Contexts = new[] { 0, 2 })]
+    public Task PaintAsync([SlashOption("mode", "The weather mode")] WeatherMode mode)
+    {
+        LastMode = mode;
         return Task.CompletedTask;
     }
 }

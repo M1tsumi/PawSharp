@@ -5,7 +5,7 @@ This example demonstrates how to build a Discord moderation bot using PawSharp. 
 ## Features
 
 - **Content Filtering**: Automatically detects and removes messages containing banned words
-- **Spam Detection**: Basic spam detection (placeholder for more advanced implementation)
+- **Spam Detection**: Basic rule-based spam detection that can be extended with message-frequency checks or custom heuristics
 - **Moderation Commands**:
   - `!mod warn <user>` - Warn a user
   - `!mod mute <user>` - Mute a user temporarily
