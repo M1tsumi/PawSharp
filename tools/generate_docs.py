@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 SRC = os.path.join(ROOT, 'src')
-OUT_DIR = os.path.join(ROOT, 'PawSharp-Reference')
+OUT_DIR = os.path.join(ROOT, 'docs', 'reference')
 
 def parse_xml_file(path):
     tree = ET.parse(path)

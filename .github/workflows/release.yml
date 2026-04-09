@@ -22,10 +22,14 @@ jobs:
         with:
           fetch-depth: 0               # full history for changelog extraction
 
-      - name: Setup .NET 8
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Release hygiene guard
+        shell: pwsh
+        run: ./tools/check-release-hygiene.ps1
 
       - name: Restore
         run: dotnet restore PawSharp.sln
@@ -55,7 +59,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -72,9 +76,13 @@ jobs:
 
       - name: Pack
         run: |
-          dotnet pack PawSharp.sln -c Release --no-build --nologo \
-            --output ./nupkgs \
-            -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+          rm -rf ./nupkgs
+          mkdir -p ./nupkgs
+          for project in src/*/*.csproj; do
+            dotnet pack "$project" -c Release --no-build --nologo \
+              --output ./nupkgs \
+              -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+          done
 
       - name: Upload packages artifact
         uses: actions/upload-artifact@v4
@@ -141,7 +149,7 @@ jobs:
           name: nupkgs
           path: nupkgs/
 
-      - name: Setup .NET 8
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x

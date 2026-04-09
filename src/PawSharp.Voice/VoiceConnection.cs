@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Concentus;
 using Concentus.Enums;
 using Concentus.Structs;
+using Microsoft.Extensions.Logging;
 using NAudio.Wave;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
@@ -37,6 +38,7 @@ public class VoiceConnection : IDisposable
 {
     private readonly DiscordClient _discordClient;
     private readonly Channel _channel;
+    private readonly ILogger _logger;
     private readonly Action<ulong>? _onConnectionFailed;
     private ClientWebSocket? _webSocket;
     private CancellationTokenSource? _cts;
@@ -132,11 +134,17 @@ public class VoiceConnection : IDisposable
     /// <param name="discordClient">The Discord client.</param>
     /// <param name="channel">The voice channel.</param>
     /// <param name="onConnectionFailed">Callback for connection failures.</param>
-    public VoiceConnection(DiscordClient discordClient, Channel channel, Action<ulong>? onConnectionFailed = null)
+    /// <param name="logger">Logger used for voice diagnostics.</param>
+    public VoiceConnection(
+        DiscordClient discordClient,
+        Channel channel,
+        Action<ulong>? onConnectionFailed = null,
+        ILogger? logger = null)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         _onConnectionFailed = onConnectionFailed;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
         // Initialize audio components
         InitializeAudio();
@@ -694,8 +702,7 @@ public class VoiceConnection : IDisposable
         }
         catch (Exception ex)
         {
-            // Log error
-            Console.WriteLine($"Voice receive error: {ex.Message}");
+            _logger.LogError(ex, "Voice receive loop failed and the connection will be reset for channel {ChannelId}", _channel.Id);
             State = VoiceConnectionState.Disconnected;
             _onConnectionFailed?.Invoke(_channel.Id);
         }
@@ -725,7 +732,7 @@ public class VoiceConnection : IDisposable
                             data.TryGetProperty("heartbeat_interval", out var intervalProp))
                         {
                             _heartbeatInterval = intervalProp.GetInt32();
-                            Console.WriteLine($"Voice heartbeat interval set to: {_heartbeatInterval}ms");
+                            _logger.LogDebug("Voice heartbeat interval updated to {HeartbeatIntervalMs}ms for channel {ChannelId}", _heartbeatInterval, _channel.Id);
                         }
                         break;
                     case 9: // HEARTBEAT ACK
@@ -741,7 +748,7 @@ public class VoiceConnection : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error parsing voice JSON message: {ex.Message}");
+            _logger.LogWarning(ex, "Failed to parse a voice control payload for channel {ChannelId}", _channel.Id);
         }
 
         await Task.CompletedTask;
@@ -789,7 +796,7 @@ public class VoiceConnection : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error sending voice heartbeat: {ex.Message}");
+            _logger.LogWarning(ex, "Failed to send voice heartbeat for channel {ChannelId}", _channel.Id);
         }
     }
 
@@ -830,7 +837,7 @@ public class VoiceConnection : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Voice keep-alive error: {ex.Message}");
+            _logger.LogWarning(ex, "Voice keep-alive loop failed for channel {ChannelId}", _channel.Id);
         }
     }
 

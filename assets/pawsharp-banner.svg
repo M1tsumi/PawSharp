@@ -50,14 +50,14 @@
   
   <!-- Tagline -->
   <text x="420" y="175" font-family="Arial, sans-serif" font-size="24" fill="rgba(255, 255, 255, 0.9)" letter-spacing="0.5">
-    Stable Discord API Wrapper for .NET 8.0
+    Stable Discord API Wrapper for .NET 10.0
   </text>
   
   <!-- Version badge -->
   <g>
     <rect x="420" y="210" width="180" height="50" rx="8" fill="rgba(255, 255, 255, 0.2)" stroke="white" stroke-width="2"/>
     <text x="510" y="245" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white" text-anchor="middle">
-      v0.5.0-alpha10
+      v1.0.0-alpha.2
     </text>
   </g>
   

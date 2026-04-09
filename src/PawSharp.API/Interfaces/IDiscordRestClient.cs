@@ -78,6 +78,7 @@ public interface IDiscordRestClient
     
     // Message operations
     Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request);
+    Task<Message?> ForwardMessageAsync(ulong targetChannelId, ulong sourceChannelId, ulong sourceMessageId, string? content = null, bool failIfNotExists = true);
     Task<Message?> SendFileAsync(ulong channelId, Stream fileStream, string fileName, CreateMessageRequest? messageRequest = null, CancellationToken cancellationToken = default);
     Task<Message?> SendFilesAsync(ulong channelId, IEnumerable<(Stream Stream, string FileName)> files, CreateMessageRequest? messageRequest = null, CancellationToken cancellationToken = default);
     Task<Message?> GetMessageAsync(ulong channelId, ulong messageId);

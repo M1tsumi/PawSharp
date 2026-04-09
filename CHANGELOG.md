@@ -4,6 +4,39 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.0.0-alpha.2] - 2026-04-08
+
+### Changes
+
+- Added dedicated alpha hardening coverage for `PawSharp.Client` builder, lifecycle, and DI registration paths.
+- Added `SetupPawSharp(options)` as the recommended one-call DI setup entrypoint and added backward-compatible `AddPawSharpClient` overloads.
+- Added configurable connect-time intent validation via `PawSharpOptions.IntentValidation` (`Off`, `Warn`, `Strict`).
+- Added `EmbedTemplates` helpers (`Success`, `Error`, `Info`, `Warning`) for common embed response patterns.
+- Added message forwarding support via `ForwardMessageAsync` in REST and client APIs using Discord's `message_reference` forward model.
+- Added explicit `MessageReferenceType` support, including `FORWARD` references for snapshot-based forwards.
+- Added structured REST rate-limit telemetry (`IRateLimitTelemetrySource` / `RateLimitTelemetryEvent`) and surfaced it on `DiscordClient` via `RateLimitObserved` for operational diagnostics.
+
+### Fixes
+
+- Updated stale release references in `examples/DashboardBot` and `assets/pawsharp-banner.svg` to `1.0.0-alpha.2`.
+- Updated project banner target framework reference from .NET 8.0 to .NET 10.0.
+- Fixed gateway intent-validation reflection logic to read registered handlers from the current dispatcher storage shape.
+- Added duplicate-registration diagnostics to `InteractionHandler` with optional strict duplicate handling.
+
+### Internal / Tooling
+
+- Added explicit release-hygiene checks to `docs/VERSIONING_POLICY.md` for preventing version drift in docs/examples/assets.
+- Added `tools/check-release-hygiene.ps1` and wired it into CI/release workflows to fail builds on stale example/asset version or TFM markers.
+
+### Earlier alpha.2 stabilization updates
+
+- All package project files now declare `1.0.0-alpha.2` directly in `<Version>` metadata, eliminating drift between source metadata and packed artifacts.
+- `VoiceConnection` now uses structured `ILogger`-based logging instead of `Console.WriteLine` in receive, heartbeat, keep-alive, and control-payload parsing paths.
+- Voice transport error handling no longer emits raw ad-hoc console exception strings; failures are routed through standard logging and connection-failure callbacks.
+- `VoiceClient` now passes its logger into `VoiceConnection`, ensuring consistent voice diagnostics and central log configuration behavior.
+
+---
+
 ## [1.0.0-alpha.1] - 2026-03-11
 
 > **First .NET 10 release.** Migrates the entire solution — all library, test, and tooling projects — from `net8.0` to `net10.0`. All `Microsoft.Extensions.*` packages updated to `10.0.0`, test toolchain unified to xunit `2.9.2` / `Microsoft.NET.Test.Sdk` `17.12.0` / `FluentAssertions` `7.0.0`. Version bumped to `1.0.0-alpha.1` to reflect the breaking TFM change and start of the stable-API series.

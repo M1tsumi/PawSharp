@@ -2,6 +2,8 @@
 #pragma warning disable CS8602 // Dereference of possibly null: FluentAssertions .NotBeNull() validates before access
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -39,6 +41,161 @@ namespace PawSharp.API.Tests
             _mockRateLimiter.Setup(x => x.WaitForRateLimitAsync(It.IsAny<string>(), It.IsAny<string?>()))
                 .Returns(Task.CompletedTask);
             _restClient = new DiscordRestClient(_httpClient, _options, _mockLogger.Object, _mockRateLimiter.Object);
+        }
+
+        [Fact]
+        public async Task ForwardMessageAsync_CreatesMessageWithForwardReference_WhenSuccessful()
+        {
+            // Arrange
+            var targetChannelId = 111UL;
+            var sourceChannelId = 222UL;
+            var sourceMessageId = 333UL;
+
+            HttpRequestMessage? capturedRequest = null;
+            var responseJson = @"{
+                ""id"": ""999"",
+                ""channel_id"": ""111"",
+                ""content"": ""forwarded context"",
+                ""message_reference"": {
+                    ""type"": 1,
+                    ""channel_id"": ""222"",
+                    ""message_id"": ""333""
+                }
+            }";
+
+            _mockHttpMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req =>
+                        req.Method == HttpMethod.Post &&
+                        req.RequestUri != null &&
+                        req.RequestUri.ToString().EndsWith($"channels/{targetChannelId}/messages")),
+                    ItExpr.IsAny<CancellationToken>())
+                .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+                .ReturnsAsync(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(responseJson)
+                });
+
+            // Act
+            var result = await _restClient.ForwardMessageAsync(targetChannelId, sourceChannelId, sourceMessageId, "forwarded context");
+
+            // Assert
+            result.Should().NotBeNull();
+            result!.Id.Should().Be(999UL);
+
+            capturedRequest.Should().NotBeNull();
+            var json = await capturedRequest!.Content!.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            doc.RootElement.GetProperty("message_reference").GetProperty("type").GetInt32().Should().Be(1);
+            doc.RootElement.GetProperty("message_reference").GetProperty("channel_id").GetUInt64().Should().Be(sourceChannelId);
+            doc.RootElement.GetProperty("message_reference").GetProperty("message_id").GetUInt64().Should().Be(sourceMessageId);
+        }
+
+        [Fact]
+        public async Task ForwardMessageAsync_ReturnsNull_WhenCreateMessageFails()
+        {
+            // Arrange
+            _mockHttpMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.BadRequest
+                });
+
+            // Act
+            var result = await _restClient.ForwardMessageAsync(111UL, 222UL, 333UL);
+
+            // Assert
+            result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetCurrentUserAsync_EmitsHeaderUpdateTelemetry_WhenRateLimitHeadersPresent()
+        {
+            // Arrange
+            var events = new List<RateLimitTelemetryEvent>();
+            _restClient.RateLimitObserved += (_, evt) => events.Add(evt);
+
+            var resetAt = DateTimeOffset.UtcNow.AddSeconds(30);
+            var response = new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(@"{ ""id"": ""123"", ""username"": ""test"" }")
+            };
+            response.Headers.TryAddWithoutValidation("X-RateLimit-Bucket", "bucket-abc");
+            response.Headers.TryAddWithoutValidation("X-RateLimit-Remaining", "4");
+            response.Headers.TryAddWithoutValidation("X-RateLimit-Reset", resetAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
+
+            _mockHttpMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(response);
+
+            // Act
+            var apiResponse = await _restClient.GetCurrentUserAsync();
+
+            // Assert
+            apiResponse.IsSuccessStatusCode.Should().BeTrue();
+            var telemetry = events.Single(e => e.Kind == RateLimitTelemetryKind.HeaderUpdate);
+            telemetry.Route.Should().Be("GET users/@me");
+            telemetry.BucketHash.Should().Be("bucket-abc");
+            telemetry.Remaining.Should().Be(4);
+            telemetry.ResetAt.Should().NotBeNull();
+            telemetry.ResetAt!.Value.ToUnixTimeSeconds().Should().Be(resetAt.ToUnixTimeSeconds());
+            telemetry.IsGlobal.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task GetCurrentUserAsync_EmitsRetryTelemetry_When429IsReturned()
+        {
+            // Arrange
+            var events = new List<RateLimitTelemetryEvent>();
+            _restClient.RateLimitObserved += (_, evt) => events.Add(evt);
+
+            var tooManyRequests = new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.TooManyRequests,
+                Content = new StringContent(@"{ ""retry_after"": 0.01 }")
+            };
+            tooManyRequests.Headers.TryAddWithoutValidation("X-RateLimit-Bucket", "bucket-retry");
+
+            var success = new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(@"{ ""id"": ""123"", ""username"": ""test"" }")
+            };
+
+            _mockHttpMessageHandler
+                .Protected()
+                .SetupSequence<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(tooManyRequests)
+                .ReturnsAsync(success);
+
+            // Act
+            var apiResponse = await _restClient.GetCurrentUserAsync();
+
+            // Assert
+            apiResponse.IsSuccessStatusCode.Should().BeTrue();
+            var retryEvent = events.Single(e => e.Kind == RateLimitTelemetryKind.RetryScheduled);
+            retryEvent.Route.Should().Be("GET users/@me");
+            retryEvent.BucketHash.Should().Be("bucket-retry");
+            retryEvent.Remaining.Should().Be(0);
+            retryEvent.RetryCount.Should().Be(1);
+            retryEvent.RetryAfter.Should().NotBeNull();
+            retryEvent.RetryAfter!.Value.Should().BeGreaterThan(TimeSpan.Zero);
         }
 
         [Fact]

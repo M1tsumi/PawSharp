@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.API.Interfaces;
 using PawSharp.API.Models;
+using PawSharp.API.RateLimit;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway;
@@ -91,14 +92,63 @@ namespace PawSharp.Client
         /// <summary>Access the interaction handler for registering slash commands and components.</summary>
         public InteractionHandler Interactions => _interactionHandler;
 
+        /// <summary>
+        /// Gets whether the configured REST client exposes rate-limit telemetry events.
+        /// </summary>
+        public bool SupportsRateLimitTelemetry => _restClient is IRateLimitTelemetrySource;
+
+        /// <summary>
+        /// Raised when rate-limit telemetry is emitted by the underlying REST client.
+        /// </summary>
+        public event EventHandler<RateLimitTelemetryEvent>? RateLimitObserved
+        {
+            add
+            {
+                if (_restClient is IRateLimitTelemetrySource telemetry)
+                {
+                    telemetry.RateLimitObserved += value;
+                }
+            }
+            remove
+            {
+                if (_restClient is IRateLimitTelemetrySource telemetry)
+                {
+                    telemetry.RateLimitObserved -= value;
+                }
+            }
+        }
+
         // ── Connection ────────────────────────────────────────────────────────────
 
         /// <summary>Opens the WebSocket connection to Discord's gateway.</summary>
         public async Task ConnectAsync()
         {
+            ValidateIntentConfiguration();
             _logger.LogInformation("Connecting to Discord...");
             await _gatewayClient.ConnectAsync();
             _logger.LogInformation("Connected to Discord.");
+        }
+
+        private void ValidateIntentConfiguration()
+        {
+            if (_options.IntentValidation == IntentValidationMode.Off)
+            {
+                return;
+            }
+
+            var result = this.ValidateIntents(_options.Intents);
+            if (result.IsValid)
+            {
+                return;
+            }
+
+            var message = $"Intent validation failed: {result}";
+            if (_options.IntentValidation == IntentValidationMode.Strict)
+            {
+                throw new InvalidOperationException(message);
+            }
+
+            _logger.LogWarning("{Message}", message);
         }
 
         /// <summary>Closes the WebSocket connection gracefully.</summary>
@@ -121,6 +171,44 @@ namespace PawSharp.Client
         public async Task<Message?> SendMessageAsync(ulong channelId, CreateMessageRequest request)
         {
             return await _restClient.CreateMessageAsync(channelId, request);
+        }
+
+        /// <summary>
+        /// Forwards a source message into another channel using Discord's message snapshot forwarding model.
+        /// </summary>
+        public async Task<Message?> ForwardMessageAsync(
+            ulong targetChannelId,
+            ulong sourceChannelId,
+            ulong sourceMessageId,
+            string? content = null,
+            bool failIfNotExists = true)
+        {
+            return await _restClient.ForwardMessageAsync(
+                targetChannelId,
+                sourceChannelId,
+                sourceMessageId,
+                content,
+                failIfNotExists);
+        }
+
+        /// <summary>
+        /// Forwards a source message using an explicit payload for additional fields such as allowed mentions.
+        /// The provided payload's <see cref="CreateMessageRequest.MessageReference"/> will be overwritten.
+        /// </summary>
+        public async Task<Message?> ForwardMessageAsync(
+            ulong targetChannelId,
+            ulong sourceChannelId,
+            ulong sourceMessageId,
+            CreateMessageRequest request,
+            bool failIfNotExists = true)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            request.MessageReference = MessageReference.Forward(sourceChannelId, sourceMessageId, failIfNotExists);
+            return await _restClient.CreateMessageAsync(targetChannelId, request);
         }
 
         /// <summary>Returns the current bot user from the Discord API.</summary>
