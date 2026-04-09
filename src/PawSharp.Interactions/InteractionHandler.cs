@@ -30,6 +30,17 @@ public class InteractionHandler
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _userContextMenuHandlers = new();
     private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _messageContextMenuHandlers = new();
 
+    /// <summary>
+    /// Optional warning callback invoked when a registration overwrites an existing handler.
+    /// </summary>
+    public Action<string>? RegistrationWarning { get; set; }
+
+    /// <summary>
+    /// When true, duplicate registrations throw instead of overwriting.
+    /// Default is false to preserve backward-compatible behavior.
+    /// </summary>
+    public bool ThrowOnDuplicateRegistration { get; set; }
+
     public InteractionHandler(IDiscordRestClient restClient)
     {
         _restClient = restClient;
@@ -40,7 +51,7 @@ public class InteractionHandler
     /// </summary>
     public void RegisterCommand(string name, Func<InteractionCreateEvent, Task> handler)
     {
-        _commandHandlers[name] = handler;
+        RegisterWithDiagnostics(_commandHandlers, name, handler, "slash command");
     }
 
     /// <summary>
@@ -48,7 +59,7 @@ public class InteractionHandler
     /// </summary>
     public void RegisterComponent(string customId, Func<InteractionCreateEvent, Task> handler)
     {
-        _componentHandlers[customId] = handler;
+        RegisterWithDiagnostics(_componentHandlers, customId, handler, "component");
     }
 
     /// <summary>
@@ -57,7 +68,7 @@ public class InteractionHandler
     /// </summary>
     public void RegisterAutocomplete(string commandName, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>> handler)
     {
-        _autocompleteHandlers[commandName] = handler;
+        RegisterWithDiagnostics(_autocompleteHandlers, commandName, handler, "autocomplete");
     }
 
     /// <summary>
@@ -65,7 +76,7 @@ public class InteractionHandler
     /// </summary>
     public void RegisterUserContextMenu(string name, Func<InteractionCreateEvent, Task> handler)
     {
-        _userContextMenuHandlers[name] = handler;
+        RegisterWithDiagnostics(_userContextMenuHandlers, name, handler, "user context menu");
     }
 
     /// <summary>
@@ -73,7 +84,7 @@ public class InteractionHandler
     /// </summary>
     public void RegisterMessageContextMenu(string name, Func<InteractionCreateEvent, Task> handler)
     {
-        _messageContextMenuHandlers[name] = handler;
+        RegisterWithDiagnostics(_messageContextMenuHandlers, name, handler, "message context menu");
     }
 
     /// <summary>
@@ -81,7 +92,25 @@ public class InteractionHandler
     /// </summary>
     public void RegisterModal(string customId, Func<InteractionCreateEvent, Task> handler)
     {
-        _modalHandlers[customId] = handler;
+        RegisterWithDiagnostics(_modalHandlers, customId, handler, "modal");
+    }
+
+    private void RegisterWithDiagnostics<THandler>(
+        Dictionary<string, THandler> handlers,
+        string key,
+        THandler handler,
+        string kind)
+    {
+        if (handlers.ContainsKey(key))
+        {
+            var message = $"A {kind} handler with key '{key}' is already registered and will be replaced.";
+            if (ThrowOnDuplicateRegistration)
+                throw new InvalidOperationException(message);
+
+            RegistrationWarning?.Invoke(message);
+        }
+
+        handlers[key] = handler;
     }
 
     /// <summary>

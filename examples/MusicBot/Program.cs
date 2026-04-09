@@ -29,8 +29,7 @@ public class Program
             Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent
         };
 
-        services.AddSingleton(options);
-        services.AddPawSharpClient();
+        services.SetupPawSharp(options);
         services.AddPawSharpCommands();
         services.AddPawSharpInteractivity();
 

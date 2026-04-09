@@ -158,6 +158,39 @@ public class Alpha13CoreTests
                .Should().Throw<InvalidOperationException>();
     }
 
+    [Fact]
+    public void EmbedTemplates_Error_CreatesExpectedTemplate()
+    {
+        var embed = EmbedTemplates.Error("Error", "Something went wrong").Build();
+
+        embed.Title.Should().Be("Error");
+        embed.Description.Should().Be("Something went wrong");
+        embed.Color.Should().Be(0xED4245);
+        embed.Timestamp.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void EmbedTemplates_Success_CreatesExpectedTemplate()
+    {
+        var embed = EmbedTemplates.Success("Done", "All good").Build();
+
+        embed.Title.Should().Be("Done");
+        embed.Description.Should().Be("All good");
+        embed.Color.Should().Be(0x57F287);
+        embed.Timestamp.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void MessageReference_Forward_FactorySetsRequiredFields()
+    {
+        var reference = MessageReference.Forward(channelId: 42UL, messageId: 99UL);
+
+        reference.Type.Should().Be((int)MessageReferenceType.Forward);
+        reference.ChannelId.Should().Be(42UL);
+        reference.MessageId.Should().Be(99UL);
+        reference.FailIfNotExists.Should().BeTrue();
+    }
+
     // ─── MessageFlags ─────────────────────────────────────────────────────────
 
     [Fact]

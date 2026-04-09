@@ -3,7 +3,7 @@
 
   # PawSharp
 
-  **A modular Discord API library for .NET**
+  **A modular Discord API wrapper for .NET**
 
   [![NuGet][nuget-badge]][nuget]
   [![Discord API][discord-api-badge]][discord-docs]
@@ -17,42 +17,41 @@
 
 ---
 
-PawSharp is a feature-complete, modular Discord API library for C# and .NET. It covers the full gateway lifecycle, ~140 REST endpoints, prefix commands with preconditions, slash command routing, in-memory caching, per-route rate limiting, interactivity helpers, and full voice support including Discord's **DAVE end-to-end encryption** — all in a single cohesive package suite with zero mandatory third-party dependencies outside the .NET runtime.
+PawSharp is a Discord library for C# developers who want clean building blocks instead of one giant monolith.
 
-> **Status:** `1.0.0-alpha.2` — public alpha. APIs may change between minor versions. See the [versioning policy][versioning].
+If you want a high-level client, use `PawSharp.Client`.
+If you only need specific pieces (REST, Gateway, Interactions, Voice), install just those packages.
 
----
+Current release status: `1.0.0-alpha.2`.
 
-## Packages
+This is a public alpha. The library is already usable, but some APIs can still evolve. See [versioning policy][versioning].
 
-Install only what your bot needs:
+## What You Get
 
-| Package | Description |
-|---------|-------------|
-| `PawSharp.Client` | High-level `DiscordClient` — the recommended starting point |
-| `PawSharp.Core` | Entities, enums, exceptions, validators, CDN helpers |
-| `PawSharp.API` | Raw REST client with bucket-aware rate limiting |
-| `PawSharp.Gateway` | WebSocket gateway, heartbeat, sharding, session resume |
-| `PawSharp.Commands` | Attribute-based prefix command framework with preconditions |
-| `PawSharp.Interactions` | Slash commands, buttons, select menus, modals |
-| `PawSharp.Interactivity` | Reaction waiting, polls, pagination, component waiters |
-| `PawSharp.Voice` | Voice connections + Opus + RTP + DAVE E2EE (MLS / AES-128-GCM) |
-
----
+- REST coverage for about 140+ Discord endpoints
+- Gateway connection lifecycle, heartbeat, reconnect, and session resume
+- Prefix commands with preconditions and cooldowns
+- Slash commands, components, and modals
+- Interactivity helpers for reactions/buttons/select menus
+- In-memory caching and route-aware rate limiting
+- Voice support with Opus, RTP, and Discord DAVE E2EE
 
 ## Installation
 
-```bash
-# Full client (recommended)
-dotnet add package PawSharp.Client --version 1.0.0-alpha.2
+Most bots should start with the full client package:
 
-# Or add individual packages
-dotnet add package PawSharp.Commands --version 1.0.0-alpha.2
-dotnet add package PawSharp.Interactions --version 1.0.0-alpha.2
-dotnet add package PawSharp.Voice --version 1.0.0-alpha.2
+```bash
+dotnet add package PawSharp.Client --version 1.0.0-alpha.2
 ```
 
----
+Add optional modules only when you need them:
+
+```bash
+dotnet add package PawSharp.Commands --version 1.0.0-alpha.2
+dotnet add package PawSharp.Interactions --version 1.0.0-alpha.2
+dotnet add package PawSharp.Interactivity --version 1.0.0-alpha.2
+dotnet add package PawSharp.Voice --version 1.0.0-alpha.2
+```
 
 ## Quick Start
 
@@ -60,202 +59,87 @@ dotnet add package PawSharp.Voice --version 1.0.0-alpha.2
 using PawSharp.Client;
 using PawSharp.Core.Enums;
 
+var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
+    ?? throw new InvalidOperationException("Set DISCORD_TOKEN before starting the bot.");
+
 var client = new PawSharpClientBuilder()
-    .WithToken(Environment.GetEnvironmentVariable("DISCORD_TOKEN")!)
+    .WithToken(token)
     .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .WithPresence("with .NET", status: "online")
     .UseConsoleLogging()
     .Build();
 
-client.OnMessageCreated(async msg =>
+client.OnMessageCreated(async evt =>
 {
-    if (msg.Author?.Bot == true) return;
-    if (msg.Content == "!ping")
-        await client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "Pong! 🏓" });
+    if (evt.Author?.Bot == true)
+    {
+        return;
+    }
+
+    if (evt.Content == "!ping")
+    {
+        await client.SendMessageAsync(evt.ChannelId, "Pong!");
+    }
 });
 
 await client.ConnectAsync();
 await Task.Delay(Timeout.Infinite);
 ```
 
----
+## Package Guide
 
-## Prefix Commands
+- `PawSharp.Client`: recommended entry point (`DiscordClient` and fluent builder)
+- `PawSharp.Core`: entities, enums, exceptions, validation, utility builders
+- `PawSharp.API`: raw REST layer with advanced rate-limit handling
+- `PawSharp.Gateway`: gateway connection and event dispatcher
+- `PawSharp.Commands`: attribute-based prefix command framework
+- `PawSharp.Interactions`: slash commands and interaction routing
+- `PawSharp.Interactivity`: wait helpers for reactions/components and polls
+- `PawSharp.Voice`: voice transport, Opus codec integration, DAVE E2EE support
 
-PawSharp's command framework uses attributes and supports cooldowns, permission checks, and guild-only guards out of the box.
+## Dependency Injection Setup
 
-```csharp
-var commands = client.UseCommands(prefix: "!");
-commands.RegisterModule(client, new ModerationCommands());
-commands.CommandErrored = async args =>
-{
-    if (args.Exception is PreconditionFailedException ex)
-        await args.Context.ReplyAsync(ex.Message);
-};
-
-// ── Module ────────────────────────────────────────────────────────────────────
-
-public class ModerationCommands : BaseCommandModule
-{
-    [Command("ping")]
-    [Description("Latency check")]
-    public async Task PingAsync(CommandContext ctx)
-        => await ctx.ReplyAsync("Pong! 🏓");
-
-    [Command("ban")]
-    [RequireGuild]
-    [RequirePermissions(Permissions.BanMembers)]
-    [Cooldown(maxUses: 3, perSeconds: 10, CooldownBucketType.User)]
-    public async Task BanAsync(CommandContext ctx, ulong userId, string reason = "No reason")
-    {
-        await ctx.Client.Rest.CreateGuildBanAsync(ctx.GuildId!.Value, userId, reason: reason);
-        await ctx.ReplyAsync($"User `{userId}` has been banned.");
-    }
-}
-```
-
----
-
-## Slash Commands
+For `Microsoft.Extensions.DependencyInjection`, use the one-call setup entrypoint:
 
 ```csharp
-client.Interactions.RegisterCommand("ping", async interaction =>
+using PawSharp.Client.Extensions;
+using PawSharp.Core.Enums;
+using PawSharp.Core.Models;
+
+services.SetupPawSharp(new PawSharpOptions
 {
-    await client.Interactions.RespondAsync(interaction.Id, interaction.Token,
-        new InteractionResponse
-        {
-            Type = (int)InteractionResponseType.ChannelMessageWithSource,
-            Data = new InteractionCallbackData { Content = "Pong! 🏓" }
-        });
-});
-```
-
----
-
-## Interactivity
-
-Wait for button clicks or select menu submissions directly on a message:
-
-```csharp
-var msg = await ctx.Client.Rest.CreateMessageAsync(ctx.ChannelId, new()
-{
-    Content    = "Choose an option:",
-    Components = ComponentBuilder.ActionRow(
-        ComponentBuilder.Button("Confirm", customId: "confirm", style: ButtonStyle.Success),
-        ComponentBuilder.Button("Cancel",  customId: "cancel",  style: ButtonStyle.Danger))
+    Token = token,
+    Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent
 });
 
-var result = await msg.WaitForButtonAsync(ctx.Client, user: ctx.User, timeout: TimeSpan.FromSeconds(30));
-
-if (result.TimedOut)
-    await ctx.RespondAsync("Timed out.");
-else if (result.Result!.Data?.CustomId == "confirm")
-    await ctx.RespondAsync("Confirmed!");
+services.AddPawSharpCommands();
+services.AddPawSharpInteractions();
 ```
 
----
+## Alpha.2 Highlights
 
-## Voice + DAVE E2EE
+- `SetupPawSharp(options)` for simpler DI setup
+- Connect-time intent validation modes (`Off`, `Warn`, `Strict`)
+- Message forwarding support using Discord message reference forwarding
+- Structured rate-limit telemetry from the REST client (`RateLimitObserved`)
+- `EmbedTemplates` helpers for common success/error/info/warning responses
 
-```csharp
-var voice      = client.UseVoice();
-var connection = await voice.ConnectAsync(voiceChannelId);
+## Still In Progress
 
-await connection.SetSpeakingAsync(true);
+- Slash command attribute auto-registration scanner (manual registration works today)
+- Dedicated Redis cache package publication (provider implementation exists)
 
-// Stream pre-encoded PCM (16-bit mono 48 kHz)
-await connection.SendAudioAsync(pcmBytes);
+## Documentation And Examples
 
-// Or capture from microphone
-connection.StartCapture();   // PCM → Opus → AES-128-GCM (DAVE) → RTP → UDP
-// ...
-connection.StopCapture();
-
-await connection.DisconnectAsync();
-```
-
-Each outgoing frame is a 20 ms Opus packet in a 12-byte RTP header (RFC 3550 §5.1, payload type 120). The RTP header is passed as Additional Authenticated Data to AES-128-GCM, so the auth tag covers the full packet. Keys are derived per-sender via HKDF-SHA256 from the MLS epoch secret. The full crypto stack is built on `System.Security.Cryptography` — no third-party crypto packages required.
-
----
-
-## Dependency Injection
-
-PawSharp integrates cleanly with `Microsoft.Extensions.DependencyInjection`:
-
-```csharp
-services.AddSingleton(new PawSharpOptions { Token = token });
-services.AddHttpClient<IDiscordRestClient, DiscordRestClient>();
-services.AddSingleton<DiscordClient>();
-```
-
----
-
-## Error Handling
-
-All errors surface as typed exceptions:
-
-```csharp
-try
-{
-    await client.Rest.CreateMessageAsync(channelId, request);
-}
-catch (ValidationException ex)  { /* invalid content / embed   */ }
-catch (RateLimitException ex)   { /* still rate-limited        */ }
-catch (DiscordApiException ex)  { /* non-2xx response from API */ }
-```
-
----
-
-## Features at a Glance
-
-| Area | Detail |
-|------|--------|
-| **REST** | ~140 endpoints — messages, channels, guilds, roles, webhooks, threads, AutoMod, polls, stage instances, scheduled events |
-| **Gateway** | Auto-reconnect, session resume, configurable sharding, all standard opcodes |
-| **Caching** | In-memory entity cache (guilds, channels, messages, members, roles) kept in sync from gateway events |
-| **Rate Limiting** | Per-route bucket tracking, global rate limit detection, automatic 429 retry with back-off |
-| **Commands** | Attribute-based modules, `[RequireGuild]`, `[RequirePermissions]`, `[Cooldown]`, `ReplyAsync` |
-| **Interactions** | Slash command routing, button & select handlers, modal support, follow-up messages |
-| **Interactivity** | `WaitForReactionAsync`, `WaitForButtonAsync`, `WaitForSelectAsync`, `CollectReactionsAsync`, polls |
-| **Voice** | Full Opus encode/decode (Concentus), RFC 3550 RTP framing, DAVE E2EE via RFC 9420 MLS |
-| **CDN** | Typed URL builders for avatars, guild icons, banners, emojis, stickers |
-
----
-
-## Project Layout
-
-```
-src/
-  PawSharp.Core          — entities, enums, exceptions, builders, validators, CDN helpers
-  PawSharp.API           — REST client + advanced rate limiter
-  PawSharp.Gateway       — WebSocket gateway, event dispatcher, heartbeat, sharding
-  PawSharp.Cache         — cache abstractions + in-memory provider
-  PawSharp.Client        — high-level DiscordClient and fluent builder
-  PawSharp.Commands      — prefix command framework with preconditions
-  PawSharp.Interactions  — slash commands, components, modals
-  PawSharp.Interactivity — reaction/component waiting, polls, pagination
-  PawSharp.Voice         — voice connections, Opus codec, RTP, DAVE E2EE
-tests/                   — unit and integration tests
-examples/                — sample bots: DashboardBot, ModerationBot, MusicBot
-docs/                    — developer guides + DocFX API reference
-```
-
----
-
-## What Is Still In Progress
-
-| Feature | Status |
-|---------|--------|
-| Slash command attribute auto-register | Manual registration works; `[SlashCommand]` scanner coming in a future release |
-| Redis cache NuGet package | Provider exists and is tested; publication pending |
-
----
+- Start here: [docs/INDEX.md][docs-index]
+- REST guide: [docs/REST_API_GUIDE.md][rest-guide]
+- Gateway guide: [docs/GATEWAY_GUIDE.md][gateway-guide]
+- Voice guide: [docs/VOICE_GUIDE.md][voice-guide]
+- Troubleshooting: [docs/TROUBLESHOOTING.md][troubleshooting]
+- Working sample bots: [examples][examples]
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md][contributing] before opening a pull request.
-
----
+Contributions are welcome. Please read [CONTRIBUTING.md][contributing] before opening a pull request.
 
 ## License
 
@@ -272,9 +156,14 @@ PawSharp is distributed under the [MIT License][license].
 [dotnet-link]:       https://dotnet.microsoft.com/en-us/download/dotnet/10.0
 [license-badge]:     https://img.shields.io/badge/license-MIT-22c55e?style=flat-square
 [license]:           LICENSE
-[build-badge]:       https://img.shields.io/github/actions/workflow/status/M1tsumi/PawSharp/build.yml?style=flat-square
-[build]:             https://github.com/M1tsumi/PawSharp/actions
+[build-badge]:       https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml/badge.svg
+[build]:             https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml
 [docs]:              https://github.com/M1tsumi/PawSharp/tree/main/docs
+[docs-index]:        docs/INDEX.md
+[rest-guide]:        docs/REST_API_GUIDE.md
+[gateway-guide]:     docs/GATEWAY_GUIDE.md
+[voice-guide]:       docs/VOICE_GUIDE.md
+[troubleshooting]:   docs/TROUBLESHOOTING.md
 [changelog]:         CHANGELOG.md
 [examples]:          examples/
 [contributing]:      CONTRIBUTING.md

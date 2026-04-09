@@ -307,7 +307,7 @@ PawSharp implements **140+ Discord API endpoints**:
 **Latest:** 1.0.0-alpha.2 (March 29, 2026)
 
 Documentation covers:
-- ✅ 0.5.0-alpha10 and later
+- ✅ 1.0.0-alpha.1 and later
 - ⚠️ May contain breaking changes in alpha versions
 - 🎯 Preparing for 1.0.0 stable release
 
