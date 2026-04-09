@@ -209,6 +209,30 @@ public class InteractionHandlerTests
         callCount.Should().Be(10);
     }
 
+    [Fact]
+    public void RegisterCommand_WhenDuplicate_InvokesWarningCallback()
+    {
+        var warnings = new List<string>();
+        _handler.RegistrationWarning = warnings.Add;
+
+        _handler.RegisterCommand("dupe", _ => Task.CompletedTask);
+        _handler.RegisterCommand("dupe", _ => Task.CompletedTask);
+
+        warnings.Should().ContainSingle();
+        warnings[0].Should().Contain("dupe");
+    }
+
+    [Fact]
+    public void RegisterCommand_WhenDuplicateAndStrict_ThrowsInvalidOperationException()
+    {
+        _handler.ThrowOnDuplicateRegistration = true;
+        _handler.RegisterCommand("dupe", _ => Task.CompletedTask);
+
+        _handler.Invoking(h => h.RegisterCommand("dupe", _ => Task.CompletedTask))
+                .Should().Throw<InvalidOperationException>()
+                .WithMessage("*dupe*");
+    }
+
     // ─────────────────────────────────────────────
     //  Helpers
     // ─────────────────────────────────────────────

@@ -38,6 +38,10 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
 
+      - name: Release hygiene guard
+        shell: pwsh
+        run: ./tools/check-release-hygiene.ps1
+
       - name: Restore
         run: dotnet restore PawSharp.sln
 
@@ -79,8 +83,13 @@ jobs:
       - name: Build
         run: dotnet build PawSharp.sln -c Release --no-restore --nologo
 
-      - name: Pack
-        run: dotnet pack PawSharp.sln -c Release --no-build --nologo --output ./nupkgs
+      - name: Pack all library projects
+        run: |
+          rm -rf ./nupkgs
+          mkdir -p ./nupkgs
+          for project in src/*/*.csproj; do
+            dotnet pack "$project" -c Release --no-build --nologo --output ./nupkgs
+          done
 
       - name: Upload packages
         uses: actions/upload-artifact@v4

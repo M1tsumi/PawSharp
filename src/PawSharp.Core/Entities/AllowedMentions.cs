@@ -105,8 +105,27 @@ public sealed class AllowedMentions
 /// <summary>
 /// Represents the target of a message reply / crosspost reference.
 /// </summary>
+public enum MessageReferenceType
+{
+    /// <summary>Standard reference used by replies.</summary>
+    Default = 0,
+
+    /// <summary>Reference used to capture a forwarded message snapshot.</summary>
+    Forward = 1,
+}
+
+/// <summary>
+/// Represents the target of a message reply / crosspost / forward reference.
+/// </summary>
 public sealed class MessageReference
 {
+    /// <summary>
+    /// Type of reference. When omitted, Discord treats it as <see cref="MessageReferenceType.Default"/>.
+    /// </summary>
+    [JsonPropertyName("type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Type { get; set; }
+
     /// <summary>
     /// ID of the originating message.
     /// </summary>
@@ -140,5 +159,18 @@ public sealed class MessageReference
     /// Creates a reply reference pointing at the given message.
     /// </summary>
     public static MessageReference Reply(ulong messageId, bool failIfNotExists = false)
-        => new() { MessageId = messageId, FailIfNotExists = failIfNotExists };
+        => new() { Type = (int)MessageReferenceType.Default, MessageId = messageId, FailIfNotExists = failIfNotExists };
+
+    /// <summary>
+    /// Creates a forward reference using Discord's message snapshot model.
+    /// Requires source channel and message IDs.
+    /// </summary>
+    public static MessageReference Forward(ulong channelId, ulong messageId, bool failIfNotExists = true)
+        => new()
+        {
+            Type = (int)MessageReferenceType.Forward,
+            ChannelId = channelId,
+            MessageId = messageId,
+            FailIfNotExists = failIfNotExists,
+        };
 }

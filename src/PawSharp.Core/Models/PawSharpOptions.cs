@@ -5,6 +5,21 @@ using PawSharp.Core.Enums;
 namespace PawSharp.Core.Models;
 
 /// <summary>
+/// Controls how intent validation behaves when the client connects.
+/// </summary>
+public enum IntentValidationMode
+{
+    /// <summary>Skip intent validation completely.</summary>
+    Off = 0,
+
+    /// <summary>Log missing intents but continue connecting.</summary>
+    Warn = 1,
+
+    /// <summary>Throw when required intents are missing.</summary>
+    Strict = 2,
+}
+
+/// <summary>
 /// Configuration options for PawSharp.
 /// </summary>
 public class PawSharpOptions
@@ -18,6 +33,12 @@ public class PawSharpOptions
     /// Gateway intents to subscribe to.
     /// </summary>
     public GatewayIntents Intents { get; set; } = GatewayIntents.AllNonPrivileged;
+
+    /// <summary>
+    /// Determines how missing handler intents are handled during <c>ConnectAsync</c>.
+    /// Defaults to <see cref="IntentValidationMode.Warn"/> for developer-friendly diagnostics.
+    /// </summary>
+    public IntentValidationMode IntentValidation { get; set; } = IntentValidationMode.Warn;
     
     /// <summary>
     /// Number of shards for this instance.

@@ -1,4 +1,5 @@
 #nullable enable
+#pragma warning disable IDE0011
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,9 +14,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.API.Interfaces;
-using PawSharp.API.Security;
-using PawSharp.API.RateLimit;
 using PawSharp.API.Models;
+using PawSharp.API.RateLimit;
+using PawSharp.API.Security;
 using PawSharp.Core.Entities;
 using PawSharp.Core.Exceptions;
 using PawSharp.Core.Models;
@@ -26,7 +27,7 @@ namespace PawSharp.API.Clients;
 /// <summary>
 /// Implementation of Discord REST API client with rate limiting.
 /// </summary>
-public class DiscordRestClient : IDiscordRestClient
+public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 {
     /// <summary>
     /// Shared serializer options: Discord's REST API requires lowercase snake_case field names.
@@ -51,6 +52,9 @@ public class DiscordRestClient : IDiscordRestClient
     private readonly IAdvancedRateLimiter _rateLimiter;
     private DateTimeOffset _globalReset = DateTimeOffset.MinValue;
 
+    /// <inheritdoc />
+    public event EventHandler<RateLimitTelemetryEvent>? RateLimitObserved;
+
     public DiscordRestClient(HttpClient httpClient, PawSharpOptions options, ILogger<DiscordRestClient> logger, IAdvancedRateLimiter rateLimiter)
     {
         _httpClient = httpClient;
@@ -64,7 +68,7 @@ public class DiscordRestClient : IDiscordRestClient
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.0.0-alpha.1)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.0.0-alpha.2)");
     }
 
     /// <summary>
@@ -158,17 +162,38 @@ public class DiscordRestClient : IDiscordRestClient
         {
             throw new ValidationException("Limit must be between 1 and 200", nameof(limit), limit);
         }
-        if (before.HasValue) SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
-        if (after.HasValue) SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+        if (before.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+        }
+
+        if (after.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+        }
 
         var queryParams = new List<string>();
-        if (limit != 200) queryParams.Add($"limit={limit}");
-        if (before.HasValue) queryParams.Add($"before={before.Value}");
-        if (after.HasValue) queryParams.Add($"after={after.Value}");
-        
+        if (limit != 200)
+        {
+            queryParams.Add($"limit={limit}");
+        }
+
+        if (before.HasValue)
+        {
+            queryParams.Add($"before={before.Value}");
+        }
+
+        if (after.HasValue)
+        {
+            queryParams.Add($"after={after.Value}");
+        }
+
         var endpoint = "users/@me/guilds";
-        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
-        
+        if (queryParams.Any())
+        {
+            endpoint += "?" + string.Join("&", queryParams);
+        }
+
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
         {
@@ -217,6 +242,31 @@ public class DiscordRestClient : IDiscordRestClient
         return null;
     }
 
+    public async Task<Message?> ForwardMessageAsync(
+        ulong targetChannelId,
+        ulong sourceChannelId,
+        ulong sourceMessageId,
+        string? content = null,
+        bool failIfNotExists = true)
+    {
+        SnowflakeValidator.ValidateSnowflake(targetChannelId, nameof(targetChannelId));
+        SnowflakeValidator.ValidateSnowflake(sourceChannelId, nameof(sourceChannelId));
+        SnowflakeValidator.ValidateSnowflake(sourceMessageId, nameof(sourceMessageId));
+
+        if (content != null)
+        {
+            ContentValidator.ValidateMessageContent(content);
+        }
+
+        var request = new CreateMessageRequest
+        {
+            Content = content,
+            MessageReference = MessageReference.Forward(sourceChannelId, sourceMessageId, failIfNotExists)
+        };
+
+        return await CreateMessageAsync(targetChannelId, request);
+    }
+
     public async Task<Message?> SendFileAsync(
         ulong channelId,
         Stream fileStream,
@@ -240,7 +290,10 @@ public class DiscordRestClient : IDiscordRestClient
 
         var response = await PostAsync($"channels/{channelId}/messages", form, cancellationToken: cancellationToken);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions, cancellationToken);
+        }
+
         return null;
     }
 
@@ -275,7 +328,10 @@ public class DiscordRestClient : IDiscordRestClient
 
         var response = await PostAsync($"channels/{channelId}/messages", form, cancellationToken: cancellationToken);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions, cancellationToken);
+        }
+
         return null;
     }
 
@@ -334,15 +390,35 @@ public class DiscordRestClient : IDiscordRestClient
         {
             throw new ValidationException("Limit must be between 1 and 100", nameof(limit), limit);
         }
-        if (around.HasValue) SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
-        if (before.HasValue) SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
-        if (after.HasValue) SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+        if (around.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+        }
+
+        if (before.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+        }
+
+        if (after.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+        }
 
         var queryParams = new List<string> { $"limit={Math.Min(limit, 100)}" };
-        if (around.HasValue) queryParams.Add($"around={around.Value}");
-        else if (before.HasValue) queryParams.Add($"before={before.Value}");
-        else if (after.HasValue) queryParams.Add($"after={after.Value}");
-        
+        if (around.HasValue)
+        {
+            queryParams.Add($"around={around.Value}");
+        }
+        else if (before.HasValue)
+        {
+            queryParams.Add($"before={before.Value}");
+        }
+        else if (after.HasValue)
+        {
+            queryParams.Add($"after={after.Value}");
+        }
+
         var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}");
         if (response.IsSuccessStatusCode)
         {
@@ -469,8 +545,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var endpoint = $"guilds/{guildId}";
         if (withCounts)
+        {
             endpoint += "?with_counts=true";
-        
+        }
+
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
         {
@@ -519,7 +597,9 @@ public class DiscordRestClient : IDiscordRestClient
         {
             using var doc = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             if (doc.RootElement.TryGetProperty("level", out var lv))
+            {
                 return lv.GetInt32();
+            }
         }
         return null;
     }
@@ -537,7 +617,11 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000, ulong? after = null)
     {
         var qs = $"limit={limit}";
-        if (after.HasValue) qs += $"&after={after}";
+        if (after.HasValue)
+        {
+            qs += $"&after={after}";
+        }
+
         var response = await GetAsync($"guilds/{guildId}/members?{qs}");
         if (response.IsSuccessStatusCode)
         {
@@ -587,9 +671,21 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<Ban>?> GetGuildBansAsync(ulong guildId, ulong? before = null, ulong? after = null, int? limit = null)
     {
         var qs = new System.Text.StringBuilder();
-        if (before.HasValue) qs.Append($"before={before}&");
-        if (after.HasValue)  qs.Append($"after={after}&");
-        if (limit.HasValue)  qs.Append($"limit={limit}&");
+        if (before.HasValue)
+        {
+            qs.Append($"before={before}&");
+        }
+
+        if (after.HasValue)
+        {
+            qs.Append($"after={after}&");
+        }
+
+        if (limit.HasValue)
+        {
+            qs.Append($"limit={limit}&");
+        }
+
         var query = qs.Length > 0 ? "?" + qs.ToString().TrimEnd('&') : string.Empty;
         var response = await GetAsync($"guilds/{guildId}/bans{query}");
         if (response.IsSuccessStatusCode)
@@ -686,7 +782,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"webhooks/{applicationId}/{interactionToken}/messages/@original");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>();
+        }
+
         return null;
     }
     
@@ -956,9 +1055,21 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId, bool withMember = false, ulong? after = null, int? limit = null)
     {
         var qs = new System.Text.StringBuilder();
-        if (withMember)     qs.Append("with_member=true&");
-        if (after.HasValue) qs.Append($"after={after}&");
-        if (limit.HasValue) qs.Append($"limit={limit}&");
+        if (withMember)
+        {
+            qs.Append("with_member=true&");
+        }
+
+        if (after.HasValue)
+        {
+            qs.Append($"after={after}&");
+        }
+
+        if (limit.HasValue)
+        {
+            qs.Append($"limit={limit}&");
+        }
+
         var query = qs.Length > 0 ? "?" + qs.ToString().TrimEnd('&') : string.Empty;
         var response = await GetAsync($"channels/{channelId}/thread-members{query}");
         if (response.IsSuccessStatusCode)
@@ -972,46 +1083,82 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/threads/active");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<ActiveThreadsResponse>(_jsonOptions);
+        }
+
         return null;
     }
     
     public async Task<ArchivedThreadsResponse?> GetPublicArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
     {
         var query = new List<string>();
-        if (before.HasValue) query.Add($"before={before.Value.UtcDateTime:O}");
-        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        if (before.HasValue)
+        {
+            query.Add($"before={before.Value.UtcDateTime:O}");
+        }
+
+        if (limit.HasValue)
+        {
+            query.Add($"limit={limit.Value}");
+        }
+
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"channels/{channelId}/threads/archived/public{queryString}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<ArchivedThreadsResponse>(_jsonOptions);
+        }
+
         return null;
     }
     
     public async Task<ArchivedThreadsResponse?> GetPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
     {
         var query = new List<string>();
-        if (before.HasValue) query.Add($"before={before.Value.UtcDateTime:O}");
-        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        if (before.HasValue)
+        {
+            query.Add($"before={before.Value.UtcDateTime:O}");
+        }
+
+        if (limit.HasValue)
+        {
+            query.Add($"limit={limit.Value}");
+        }
+
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"channels/{channelId}/threads/archived/private{queryString}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<ArchivedThreadsResponse>(_jsonOptions);
+        }
+
         return null;
     }
     
     public async Task<ArchivedThreadsResponse?> GetJoinedPrivateArchivedThreadsAsync(ulong channelId, DateTimeOffset? before = null, int? limit = null)
     {
         var query = new List<string>();
-        if (before.HasValue) query.Add($"before={before.Value.UtcDateTime:O}");
-        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        if (before.HasValue)
+        {
+            query.Add($"before={before.Value.UtcDateTime:O}");
+        }
+
+        if (limit.HasValue)
+        {
+            query.Add($"limit={limit.Value}");
+        }
+
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"channels/{channelId}/users/@me/threads/archived/private{queryString}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<ArchivedThreadsResponse>(_jsonOptions);
+        }
+
         return null;
     }
     
@@ -1104,10 +1251,22 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<Message?> ExecuteWebhookAsync(ulong webhookId, string token, ExecuteWebhookRequest request, ulong? threadId = null)
     {
         var queryParts = new List<string>();
-        if (threadId.HasValue) queryParts.Add($"thread_id={threadId.Value}");
-        if (request.Wait) queryParts.Add("wait=true");
+        if (threadId.HasValue)
+        {
+            queryParts.Add($"thread_id={threadId.Value}");
+        }
+
+        if (request.Wait)
+        {
+            queryParts.Add("wait=true");
+        }
+
         var endpoint = $"webhooks/{webhookId}/{token}";
-        if (queryParts.Count > 0) endpoint += "?" + string.Join("&", queryParts);
+        if (queryParts.Count > 0)
+        {
+            endpoint += "?" + string.Join("&", queryParts);
+        }
+
         var content = JsonContent(request);
         var response = await PostAsync(endpoint, content);
         if (response.IsSuccessStatusCode)
@@ -1120,28 +1279,46 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<Message?> GetWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
     {
         var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
-        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        if (threadId.HasValue)
+        {
+            endpoint += $"?thread_id={threadId.Value}";
+        }
+
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>();
+        }
+
         return null;
     }
 
     public async Task<Message?> EditWebhookMessageAsync(ulong webhookId, string token, ulong messageId, EditMessageRequest request, ulong? threadId = null)
     {
         var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
-        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        if (threadId.HasValue)
+        {
+            endpoint += $"?thread_id={threadId.Value}";
+        }
+
         var content = JsonContent(request);
         var response = await PatchAsync(endpoint, content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>();
+        }
+
         return null;
     }
 
     public async Task<bool> DeleteWebhookMessageAsync(ulong webhookId, string token, ulong messageId, ulong? threadId = null)
     {
         var endpoint = $"webhooks/{webhookId}/{token}/messages/{messageId}";
-        if (threadId.HasValue) endpoint += $"?thread_id={threadId.Value}";
+        if (threadId.HasValue)
+        {
+            endpoint += $"?thread_id={threadId.Value}";
+        }
+
         var response = await DeleteAsync(endpoint);
         return response.IsSuccessStatusCode;
     }
@@ -1150,7 +1327,11 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<bool> ExecuteSlackCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false)
     {
         var endpoint = $"webhooks/{webhookId}/{token}/slack";
-        if (wait) endpoint += "?wait=true";
+        if (wait)
+        {
+            endpoint += "?wait=true";
+        }
+
         var content = JsonContent(payload);
         var response = await PostAsync(endpoint, content);
         return response.IsSuccessStatusCode;
@@ -1160,7 +1341,11 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<bool> ExecuteGitHubCompatibleWebhookAsync(ulong webhookId, string token, object payload, bool wait = false)
     {
         var endpoint = $"webhooks/{webhookId}/{token}/github";
-        if (wait) endpoint += "?wait=true";
+        if (wait)
+        {
+            endpoint += "?wait=true";
+        }
+
         var content = JsonContent(payload);
         var response = await PostAsync(endpoint, content);
         return response.IsSuccessStatusCode;
@@ -1220,10 +1405,26 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<User>?> GetGuildScheduledEventUsersAsync(ulong guildId, ulong eventId, int? limit = null, bool? withMember = null, ulong? before = null, ulong? after = null)
     {
         var query = new List<string>();
-        if (limit.HasValue) query.Add($"limit={limit.Value}");
-        if (withMember.HasValue) query.Add($"with_member={withMember.Value.ToString().ToLower()}");
-        if (before.HasValue) query.Add($"before={before.Value}");
-        if (after.HasValue) query.Add($"after={after.Value}");
+        if (limit.HasValue)
+        {
+            query.Add($"limit={limit.Value}");
+        }
+
+        if (withMember.HasValue)
+        {
+            query.Add($"with_member={withMember.Value.ToString().ToLower()}");
+        }
+
+        if (before.HasValue)
+        {
+            query.Add($"before={before.Value}");
+        }
+
+        if (after.HasValue)
+        {
+            query.Add($"after={after.Value}");
+        }
+
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"guilds/{guildId}/scheduled-events/{eventId}/users{queryString}");
@@ -1238,11 +1439,31 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<AuditLog?> GetGuildAuditLogsAsync(ulong guildId, ulong? userId = null, AuditLogEvent? actionType = null, ulong? before = null, ulong? after = null, int? limit = null)
     {
         var query = new List<string>();
-        if (userId.HasValue) query.Add($"user_id={userId.Value}");
-        if (actionType.HasValue) query.Add($"action_type={(int)actionType.Value}");
-        if (before.HasValue) query.Add($"before={before.Value}");
-        if (after.HasValue) query.Add($"after={after.Value}");
-        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        if (userId.HasValue)
+        {
+            query.Add($"user_id={userId.Value}");
+        }
+
+        if (actionType.HasValue)
+        {
+            query.Add($"action_type={(int)actionType.Value}");
+        }
+
+        if (before.HasValue)
+        {
+            query.Add($"before={before.Value}");
+        }
+
+        if (after.HasValue)
+        {
+            query.Add($"after={after.Value}");
+        }
+
+        if (limit.HasValue)
+        {
+            query.Add($"limit={limit.Value}");
+        }
+
         var queryString = query.Any() ? "?" + string.Join("&", query) : "";
         
         var response = await GetAsync($"guilds/{guildId}/audit-logs{queryString}");
@@ -1308,7 +1529,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync("stage-instances", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<StageInstance>();
+        }
+
         return null;
     }
 
@@ -1316,7 +1540,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"stage-instances/{channelId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<StageInstance>();
+        }
+
         return null;
     }
 
@@ -1325,7 +1552,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"stage-instances/{channelId}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<StageInstance>();
+        }
+
         return null;
     }
 
@@ -1340,7 +1570,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"stickers/{stickerId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Sticker>();
+        }
+
         return null;
     }
 
@@ -1348,7 +1581,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("sticker-packs");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<StickerPack>>();
+        }
+
         return null;
     }
 
@@ -1356,7 +1592,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/stickers");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<Sticker>>();
+        }
+
         return null;
     }
 
@@ -1364,7 +1603,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/stickers/{stickerId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Sticker>();
+        }
+
         return null;
     }
 
@@ -1384,7 +1626,10 @@ public class DiscordRestClient : IDiscordRestClient
         }
         var response = await PostAsync($"guilds/{guildId}/stickers", formContent);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Sticker>();
+        }
+
         return null;
     }
 
@@ -1393,7 +1638,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/stickers/{stickerId}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Sticker>();
+        }
+
         return null;
     }
 
@@ -1410,7 +1658,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(payload);
         var response = await PostAsync("users/@me/channels", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Channel>();
+        }
+
         return null;
     }
 
@@ -1419,7 +1670,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("gateway/bot");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GatewayBotInfo>();
+        }
+
         return null;
     }
 
@@ -1428,7 +1682,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("voice/regions");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>();
+        }
+
         return null;
     }
 
@@ -1436,7 +1693,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/regions");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>();
+        }
+
         return null;
     }
 
@@ -1445,7 +1705,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await PostAsync($"channels/{channelId}/messages/{messageId}/crosspost", null);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>();
+        }
+
         return null;
     }
 
@@ -1462,7 +1725,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("users/@me/connections");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<UserConnection>>();
+        }
+
         return null;
     }
 
@@ -1472,10 +1738,17 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<GuildMember>?> SearchGuildMembersAsync(ulong guildId, string query, int? limit = null)
     {
         var queryParams = new List<string> { $"query={Uri.EscapeDataString(query)}" };
-        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
+        if (limit.HasValue)
+        {
+            queryParams.Add($"limit={limit.Value}");
+        }
+
         var response = await GetAsync($"guilds/{guildId}/members/search?{string.Join("&", queryParams)}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<GuildMember>>();
+        }
+
         return null;
     }
 
@@ -1486,7 +1759,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(payload);
         var response = await PatchAsync($"guilds/{guildId}/members/@me", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildMember>();
+        }
+
         return null;
     }
 
@@ -1494,10 +1770,22 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<User>?> GetAnswerVotersAsync(ulong channelId, ulong messageId, int answerId, int? limit = null, ulong? after = null)
     {
         var queryParams = new List<string>();
-        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
-        if (after.HasValue) queryParams.Add($"after={after.Value}");
+        if (limit.HasValue)
+        {
+            queryParams.Add($"limit={limit.Value}");
+        }
+
+        if (after.HasValue)
+        {
+            queryParams.Add($"after={after.Value}");
+        }
+
         var endpoint = $"channels/{channelId}/polls/{messageId}/answers/{answerId}";
-        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
+        if (queryParams.Any())
+        {
+            endpoint += "?" + string.Join("&", queryParams);
+        }
+
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
         {
@@ -1511,7 +1799,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await PostAsync($"channels/{channelId}/polls/{messageId}/expire", new StringContent("{}", Encoding.UTF8, "application/json"));
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>();
+        }
+
         return null;
     }
 
@@ -1520,7 +1811,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"applications/{applicationId}/skus");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<Sku>>();
+        }
+
         return null;
     }
 
@@ -1528,18 +1822,53 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<Entitlement>?> ListEntitlementsAsync(ulong applicationId, ulong? userId = null, List<ulong>? skuIds = null, ulong? before = null, ulong? after = null, int? limit = null, ulong? guildId = null, bool? excludeEnded = null)
     {
         var queryParams = new List<string>();
-        if (userId.HasValue) queryParams.Add($"user_id={userId.Value}");
-        if (skuIds?.Any() == true) queryParams.Add($"sku_ids={string.Join(",", skuIds)}");
-        if (before.HasValue) queryParams.Add($"before={before.Value}");
-        if (after.HasValue) queryParams.Add($"after={after.Value}");
-        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
-        if (guildId.HasValue) queryParams.Add($"guild_id={guildId.Value}");
-        if (excludeEnded.HasValue) queryParams.Add($"exclude_ended={excludeEnded.Value.ToString().ToLower()}");
+        if (userId.HasValue)
+        {
+            queryParams.Add($"user_id={userId.Value}");
+        }
+
+        if (skuIds?.Any() == true)
+        {
+            queryParams.Add($"sku_ids={string.Join(",", skuIds)}");
+        }
+
+        if (before.HasValue)
+        {
+            queryParams.Add($"before={before.Value}");
+        }
+
+        if (after.HasValue)
+        {
+            queryParams.Add($"after={after.Value}");
+        }
+
+        if (limit.HasValue)
+        {
+            queryParams.Add($"limit={limit.Value}");
+        }
+
+        if (guildId.HasValue)
+        {
+            queryParams.Add($"guild_id={guildId.Value}");
+        }
+
+        if (excludeEnded.HasValue)
+        {
+            queryParams.Add($"exclude_ended={excludeEnded.Value.ToString().ToLower()}");
+        }
+
         var endpoint = $"applications/{applicationId}/entitlements";
-        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
+        if (queryParams.Any())
+        {
+            endpoint += "?" + string.Join("&", queryParams);
+        }
+
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<Entitlement>>();
+        }
+
         return null;
     }
 
@@ -1547,7 +1876,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"applications/{applicationId}/entitlements/{entitlementId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Entitlement>();
+        }
+
         return null;
     }
 
@@ -1556,7 +1888,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"applications/{applicationId}/entitlements", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Entitlement>();
+        }
+
         return null;
     }
 
@@ -1576,15 +1911,38 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<Subscription>?> ListSkuSubscriptionsAsync(ulong skuId, ulong? before = null, ulong? after = null, int? limit = null, ulong? userId = null)
     {
         var queryParams = new List<string>();
-        if (before.HasValue) queryParams.Add($"before={before.Value}");
-        if (after.HasValue) queryParams.Add($"after={after.Value}");
-        if (limit.HasValue) queryParams.Add($"limit={limit.Value}");
-        if (userId.HasValue) queryParams.Add($"user_id={userId.Value}");
+        if (before.HasValue)
+        {
+            queryParams.Add($"before={before.Value}");
+        }
+
+        if (after.HasValue)
+        {
+            queryParams.Add($"after={after.Value}");
+        }
+
+        if (limit.HasValue)
+        {
+            queryParams.Add($"limit={limit.Value}");
+        }
+
+        if (userId.HasValue)
+        {
+            queryParams.Add($"user_id={userId.Value}");
+        }
+
         var endpoint = $"skus/{skuId}/subscriptions";
-        if (queryParams.Any()) endpoint += "?" + string.Join("&", queryParams);
+        if (queryParams.Any())
+        {
+            endpoint += "?" + string.Join("&", queryParams);
+        }
+
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<Subscription>>();
+        }
+
         return null;
     }
 
@@ -1592,7 +1950,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"skus/{skuId}/subscriptions/{subscriptionId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Subscription>();
+        }
+
         return null;
     }
 
@@ -1601,7 +1962,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("soundboard-default-sounds");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<SoundboardSound>>();
+        }
+
         return null;
     }
 
@@ -1620,7 +1984,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/soundboard-sounds/{soundId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<SoundboardSound>();
+        }
+
         return null;
     }
 
@@ -1629,7 +1996,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/soundboard-sounds", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<SoundboardSound>();
+        }
+
         return null;
     }
 
@@ -1638,7 +2008,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/soundboard-sounds/{soundId}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<SoundboardSound>();
+        }
+
         return null;
     }
 
@@ -1653,7 +2026,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/onboarding");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildOnboarding>();
+        }
+
         return null;
     }
 
@@ -1662,7 +2038,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PutAsync($"guilds/{guildId}/onboarding", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildOnboarding>();
+        }
+
         return null;
     }
 
@@ -1671,7 +2050,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"applications/{applicationId}/role-connections/metadata");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>();
+        }
+
         return null;
     }
 
@@ -1680,7 +2062,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(records);
         var response = await PutAsync($"applications/{applicationId}/role-connections/metadata", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>();
+        }
+
         return null;
     }
 
@@ -1690,16 +2075,33 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<List<User>?> GetReactionsAsync(ulong channelId, ulong messageId, string emoji, int? type = null, ulong? after = null, int? limit = null)
     {
         var query = new List<string>();
-        if (type.HasValue) query.Add($"type={type.Value}");
-        if (after.HasValue) query.Add($"after={after.Value}");
-        if (limit.HasValue) query.Add($"limit={limit.Value}");
+        if (type.HasValue)
+        {
+            query.Add($"type={type.Value}");
+        }
+
+        if (after.HasValue)
+        {
+            query.Add($"after={after.Value}");
+        }
+
+        if (limit.HasValue)
+        {
+            query.Add($"limit={limit.Value}");
+        }
 
         var endpoint = $"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}";
-        if (query.Count > 0) endpoint += "?" + string.Join("&", query);
+        if (query.Count > 0)
+        {
+            endpoint += "?" + string.Join("&", query);
+        }
 
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<User>>();
+        }
+
         return null;
     }
 
@@ -1710,7 +2112,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(payload);
         var response = await PostAsync($"channels/{channelId}/followers", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<FollowedChannel>();
+        }
+
         return null;
     }
 
@@ -1719,7 +2124,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/preview");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildPreview>();
+        }
+
         return null;
     }
 
@@ -1728,7 +2136,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/widget");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>();
+        }
+
         return null;
     }
 
@@ -1737,7 +2148,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/widget.json");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildWidget>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1746,7 +2160,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/widget", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>();
+        }
+
         return null;
     }
 
@@ -1755,7 +2172,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/vanity-url");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<VanityUrl>();
+        }
+
         return null;
     }
 
@@ -1764,7 +2184,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/welcome-screen");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<WelcomeScreen>();
+        }
+
         return null;
     }
 
@@ -1773,7 +2196,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/welcome-screen", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<WelcomeScreen>();
+        }
+
         return null;
     }
 
@@ -1790,7 +2216,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(positions);
         var response = await PatchAsync($"guilds/{guildId}/roles", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<Role>>();
+        }
+
         return null;
     }
 
@@ -1798,16 +2227,33 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<Invite?> GetInviteAsync(string inviteCode, bool? withCounts = null, bool? withExpiration = null, ulong? guildScheduledEventId = null)
     {
         var query = new List<string>();
-        if (withCounts.HasValue)        query.Add($"with_counts={withCounts.Value.ToString().ToLower()}");
-        if (withExpiration.HasValue)    query.Add($"with_expiration={withExpiration.Value.ToString().ToLower()}");
-        if (guildScheduledEventId.HasValue) query.Add($"guild_scheduled_event_id={guildScheduledEventId.Value}");
+        if (withCounts.HasValue)
+        {
+            query.Add($"with_counts={withCounts.Value.ToString().ToLower()}");
+        }
+
+        if (withExpiration.HasValue)
+        {
+            query.Add($"with_expiration={withExpiration.Value.ToString().ToLower()}");
+        }
+
+        if (guildScheduledEventId.HasValue)
+        {
+            query.Add($"guild_scheduled_event_id={guildScheduledEventId.Value}");
+        }
 
         var endpoint = $"invites/{Uri.EscapeDataString(inviteCode)}";
-        if (query.Count > 0) endpoint += "?" + string.Join("&", query);
+        if (query.Count > 0)
+        {
+            endpoint += "?" + string.Join("&", query);
+        }
 
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Invite>();
+        }
+
         return null;
     }
 
@@ -1815,7 +2261,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Invite>();
+        }
+
         return null;
     }
 
@@ -1824,7 +2273,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/templates");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<GuildTemplate>>();
+        }
+
         return null;
     }
 
@@ -1832,7 +2284,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        }
+
         return null;
     }
 
@@ -1841,7 +2296,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Guild>();
+        }
+
         return null;
     }
 
@@ -1850,7 +2308,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/templates", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        }
+
         return null;
     }
 
@@ -1858,7 +2319,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await PutAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", null);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        }
+
         return null;
     }
 
@@ -1867,7 +2331,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        }
+
         return null;
     }
 
@@ -1875,7 +2342,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await DeleteAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>();
+        }
+
         return null;
     }
 
@@ -1885,7 +2355,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("oauth2/applications/@me");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Application>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1893,7 +2366,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("oauth2/@me");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<OAuth2Info>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1904,7 +2380,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"webhooks/{applicationId}/{interactionToken}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1912,7 +2391,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"webhooks/{applicationId}/{interactionToken}/messages/{messageId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1921,7 +2403,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"webhooks/{applicationId}/{interactionToken}/messages/{messageId}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1937,7 +2422,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync("applications/@me");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Application>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1946,7 +2434,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync("applications/@me", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Application>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1956,7 +2447,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/emojis");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<Emoji>>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1964,7 +2458,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/emojis/{emojiId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1973,7 +2470,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/emojis", content, reason);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -1982,7 +2482,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/emojis/{emojiId}", content, reason);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2009,7 +2512,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"applications/{applicationId}/emojis/{emojiId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2018,7 +2524,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"applications/{applicationId}/emojis", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2027,7 +2536,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PatchAsync($"applications/{applicationId}/emojis/{emojiId}", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Emoji>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2043,7 +2555,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/integrations");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<GuildIntegration>>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2059,7 +2574,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/invites");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<List<Invite>>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2068,13 +2586,23 @@ public class DiscordRestClient : IDiscordRestClient
     public async Task<GuildPruneResult?> GetGuildPruneCountAsync(ulong guildId, int? days = null, List<ulong>? includeRoles = null)
     {
         var query = new List<string>();
-        if (days.HasValue) query.Add($"days={days.Value}");
+        if (days.HasValue)
+        {
+            query.Add($"days={days.Value}");
+        }
+
         if (includeRoles is { Count: > 0 })
+        {
             query.Add("include_roles=" + string.Join(",", includeRoles));
+        }
+
         var endpoint = $"guilds/{guildId}/prune" + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
         var response = await GetAsync(endpoint);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildPruneResult>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2083,7 +2611,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/prune", content, reason);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildPruneResult>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2094,7 +2625,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/bulk-ban", content, reason);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<BulkGuildBanResponse>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2104,7 +2638,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/roles/{roleId}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Role>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2112,7 +2649,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"guilds/{guildId}/roles/member-counts");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2123,7 +2663,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PutAsync($"guilds/{guildId}/incident-actions", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildIncidentActionsResponse>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2133,7 +2676,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"users/@me/guilds/{guildId}/member");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<GuildMember>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2186,7 +2732,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"users/@me/applications/{applicationId}/role-connection");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<ApplicationRoleConnection>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2196,7 +2745,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(request);
         var response = await PutAsync($"users/@me/applications/{applicationId}/role-connection", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<ApplicationRoleConnection>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2224,7 +2776,10 @@ public class DiscordRestClient : IDiscordRestClient
 
         var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token", form, skipBotAuth: true);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2248,7 +2803,10 @@ public class DiscordRestClient : IDiscordRestClient
 
         var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token", form, skipBotAuth: true);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<OAuth2TokenResponse>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2265,7 +2823,9 @@ public class DiscordRestClient : IDiscordRestClient
             new("client_secret", clientSecret),
         };
         if (tokenTypeHint != null)
+        {
             fields.Add(new("token_type_hint", tokenTypeHint));
+        }
 
         var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token/revoke", new FormUrlEncodedContent(fields), skipBotAuth: true);
         return response.IsSuccessStatusCode;
@@ -2283,7 +2843,10 @@ public class DiscordRestClient : IDiscordRestClient
         var content = JsonContent(body);
         var response = await PostAsync("users/@me/channels", content);
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<Channel>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2291,7 +2854,10 @@ public class DiscordRestClient : IDiscordRestClient
     {
         var response = await GetAsync($"applications/{applicationId}/activity-instances/{Uri.EscapeDataString(instanceId)}");
         if (response.IsSuccessStatusCode)
+        {
             return await response.Content.ReadFromJsonAsync<ActivityInstance>(_jsonOptions);
+        }
+
         return null;
     }
 
@@ -2308,6 +2874,9 @@ public class DiscordRestClient : IDiscordRestClient
         string? bufferedContentType = null,
         bool skipBotAuth = false)
     {
+        var path = endpoint.Split('?')[0];
+        var route = $"{method.Method} {path}";
+
         // Buffer request body once so retries can reconstruct fresh HttpContent.
         // HttpClient disposes the content object after SendAsync; reusing it throws
         // ObjectDisposedException on any rate-limited POST/PATCH/PUT retry.
@@ -2322,16 +2891,23 @@ public class DiscordRestClient : IDiscordRestClient
         {
             var delay = _globalReset - DateTimeOffset.UtcNow;
             _logger.LogWarning("Global rate limit hit, delaying {Delay}", delay);
+            EmitRateLimitTelemetry(new RateLimitTelemetryEvent
+            {
+                Kind = RateLimitTelemetryKind.GlobalDelayApplied,
+                Route = route,
+                IsGlobal = true,
+                RetryAfter = delay,
+                ResetAt = _globalReset,
+                RetryCount = retryCount
+            });
+
             await Task.Delay(delay, cancellationToken);
         }
 
         // Per-route rate limit coordination
         string? bucketHash = null;
-        string route;
         try
         {
-            var path = endpoint.Split('?')[0];
-            route = $"{method.Method} {path}";
             await _rateLimiter.WaitForRateLimitAsync(route, cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException)
@@ -2341,7 +2917,6 @@ public class DiscordRestClient : IDiscordRestClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Rate limiter wait failed, proceeding with request");
-            route = $"{method.Method} {endpoint.Split('?')[0]}";
         }
 
         // Build a fresh HttpRequestMessage per attempt.
@@ -2349,12 +2924,18 @@ public class DiscordRestClient : IDiscordRestClient
         // credentials are scoped to individual request objects.
         var request = new HttpRequestMessage(method, endpoint);
         if (!skipBotAuth)
+        {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bot", _options.Token);
+        }
+
         if (bufferedContentBytes is { Length: > 0 })
         {
             var bc = new ByteArrayContent(bufferedContentBytes);
             if (bufferedContentType is not null)
+            {
                 bc.Headers.TryAddWithoutValidation("Content-Type", bufferedContentType);
+            }
+
             request.Content = bc;
         }
 
@@ -2381,7 +2962,19 @@ public class DiscordRestClient : IDiscordRestClient
                 bucketHash = bucketValues.FirstOrDefault();
             }
             var isGlobal = HeaderValueIsTrue(response, "X-RateLimit-Global");
-            _rateLimiter.UpdateRateLimits(route, bucketHash, 0, DateTimeOffset.UtcNow.Add(retryAfter), isGlobal);
+            var resetAt = DateTimeOffset.UtcNow.Add(retryAfter);
+            _rateLimiter.UpdateRateLimits(route, bucketHash, 0, resetAt, isGlobal);
+            EmitRateLimitTelemetry(new RateLimitTelemetryEvent
+            {
+                Kind = RateLimitTelemetryKind.RetryScheduled,
+                Route = route,
+                BucketHash = bucketHash,
+                Remaining = 0,
+                ResetAt = resetAt,
+                IsGlobal = isGlobal,
+                RetryAfter = retryAfter,
+                RetryCount = retryCount + 1
+            });
             
             // Wait for rate limiter to allow retry
             await _rateLimiter.WaitForRateLimitAsync(route, bucketHash, cancellationToken);
@@ -2423,7 +3016,9 @@ public class DiscordRestClient : IDiscordRestClient
     private static async Task<TimeSpan> GetRetryAfterDelayAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.Headers.RetryAfter?.Delta is { } headerDelay && headerDelay > TimeSpan.Zero)
+        {
             return headerDelay;
+        }
 
         try
         {
@@ -2437,7 +3032,9 @@ public class DiscordRestClient : IDiscordRestClient
                     {
                         var retryAfterSeconds = retryAfterElement.GetDouble();
                         if (retryAfterSeconds > 0)
+                        {
                             return TimeSpan.FromSeconds(retryAfterSeconds);
+                        }
                     }
                 }
             }
@@ -2499,11 +3096,39 @@ public class DiscordRestClient : IDiscordRestClient
             if (remaining.HasValue || resetAt.HasValue || isGlobal)
             {
                 _rateLimiter.UpdateRateLimits(route, bucket, remaining, resetAt, isGlobal);
+                EmitRateLimitTelemetry(new RateLimitTelemetryEvent
+                {
+                    Kind = RateLimitTelemetryKind.HeaderUpdate,
+                    Route = route,
+                    BucketHash = bucket,
+                    Remaining = remaining,
+                    ResetAt = resetAt,
+                    IsGlobal = isGlobal,
+                    RetryCount = 0
+                });
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to parse rate limit headers");
+        }
+    }
+
+    private void EmitRateLimitTelemetry(RateLimitTelemetryEvent telemetry)
+    {
+        var handler = RateLimitObserved;
+        if (handler is null)
+        {
+            return;
+        }
+
+        try
+        {
+            handler.Invoke(this, telemetry);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "A rate-limit telemetry subscriber threw an exception");
         }
     }
 }

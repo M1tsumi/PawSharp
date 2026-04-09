@@ -9,7 +9,7 @@ end-to-end encryption layer works underneath.
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice  # 1.0.0-alpha.1
+dotnet add package PawSharp.Voice  # 1.0.0-alpha.2
 ```
 
 This pulls in NAudio (audio device I/O) and Concentus (Opus codec). The entire
@@ -124,8 +124,39 @@ receive binary WebSocket message
 
 On a headless server (no audio hardware), the `WaveOutEvent` initialisation
 fails silently and `PlayAudioAsync` becomes a no-op. You can intercept the
-decoded PCM before that point by subclassing `VoiceConnection` and overriding
-`PlayAudioAsync`.
+decoded PCM before that point by using the provided playback helpers or by
+handling PCM yourself. Note: the library does not currently expose a public
+virtual hook inside the receive loop. Two practical options:
+
+- Use `PlayAudioFromPcmAsync(byte[])` to feed decoded PCM into your own
+  playback pipeline or analysis code.
+- For deep integration (e.g. custom processing of every decoded frame), you
+  may need to fork or extend the library to add a receive hook.
+
+Example — play a local audio file (NAudio handles resampling):
+
+```csharp
+using NAudio.Wave;
+
+using var reader = new AudioFileReader("music.mp3"); // supports many formats
+// PlayAsync accepts a WaveStream and will resample if needed
+using var cts = new CancellationTokenSource();
+await conn.PlayAsync(reader, cts.Token);
+```
+
+Example — intercept PCM and write to disk (via `PlayAudioFromPcmAsync`):
+
+```csharp
+// Suppose you want to capture received PCM for analysis
+client.Gateway.Events.Use(async (name, data) =>
+{
+    if (name == "VOICE_PACKET_RECEIVED" && data is byte[] pcm)
+    {
+        // This is illustrative; actual receive hook may require library change
+        await File.WriteAllBytesAsync($"recv_{DateTime.UtcNow:yyyyMMddHHmmss}.pcm", pcm);
+    }
+});
+```
 
 ---
 
