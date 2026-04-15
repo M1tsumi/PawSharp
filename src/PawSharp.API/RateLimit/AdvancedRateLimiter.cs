@@ -9,7 +9,7 @@ namespace PawSharp.API.RateLimit;
 /// <summary>
 /// Advanced rate limiter with per-route bucket management.
 /// </summary>
-public class AdvancedRateLimiter : IAdvancedRateLimiter
+public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
 {
     private readonly ConcurrentDictionary<string, RateLimitBucket> _buckets = new();
     private readonly SemaphoreSlim _globalLimitSemaphore = new(1, 1);
@@ -67,21 +67,33 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter
             bucket.Release();
         }
     }
+
+    public void Dispose()
+    {
+        _globalLimitSemaphore.Dispose();
+        foreach (var bucket in _buckets.Values)
+        {
+            bucket.Dispose();
+        }
+        _buckets.Clear();
+    }
 }
 
 /// <summary>
 /// Represents a single rate limit bucket.
 /// </summary>
-public class RateLimitBucket
+public class RateLimitBucket : IDisposable
 {
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private int _remaining = 1;
     private DateTimeOffset _resetAt = DateTimeOffset.MinValue;
     private readonly object _lock = new();
+    private int _acquiredCount = 0; // Track acquisitions atomically
 
     public async Task WaitAsync(CancellationToken cancellationToken = default)
     {
         await _semaphore.WaitAsync(cancellationToken);
+        Interlocked.Increment(ref _acquiredCount);
 
         TimeSpan delay;
         lock (_lock)
@@ -110,11 +122,15 @@ public class RateLimitBucket
 
     public void Release()
     {
-        // Only release if the semaphore was actually acquired (CurrentCount == 0).
-        // Calling Release() on an unacquired SemaphoreSlim(1,1) throws
-        // SemaphoreFullException because count would exceed the maximum of 1.
-        if (_semaphore.CurrentCount == 0)
+        // Only release if we actually acquired the semaphore (tracked atomically)
+        // This fixes the race condition where CurrentCount could change between check and Release()
+        if (Interlocked.Decrement(ref _acquiredCount) >= 0)
             _semaphore.Release();
+    }
+
+    public void Dispose()
+    {
+        _semaphore.Dispose();
     }
 
     public void UpdateLimits(int remaining, DateTimeOffset resetAt)
