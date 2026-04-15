@@ -47,6 +47,8 @@ namespace PawSharp.Gateway
         // Heartbeat opcodes are exempt from this limit.
         // SemaphoreSlim token-bucket: each acquired token is returned after 60 s.
         private readonly SemaphoreSlim _wsRateLimiter = new(120, 120);
+        private readonly List<Task> _rateLimiterReleaseTasks = new();
+        private bool _disposed = false;
 
         // Options shared by any manual deserialisation that happens outside EventDispatcher
         // (e.g. VoiceStateUpdate / VoiceServerUpdate mirror-events).
@@ -573,11 +575,20 @@ namespace PawSharp.Gateway
             {
                 await _wsRateLimiter.WaitAsync(ct);
                 // Return the token to the bucket after 60 s (sliding window).
-                _ = Task.Delay(60_000, ct)
-                    .ContinueWith(_ => _wsRateLimiter.Release(),
+                // Track the task so we can cancel it during disposal.
+                var releaseTask = Task.Delay(60_000, ct)
+                    .ContinueWith(_ =>
+                    {
+                        if (!_disposed)
+                            _wsRateLimiter.Release();
+                    },
                         CancellationToken.None,
                         TaskContinuationOptions.OnlyOnRanToCompletion,
                         TaskScheduler.Default);
+                lock (_rateLimiterReleaseTasks)
+                {
+                    _rateLimiterReleaseTasks.Add(releaseTask);
+                }
             }
 
             await _webSocket.SendAsync(json, ct);
@@ -935,12 +946,20 @@ namespace PawSharp.Gateway
         /// </summary>
         public void Dispose()
         {
+            _disposed = true;
+
             _cts?.Cancel();
             _cts?.Dispose();
             _cts = null;
 
             _heartbeatManager?.Dispose();
             _heartbeatManager = null;
+
+            // Clear tracked rate limiter release tasks
+            lock (_rateLimiterReleaseTasks)
+            {
+                _rateLimiterReleaseTasks.Clear();
+            }
 
             _wsRateLimiter?.Dispose();
             _webSocket?.Dispose();
