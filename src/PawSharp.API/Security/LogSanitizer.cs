@@ -6,21 +6,16 @@ namespace PawSharp.API.Security;
 /// <summary>Provides redaction helpers for safe logging of endpoints and HTTP error payloads.</summary>
 public static class LogSanitizer
 {
+    private static readonly Regex WebhookTokenRegex = new(@"(?<=webhooks/[^/]+/)[^/?]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex InteractionTokenRegex = new(@"(?<=interactions/[^/]+/)[^/?]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex SensitiveJsonRegex = new("\"(token|access_token|refresh_token|client_secret|authorization)\"\\s*:\\s*\"[^\"]*\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex BearerTokenRegex = new(@"Bearer\s+[A-Za-z0-9._\-]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     /// <summary>Replaces sensitive token-like path segments with REDACTED for safe log output.</summary>
     public static string RedactSensitiveEndpoint(string endpoint)
     {
-        var redacted = Regex.Replace(
-            endpoint,
-            @"(?<=webhooks/[^/]+/)[^/?]+",
-            "REDACTED",
-            RegexOptions.IgnoreCase);
-
-        redacted = Regex.Replace(
-            redacted,
-            @"(?<=interactions/[^/]+/)[^/?]+",
-            "REDACTED",
-            RegexOptions.IgnoreCase);
-
+        var redacted = WebhookTokenRegex.Replace(endpoint, "REDACTED");
+        redacted = InteractionTokenRegex.Replace(redacted, "REDACTED");
         return redacted;
     }
 
@@ -32,21 +27,13 @@ public static class LogSanitizer
 
         var redacted = body;
 
-        redacted = Regex.Replace(
-            redacted,
-            "\"(token|access_token|refresh_token|client_secret|authorization)\"\\s*:\\s*\"[^\"]*\"",
-            m =>
-            {
-                var key = m.Value[..m.Value.IndexOf(':')];
-                return $"{key}:\"REDACTED\"";
-            },
-            RegexOptions.IgnoreCase);
+        redacted = SensitiveJsonRegex.Replace(redacted, m =>
+        {
+            var key = m.Value[..m.Value.IndexOf(':')];
+            return $"{key}:\"REDACTED\"";
+        });
 
-        redacted = Regex.Replace(
-            redacted,
-            @"Bearer\s+[A-Za-z0-9._\-]+",
-            "Bearer REDACTED",
-            RegexOptions.IgnoreCase);
+        redacted = BearerTokenRegex.Replace(redacted, "Bearer REDACTED");
 
         const int maxLoggedChars = 512;
         return redacted.Length <= maxLoggedChars
