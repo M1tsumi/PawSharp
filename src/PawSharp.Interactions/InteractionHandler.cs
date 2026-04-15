@@ -118,41 +118,51 @@ public class InteractionHandler
     /// </summary>
     public async Task HandleInteractionAsync(InteractionCreateEvent interaction)
     {
-        switch ((InteractionType)interaction.Type)
+        try
         {
-            case InteractionType.ApplicationCommand:
-                await HandleApplicationCommandAsync(interaction);
-                break;
+            switch ((InteractionType)interaction.Type)
+            {
+                case InteractionType.ApplicationCommand:
+                    await HandleApplicationCommandAsync(interaction);
+                    break;
 
-            case InteractionType.MessageComponent:
-                if (interaction.Data?.CustomId != null &&
-                    _componentHandlers.TryGetValue(interaction.Data.CustomId, out var componentHandler))
-                {
-                    await componentHandler(interaction);
-                }
-                break;
-
-            case InteractionType.ApplicationCommandAutocomplete:
-                if (interaction.Data?.Name != null &&
-                    _autocompleteHandlers.TryGetValue(interaction.Data.Name, out var autocompleteHandler))
-                {
-                    var choices = await autocompleteHandler(interaction);
-                    var response = new InteractionResponse
+                case InteractionType.MessageComponent:
+                    if (interaction.Data?.CustomId != null &&
+                        _componentHandlers.TryGetValue(interaction.Data.CustomId, out var componentHandler))
                     {
-                        Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
-                        Data = new InteractionCallbackData { Choices = choices }
-                    };
-                    await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
-                }
-                break;
+                        await componentHandler(interaction);
+                    }
+                    break;
 
-            case InteractionType.ModalSubmit:
-                if (interaction.Data?.CustomId != null &&
-                    _modalHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
-                {
-                    await modalHandler(interaction);
-                }
-                break;
+                case InteractionType.ApplicationCommandAutocomplete:
+                    if (interaction.Data?.Name != null &&
+                        _autocompleteHandlers.TryGetValue(interaction.Data.Name, out var autocompleteHandler))
+                    {
+                        var choices = await autocompleteHandler(interaction);
+                        var response = new InteractionResponse
+                        {
+                            Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                            Data = new InteractionCallbackData { Choices = choices }
+                        };
+                        await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+                    }
+                    break;
+
+                case InteractionType.ModalSubmit:
+                    if (interaction.Data?.CustomId != null &&
+                        _modalHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
+                    {
+                        await modalHandler(interaction);
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log the exception but don't crash the bot
+            // User handlers should handle their own errors, but we catch here as a safety net
+            // Consider adding ILogger dependency in future for proper logging
+            Console.Error.WriteLine($"Unhandled exception in interaction handler for interaction {interaction.Id}: {ex}");
         }
     }
 
