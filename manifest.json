@@ -1,0 +1,31 @@
+{
+  "source_base_path": "/home/runner/work/PawSharp/PawSharp",
+  "xrefmap": "xrefmap.yml",
+  "files": [
+    {
+      "type": "Resource",
+      "source_relative_path": "assets/pawsharp-banner.svg",
+      "output": {
+        "resource": {
+          "relative_path": "assets/pawsharp-banner.svg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "assets/pawsharp-logo.svg",
+      "output": {
+        "resource": {
+          "relative_path": "assets/pawsharp-logo.svg"
+        }
+      },
+      "version": ""
+    }
+  ],
+  "groups": [
+    {
+      "xrefmap": "xrefmap.yml"
+    }
+  ]
+}
