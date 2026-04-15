@@ -56,7 +56,7 @@ namespace PawSharp.Client
             _interactionHandler = new InteractionHandler(_restClient);
 
             // Wire cache to gateway events automatically
-            _cacheManager = new CacheManager(cache, null);
+            _cacheManager = new CacheManager(cache, _logger);
             _cacheManager.SubscribeToGateway(_gatewayClient);
 
             // Cache CurrentUser from READY event
