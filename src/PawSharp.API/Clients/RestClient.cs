@@ -61,14 +61,15 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         _options = options;
         _logger = logger;
         _rateLimiter = rateLimiter;
-        
+
         // Set base address and user-agent.
         // Authorization is NOT set on DefaultRequestHeaders; it is added per-request
         // in SendRequestAsync to scope credentials tightly and prevent accidental exposure.
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.0.0-alpha.2)");
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0-alpha.2";
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"DiscordBot (https://github.com/M1tsumi/Pawsharp, {version})");
     }
 
     /// <summary>
