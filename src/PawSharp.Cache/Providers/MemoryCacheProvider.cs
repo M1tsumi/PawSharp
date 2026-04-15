@@ -127,14 +127,25 @@ namespace PawSharp.Cache.Providers
                 while (_expirationQueue.TryPeek(out _, out var soonest) && soonest <= now)
                 {
                     if (_expirationQueue.TryDequeue(out var expiredKey, out _))
-                        _cache.TryRemove(expiredKey, out _);
+                    {
+                        // Only remove if the item still exists in the cache
+                        // It may have been manually removed via Remove() before expiration
+                        if (_cache.TryGetValue(expiredKey, out var item) && item.IsExpired)
+                        {
+                            _cache.TryRemove(expiredKey, out _);
+                        }
+                    }
                 }
 
                 // If still over limit, evict by soonest expiration first (cheapest to lose).
                 // Non-expiring items are not in the heap and are kept longest.
-                while (_cache.Count > MaxCacheSize && _expirationQueue.TryDequeue(out var victimKey, out _))
+                while (_cache.Count > MaxCacheSize && _expirationQueue.TryDequeue(out var victimKey, out var expiration))
                 {
-                    _cache.TryRemove(victimKey, out _);
+                    // Verify the item still exists and has the expected expiration
+                    if (_cache.TryGetValue(victimKey, out var item) && item.Expiration == expiration)
+                    {
+                        _cache.TryRemove(victimKey, out _);
+                    }
                 }
 
                 // Last resort: the cache is over limit and no expiring items remain.
