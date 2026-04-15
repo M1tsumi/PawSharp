@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace PawSharp.Gateway.Heartbeat
 {
-    public class HeartbeatManager
+    public class HeartbeatManager : IDisposable
     {
         private readonly int _heartbeatInterval;
         private readonly Func<Task> _sendHeartbeat;
@@ -61,6 +61,24 @@ namespace PawSharp.Gateway.Heartbeat
         public void Stop()
         {
             _cts?.Cancel();
+        }
+
+        /// <summary>
+        /// Disposes the heartbeat manager, cancelling the heartbeat loop and cleaning up resources.
+        /// </summary>
+        public void Dispose()
+        {
+            Stop();
+            try
+            {
+                _heartbeatTask?.Wait(TimeSpan.FromSeconds(5));
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Error waiting for heartbeat task to complete during disposal");
+            }
+            _cts?.Dispose();
+            _cts = null;
         }
 
         /// <summary>

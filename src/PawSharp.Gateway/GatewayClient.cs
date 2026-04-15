@@ -15,7 +15,7 @@ using PawSharp.Gateway.Heartbeat;
 
 namespace PawSharp.Gateway
 {
-    public class GatewayClient : IGatewayClient
+    public class GatewayClient : IGatewayClient, IDisposable
     {
         private readonly PawSharpOptions _options;
         private readonly ILogger _logger;
@@ -928,6 +928,22 @@ namespace PawSharp.Gateway
             }
 
             await SetStateAsync(GatewayState.Ready);
+        }
+
+        /// <summary>
+        /// Disposes the gateway client and all disposable resources.
+        /// </summary>
+        public void Dispose()
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
+
+            _heartbeatManager?.Dispose();
+            _heartbeatManager = null;
+
+            _wsRateLimiter?.Dispose();
+            _webSocket?.Dispose();
         }
     }
 }
