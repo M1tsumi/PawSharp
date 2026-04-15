@@ -204,6 +204,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> LeaveGuildAsync(ulong guildId)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var response = await DeleteAsync($"users/@me/guilds/{guildId}");
         return response.IsSuccessStatusCode;
     }
@@ -337,6 +338,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
         var response = await GetAsync($"channels/{channelId}/messages/{messageId}");
         if (response.IsSuccessStatusCode)
         {
@@ -378,6 +381,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
         var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}");
         return response.IsSuccessStatusCode;
     }
@@ -448,18 +453,23 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> PinMessageAsync(ulong channelId, ulong messageId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
         var response = await PutAsync($"channels/{channelId}/pins/{messageId}", null);
         return response.IsSuccessStatusCode;
     }
     
     public async Task<bool> UnpinMessageAsync(ulong channelId, ulong messageId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
         var response = await DeleteAsync($"channels/{channelId}/pins/{messageId}");
         return response.IsSuccessStatusCode;
     }
     
     public async Task<List<Message>?> GetPinnedMessagesAsync(ulong channelId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}/pins");
         if (response.IsSuccessStatusCode)
         {
@@ -470,6 +480,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> TriggerTypingIndicatorAsync(ulong channelId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await PostAsync($"channels/{channelId}/typing", null);
         return response.IsSuccessStatusCode;
     }
@@ -477,6 +488,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // Channel operations
     public async Task<Channel?> GetChannelAsync(ulong channelId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}");
         if (response.IsSuccessStatusCode)
         {
@@ -498,6 +510,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> DeleteChannelAsync(ulong channelId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await DeleteAsync($"channels/{channelId}");
         return response.IsSuccessStatusCode;
     }
@@ -543,6 +556,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // Guild operations
     public async Task<Guild?> GetGuildAsync(ulong guildId, bool withCounts = false)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var endpoint = $"guilds/{guildId}";
         if (withCounts)
         {
@@ -606,6 +620,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<List<Channel>?> GetGuildChannelsAsync(ulong guildId)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var response = await GetAsync($"guilds/{guildId}/channels");
         if (response.IsSuccessStatusCode)
         {
@@ -632,6 +647,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"guilds/{guildId}/members/{userId}");
         if (response.IsSuccessStatusCode)
         {
@@ -664,12 +681,15 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> RemoveGuildMemberAsync(ulong guildId, ulong userId)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await DeleteAsync($"guilds/{guildId}/members/{userId}");
         return response.IsSuccessStatusCode;
     }
     
     public async Task<List<Ban>?> GetGuildBansAsync(ulong guildId, ulong? before = null, ulong? after = null, int? limit = null)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var qs = new System.Text.StringBuilder();
         if (before.HasValue)
         {
@@ -697,6 +717,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<Ban?> GetGuildBanAsync(ulong guildId, ulong userId)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"guilds/{guildId}/bans/{userId}");
         if (response.IsSuccessStatusCode)
         {
@@ -707,6 +729,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> CreateGuildBanAsync(ulong guildId, ulong userId, int? deleteMessageDays = null, string? reason = null)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var payload = new { delete_message_days = deleteMessageDays, reason };
         var content = JsonContent(payload);
         var response = await PutAsync($"guilds/{guildId}/bans/{userId}", content);
@@ -715,6 +739,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> RemoveGuildBanAsync(ulong guildId, ulong userId)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await DeleteAsync($"guilds/{guildId}/bans/{userId}");
         return response.IsSuccessStatusCode;
     }
@@ -722,6 +748,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // Role operations
     public async Task<List<Role>?> GetGuildRolesAsync(ulong guildId)
     {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var response = await GetAsync($"guilds/{guildId}/roles");
         if (response.IsSuccessStatusCode)
         {
