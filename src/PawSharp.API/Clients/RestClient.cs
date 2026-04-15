@@ -550,6 +550,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId)
     {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(overwriteId, nameof(overwriteId));
         var response = await DeleteAsync($"channels/{channelId}/permissions/{overwriteId}");
         return response.IsSuccessStatusCode;
     }
