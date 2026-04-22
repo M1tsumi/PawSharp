@@ -34,7 +34,9 @@ namespace PawSharp.Gateway.Events
                 // when no [JsonConverter] attribute is present on the property.
                 new SnowflakeJsonConverter(),
                 new NullableSnowflakeJsonConverter()
-            }
+            },
+            // Enable source generator for better AOT compatibility
+            TypeInfoResolver = PawSharp.Core.Serialization.PawSharpJsonContext.Default
         };
 
         public EventDispatcher(ILogger? logger = null)

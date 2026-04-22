@@ -11,7 +11,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>discord;api;wrapper;bot;csharp;dotnet</PackageTags>
     <Version>1.0.0-alpha.4</Version>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild Condition="'$(PublishAot)' != 'true'">true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Suppress missing XML doc warnings — covered by explicit #nullable enable per-file. -->
     <NoWarn>$(NoWarn);1591</NoWarn>

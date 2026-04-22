@@ -39,7 +39,9 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         PropertyNamingPolicy        = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
-        NumberHandling              = JsonNumberHandling.AllowReadingFromString
+        NumberHandling              = JsonNumberHandling.AllowReadingFromString,
+        // Enable source generator for better AOT compatibility
+        TypeInfoResolver            = PawSharp.Core.Serialization.PawSharpJsonContext.Default
     };
 
     /// <summary>Wraps an object as a UTF-8 JSON <see cref="StringContent"/> using Discord-compatible serializer options.</summary>

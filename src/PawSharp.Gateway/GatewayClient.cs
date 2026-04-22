@@ -52,7 +52,9 @@ namespace PawSharp.Gateway
         // (e.g. VoiceStateUpdate / VoiceServerUpdate mirror-events).
         private static readonly JsonSerializerOptions _snowflakeOptions = new()
         {
-            Converters = { new SnowflakeJsonConverter(), new NullableSnowflakeJsonConverter() }
+            Converters = { new SnowflakeJsonConverter(), new NullableSnowflakeJsonConverter() },
+            // Enable source generator for better AOT compatibility
+            TypeInfoResolver = PawSharp.Core.Serialization.PawSharpJsonContext.Default
         };
 
         /// <summary>
