@@ -342,18 +342,19 @@ namespace PawSharp.Cache.Providers
         /// <param name="role">The role to cache.</param>
         public void CacheRole(ulong guildId, PawSharp.Core.Entities.Role role)
         {
-            var key = $"role:{role.Id}";
+            var key = $"role:{guildId}:{role.Id}";
             Add(key, role);
         }
 
         /// <summary>
         /// Gets a cached role.
         /// </summary>
+        /// <param name="guildId">The guild ID.</param>
         /// <param name="roleId">The role ID.</param>
         /// <returns>The cached role, or null if not found.</returns>
-        public PawSharp.Core.Entities.Role? GetRole(ulong roleId)
+        public PawSharp.Core.Entities.Role? GetRole(ulong guildId, ulong roleId)
         {
-            var key = $"role:{roleId}";
+            var key = $"role:{guildId}:{roleId}";
             var json = _db.StringGet(key);
             return json.HasValue ? JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions) : null;
         }
@@ -367,7 +368,7 @@ namespace PawSharp.Cache.Providers
         {
             var server = _redis.GetServer(_redis.GetEndPoints()[0]);
             var keys = new List<RedisKey>();
-            foreach (var key in server.Keys(pattern: "role:*", database: _options.Database))
+            foreach (var key in server.Keys(pattern: $"role:{guildId}:*", database: _options.Database))
             {
                 keys.Add(key);
             }
@@ -379,8 +380,6 @@ namespace PawSharp.Cache.Providers
                     var role = JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions);
                     if (role != null)
                     {
-                        // Note: This is a simplified implementation.
-                        // In a real scenario, you'd need to track guild-role relationships
                         yield return role;
                     }
                 }
@@ -394,18 +393,19 @@ namespace PawSharp.Cache.Providers
         /// <param name="emoji">The emoji to cache.</param>
         public void CacheEmoji(ulong guildId, Emoji emoji)
         {
-            var key = $"emoji:{emoji.Id}";
+            var key = $"emoji:{guildId}:{emoji.Id}";
             Add(key, emoji);
         }
 
         /// <summary>
         /// Gets a cached emoji.
         /// </summary>
+        /// <param name="guildId">The guild ID.</param>
         /// <param name="emojiId">The emoji ID.</param>
         /// <returns>The cached emoji, or null if not found.</returns>
-        public Emoji? GetEmoji(ulong emojiId)
+        public Emoji? GetEmoji(ulong guildId, ulong emojiId)
         {
-            var key = $"emoji:{emojiId}";
+            var key = $"emoji:{guildId}:{emojiId}";
             var json = _db.StringGet(key);
             return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
         }
@@ -419,7 +419,7 @@ namespace PawSharp.Cache.Providers
         {
             var server = _redis.GetServer(_redis.GetEndPoints()[0]);
             var keys = new List<RedisKey>();
-            foreach (var key in server.Keys(pattern: "emoji:*", database: _options.Database))
+            foreach (var key in server.Keys(pattern: $"emoji:{guildId}:*", database: _options.Database))
             {
                 keys.Add(key);
             }
@@ -431,8 +431,6 @@ namespace PawSharp.Cache.Providers
                     var emoji = JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions);
                     if (emoji != null)
                     {
-                        // Note: This is a simplified implementation.
-                        // In a real scenario, you'd need to track guild-emoji relationships
                         yield return emoji;
                     }
                 }
@@ -470,12 +468,12 @@ namespace PawSharp.Cache.Providers
                 keys.Add(key);
             foreach (var key in server.Keys(pattern: $"member:{guildId}:*", database: _options.Database))
                 keys.Add(key);
-            // Note: channel, role, and emoji keys would need proper guild filtering in a real implementation
+            foreach (var key in server.Keys(pattern: $"role:{guildId}:*", database: _options.Database))
+                keys.Add(key);
+            foreach (var key in server.Keys(pattern: $"emoji:{guildId}:*", database: _options.Database))
+                keys.Add(key);
+            // Note: channel keys would need proper guild filtering in a real implementation
             foreach (var key in server.Keys(pattern: "channel:*", database: _options.Database))
-                keys.Add(key);
-            foreach (var key in server.Keys(pattern: "role:*", database: _options.Database))
-                keys.Add(key);
-            foreach (var key in server.Keys(pattern: "emoji:*", database: _options.Database))
                 keys.Add(key);
 
             if (keys.Count > 0)
@@ -573,10 +571,16 @@ namespace PawSharp.Cache.Providers
             return json.HasValue ? JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions) : null;
         }
 
-        public async Task<PawSharp.Core.Entities.Role?> GetRoleAsync(ulong roleId)
+        public async Task<PawSharp.Core.Entities.Role?> GetRoleAsync(ulong guildId, ulong roleId)
         {
-            var json = await _db.StringGetAsync($"role:{roleId}");
+            var json = await _db.StringGetAsync($"role:{guildId}:{roleId}");
             return json.HasValue ? JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions) : null;
+        }
+
+        public async Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId)
+        {
+            var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}");
+            return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
