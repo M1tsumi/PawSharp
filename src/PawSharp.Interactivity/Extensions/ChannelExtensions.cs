@@ -89,7 +89,11 @@ public static class ChannelExtensions
             else if (emojiName == emojis.SkipLeft  && currentPage != 0)                   currentPage = 0;
             else if (emojiName == emojis.SkipRight && currentPage != pageList.Count - 1)  currentPage = pageList.Count - 1;
             else if (emojiName == emojis.Stop)  { tcs.TrySetResult(true); return; }
-            else return; // unrecognised emoji — ignore
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"Unrecognised emoji in pagination: {emojiName}");
+                return; // unrecognised emoji — ignore
+            }
 
             if (currentPage == previousPage) return; // no-op (already at boundary)
 
