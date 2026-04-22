@@ -325,7 +325,7 @@ public class GuildMember
     /// When the user joined the guild.
     /// </summary>
     [JsonPropertyName("joined_at")]
-    public DateTimeOffset JoinedAt { get; set; }
+    public DateTimeOffset? JoinedAt { get; set; }
     
     /// <summary>
     /// When the user started boosting the guild.
