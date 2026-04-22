@@ -69,6 +69,9 @@ internal static class Curve25519
     /// </summary>
     public static byte[] ScalarMult(ReadOnlySpan<byte> scalar, ReadOnlySpan<byte> uPoint)
     {
+        if (scalar.Length != KeySize) throw new ArgumentException("Scalar must be 32 bytes.", nameof(scalar));
+        if (uPoint.Length != KeySize) throw new ArgumentException("uPoint must be 32 bytes.", nameof(uPoint));
+        
         // Load u-coordinate into field element, mask high bit per RFC 7748 §5
         var u = new long[5];
         Load51(uPoint, u);
@@ -124,6 +127,9 @@ internal static class Curve25519
     /// <summary>Clamps a private scalar in-place per RFC 7748 §5.</summary>
     public static void ClampScalar(byte[] scalar)
     {
+        if (scalar == null) throw new ArgumentNullException(nameof(scalar));
+        if (scalar.Length != KeySize) throw new ArgumentException("Scalar must be 32 bytes.", nameof(scalar));
+        
         scalar[0]  &= 248;
         scalar[31] &= 127;
         scalar[31] |= 64;

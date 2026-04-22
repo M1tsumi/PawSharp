@@ -70,6 +70,9 @@ internal static class HpkeX25519
         ReadOnlySpan<byte> plaintext,
         out byte[] enc)
     {
+        if (recipientPublicKey.Length != NEnc)
+            throw new ArgumentException($"recipientPublicKey must be {NEnc} bytes.", nameof(recipientPublicKey));
+        
         // Generate ephemeral key pair
         Curve25519.GenerateKeyPair(out var ephemeralPriv, out var ephemeralPub);
         enc = ephemeralPub;
@@ -105,6 +108,8 @@ internal static class HpkeX25519
         ReadOnlySpan<byte> aad,
         ReadOnlySpan<byte> ciphertext)
     {
+        if (recipientPrivateKey.Length != NEnc)
+            throw new ArgumentException($"recipientPrivateKey must be {NEnc} bytes.", nameof(recipientPrivateKey));
         if (enc.Length != NEnc)
             throw new ArgumentException($"enc must be {NEnc} bytes.", nameof(enc));
 

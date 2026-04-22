@@ -133,10 +133,13 @@ internal static class Ed25519
     /// <param name="signature">64-byte signature.</param>
     /// <param name="publicKey">32-byte compressed public key.</param>
     /// <returns>True if the signature is valid.</returns>
+    /// <exception cref="ArgumentException">Thrown if signature or public key have incorrect length.</exception>
     public static bool Verify(ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
     {
-        if (signature.Length != SignatureSize || publicKey.Length != PublicKeySize)
-            return false;
+        if (signature.Length != SignatureSize)
+            throw new ArgumentException($"Signature must be {SignatureSize} bytes.", nameof(signature));
+        if (publicKey.Length != PublicKeySize)
+            throw new ArgumentException($"Public key must be {PublicKeySize} bytes.", nameof(publicKey));
 
         try
         {
