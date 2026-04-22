@@ -435,32 +435,47 @@ internal sealed class MLSGroupState : IDisposable
     /// </summary>
     public void Reset()
     {
-        if (_daveEpochSecret   != null) Array.Clear(_daveEpochSecret,   0, _daveEpochSecret.Length);
-        if (_localInitPrivKey  != null) Array.Clear(_localInitPrivKey,  0, _localInitPrivKey.Length);
-        if (_localLeafHpkePrivKey != null) Array.Clear(_localLeafHpkePrivKey, 0, _localLeafHpkePrivKey.Length);
-        if (_localLeafSigPrivKey  != null) Array.Clear(_localLeafSigPrivKey,  0, _localLeafSigPrivKey.Length);
-
-        _daveEpochSecret         = null;
-        _groupId                 = null;
-        _epochNumber             = 0;
-        _treeHash                = null;
-        _confirmedTranscriptHash = null;
-        _localInitPrivKey        = null;
-        _localLeafHpkePrivKey    = null;
-        _localLeafSigPrivKey     = null;
-        _localKeyPackage         = null;
-        _keySchedule             = null;
-        _tree                    = null;
-        _pendingProposals.Clear();
+        try
+        {
+            if (_daveEpochSecret   != null) Array.Clear(_daveEpochSecret,   0, _daveEpochSecret.Length);
+            if (_localInitPrivKey  != null) Array.Clear(_localInitPrivKey,  0, _localInitPrivKey.Length);
+            if (_localLeafHpkePrivKey != null) Array.Clear(_localLeafHpkePrivKey, 0, _localLeafHpkePrivKey.Length);
+            if (_localLeafSigPrivKey  != null) Array.Clear(_localLeafSigPrivKey,  0, _localLeafSigPrivKey.Length);
+        }
+        finally
+        {
+            _daveEpochSecret         = null;
+            _groupId                 = null;
+            _epochNumber             = 0;
+            _treeHash                = null;
+            _confirmedTranscriptHash = null;
+            _localInitPrivKey        = null;
+            _localLeafHpkePrivKey    = null;
+            _localLeafSigPrivKey     = null;
+            _localKeyPackage         = null;
+            _keySchedule             = null;
+            _tree                    = null;
+            _pendingProposals.Clear();
+        }
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────
 
     public void Dispose()
     {
-        if (_daveEpochSecret != null) Array.Clear(_daveEpochSecret, 0, _daveEpochSecret.Length);
-        if (_localInitPrivKey != null) Array.Clear(_localInitPrivKey, 0, _localInitPrivKey.Length);
-        if (_localLeafHpkePrivKey != null) Array.Clear(_localLeafHpkePrivKey, 0, _localLeafHpkePrivKey.Length);
-        if (_localLeafSigPrivKey != null) Array.Clear(_localLeafSigPrivKey, 0, _localLeafSigPrivKey.Length);
+        try
+        {
+            if (_daveEpochSecret != null) Array.Clear(_daveEpochSecret, 0, _daveEpochSecret.Length);
+            if (_localInitPrivKey != null) Array.Clear(_localInitPrivKey, 0, _localInitPrivKey.Length);
+            if (_localLeafHpkePrivKey != null) Array.Clear(_localLeafHpkePrivKey, 0, _localLeafHpkePrivKey.Length);
+            if (_localLeafSigPrivKey != null) Array.Clear(_localLeafSigPrivKey, 0, _localLeafSigPrivKey.Length);
+        }
+        finally
+        {
+            _daveEpochSecret = null;
+            _localInitPrivKey = null;
+            _localLeafHpkePrivKey = null;
+            _localLeafSigPrivKey = null;
+        }
     }
 }
