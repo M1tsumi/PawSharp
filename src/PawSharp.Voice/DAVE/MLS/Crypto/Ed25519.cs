@@ -69,6 +69,11 @@ internal static class Ed25519
     /// <summary>Generates a new Ed25519 key pair.</summary>
     /// <param name="privateKey">The 32-byte private seed.</param>
     /// <param name="publicKey">The 32-byte compressed public key.</param>
+    /// <summary>
+    /// Generates an Ed25519 key pair.
+    /// </summary>
+    /// <param name="privateKey">Output: 32-byte private key.</param>
+    /// <param name="publicKey">Output: 32-byte public key.</param>
     public static void GenerateKeyPair(out byte[] privateKey, out byte[] publicKey)
     {
         privateKey = new byte[PrivateKeySize];
