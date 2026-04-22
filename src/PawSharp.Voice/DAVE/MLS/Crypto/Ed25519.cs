@@ -94,9 +94,9 @@ internal static class Ed25519
     }
 
     /// <summary>Signs a message using Ed25519.</summary>
-    /// <param name="message">The message bytes.</param>
-    /// <param name="privateKey">The 32-byte private seed.</param>
-    /// <returns>64-byte signature (R || S).</returns>
+    /// <param name="message">The message to sign.</param>
+    /// <param name="privateKey">32-byte private key.</param>
+    /// <returns>64-byte signature.</returns>
     public static byte[] Sign(ReadOnlySpan<byte> message, ReadOnlySpan<byte> privateKey)
     {
         if (privateKey.Length != PrivateKeySize)

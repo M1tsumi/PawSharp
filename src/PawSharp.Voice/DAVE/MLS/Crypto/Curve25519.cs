@@ -36,10 +36,10 @@ internal static class Curve25519
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Generates a random X25519 key pair (private scalar, public point).
+    /// Generates an X25519 key pair.
     /// </summary>
-    /// <param name="privateKey">32-byte private key (clamped).</param>
-    /// <param name="publicKey">32-byte public key (scalar-mult of base point).</param>
+    /// <param name="privateKey">Output: 32-byte private key.</param>
+    /// <param name="publicKey">Output: 32-byte public key.</param>
     public static void GenerateKeyPair(out byte[] privateKey, out byte[] publicKey)
     {
         privateKey = new byte[KeySize];
