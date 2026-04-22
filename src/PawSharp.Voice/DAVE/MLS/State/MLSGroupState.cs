@@ -122,11 +122,13 @@ internal sealed class MLSGroupState : IDisposable
 
             ProcessWelcomeFull(welcomeBytes, groupId);
         }
-        catch
+        catch (Exception ex)
         {
             // Fallback: domain-separated HKDF derivation.
             // Ensures the session produces a usable epoch secret even when the
             // server sends a non-standard Welcome wire format.
+            // Log the error for debugging MLS protocol issues.
+            System.Diagnostics.Debug.WriteLine($"DAVE MLS Welcome processing failed, using fallback: {ex.Message}");
             var salt         = System.Text.Encoding.ASCII.GetBytes("DAVE v1 welcome");
             _daveEpochSecret = MlsHkdf.Extract(salt, welcomeBytes);
             _groupId                 = groupId ?? _daveEpochSecret[..16];
@@ -273,9 +275,11 @@ internal sealed class MLSGroupState : IDisposable
         {
             ProcessCommitFull(commitBytes);
         }
-        catch
+        catch (Exception ex)
         {
             // HKDF rotation fallback: forward secrecy is maintained even if parse fails.
+            // Log the error for debugging MLS protocol issues.
+            System.Diagnostics.Debug.WriteLine($"DAVE MLS Commit processing failed, using fallback: {ex.Message}");
             _daveEpochSecret         = MlsHkdf.Extract(_daveEpochSecret!, commitBytes);
             _epochNumber++;
             _confirmedTranscriptHash = UpdateTranscriptHash(commitBytes);
