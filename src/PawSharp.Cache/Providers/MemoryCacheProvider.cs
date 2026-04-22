@@ -17,8 +17,8 @@ namespace PawSharp.Cache.Providers
         private readonly ConcurrentDictionary<ulong, User> _users;
         private readonly ConcurrentDictionary<ulong, Message> _messages;
         private readonly ConcurrentDictionary<string, GuildMember> _members; // Key: guildId:userId
-        private readonly ConcurrentDictionary<ulong, Role> _roles;
-        private readonly ConcurrentDictionary<ulong, Emoji> _emojis;
+        private readonly ConcurrentDictionary<string, Role> _roles; // Key: guildId:roleId
+        private readonly ConcurrentDictionary<string, Emoji> _emojis; // Key: guildId:emojiId
 
         // Bounded caching configuration
         private const int MaxCacheSize = 10000; // Maximum number of items in general cache
@@ -47,8 +47,8 @@ namespace PawSharp.Cache.Providers
             _users = new ConcurrentDictionary<ulong, User>();
             _messages = new ConcurrentDictionary<ulong, Message>();
             _members = new ConcurrentDictionary<string, GuildMember>();
-            _roles = new ConcurrentDictionary<ulong, Role>();
-            _emojis = new ConcurrentDictionary<ulong, Emoji>();
+            _roles = new ConcurrentDictionary<string, Role>();
+            _emojis = new ConcurrentDictionary<string, Emoji>();
         }
 
         public void Add(string key, object entity)
@@ -253,39 +253,41 @@ namespace PawSharp.Cache.Providers
 
         public void CacheRole(ulong guildId, Role role)
         {
-            _roles[role.Id] = role;
+            var key = $"{guildId}:{role.Id}";
+            _roles[key] = role;
             EnforceEntityCacheBounds(_roles, MaxEntityCacheSize);
         }
 
-        public Role? GetRole(ulong roleId)
+        public Role? GetRole(ulong guildId, ulong roleId)
         {
-            return _roles.TryGetValue(roleId, out var role) ? role : null;
+            var key = $"{guildId}:{roleId}";
+            return _roles.TryGetValue(key, out var role) ? role : null;
         }
 
         public IEnumerable<Role> GetGuildRoles(ulong guildId)
         {
-            var guild = GetGuild(guildId);
-            return guild?.Roles ?? Enumerable.Empty<Role>();
+            return _roles.Where(kvp => kvp.Key.StartsWith($"{guildId}:")).Select(kvp => kvp.Value);
         }
 
         public void CacheEmoji(ulong guildId, Emoji emoji)
         {
             if (emoji.Id.HasValue)
             {
-                _emojis[emoji.Id.Value] = emoji;
+                var key = $"{guildId}:{emoji.Id.Value}";
+                _emojis[key] = emoji;
                 EnforceEntityCacheBounds(_emojis, MaxEntityCacheSize);
             }
         }
 
-        public Emoji? GetEmoji(ulong emojiId)
+        public Emoji? GetEmoji(ulong guildId, ulong emojiId)
         {
-            return _emojis.TryGetValue(emojiId, out var emoji) ? emoji : null;
+            var key = $"{guildId}:{emojiId}";
+            return _emojis.TryGetValue(key, out var emoji) ? emoji : null;
         }
 
         public IEnumerable<Emoji> GetGuildEmojis(ulong guildId)
         {
-            var guild = GetGuild(guildId);
-            return guild?.Emojis ?? Enumerable.Empty<Emoji>();
+            return _emojis.Where(kvp => kvp.Key.StartsWith($"{guildId}:")).Select(kvp => kvp.Value);
         }
 
         public void CacheGuildData(Guild guild)
@@ -347,6 +349,20 @@ namespace PawSharp.Cache.Providers
             {
                 _members.TryRemove(key, out _);
             }
+            
+            // Remove roles
+            var roleKeys = _roles.Where(kvp => kvp.Key.StartsWith($"{guildId}:")).Select(kvp => kvp.Key).ToList();
+            foreach (var key in roleKeys)
+            {
+                _roles.TryRemove(key, out _);
+            }
+            
+            // Remove emojis
+            var emojiKeys = _emojis.Where(kvp => kvp.Key.StartsWith($"{guildId}:")).Select(kvp => kvp.Key).ToList();
+            foreach (var key in emojiKeys)
+            {
+                _emojis.TryRemove(key, out _);
+            }
         }
 
         public CacheStats GetCacheStats()
@@ -381,7 +397,8 @@ namespace PawSharp.Cache.Providers
         public Task<Channel?> GetChannelAsync(ulong channelId) => Task.FromResult(GetChannel(channelId));
         public Task<Message?> GetMessageAsync(ulong messageId) => Task.FromResult(GetMessage(messageId));
         public Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId) => Task.FromResult(GetGuildMember(guildId, userId));
-        public Task<Role?> GetRoleAsync(ulong roleId) => Task.FromResult(GetRole(roleId));
+        public Task<Role?> GetRoleAsync(ulong guildId, ulong roleId) => Task.FromResult(GetRole(guildId, roleId));
+        public Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId) => Task.FromResult(GetEmoji(guildId, emojiId));
 
         private class CacheItem
         {
