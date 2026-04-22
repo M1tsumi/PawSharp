@@ -145,7 +145,9 @@ public class Guild : DiscordEntity
     /// <summary>
     /// The id of the channel where Community guilds can display rules and/or guidelines.
     /// </summary>
-    [JsonPropertyName("rules_channel_id")]    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]    public ulong? RulesChannelId { get; set; }
+    [JsonPropertyName("rules_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? RulesChannelId { get; set; }
     
     /// <summary>
     /// The maximum number of presences for the guild.
