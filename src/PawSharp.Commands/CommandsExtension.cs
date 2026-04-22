@@ -703,7 +703,10 @@ public class CommandsExtension
                             await CommandErrored(new CommandErrorEventArgs(
                                 new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
                         }
-                        catch { /* swallow handler exceptions */ }
+                        catch (Exception handlerEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
+                        }
                     }
                 }
             });
@@ -813,7 +816,10 @@ public class CommandsExtension
                                 await CommandErrored(new CommandErrorEventArgs(
                                     new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
                             }
-                            catch { /* swallow handler exceptions */ }
+                            catch (Exception handlerEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
+                            }
                         }
                     }
                 }));
@@ -889,7 +895,11 @@ public class CommandsExtension
         }
 
         try { return Convert.ChangeType(option.Value, inner, CultureInfo.InvariantCulture); }
-        catch { return GetDefault(targetType); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Type conversion failed for {targetType.Name}: {ex.Message}");
+            return GetDefault(targetType);
+        }
     }
 
     private static object? GetDefault(Type type)

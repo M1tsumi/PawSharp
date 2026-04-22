@@ -3066,9 +3066,10 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Ignore malformed/unexpected payloads and use a safe fallback.
+            System.Diagnostics.Debug.WriteLine($"Rate limit parse error, using fallback: {ex.Message}");
         }
 
         return TimeSpan.FromSeconds(1);

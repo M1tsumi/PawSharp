@@ -164,8 +164,9 @@ internal static class Ed25519
             var check2 = PointAdd(R, ScalarMult(A, k));
             return PointEqual(check1, check2);
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"Ed25519 signature verification failed: {ex.Message}");
             return false;
         }
     }

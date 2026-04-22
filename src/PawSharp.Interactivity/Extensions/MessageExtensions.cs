@@ -170,9 +170,16 @@ public static class MessageExtensions
         {
             _ = Task.Run(async () =>
             {
-                await Task.Delay(timeout.Value);
-                // Clean up all reactions from this message
-                await client.Rest.DeleteAllReactionsAsync(message.ChannelId, message.Id);
+                try
+                {
+                    await Task.Delay(timeout.Value);
+                    // Clean up all reactions from this message
+                    await client.Rest.DeleteAllReactionsAsync(message.ChannelId, message.Id);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Poll cleanup failed: {ex.Message}");
+                }
             });
         }
     }

@@ -43,8 +43,14 @@ namespace PawSharp.Gateway.Connection
                 {
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cancellationToken);
                 }
-                catch (OperationCanceledException) { /* shutdown cancellation is expected */ }
-                catch (WebSocketException) { /* socket may have been torn down remotely */ }
+                catch (OperationCanceledException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"WebSocket shutdown cancellation: {ex.Message}");
+                }
+                catch (WebSocketException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"WebSocket may have been torn down remotely: {ex.Message}");
+                }
             }
         }
 
