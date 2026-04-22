@@ -23,5 +23,15 @@
     <Nullable>enable</Nullable>
     <!-- Reduce boilerplate — BCL namespaces are available implicitly. -->
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- ── Native AOT support ─────────────────────────────────────────────── -->
+    <!-- Enable AOT compatibility analysis -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Enable trimming for AOT -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <!-- Enable trimming analysis -->
+    <TrimMode>link</TrimMode>
+    <!-- Suppress AOT warnings during development (remove for production AOT builds) -->
+    <NoWarn>$(NoWarn);IL2026;IL2070;IL2072;IL2096</NoWarn>
   </PropertyGroup>
 </Project>
