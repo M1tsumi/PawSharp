@@ -84,19 +84,19 @@ public class Guild : DiscordEntity
     /// Verification level required for the guild.
     /// </summary>
     [JsonPropertyName("verification_level")]
-    public int VerificationLevel { get; set; }
+    public VerificationLevel VerificationLevel { get; set; }
     
     /// <summary>
     /// Default message notifications level.
     /// </summary>
     [JsonPropertyName("default_message_notifications")]
-    public int DefaultMessageNotifications { get; set; }
+    public DefaultMessageNotificationLevel DefaultMessageNotifications { get; set; }
     
     /// <summary>
     /// Explicit content filter level.
     /// </summary>
     [JsonPropertyName("explicit_content_filter")]
-    public int ExplicitContentFilter { get; set; }
+    public ExplicitContentFilterLevel ExplicitContentFilter { get; set; }
     
     /// <summary>
     /// Roles in the guild.
@@ -140,7 +140,7 @@ public class Guild : DiscordEntity
     /// System channel flags.
     /// </summary>
     [JsonPropertyName("system_channel_flags")]
-    public int SystemChannelFlags { get; set; }
+    public SystemChannelFlags SystemChannelFlags { get; set; }
     
     /// <summary>
     /// The id of the channel where Community guilds can display rules and/or guidelines.
