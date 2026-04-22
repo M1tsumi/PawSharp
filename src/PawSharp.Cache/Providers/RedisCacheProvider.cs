@@ -170,8 +170,12 @@ namespace PawSharp.Cache.Providers
         /// <returns>An enumerable of all cached guilds.</returns>
         public IEnumerable<Guild> GetAllGuilds()
         {
-            var result = _db.Execute("KEYS", "guild:*");
-            var keys = ((RedisKey[]?)result) ?? [];
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
+            var keys = new List<RedisKey>();
+            foreach (var key in server.Keys(pattern: "guild:*", database: _options.Database))
+            {
+                keys.Add(key);
+            }
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
@@ -213,8 +217,12 @@ namespace PawSharp.Cache.Providers
         /// <returns>An enumerable of channels in the guild.</returns>
         public IEnumerable<Channel> GetGuildChannels(ulong guildId)
         {
-            var result = _db.Execute("KEYS", $"channel:*");
-            var keys = ((RedisKey[]?)result) ?? [];
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
+            var keys = new List<RedisKey>();
+            foreach (var key in server.Keys(pattern: "channel:*", database: _options.Database))
+            {
+                keys.Add(key);
+            }
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
@@ -309,8 +317,12 @@ namespace PawSharp.Cache.Providers
         /// <returns>An enumerable of members in the guild.</returns>
         public IEnumerable<GuildMember> GetGuildMembers(ulong guildId)
         {
-            var result = _db.Execute("KEYS", $"member:{guildId}:*");
-            var keys = ((RedisKey[]?)result) ?? [];
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
+            var keys = new List<RedisKey>();
+            foreach (var key in server.Keys(pattern: $"member:{guildId}:*", database: _options.Database))
+            {
+                keys.Add(key);
+            }
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
@@ -353,8 +365,12 @@ namespace PawSharp.Cache.Providers
         /// <returns>An enumerable of roles in the guild.</returns>
         public IEnumerable<PawSharp.Core.Entities.Role> GetGuildRoles(ulong guildId)
         {
-            var result = _db.Execute("KEYS", $"role:*");
-            var keys = ((RedisKey[]?)result) ?? [];
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
+            var keys = new List<RedisKey>();
+            foreach (var key in server.Keys(pattern: "role:*", database: _options.Database))
+            {
+                keys.Add(key);
+            }
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
@@ -401,8 +417,12 @@ namespace PawSharp.Cache.Providers
         /// <returns>An enumerable of emojis in the guild.</returns>
         public IEnumerable<Emoji> GetGuildEmojis(ulong guildId)
         {
-            var result = _db.Execute("KEYS", $"emoji:*");
-            var keys = ((RedisKey[]?)result) ?? [];
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
+            var keys = new List<RedisKey>();
+            foreach (var key in server.Keys(pattern: "emoji:*", database: _options.Database))
+            {
+                keys.Add(key);
+            }
             foreach (var key in keys)
             {
                 var json = _db.StringGet(key);
@@ -443,13 +463,20 @@ namespace PawSharp.Cache.Providers
         public void RemoveGuild(ulong guildId)
         {
             var keys = new List<RedisKey>();
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
 
-            // Collect all keys related to this guild
-            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"guild:{guildId}")) ?? []);
-            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"channel:*")) ?? []); // Would need filtering in real impl
-            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"member:{guildId}:*")) ?? []);
-            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"role:*")) ?? []); // Would need filtering in real impl
-            keys.AddRange(((RedisKey[]?)_db.Execute("KEYS", $"emoji:*")) ?? []); // Would need filtering in real impl
+            // Collect all keys related to this guild using SCAN
+            foreach (var key in server.Keys(pattern: $"guild:{guildId}", database: _options.Database))
+                keys.Add(key);
+            foreach (var key in server.Keys(pattern: $"member:{guildId}:*", database: _options.Database))
+                keys.Add(key);
+            // Note: channel, role, and emoji keys would need proper guild filtering in a real implementation
+            foreach (var key in server.Keys(pattern: "channel:*", database: _options.Database))
+                keys.Add(key);
+            foreach (var key in server.Keys(pattern: "role:*", database: _options.Database))
+                keys.Add(key);
+            foreach (var key in server.Keys(pattern: "emoji:*", database: _options.Database))
+                keys.Add(key);
 
             if (keys.Count > 0)
             {
@@ -469,12 +496,14 @@ namespace PawSharp.Cache.Providers
         {
             var patterns = new[] { "user:*", "guild:*", "channel:*", "message:*", "member:*", "role:*", "emoji:*" };
             var count = 0;
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
 
             foreach (var pattern in patterns)
             {
-                var result = _db.Execute("KEYS", pattern);
-                var keys = ((RedisKey[]?)result) ?? [];
-                count += keys.Length;
+                foreach (var key in server.Keys(pattern: pattern, database: _options.Database))
+                {
+                    count++;
+                }
             }
 
             return count;
@@ -497,15 +526,16 @@ namespace PawSharp.Cache.Providers
         /// <returns>Cache statistics.</returns>
         public CacheStats GetCacheStats()
         {
+            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
             return new CacheStats
             {
-                UserCount = (((RedisKey[]?)_db.Execute("KEYS", "user:*")) ?? []).Length,
-                GuildCount = (((RedisKey[]?)_db.Execute("KEYS", "guild:*")) ?? []).Length,
-                ChannelCount = (((RedisKey[]?)_db.Execute("KEYS", "channel:*")) ?? []).Length,
-                MessageCount = (((RedisKey[]?)_db.Execute("KEYS", "message:*")) ?? []).Length,
-                MemberCount = (((RedisKey[]?)_db.Execute("KEYS", "member:*")) ?? []).Length,
-                RoleCount = (((RedisKey[]?)_db.Execute("KEYS", "role:*")) ?? []).Length,
-                EmojiCount = (((RedisKey[]?)_db.Execute("KEYS", "emoji:*")) ?? []).Length,
+                UserCount = server.Keys(pattern: "user:*", database: _options.Database).Count(),
+                GuildCount = server.Keys(pattern: "guild:*", database: _options.Database).Count(),
+                ChannelCount = server.Keys(pattern: "channel:*", database: _options.Database).Count(),
+                MessageCount = server.Keys(pattern: "message:*", database: _options.Database).Count(),
+                MemberCount = server.Keys(pattern: "member:*", database: _options.Database).Count(),
+                RoleCount = server.Keys(pattern: "role:*", database: _options.Database).Count(),
+                EmojiCount = server.Keys(pattern: "emoji:*", database: _options.Database).Count(),
                 MemoryUsage = GetMemoryUsage()
             };
         }
