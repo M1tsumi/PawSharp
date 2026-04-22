@@ -18,7 +18,7 @@ It brings REST, gateway, caching, commands, interactions, and voice extensions i
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Client --version 1.0.0-alpha.2
+dotnet add package PawSharp.Client --version 1.0.0-alpha.4
 ```
 
 ## Quick Start

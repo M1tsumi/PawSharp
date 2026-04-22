@@ -18,7 +18,7 @@ Use it when you need faster reads, fewer REST calls, and a cleaner way to keep f
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Cache --version 1.0.0-alpha.2
+dotnet add package PawSharp.Cache --version 1.0.0-alpha.4
 ```
 
 ## Quick Start

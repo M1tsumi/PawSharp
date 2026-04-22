@@ -20,7 +20,7 @@ It is built for maintainable bot command modules with async support, readable co
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Commands --version 1.0.0-alpha.2
+dotnet add package PawSharp.Commands --version 1.0.0-alpha.4
 ```
 
 ## Quick Start
