@@ -7,7 +7,7 @@
 
   <!-- ── Library / source dependencies ───────────────────────────────────── -->
   <ItemGroup Label="Serialization">
-    <PackageVersion Include="Newtonsoft.Json"                           Version="13.0.3" />
+    <PackageVersion Include="System.Text.Json"                          Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Microsoft.Extensions">
