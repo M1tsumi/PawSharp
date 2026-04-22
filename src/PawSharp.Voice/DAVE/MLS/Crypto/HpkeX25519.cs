@@ -43,6 +43,9 @@ internal static class HpkeX25519
     // suite_id for KDF/AEAD operations: concat("HPKE", kem_id, kdf_id, aead_id)
     private static readonly byte[] HpkeSuiteId = BuildHpkeSuiteId();
 
+    // Cache for derived public keys to avoid redundant X25519 scalar multiplication
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> _publicKeyCache = new();
+
     // ── KEM constants ─────────────────────────────────────────────────────────
 
     private const int NSecret = 32; // Nsecret for DHKEM-X25519
@@ -120,8 +123,13 @@ internal static class HpkeX25519
         // KEM: DH(recipient, ephemeral)
         var dh = Curve25519.SharedSecret(clampedPriv, enc);
 
-        // Derive recipient public key from private key using the X25519 base point
-        var recipientPub = Curve25519.ScalarMult(clampedPriv, Curve25519.BasePoint);
+        // Derive recipient public key from private key using the X25519 base point (with caching)
+        var privKeyHex = Convert.ToHexString(clampedPriv);
+        if (!_publicKeyCache.TryGetValue(privKeyHex, out var recipientPub))
+        {
+            recipientPub = Curve25519.ScalarMult(clampedPriv, Curve25519.BasePoint);
+            _publicKeyCache[privKeyHex] = recipientPub;
+        }
 
         var sharedSecret = ExtractAndExpand(dh, enc, recipientPub);
         var (key, baseNonce) = KeyScheduleBase(sharedSecret, info);
