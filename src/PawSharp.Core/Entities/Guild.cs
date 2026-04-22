@@ -16,6 +16,26 @@ public class Guild : DiscordEntity
     /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
+
+    private string? _validatedName;
+
+    /// <summary>
+    /// Gets or sets the validated guild name (2-100 characters, excluding trailing and leading whitespace).
+    /// </summary>
+    public string? ValidatedName
+    {
+        get => _validatedName;
+        set
+        {
+            if (value != null)
+            {
+                var trimmed = value.Trim();
+                if (trimmed.Length < 2 || trimmed.Length > 100)
+                    throw new ArgumentException("Guild name must be between 2 and 100 characters.", nameof(value));
+            }
+            _validatedName = value;
+        }
+    }
     
     /// <summary>
     /// Icon hash.

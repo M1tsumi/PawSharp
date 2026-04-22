@@ -42,6 +42,22 @@ public class Channel : DiscordEntity
     /// </summary>
     [JsonPropertyName("name")]
     public string? Name { get; set; }
+
+    private string? _validatedName;
+
+    /// <summary>
+    /// Gets or sets the validated channel name (1-100 characters).
+    /// </summary>
+    public string? ValidatedName
+    {
+        get => _validatedName;
+        set
+        {
+            if (value != null && (value.Length < 1 || value.Length > 100))
+                throw new ArgumentException("Channel name must be between 1 and 100 characters.", nameof(value));
+            _validatedName = value;
+        }
+    }
     
     /// <summary>
     /// The channel topic (0-1024 characters).
