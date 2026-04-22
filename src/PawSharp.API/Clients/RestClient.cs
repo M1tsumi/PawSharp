@@ -155,6 +155,13 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         return await PatchAsync("users/@me", content);
     }
     
+    /// <summary>
+    /// Gets the current user's guilds.
+    /// </summary>
+    /// <param name="limit">Maximum number of guilds to return (1-200). Default is 200.</param>
+    /// <param name="before">Get guilds before this guild ID.</param>
+    /// <param name="after">Get guilds after this guild ID.</param>
+    /// <returns>A list of guilds, or null if the request fails.</returns>
     public async Task<List<Guild>?> GetCurrentUserGuildsAsync(int limit = 200, ulong? before = null, ulong? after = null)
     {
         // Validate input
@@ -210,6 +217,12 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     }
     
     // Message operations
+    /// <summary>
+    /// Creates a new message in a channel.
+    /// </summary>
+    /// <param name="channelId">The channel ID to send the message to.</param>
+    /// <param name="request">The message creation request.</param>
+    /// <returns>The created message, or null if the request fails.</returns>
     public async Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request)
     {
         // Validate input
@@ -243,6 +256,15 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         return null;
     }
 
+    /// <summary>
+    /// Forwards a message from one channel to another.
+    /// </summary>
+    /// <param name="targetChannelId">The channel ID to forward the message to.</param>
+    /// <param name="sourceChannelId">The channel ID of the source message.</param>
+    /// <param name="sourceMessageId">The message ID to forward.</param>
+    /// <param name="content">Optional content to add to the forwarded message.</param>
+    /// <param name="failIfNotExists">Whether to fail if the source message doesn't exist.</param>
+    /// <returns>The forwarded message, or null if the request fails.</returns>
     public async Task<Message?> ForwardMessageAsync(
         ulong targetChannelId,
         ulong sourceChannelId,
@@ -268,6 +290,15 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         return await CreateMessageAsync(targetChannelId, request);
     }
 
+    /// <summary>
+    /// Sends a file to a channel.
+    /// </summary>
+    /// <param name="channelId">The channel ID to send the file to.</param>
+    /// <param name="fileStream">The file stream to send.</param>
+    /// <param name="fileName">The name of the file.</param>
+    /// <param name="messageRequest">Optional message request to include with the file.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The created message, or null if the request fails.</returns>
     public async Task<Message?> SendFileAsync(
         ulong channelId,
         Stream fileStream,
