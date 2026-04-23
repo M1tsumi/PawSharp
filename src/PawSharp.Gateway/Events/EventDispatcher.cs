@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.Core.Serialization;
+using PawSharp.Gateway.Serialization;
 
 namespace PawSharp.Gateway.Events
 {
@@ -36,7 +37,7 @@ namespace PawSharp.Gateway.Events
                 new NullableSnowflakeJsonConverter()
             },
             // Enable source generator for better AOT compatibility
-            TypeInfoResolver = PawSharp.Core.Serialization.PawSharpJsonContext.Default
+            TypeInfoResolver = PawSharpGatewayJsonContext.Default
         };
 
         public EventDispatcher(ILogger? logger = null)

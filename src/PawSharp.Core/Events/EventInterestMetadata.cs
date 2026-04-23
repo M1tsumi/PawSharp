@@ -130,8 +130,8 @@ public sealed class EventInterestMetadata
 
         var intentNames = new List<string>();
 
-        // Check each intent flag
-        foreach (GatewayIntents intent in Enum.GetValues(typeof(GatewayIntents)))
+        // Check each intent flag - use GetValues<TEnum> for AOT compatibility
+        foreach (GatewayIntents intent in Enum.GetValues<GatewayIntents>())
         {
             if (intent != (GatewayIntents)0 && (missingIntents & intent) != 0)
                 intentNames.Add(intent.ToString());
