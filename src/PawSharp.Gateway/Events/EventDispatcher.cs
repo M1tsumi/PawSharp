@@ -143,12 +143,18 @@ namespace PawSharp.Gateway.Events
         /// <summary>
         /// Deserializes the raw JSON payload and dispatches the resulting event.
         /// Falls back to raw-JSON handlers on deserialization failure.
+        /// Uses source-generated serialization for AOT compatibility.
         /// </summary>
         public async Task DispatchFromJsonAsync<TEvent>(string eventName, string json) where TEvent : GatewayEvent
         {
             try
             {
-                var eventData = JsonSerializer.Deserialize<TEvent>(json, _jsonOptions);
+                // Use source-generated deserialization with JsonTypeInfo
+                var typeInfo = _jsonOptions.TypeInfoResolver?.GetTypeInfo(typeof(TEvent), _jsonOptions);
+                var eventData = typeInfo != null
+                    ? JsonSerializer.Deserialize(json, typeInfo) as TEvent
+                    : JsonSerializer.Deserialize<TEvent>(json, _jsonOptions);
+                
                 if (eventData != null)
                     await DispatchAsync(eventName, eventData, json);
             }

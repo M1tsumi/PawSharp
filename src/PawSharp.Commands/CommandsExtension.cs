@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -902,7 +903,7 @@ public class CommandsExtension
         }
     }
 
-    private static object? GetDefault(Type type)
+    private static object? GetDefault([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
         => type.IsValueType ? Activator.CreateInstance(type) : null;
 }
 

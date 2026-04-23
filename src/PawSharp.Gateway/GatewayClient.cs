@@ -12,6 +12,7 @@ using PawSharp.Core.Serialization;
 using PawSharp.Gateway.Connection;
 using PawSharp.Gateway.Events;
 using PawSharp.Gateway.Heartbeat;
+using PawSharp.Gateway.Serialization;
 
 namespace PawSharp.Gateway
 {
@@ -737,10 +738,11 @@ namespace PawSharp.Gateway
                     case "USER_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<UserUpdateEvent>(eventType, eventData);
                         break;
-                    case "VOICE_STATE_UPDATE":                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
+                    case "VOICE_STATE_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
                         if (VoiceStateUpdate != null)
                         {
-                            var voiceStateEvent = JsonSerializer.Deserialize<VoiceStateUpdateEvent>(eventData, _snowflakeOptions);
+                            var voiceStateEvent = JsonSerializer.Deserialize(eventData, PawSharp.Gateway.Serialization.PawSharpGatewayJsonContext.Default.VoiceStateUpdateEvent);
                             if (voiceStateEvent != null)
                             {
                                 await VoiceStateUpdate.Invoke(voiceStateEvent);
@@ -751,7 +753,7 @@ namespace PawSharp.Gateway
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceServerUpdateEvent>(eventType, eventData);
                         if (VoiceServerUpdate != null)
                         {
-                            var voiceServerEvent = JsonSerializer.Deserialize<VoiceServerUpdateEvent>(eventData, _snowflakeOptions);
+                            var voiceServerEvent = JsonSerializer.Deserialize(eventData, PawSharp.Gateway.Serialization.PawSharpGatewayJsonContext.Default.VoiceServerUpdateEvent);
                             if (voiceServerEvent != null)
                             {
                                 await VoiceServerUpdate.Invoke(voiceServerEvent);
