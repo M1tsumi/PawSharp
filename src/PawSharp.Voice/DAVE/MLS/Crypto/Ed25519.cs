@@ -67,8 +67,6 @@ internal static class Ed25519
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>Generates a new Ed25519 key pair.</summary>
-    /// <param name="privateKey">The 32-byte private seed.</param>
-    /// <param name="publicKey">The 32-byte compressed public key.</param>
     /// <summary>
     /// Generates an Ed25519 key pair.
     /// </summary>
