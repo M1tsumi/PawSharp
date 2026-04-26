@@ -105,12 +105,12 @@ public static class PawSharpServiceCollectionExtensions
     /// <summary>
     /// Registers all PawSharp services with an in-memory entity cache.
     /// Equivalent to calling <see cref="AddPawSharp(IServiceCollection,PawSharpOptions,Func{IServiceProvider,IEntityCache}?)"/>
-    /// with <c>cacheFactory: _ =&gt; new MemoryCacheProvider()</c>.
+    /// with <c>cacheFactory: _ =&gt; new MemoryCacheProvider(options.Cache.MemoryCache ?? new MemoryCacheOptions())</c>.
     /// </summary>
     public static IServiceCollection AddPawSharpWithMemoryCache(
         this IServiceCollection services,
         PawSharpOptions options)
-        => services.AddPawSharp(options, _ => new MemoryCacheProvider());
+        => services.AddPawSharp(options, _ => new MemoryCacheProvider(options.Cache.MemoryCache ?? new PawSharp.Cache.Providers.MemoryCacheOptions()));
 
     /// <summary>
     /// Backward-compatible alias that registers PawSharp with in-memory cache.

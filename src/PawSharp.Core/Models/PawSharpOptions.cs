@@ -79,16 +79,21 @@ public class PawSharpOptions
         /// Maximum number of emojis to cache per guild (default: 100).
         /// </summary>
         public int MaxEmojisPerGuild { get; set; } = 100;
-        
+
         /// <summary>
         /// Maximum number of messages to cache per channel (default: 100).
         /// </summary>
         public int MaxMessagesPerChannel { get; set; } = 100;
-        
+
         /// <summary>
         /// Maximum number of members to cache per guild (default: 1000).
         /// </summary>
         public int MaxMembersPerGuild { get; set; } = 1000;
+
+        /// <summary>
+        /// In-memory cache provider configuration.
+        /// </summary>
+        public PawSharp.Cache.Providers.MemoryCacheOptions? MemoryCache { get; set; }
     }
 
     /// <summary>
