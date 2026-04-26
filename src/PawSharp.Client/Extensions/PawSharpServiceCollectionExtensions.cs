@@ -110,7 +110,7 @@ public static class PawSharpServiceCollectionExtensions
     public static IServiceCollection AddPawSharpWithMemoryCache(
         this IServiceCollection services,
         PawSharpOptions options)
-        => services.AddPawSharp(options, _ => new MemoryCacheProvider(options.Cache.MemoryCache ?? new PawSharp.Cache.Providers.MemoryCacheOptions()));
+        => services.AddPawSharp(options, _ => new MemoryCacheProvider(options.Cache.MemoryCache ?? new PawSharp.Core.Models.MemoryCacheOptions()));
 
     /// <summary>
     /// Backward-compatible alias that registers PawSharp with in-memory cache.
