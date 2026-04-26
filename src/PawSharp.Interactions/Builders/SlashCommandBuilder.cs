@@ -113,6 +113,63 @@ public class SlashCommandBuilder
         });
     }
 
+    public SlashCommandBuilder AddMentionableOption(string name, string description, bool required = false)
+    {
+        return AddOption(new ApplicationCommandOption
+        {
+            Type = ApplicationCommandOptionType.Mentionable,
+            Name = name,
+            Description = description,
+            Required = required
+        });
+    }
+
+    public SlashCommandBuilder AddNumberOption(string name, string description, bool required = false, double? minValue = null, double? maxValue = null)
+    {
+        return AddOption(new ApplicationCommandOption
+        {
+            Type = ApplicationCommandOptionType.Number,
+            Name = name,
+            Description = description,
+            Required = required,
+            MinValue = minValue,
+            MaxValue = maxValue
+        });
+    }
+
+    public SlashCommandBuilder AddAttachmentOption(string name, string description, bool required = false)
+    {
+        return AddOption(new ApplicationCommandOption
+        {
+            Type = ApplicationCommandOptionType.Attachment,
+            Name = name,
+            Description = description,
+            Required = required
+        });
+    }
+
+    public SlashCommandBuilder AddSubcommand(string name, string description)
+    {
+        return AddOption(new ApplicationCommandOption
+        {
+            Type = ApplicationCommandOptionType.SubCommand,
+            Name = name,
+            Description = description,
+            Options = new List<ApplicationCommandOption>()
+        });
+    }
+
+    public SlashCommandBuilder AddSubcommandGroup(string name, string description)
+    {
+        return AddOption(new ApplicationCommandOption
+        {
+            Type = ApplicationCommandOptionType.SubCommandGroup,
+            Name = name,
+            Description = description,
+            Options = new List<ApplicationCommandOption>()
+        });
+    }
+
     public ApplicationCommand Build()
     {
         return _command;

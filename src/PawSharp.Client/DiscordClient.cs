@@ -45,7 +45,8 @@ namespace PawSharp.Client
             IEntityCache cache,
             ILogger<DiscordClient> logger,
             IDiscordRestClient restClient,
-            IGatewayClient gatewayClient)
+            IGatewayClient gatewayClient,
+            InteractionHandler? interactionHandler = null)
         {
             _options       = options       ?? throw new ArgumentNullException(nameof(options));
             _cache         = cache         ?? throw new ArgumentNullException(nameof(cache));
@@ -53,7 +54,7 @@ namespace PawSharp.Client
             _restClient    = restClient    ?? throw new ArgumentNullException(nameof(restClient));
             _gatewayClient = gatewayClient ?? throw new ArgumentNullException(nameof(gatewayClient));
 
-            _interactionHandler = new InteractionHandler(_restClient);
+            _interactionHandler = interactionHandler ?? new InteractionHandler(_restClient, logger.GetService<ILogger<InteractionHandler>>());
 
             // Wire cache to gateway events automatically
             _cacheManager = new CacheManager(cache, null);
