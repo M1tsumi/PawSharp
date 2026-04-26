@@ -145,7 +145,7 @@ public class Channel : DiscordEntity
     /// The camera video quality mode of the voice channel.
     /// </summary>
     [JsonPropertyName("video_quality_mode")]
-    public int? VideoQualityMode { get; set; }
+    public VideoQualityMode? VideoQualityMode { get; set; }
     
     /// <summary>
     /// Number of messages (not including the initial message or deleted messages) in a thread.
@@ -169,7 +169,8 @@ public class Channel : DiscordEntity
     /// Computed permissions for the invoking user in the channel.
     /// </summary>
     [JsonPropertyName("permissions")]
-    public string? Permissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? Permissions { get; set; }
     
     /// <summary>
     /// Channel flags combined as a bitfield.
@@ -205,13 +206,13 @@ public class Channel : DiscordEntity
     /// The default sort order type used to order posts in GUILD_FORUM channels.
     /// </summary>
     [JsonPropertyName("default_sort_order")]
-    public int? DefaultSortOrder { get; set; }
+    public SortOrderType? DefaultSortOrder { get; set; }
     
     /// <summary>
     /// The default forum layout view used to display posts in GUILD_FORUM channels.
     /// </summary>
     [JsonPropertyName("default_forum_layout")]
-    public int? DefaultForumLayout { get; set; }
+    public ForumLayoutType? DefaultForumLayout { get; set; }
 
     /// <summary>
     /// The voice channel status text (set by members with permission). Null when cleared.

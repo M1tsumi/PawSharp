@@ -46,6 +46,9 @@ public class InteractivityTests
                 .ReturnsAsync(true);
         restMock.Setup(r => r.DeleteAllReactionsAsync(It.IsAny<ulong>(), It.IsAny<ulong>()))
                 .ReturnsAsync(true);
+        restMock.Setup(r => r.GetAnswerVotersAsync(
+                    It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int?>(), It.IsAny<ulong?>()))
+                .ReturnsAsync(new List<User>());
 
         var options = new PawSharpOptions { Token = "Bot test.token.value" };
         var client  = new DiscordClient(
@@ -393,5 +396,161 @@ public class InteractivityTests
 
         result.TimedOut.Should().BeFalse();
         result.Result!.Data!.Values.Should().Contain("blue");
+    }
+
+    // ── WaitForModalAsync ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task WaitForModalAsync_Returns_Result_On_Modal_Submit()
+    {
+        var (client, dispatcher) = BuildTestClient();
+        client.UseInteractivity();
+
+        var message = new Message { Id = 800UL, ChannelId = 1UL };
+        var user    = new User    { Id = 42UL };
+
+        var waitTask = message.WaitForModalAsync(
+            client, user: user, customId: "feedback-form", timeout: TimeSpan.FromSeconds(5));
+
+        await dispatcher.DispatchAsync("INTERACTION_CREATE", new InteractionCreateEvent
+        {
+            Type    = 5, // ModalSubmit
+            Member  = new GuildMember { User = user },
+            Data    = new PawSharp.Gateway.Events.InteractionData
+            {
+                CustomId = "feedback-form",
+                Components = new List<MessageComponent>(),
+            },
+        });
+
+        var result = await waitTask;
+
+        result.TimedOut.Should().BeFalse();
+        result.Result!.Data!.CustomId.Should().Be("feedback-form");
+    }
+
+    [Fact]
+    public async Task WaitForModalAsync_Times_Out_When_No_Submission_Arrives()
+    {
+        var (client, _) = BuildTestClient();
+        client.UseInteractivity();
+
+        var message = new Message { Id = 801UL };
+        var result  = await message.WaitForModalAsync(
+            client, timeout: TimeSpan.FromMilliseconds(50));
+
+        result.TimedOut.Should().BeTrue();
+    }
+
+    // ── WaitForReactionRemoveAsync ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task WaitForReactionRemoveAsync_Returns_Result_On_Reaction_Remove()
+    {
+        var (client, dispatcher) = BuildTestClient();
+        client.UseInteractivity();
+
+        var message = new Message { Id = 900UL, ChannelId = 1UL };
+        var user    = new User    { Id = 42UL };
+
+        var waitTask = message.WaitForReactionRemoveAsync(
+            client, user, emoji: "👍", timeout: TimeSpan.FromSeconds(5));
+
+        await dispatcher.DispatchAsync("MESSAGE_REACTION_REMOVE", new MessageReactionRemoveEvent
+        {
+            UserId    = 42UL,
+            MessageId = 900UL,
+            ChannelId = 1UL,
+            Emoji     = new Emoji { Name = "👍" },
+        });
+
+        var result = await waitTask;
+
+        result.TimedOut.Should().BeFalse();
+        result.Result!.Emoji.Name.Should().Be("👍");
+    }
+
+    [Fact]
+    public async Task WaitForReactionRemoveAsync_Times_Out_When_No_Remove_Arrives()
+    {
+        var (client, _) = BuildTestClient();
+        client.UseInteractivity();
+
+        var message = new Message { Id = 901UL };
+        var user    = new User    { Id = 42UL };
+
+        var result = await message.WaitForReactionRemoveAsync(
+            client, user, timeout: TimeSpan.FromMilliseconds(50));
+
+        result.TimedOut.Should().BeTrue();
+    }
+
+    // ── Poll methods ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPollAnswerVotersAsync_Throws_When_No_Poll()
+    {
+        var (client, _) = BuildTestClient();
+        client.UseInteractivity();
+
+        var message = new Message { Id = 1000UL, Poll = null };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => message.GetPollAnswerVotersAsync(client, 1));
+    }
+
+    [Fact]
+    public async Task GetPollAnswerVotersAsync_Returns_Voters_When_Poll_Exists()
+    {
+        var (client, restMock) = BuildTestClient();
+        client.UseInteractivity();
+
+        var expectedVoters = new List<User>
+        {
+            new User { Id = 1UL, Username = "user1" },
+            new User { Id = 2UL, Username = "user2" },
+        };
+
+        restMock.Setup(r => r.GetAnswerVotersAsync(
+                    It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int?>(), It.IsAny<ulong?>()))
+                .ReturnsAsync(expectedVoters);
+
+        var message = new Message { Id = 1001UL, Poll = new Poll() };
+
+        var voters = await message.GetPollAnswerVotersAsync(client, 1);
+
+        voters.Should().HaveCount(2);
+        voters![0].Username.Should().Be("user1");
+    }
+
+    [Fact]
+    public async Task EndPollAsync_Throws_When_No_Poll()
+    {
+        var (client, _) = BuildTestClient();
+        client.UseInteractivity();
+
+        var message = new Message { Id = 1100UL, Poll = null };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => message.EndPollAsync(client));
+    }
+
+    [Fact]
+    public async Task EndPollAsync_Calls_Rest_When_Poll_Exists()
+    {
+        var (client, restMock) = BuildTestClient();
+        client.UseInteractivity();
+
+        var updatedMessage = new Message { Id = 1101UL, Poll = new Poll { Results = new PollResults { IsFinalized = true } } };
+
+        restMock.Setup(r => r.EndPollAsync(It.IsAny<ulong>(), It.IsAny<ulong>()))
+                .ReturnsAsync(updatedMessage);
+
+        var message = new Message { Id = 1101UL, Poll = new Poll() };
+
+        var result = await message.EndPollAsync(client);
+
+        result.Should().NotBeNull();
+        result!.Poll!.Results!.IsFinalized.Should().BeTrue();
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -9,14 +10,24 @@ namespace PawSharp.Gateway.Connection
     public class WebSocketConnection
     {
         private ClientWebSocket _webSocket;
+        private ZlibStreamCompression? _compression;
+        private readonly bool _useCompression;
+        private readonly bool _useArrayPooling;
+        private bool _disposed;
 
-        // Compression is disabled: permessage-deflate is a WebSocket *extension*, not a
-        // subprotocol, and ClientWebSocket does not support extensions. Discord uses
-        // zlib-stream transport compression which requires separate framing logic.
-        // Proper zlib-stream support is tracked for 0.7.0.
-        public WebSocketConnection(bool useCompression = false)
+        // zlib-stream transport compression uses a shared decompression context
+        // across the connection for better compression ratios (up to 40% bandwidth savings).
+        // This is different from permessage-deflate WebSocket extension.
+        public WebSocketConnection(bool useCompression = false, bool useArrayPooling = true)
         {
             _webSocket = new ClientWebSocket();
+            _useCompression = useCompression;
+            _useArrayPooling = useArrayPooling;
+            
+            if (useCompression)
+            {
+                _compression = new ZlibStreamCompression();
+            }
         }
 
         public async Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
@@ -28,6 +39,13 @@ namespace PawSharp.Gateway.Connection
                 _webSocket.Dispose();
                 _webSocket = new ClientWebSocket();
             }
+            
+            // Initialize compression context for new connection
+            if (_useCompression && _compression != null)
+            {
+                _compression.Initialize();
+            }
+            
             await _webSocket.ConnectAsync(uri, cancellationToken);
         }
 
@@ -52,6 +70,12 @@ namespace PawSharp.Gateway.Connection
                     System.Diagnostics.Debug.WriteLine($"WebSocket may have been torn down remotely: {ex.Message}");
                 }
             }
+            
+            // Reset compression context on disconnect
+            if (_useCompression && _compression != null)
+            {
+                _compression.Reset();
+            }
         }
 
         public async Task SendAsync(string message, CancellationToken cancellationToken)
@@ -64,27 +88,63 @@ namespace PawSharp.Gateway.Connection
         {
             // 64 KB buffer reduces loop iterations for large events (e.g. GUILD_CREATE
             // for servers with thousands of members).
-            var buffer = new byte[65536];
-            var messageBuilder = new StringBuilder();
-            WebSocketReceiveResult result;
-
-            do
+            // Use ArrayPool to reduce GC pressure for large allocations.
+            byte[] buffer = _useArrayPooling 
+                ? ArrayPool<byte>.Shared.Rent(65536)
+                : new byte[65536];
+            
+            try
             {
-                result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
-                if (result.MessageType == WebSocketMessageType.Text)
-                {
-                    messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
-                }
-                else if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    break;
-                }
-            } while (!result.EndOfMessage);
+                var messageBuilder = new StringBuilder();
+                WebSocketReceiveResult result;
 
-            return messageBuilder.ToString();
+                do
+                {
+                    result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                    if (result.MessageType == WebSocketMessageType.Text)
+                    {
+                        if (_useCompression && _compression != null)
+                        {
+                            // Handle compressed data
+                            var decompressed = _compression.DecompressChunk(buffer.AsSpan(0, result.Count).ToArray());
+                            if (decompressed != null)
+                            {
+                                messageBuilder.Append(decompressed);
+                            }
+                        }
+                        else
+                        {
+                            // Handle uncompressed data
+                            messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                        }
+                    }
+                    else if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        break;
+                    }
+                } while (!result.EndOfMessage);
+
+                return messageBuilder.ToString();
+            }
+            finally
+            {
+                if (_useArrayPooling)
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
+                }
+            }
         }
 
         public bool IsConnected => _webSocket.State == WebSocketState.Open;
-        public bool CompressionEnabled => false;
+        public bool CompressionEnabled => _useCompression;
+        
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            
+            _webSocket.Dispose();
+            _compression?.Dispose();
+        }
     }
 }

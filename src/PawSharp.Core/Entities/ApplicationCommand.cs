@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using PawSharp.Core.Serialization;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Core.Entities;
 
@@ -53,7 +54,8 @@ public class ApplicationCommand : DiscordEntity
     /// Set of permissions represented as a bit set.
     /// </summary>
     [JsonPropertyName("default_member_permissions")]
-    public string? DefaultMemberPermissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? DefaultMemberPermissions { get; set; }
     
     /// <summary>
     /// Indicates whether the command is available in DMs with the app, only for globally-scoped commands.

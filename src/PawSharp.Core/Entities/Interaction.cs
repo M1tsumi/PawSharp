@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using PawSharp.Core.Serialization;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Core.Entities;
 
@@ -78,7 +79,8 @@ public class Interaction : DiscordEntity
     /// Bitwise set of permissions the app or bot has within the channel the interaction was sent from.
     /// </summary>
     [JsonPropertyName("app_permissions")]
-    public string? AppPermissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? AppPermissions { get; set; }
     
     /// <summary>
     /// Selected language of the invoking user.

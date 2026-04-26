@@ -126,6 +126,64 @@ public static class MessageExtensions
     }
 
     /// <summary>
+    /// Waits for a reaction to be removed from the message.
+    /// </summary>
+    /// <param name="message">The message to wait for reaction removal on.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user whose reaction removal to wait for.</param>
+    /// <param name="emoji">The specific emoji to wait for removal of, or null for any emoji.</param>
+    /// <param name="timeout">The timeout for waiting.</param>
+    /// <returns>The interactivity result.</returns>
+    public static async Task<InteractivityResult<Reaction>> WaitForReactionRemoveAsync(
+        this Message message,
+        DiscordClient client,
+        User user,
+        string? emoji = null,
+        TimeSpan? timeout = null)
+    {
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        var tcs = new TaskCompletionSource<Reaction>();
+        var cts = new CancellationTokenSource(timeout.Value);
+
+        cts.Token.Register(() => tcs.TrySetCanceled());
+
+        void OnReactionRemove(MessageReactionRemoveEvent evt)
+        {
+            if (evt.MessageId == message.Id &&
+                evt.UserId == user.Id &&
+                (emoji == null || evt.Emoji.Name == emoji))
+            {
+                var reaction = new Reaction
+                {
+                    Count = 0, // Reaction was removed
+                    Me = evt.UserId == client.CurrentUser?.Id,
+                    Emoji = evt.Emoji
+                };
+                tcs.TrySetResult(reaction);
+            }
+        }
+
+        var subscription = client.Gateway.Events.On<MessageReactionRemoveEvent>("MESSAGE_REACTION_REMOVE", OnReactionRemove);
+
+        try
+        {
+            var reaction = await tcs.Task;
+            return new InteractivityResult<Reaction> { Result = reaction };
+        }
+        catch (TaskCanceledException)
+        {
+            return new InteractivityResult<Reaction> { TimedOut = true };
+        }
+        finally
+        {
+            subscription.Dispose();
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>
     /// Creates a poll on the message.
     /// </summary>
     /// <param name="message">The message to create a poll on.</param>
@@ -182,6 +240,49 @@ public static class MessageExtensions
                 }
             });
         }
+    }
+
+    /// <summary>
+    /// Gets the voters for a specific answer in a Discord native poll.
+    /// </summary>
+    /// <param name="message">The message containing the poll.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="answerId">The ID of the poll answer to get voters for.</param>
+    /// <param name="limit">Maximum number of voters to return (default 25, max 100).</param>
+    /// <param name="after">Get voters after this user ID for pagination.</param>
+    /// <returns>A list of users who voted for the specified answer.</returns>
+    public static async Task<List<User>?> GetPollAnswerVotersAsync(
+        this Message message,
+        DiscordClient client,
+        int answerId,
+        int? limit = null,
+        ulong? after = null)
+    {
+        if (message.Poll == null)
+            throw new InvalidOperationException("Message does not contain a poll.");
+
+        return await client.Rest.GetAnswerVotersAsync(
+            message.ChannelId,
+            message.Id,
+            answerId,
+            limit,
+            after);
+    }
+
+    /// <summary>
+    /// Ends a Discord native poll early, finalizing the results.
+    /// </summary>
+    /// <param name="message">The message containing the poll.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <returns>The updated message with finalized poll results.</returns>
+    public static async Task<Message?> EndPollAsync(
+        this Message message,
+        DiscordClient client)
+    {
+        if (message.Poll == null)
+            throw new InvalidOperationException("Message does not contain a poll.");
+
+        return await client.Rest.EndPollAsync(message.ChannelId, message.Id);
     }
 
     // ── Component interaction waiting ─────────────────────────────────────────
@@ -299,6 +400,67 @@ public static class MessageExtensions
             if (ct is null or 2)                                        return;
             if (user is not null && GetUserId(evt) != user.Id)          return;
             if (customId is not null && evt.Data!.CustomId != customId) return;
+
+            tcs.TrySetResult(evt);
+        }
+
+        using var sub = client.Gateway.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", OnInteraction);
+
+        try
+        {
+            var evt = await tcs.Task;
+            return new InteractivityResult<InteractionCreateEvent> { Result = evt };
+        }
+        catch (TaskCanceledException)
+        {
+            return new InteractivityResult<InteractionCreateEvent> { TimedOut = true };
+        }
+    }
+
+    /// <summary>
+    /// Waits for a modal submission interaction and returns the resulting interaction.
+    /// </summary>
+    /// <param name="message">The message that triggered the modal (optional, for context).</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">
+    /// The user whose submission to accept, or <see langword="null"/> to accept any user.
+    /// </param>
+    /// <param name="customId">
+    /// The <c>custom_id</c> of the specific modal to wait for, or <see langword="null"/>
+    /// to accept any modal submission.
+    /// </param>
+    /// <param name="timeout">
+    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
+    /// if not specified.
+    /// </param>
+    /// <returns>
+    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
+    /// (with <c>Data.Components</c> containing the submitted form data) when a matching
+    /// submission arrives, or a timed-out result after the deadline.
+    /// </returns>
+    public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForModalAsync(
+        this Message? message,
+        DiscordClient client,
+        User? user = null,
+        string? customId = null,
+        TimeSpan? timeout = null)
+    {
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        var tcs = new TaskCompletionSource<InteractionCreateEvent>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cts = new CancellationTokenSource(timeout.Value);
+        cts.Token.Register(() => tcs.TrySetCanceled());
+
+        // Interaction type 5 = ModalSubmit
+        const int modalSubmitType = 5;
+
+        void OnInteraction(InteractionCreateEvent evt)
+        {
+            if (evt.Type != modalSubmitType)                                  return;
+            if (user is not null && GetUserId(evt) != user.Id)                return;
+            if (customId is not null && evt.Data?.CustomId != customId)        return;
 
             tcs.TrySetResult(evt);
         }

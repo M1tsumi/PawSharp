@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using PawSharp.Interactions.Models;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Interactions.Builders;
 
@@ -19,9 +20,9 @@ public class SlashCommandBuilder
         _command.Options = new List<ApplicationCommandOption>();
     }
 
-    public SlashCommandBuilder SetDefaultMemberPermissions(ulong permissions)
+    public SlashCommandBuilder SetDefaultMemberPermissions(Permissions permissions)
     {
-        _command.DefaultMemberPermissions = permissions.ToString();
+        _command.DefaultMemberPermissions = permissions;
         return this;
     }
 

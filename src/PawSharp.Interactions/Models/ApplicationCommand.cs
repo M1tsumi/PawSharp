@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using PawSharp.Core.Serialization;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Interactions.Models;
 
@@ -75,7 +76,8 @@ public class ApplicationCommand
     public List<ApplicationCommandOption>? Options { get; set; }
     
     [JsonPropertyName("default_member_permissions")]
-    public string? DefaultMemberPermissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? DefaultMemberPermissions { get; set; }
     
     [JsonPropertyName("dm_permission")]
     public bool? DmPermission { get; set; }

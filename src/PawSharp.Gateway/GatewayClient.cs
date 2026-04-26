@@ -98,9 +98,15 @@ namespace PawSharp.Gateway
             _options = options;
             _logger = logger;
             _metrics = metrics;
-            _webSocket = new WebSocketConnection(_options.EnableCompression);
+            _webSocket = new WebSocketConnection(
+                options.EnableCompression, 
+                options.EventDispatch.EnableArrayPooling);
             _heartbeatManager = new HeartbeatManager(41250, SendHeartbeatAsync, logger, _options.MaxMissedHeartbeatAcks);
-            _eventDispatcher = new EventDispatcher(logger);
+            _eventDispatcher = new EventDispatcher(
+                logger,
+                options.EventDispatch.MaxQueueSize,
+                options.EventDispatch.EnableParallelDispatch,
+                options.EventDispatch.MaxDegreeOfParallelism);
             _reconnectionManager = new ReconnectionManager(logger, metrics);
             
             _reconnectionManager.OnReconnectionAttempt += async (attempt) =>
@@ -154,7 +160,10 @@ namespace PawSharp.Gateway
             var gatewayHost = (_resumeSessionId is not null && _resumeGatewayUrl is not null)
                 ? _resumeGatewayUrl
                 : "wss://gateway.discord.gg";
-            var uri = new Uri($"{gatewayHost}?v={_options.ApiVersion}&encoding=json");
+            
+            // Add compression parameter to URI if enabled
+            var compressionParam = _options.EnableCompression ? "&compress=zlib-stream" : "";
+            var uri = new Uri($"{gatewayHost}?v={_options.ApiVersion}&encoding=json{compressionParam}");
 
             try
             {

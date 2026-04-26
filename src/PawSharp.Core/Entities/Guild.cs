@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using PawSharp.Core.Serialization;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Core.Entities;
 
@@ -66,7 +67,8 @@ public class Guild : DiscordEntity
     /// Total permissions for the user in the guild (excludes overwrites).
     /// </summary>
     [JsonPropertyName("permissions")]
-    public string? Permissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? Permissions { get; set; }
     
     /// <summary>
     /// Voice region id for the guild.
@@ -361,7 +363,8 @@ public class GuildMember
     /// Total permissions of the member in the channel.
     /// </summary>
     [JsonPropertyName("permissions")]
-    public string? Permissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? Permissions { get; set; }
     
     /// <summary>
     /// When the user's timeout will expire and the user will be able to communicate in the guild again.

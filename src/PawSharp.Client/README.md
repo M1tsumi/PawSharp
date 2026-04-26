@@ -10,7 +10,7 @@ It provides a unified client surface for REST API, Gateway WebSocket, entity cac
 - Unified client surface for REST, Gateway, Cache, and Interactions
 - Extension model for adding Commands, Interactivity, and Voice
 - Clean integration with dependency injection and hosted services
-- Comprehensive event subscription API with 40+ typed handlers
+- Comprehensive event subscription API with 50+ typed handlers
 - Automatic entity caching from gateway events
 - Configurable intent validation for catching configuration errors early
 
@@ -118,7 +118,25 @@ client.OnRoleCreated(async role => { /* ... */ });
 client.OnVoiceStateUpdated(async state => { /* ... */ });
 client.OnVoiceServerUpdated(async server => { /* ... */ });
 
-// And 30+ more typed event subscriptions
+// User events
+client.OnUserUpdated(async user => { /* ... */ });
+
+// Soundboard events
+client.OnSoundboardSoundCreated(async sound => { /* ... */ });
+client.OnSoundboardSoundUpdated(async sound => { /* ... */ });
+client.OnSoundboardSoundDeleted(async sound => { /* ... */ });
+client.OnSoundboardSoundsUpdated(async sounds => { /* ... */ });
+
+// Subscription events
+client.OnSubscriptionCreated(async sub => { /* ... */ });
+client.OnSubscriptionUpdated(async sub => { /* ... */ });
+client.OnSubscriptionDeleted(async sub => { /* ... */ });
+
+// Voice channel effects
+client.OnVoiceChannelEffectSent(async effect => { /* ... */ });
+client.OnVoiceChannelStatusUpdated(async status => { /* ... */ });
+
+// And 40+ more typed event subscriptions
 ```
 
 ### Entity Cache Access
