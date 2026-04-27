@@ -611,6 +611,7 @@ public class CommandsExtension
                 
                 var parameters = command.Method.GetParameters();
                 var argsArray = new object?[parameters.Length];
+                var argIndex = 0; // Track actual argument index separately from parameter index
                 
                 for (int i = 0; i < parameters.Length; i++)
                 {
@@ -626,23 +627,23 @@ public class CommandsExtension
                     if (remainingAttr != null)
                     {
                         // Capture all remaining arguments as a string
-                        var remainingArgs = string.Join(" ", args.Skip(i));
+                        var remainingArgs = string.Join(" ", args.Skip(argIndex));
                         argsArray[i] = remainingArgs;
                         continue;
                     }
 
                     // Handle [Optional] attribute
                     var optionalAttr = param.GetCustomAttribute<OptionalAttribute>();
-                    if (optionalAttr != null && i >= args.Length)
+                    if (optionalAttr != null && argIndex >= args.Length)
                     {
                         argsArray[i] = optionalAttr.DefaultValue ?? GetDefault(param.ParameterType);
                         continue;
                     }
 
                     // Type conversion for regular parameters
-                    if (i < args.Length)
+                    if (argIndex < args.Length)
                     {
-                        var argValue = args[i];
+                        var argValue = args[argIndex];
                         var paramType = param.ParameterType;
                         
                         if (paramType == typeof(string))
@@ -668,6 +669,7 @@ public class CommandsExtension
                                 return;
                             }
                         }
+                        argIndex++; // Increment after consuming an argument
                     }
                     else
                     {

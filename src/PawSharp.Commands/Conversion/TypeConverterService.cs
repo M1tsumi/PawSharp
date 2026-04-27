@@ -83,7 +83,16 @@ public class TypeConverterService
 
         var genericMethod = method.MakeGenericMethod(targetType);
         var result = await (dynamic)genericMethod.Invoke(this, new object[] { value, context });
-        return result?.GetType().GetProperty("Value")?.GetValue(result);
+        
+        // Check if conversion was successful
+        var isSuccessProp = result?.GetType().GetProperty("IsSuccess");
+        if (isSuccessProp != null && (bool)isSuccessProp.GetValue(result) == true)
+        {
+            return result?.GetType().GetProperty("Value")?.GetValue(result);
+        }
+        
+        // Conversion failed
+        return null;
     }
 
     /// <summary>

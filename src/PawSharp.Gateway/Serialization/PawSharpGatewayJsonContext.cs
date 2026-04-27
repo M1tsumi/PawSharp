@@ -37,6 +37,7 @@ namespace PawSharp.Gateway.Serialization;
 [JsonSerializable(typeof(MessagePollVoteAddEvent))]
 [JsonSerializable(typeof(GuildScheduledEventCreateEvent))]
 [JsonSerializable(typeof(InviteCreateEvent))]
+[JsonSerializable(typeof(UserUpdateEvent))]
 public partial class PawSharpGatewayJsonContext : JsonSerializerContext
 {
 }
