@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using PawSharp.Commands.Attributes;
 using PawSharp.Commands.Preconditions;
 
 namespace PawSharp.Commands.Help;

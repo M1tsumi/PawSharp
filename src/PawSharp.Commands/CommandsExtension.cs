@@ -1119,9 +1119,6 @@ public class CommandsExtension
         }
     }
 
-    private static object? GetDefault([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
-        => type.IsValueType ? Activator.CreateInstance(type) : null;
-
     // ── Context menu command auto-registration ─────────────────────────────────
 
     /// <summary>
