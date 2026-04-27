@@ -2,6 +2,7 @@
 using System;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace PawSharp.Gateway.Events
 {
