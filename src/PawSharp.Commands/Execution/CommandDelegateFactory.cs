@@ -36,8 +36,15 @@ public static class CommandDelegateFactory
             arguments[i] = Expression.Convert(argAccess, paramType);
         }
         
+        // Cast module to the actual declaring type of the method
+        Expression instanceExpression = moduleParam;
+        if (method.DeclaringType != null && method.DeclaringType != typeof(BaseCommandModule))
+        {
+            instanceExpression = Expression.Convert(moduleParam, method.DeclaringType);
+        }
+        
         // Call the method
-        var methodCall = Expression.Call(moduleParam, method, arguments);
+        var methodCall = Expression.Call(instanceExpression, method, arguments);
         
         // Convert the result to Task if it's not already
         Expression resultExpression;
