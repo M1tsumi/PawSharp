@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using PawSharp.Core.Serialization;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Core.Entities;
 
@@ -16,6 +17,26 @@ public class Guild : DiscordEntity
     /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
+
+    private string? _validatedName;
+
+    /// <summary>
+    /// Gets or sets the validated guild name (2-100 characters, excluding trailing and leading whitespace).
+    /// </summary>
+    public string? ValidatedName
+    {
+        get => _validatedName;
+        set
+        {
+            if (value != null)
+            {
+                var trimmed = value.Trim();
+                if (trimmed.Length < 2 || trimmed.Length > 100)
+                    throw new ArgumentException("Guild name must be between 2 and 100 characters.", nameof(value));
+            }
+            _validatedName = value;
+        }
+    }
     
     /// <summary>
     /// Icon hash.
@@ -46,7 +67,8 @@ public class Guild : DiscordEntity
     /// Total permissions for the user in the guild (excludes overwrites).
     /// </summary>
     [JsonPropertyName("permissions")]
-    public string? Permissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? Permissions { get; set; }
     
     /// <summary>
     /// Voice region id for the guild.
@@ -84,19 +106,19 @@ public class Guild : DiscordEntity
     /// Verification level required for the guild.
     /// </summary>
     [JsonPropertyName("verification_level")]
-    public int VerificationLevel { get; set; }
+    public VerificationLevel VerificationLevel { get; set; }
     
     /// <summary>
     /// Default message notifications level.
     /// </summary>
     [JsonPropertyName("default_message_notifications")]
-    public int DefaultMessageNotifications { get; set; }
+    public DefaultMessageNotificationLevel DefaultMessageNotifications { get; set; }
     
     /// <summary>
     /// Explicit content filter level.
     /// </summary>
     [JsonPropertyName("explicit_content_filter")]
-    public int ExplicitContentFilter { get; set; }
+    public ExplicitContentFilterLevel ExplicitContentFilter { get; set; }
     
     /// <summary>
     /// Roles in the guild.
@@ -140,12 +162,14 @@ public class Guild : DiscordEntity
     /// System channel flags.
     /// </summary>
     [JsonPropertyName("system_channel_flags")]
-    public int SystemChannelFlags { get; set; }
+    public SystemChannelFlags SystemChannelFlags { get; set; }
     
     /// <summary>
     /// The id of the channel where Community guilds can display rules and/or guidelines.
     /// </summary>
-    [JsonPropertyName("rules_channel_id")]    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]    public ulong? RulesChannelId { get; set; }
+    [JsonPropertyName("rules_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? RulesChannelId { get; set; }
     
     /// <summary>
     /// The maximum number of presences for the guild.
@@ -303,7 +327,7 @@ public class GuildMember
     /// When the user joined the guild.
     /// </summary>
     [JsonPropertyName("joined_at")]
-    public DateTimeOffset JoinedAt { get; set; }
+    public DateTimeOffset? JoinedAt { get; set; }
     
     /// <summary>
     /// When the user started boosting the guild.
@@ -339,7 +363,8 @@ public class GuildMember
     /// Total permissions of the member in the channel.
     /// </summary>
     [JsonPropertyName("permissions")]
-    public string? Permissions { get; set; }
+    [JsonConverter(typeof(NullablePermissionsJsonConverter))]
+    public Permissions? Permissions { get; set; }
     
     /// <summary>
     /// When the user's timeout will expire and the user will be able to communicate in the guild again.

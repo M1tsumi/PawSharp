@@ -4,6 +4,31 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.0.0-alpha.4] - 2026-04-22
+
+### Bug Fixes
+
+- Fixed RedisCacheProvider guild-role and guild-emoji tracking by changing cache keys to guild-specific format and updating related methods to filter by guildId.
+- Replaced int properties with enums in Guild class for VerificationLevel, DefaultMessageNotifications, ExplicitContentFilter, and SystemChannelFlags.
+- Fixed code formatting inconsistencies in Guild.cs.
+- Added property validation for Channel and Guild entities with ValidatedName properties enforcing length constraints.
+- Made GuildMember.JoinedAt nullable to handle cases where the join timestamp may be missing.
+- Fixed MemoryCacheProvider guild-role/emoji tracking by storing roles and emojis with guild-specific keys.
+- Added error logging in empty catch blocks throughout the codebase for better debugging.
+- Added Task.Run error handling in Interactivity for async operations.
+- Added XML documentation to crypto methods in Curve25519, Ed25519, and HPKE implementations.
+- Added caching for derived public keys in HPKE to avoid redundant X25519 scalar multiplication.
+- Updated IEntityCache interface to match new method signatures with guildId parameter for roles and emojis.
+- Added Debug.WriteLine logging for unrecognized emojis in pagination to improve observability.
+
+### Internal / Tooling
+
+- Removed individual version settings from all .csproj files to use centralized version from Directory.Build.props.
+- Updated all documentation and README files to reference version 1.0.0-alpha.4.
+- Updated User-Agent string in RestClient to reflect current version.
+
+---
+
 ## [1.0.0-alpha.2] - 2026-04-08
 
 ### Changes

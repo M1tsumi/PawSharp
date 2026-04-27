@@ -77,7 +77,10 @@ public static class ChannelExtensions
             {
                 await client.Rest.DeleteUserReactionAsync(channel.Id, message.Id, emojiName, user.Id);
             }
-            catch { /* ignore — we can still update the page even if reaction cleanup fails */ }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Reaction cleanup failed: {ex.Message}");
+            }
 
             var previousPage = currentPage;
 
@@ -86,7 +89,11 @@ public static class ChannelExtensions
             else if (emojiName == emojis.SkipLeft  && currentPage != 0)                   currentPage = 0;
             else if (emojiName == emojis.SkipRight && currentPage != pageList.Count - 1)  currentPage = pageList.Count - 1;
             else if (emojiName == emojis.Stop)  { tcs.TrySetResult(true); return; }
-            else return; // unrecognised emoji — ignore
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"Unrecognised emoji in pagination: {emojiName}");
+                return; // unrecognised emoji — ignore
+            }
 
             if (currentPage == previousPage) return; // no-op (already at boundary)
 
@@ -100,7 +107,10 @@ public static class ChannelExtensions
                         : new List<Embed>()
                 });
             }
-            catch { /* ignore edit errors; the user can try again */ }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Message edit failed: {ex.Message}");
+            }
         }
 
         var subscription = client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
@@ -117,7 +127,10 @@ public static class ChannelExtensions
             if (behaviour == PollBehaviour.DeleteEmojis)
             {
                 try { await client.Rest.DeleteAllReactionsAsync(channel.Id, message.Id); }
-                catch { /* ignore cleanup errors */ }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Pagination cleanup failed: {ex.Message}");
+                }
             }
         }
     }

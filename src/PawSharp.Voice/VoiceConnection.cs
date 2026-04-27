@@ -287,7 +287,10 @@ public class VoiceConnection : IDisposable
             {
                 await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None);
             }
-            catch { /* ignore close errors on disconnect */ }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"WebSocket close error during disconnect: {ex.Message}");
+            }
             _webSocket.Dispose();
             _webSocket = null;
         }

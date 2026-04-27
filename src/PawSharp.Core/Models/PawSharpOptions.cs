@@ -57,6 +57,8 @@ public class PawSharpOptions
     
     /// <summary>
     /// Whether to enable gateway compression (default: false).
+    /// When enabled, uses zlib-stream transport compression which can reduce
+    /// bandwidth by up to 40% for high-volume bots.
     /// </summary>
     public bool EnableCompression { get; set; } = false;
     
@@ -64,6 +66,11 @@ public class PawSharpOptions
     /// Maximum number of missed heartbeat acknowledgments before reconnecting (default: 3).
     /// </summary>
     public int MaxMissedHeartbeatAcks { get; set; } = 3;
+
+    /// <summary>
+    /// Event dispatching configuration options.
+    /// </summary>
+    public EventDispatchOptions EventDispatch { get; set; } = new EventDispatchOptions();
     
     /// <summary>
     /// Cache configuration options.
@@ -79,12 +86,12 @@ public class PawSharpOptions
         /// Maximum number of emojis to cache per guild (default: 100).
         /// </summary>
         public int MaxEmojisPerGuild { get; set; } = 100;
-        
+
         /// <summary>
         /// Maximum number of messages to cache per channel (default: 100).
         /// </summary>
         public int MaxMessagesPerChannel { get; set; } = 100;
-        
+
         /// <summary>
         /// Maximum number of members to cache per guild (default: 1000).
         /// </summary>
@@ -114,5 +121,37 @@ public class PawSharpOptions
 
         /// <summary>Stream URL for Streaming (type 1) activities.</summary>
         public string? StreamUrl { get; set; }
+    }
+
+    /// <summary>
+    /// Event dispatching configuration for controlling backpressure and parallelism.
+    /// </summary>
+    public class EventDispatchOptions
+    {
+        /// <summary>
+        /// Maximum number of events to queue before applying backpressure (default: 1000).
+        /// When the queue is full, the gateway receive loop will wait until space is available.
+        /// Set to 0 to disable backpressure (unbounded queue - not recommended for production).
+        /// </summary>
+        public int MaxQueueSize { get; set; } = 1000;
+
+        /// <summary>
+        /// Whether to dispatch event handlers in parallel (default: false).
+        /// When enabled, independent handlers execute concurrently for better throughput.
+        /// Handlers should be thread-safe when this is enabled.
+        /// </summary>
+        public bool EnableParallelDispatch { get; set; } = false;
+
+        /// <summary>
+        /// Maximum degree of parallelism for handler dispatch (default: 4).
+        /// Only used when EnableParallelDispatch is true.
+        /// </summary>
+        public int MaxDegreeOfParallelism { get; set; } = 4;
+
+        /// <summary>
+        /// Whether to enable array pooling for WebSocket receive buffers (default: true).
+        /// Reduces GC pressure by reusing large byte arrays.
+        /// </summary>
+        public bool EnableArrayPooling { get; set; } = true;
     }
 }

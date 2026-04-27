@@ -297,7 +297,7 @@ var embed = new EmbedBuilder()
     .AddField("Field 1", "Value 1", inline: true)  // max 25 fields
     .AddField("Field 2", "Value 2", inline: true)
     .AddField("Non-inline field", "Full-width value")
-    .WithFooter("PawSharp v1.0.0-alpha.2", iconUrl: "https://example.com/footer.png")
+    .WithFooter("PawSharp v1.0.0-alpha.4", iconUrl: "https://example.com/footer.png")
     .WithTimestamp()                                // defaults to now
     .Build();                                       // throws if > 6000 total chars
 

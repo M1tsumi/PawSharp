@@ -5,7 +5,6 @@
     <RootNamespace>PawSharp.Interactions</RootNamespace>
     <AssemblyName>PawSharp.Interactions</AssemblyName>
     <PackageId>PawSharp.Interactions</PackageId>
-    <Version>1.0.0-alpha.2</Version>
     <Authors>PawSharp Team</Authors>
     <Company>PawSharp</Company>
     <Description>Interaction handlers for PawSharp including slash commands and component interactions.</Description>
@@ -15,6 +14,10 @@
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />

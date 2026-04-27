@@ -10,8 +10,8 @@
     <RepositoryUrl>https://github.com/M1tsumi/PawSharp</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>discord;api;wrapper;bot;csharp;dotnet</PackageTags>
-    <Version>1.0.0-alpha.2</Version>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>1.0.0-alpha.4</Version>
+    <GeneratePackageOnBuild Condition="'$(PublishAot)' != 'true'">true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Suppress missing XML doc warnings — covered by explicit #nullable enable per-file. -->
     <NoWarn>$(NoWarn);1591</NoWarn>
@@ -23,5 +23,15 @@
     <Nullable>enable</Nullable>
     <!-- Reduce boilerplate — BCL namespaces are available implicitly. -->
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- ── Native AOT support ─────────────────────────────────────────────── -->
+    <!-- Enable AOT compatibility analysis -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Enable trimming for AOT -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <!-- Enable trimming analysis -->
+    <TrimMode>link</TrimMode>
+    <!-- Suppress AOT warnings during development (remove for production AOT builds) -->
+    <NoWarn>$(NoWarn);IL2026;IL2070;IL2072;IL2096</NoWarn>
   </PropertyGroup>
 </Project>

@@ -67,8 +67,11 @@ internal static class Ed25519
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>Generates a new Ed25519 key pair.</summary>
-    /// <param name="privateKey">The 32-byte private seed.</param>
-    /// <param name="publicKey">The 32-byte compressed public key.</param>
+    /// <summary>
+    /// Generates an Ed25519 key pair.
+    /// </summary>
+    /// <param name="privateKey">Output: 32-byte private key.</param>
+    /// <param name="publicKey">Output: 32-byte public key.</param>
     public static void GenerateKeyPair(out byte[] privateKey, out byte[] publicKey)
     {
         privateKey = new byte[PrivateKeySize];
@@ -89,9 +92,9 @@ internal static class Ed25519
     }
 
     /// <summary>Signs a message using Ed25519.</summary>
-    /// <param name="message">The message bytes.</param>
-    /// <param name="privateKey">The 32-byte private seed.</param>
-    /// <returns>64-byte signature (R || S).</returns>
+    /// <param name="message">The message to sign.</param>
+    /// <param name="privateKey">32-byte private key.</param>
+    /// <returns>64-byte signature.</returns>
     public static byte[] Sign(ReadOnlySpan<byte> message, ReadOnlySpan<byte> privateKey)
     {
         if (privateKey.Length != PrivateKeySize)
@@ -133,10 +136,13 @@ internal static class Ed25519
     /// <param name="signature">64-byte signature.</param>
     /// <param name="publicKey">32-byte compressed public key.</param>
     /// <returns>True if the signature is valid.</returns>
+    /// <exception cref="ArgumentException">Thrown if signature or public key have incorrect length.</exception>
     public static bool Verify(ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
     {
-        if (signature.Length != SignatureSize || publicKey.Length != PublicKeySize)
-            return false;
+        if (signature.Length != SignatureSize)
+            throw new ArgumentException($"Signature must be {SignatureSize} bytes.", nameof(signature));
+        if (publicKey.Length != PublicKeySize)
+            throw new ArgumentException($"Public key must be {PublicKeySize} bytes.", nameof(publicKey));
 
         try
         {
@@ -161,8 +167,9 @@ internal static class Ed25519
             var check2 = PointAdd(R, ScalarMult(A, k));
             return PointEqual(check1, check2);
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"Ed25519 signature verification failed: {ex.Message}");
             return false;
         }
     }

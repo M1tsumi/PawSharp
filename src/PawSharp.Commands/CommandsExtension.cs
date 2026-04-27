@@ -1,15 +1,22 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PawSharp.API.Models;
 using PawSharp.Client;
+using PawSharp.Commands.Attributes;
+using PawSharp.Commands.Conversion;
+using PawSharp.Commands.Execution;
+using PawSharp.Commands.Middleware;
+using PawSharp.Commands.Permissions;
 using PawSharp.Commands.Preconditions;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
@@ -287,6 +294,11 @@ public class Command
     public IReadOnlyList<IPrecondition> Preconditions { get; }
 
     /// <summary>
+    /// Gets the compiled delegate for this command method.
+    /// </summary>
+    public Func<BaseCommandModule, object?[], Task>? Delegate { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Command"/> class.
     /// </summary>
     /// <param name="name">The command name.</param>
@@ -295,7 +307,8 @@ public class Command
     /// <param name="method">The command method.</param>
     /// <param name="module">The command module.</param>
     /// <param name="preconditions">Pre-collected precondition instances for this command.</param>
-    public Command(string name, string[] aliases, string? description, MethodInfo method, BaseCommandModule module, IReadOnlyList<IPrecondition> preconditions)
+    /// <param name="useCompiledDelegates">Whether to use compiled delegates instead of reflection.</param>
+    public Command(string name, string[] aliases, string? description, MethodInfo method, BaseCommandModule module, IReadOnlyList<IPrecondition> preconditions, bool useCompiledDelegates = true)
     {
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Aliases = aliases ?? throw new ArgumentNullException(nameof(aliases));
@@ -303,6 +316,11 @@ public class Command
         Method = method ?? throw new ArgumentNullException(nameof(method));
         Module = module ?? throw new ArgumentNullException(nameof(module));
         Preconditions = preconditions ?? throw new ArgumentNullException(nameof(preconditions));
+        
+        if (useCompiledDelegates)
+        {
+            Delegate = CommandDelegateFactory.CreateDelegate(method);
+        }
     }
 }
 
@@ -348,6 +366,10 @@ public class CommandsExtension
     private readonly string _prefix;
     private readonly Dictionary<string, Command> _commands = new(StringComparer.OrdinalIgnoreCase);
     private readonly ILogger<CommandsExtension> _logger;
+    private readonly TypeConverterService _typeConverterService;
+    private readonly MiddlewarePipeline _middlewarePipeline;
+    private readonly IServiceProvider? _serviceProvider;
+    private readonly bool _caseSensitive;
     private DiscordClient? _client;
 
     /// <summary>
@@ -362,10 +384,29 @@ public class CommandsExtension
     /// </summary>
     /// <param name="prefix">The command prefix.</param>
     /// <param name="logger">Optional logger; defaults to no-op.</param>
-    public CommandsExtension(string prefix = "!", ILogger<CommandsExtension>? logger = null)
+    /// <param name="typeConverterService">Optional type converter service.</param>
+    /// <param name="middlewarePipeline">Optional middleware pipeline.</param>
+    /// <param name="serviceProvider">Optional service provider for dependency injection.</param>
+    /// <param name="caseSensitive">Whether commands are case-sensitive.</param>
+    public CommandsExtension(
+        string prefix = "!",
+        ILogger<CommandsExtension>? logger = null,
+        TypeConverterService? typeConverterService = null,
+        MiddlewarePipeline? middlewarePipeline = null,
+        IServiceProvider? serviceProvider = null,
+        bool caseSensitive = false)
     {
         _prefix = prefix ?? throw new ArgumentNullException(nameof(prefix));
         _logger = logger ?? NullLogger<CommandsExtension>.Instance;
+        _typeConverterService = typeConverterService ?? new TypeConverterService(null);
+        _middlewarePipeline = middlewarePipeline ?? new MiddlewarePipeline();
+        _serviceProvider = serviceProvider;
+        _caseSensitive = caseSensitive;
+        
+        if (_caseSensitive)
+        {
+            _commands = new Dictionary<string, Command>(StringComparer.Ordinal);
+        }
     }
 
     /// <summary>
@@ -389,6 +430,12 @@ public class CommandsExtension
 
         var type = module.GetType();
         var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+
+        // Use DI to create module if service provider is available
+        if (_serviceProvider != null)
+        {
+            module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
+        }
 
         foreach (var method in methods)
         {
@@ -509,18 +556,12 @@ public class CommandsExtension
         if (evt.Author?.Bot == true || string.IsNullOrEmpty(evt.Content))
             return;
 
-        if (!evt.Content.StartsWith(_prefix))
+        // Use ArgumentParser for advanced parsing with quote and escape support
+        var (commandName, rawArgs) = ArgumentParser.ExtractCommand(evt.Content, _prefix);
+        if (string.IsNullOrEmpty(commandName))
             return;
 
-        var content = evt.Content[_prefix.Length..];
-        var parts = content.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length == 0)
-            return;
-
-        var commandName = parts[0];
-        var rawArgs = parts.Length > 1 ? parts[1] : string.Empty;
-        var args = rawArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var args = ArgumentParser.ParseArguments(rawArgs).ToArray();
 
         if (!_commands.TryGetValue(commandName, out var command))
             return;
@@ -531,40 +572,122 @@ public class CommandsExtension
         // _client is guaranteed non-null here: OnMessageCreate is only registered after _client is set
         var ctx = new CommandContext(_client!, message, _prefix, commandName, args, rawArgs, evt.Member);
 
-        // ── Precondition checks ─────────────────────────────────────────────────
-        foreach (var check in command.Preconditions)
-        {
-            var result = await check.CheckAsync(ctx);
-            if (!result.IsSuccess)
-            {
-                _logger.LogDebug(
-                    "Precondition {Check} blocked command {Command} for user {UserId}: {Reason}",
-                    check.GetType().Name, commandName, evt.Author?.Id, result.ErrorMessage);
-
-                // Surface the failure through CommandErrored so callers can respond to the user
-                if (CommandErrored != null)
-                {
-                    try
-                    {
-                        await CommandErrored(new CommandErrorEventArgs(
-                            ctx, new PreconditionFailedException(result.ErrorMessage ?? string.Empty)));
-                    }
-                    catch (Exception handlerEx)
-                    {
-                        _logger.LogError(handlerEx,
-                            "CommandErrored handler threw while reporting precondition failure for {Command}",
-                            commandName);
-                    }
-                }
-                return;
-            }
-        }
-
+        // ── Middleware Pipeline ─────────────────────────────────────────────────
         try
         {
-            await command.Module.BeforeExecutionAsync(ctx);
-            await (Task)command.Method.Invoke(command.Module, new object[] { ctx })!;
-            await command.Module.AfterExecutionAsync(ctx);
+            await _middlewarePipeline.ExecuteAsync(ctx, async () =>
+            {
+                // ── Precondition checks ─────────────────────────────────────────────────
+                foreach (var check in command.Preconditions)
+                {
+                    var result = await check.CheckAsync(ctx);
+                    if (!result.IsSuccess)
+                    {
+                        _logger.LogDebug(
+                            "Precondition {Check} blocked command {Command} for user {UserId}: {Reason}",
+                            check.GetType().Name, commandName, evt.Author?.Id, result.ErrorMessage);
+
+                        // Surface the failure through CommandErrored so callers can respond to the user
+                        if (CommandErrored != null)
+                        {
+                            try
+                            {
+                                await CommandErrored(new CommandErrorEventArgs(
+                                    ctx, new PreconditionFailedException(result.ErrorMessage ?? string.Empty)));
+                            }
+                            catch (Exception handlerEx)
+                            {
+                                _logger.LogError(handlerEx,
+                                    "CommandErrored handler threw while reporting precondition failure for {Command}",
+                                    commandName);
+                            }
+                        }
+                        return;
+                    }
+                }
+
+                // ── Command Execution with Type Conversion ───────────────────────────────
+                await command.Module.BeforeExecutionAsync(ctx);
+                
+                var parameters = command.Method.GetParameters();
+                var argsArray = new object?[parameters.Length];
+                var argIndex = 0; // Track actual argument index separately from parameter index
+                
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    var param = parameters[i];
+                    if (param.ParameterType == typeof(CommandContext))
+                    {
+                        argsArray[i] = ctx;
+                        continue;
+                    }
+
+                    // Handle [Remaining] attribute
+                    var remainingAttr = param.GetCustomAttribute<RemainingAttribute>();
+                    if (remainingAttr != null)
+                    {
+                        // Capture all remaining arguments as a string
+                        var remainingArgs = string.Join(" ", args.Skip(argIndex));
+                        argsArray[i] = remainingArgs;
+                        continue;
+                    }
+
+                    // Handle [Optional] attribute
+                    var optionalAttr = param.GetCustomAttribute<OptionalAttribute>();
+                    if (optionalAttr != null && argIndex >= args.Length)
+                    {
+                        argsArray[i] = optionalAttr.DefaultValue ?? GetDefault(param.ParameterType);
+                        continue;
+                    }
+
+                    // Type conversion for regular parameters
+                    if (argIndex < args.Length)
+                    {
+                        var argValue = args[argIndex];
+                        var paramType = param.ParameterType;
+                        
+                        if (paramType == typeof(string))
+                        {
+                            argsArray[i] = argValue;
+                        }
+                        else
+                        {
+                            // Use type converter service
+                            var conversionResult = await _typeConverterService.ConvertAsync(paramType, argValue, ctx);
+                            if (conversionResult != null)
+                            {
+                                argsArray[i] = conversionResult;
+                            }
+                            else
+                            {
+                                // Type conversion failed
+                                if (CommandErrored != null)
+                                {
+                                    await CommandErrored(new CommandErrorEventArgs(
+                                        ctx, new ArgumentException("Type conversion failed")));
+                                }
+                                return;
+                            }
+                        }
+                        argIndex++; // Increment after consuming an argument
+                    }
+                    else
+                    {
+                        argsArray[i] = GetDefault(param.ParameterType);
+                    }
+                }
+
+                // Use compiled delegate if available, otherwise fall back to reflection
+                if (command.Delegate != null)
+                {
+                    await command.Delegate(command.Module, argsArray);
+                }
+                else
+                {
+                    await (Task)command.Method.Invoke(command.Module, argsArray)!;
+                }
+                await command.Module.AfterExecutionAsync(ctx);
+            });
         }
         catch (Exception ex)
         {
@@ -586,6 +709,9 @@ public class CommandsExtension
             }
         }
     }
+
+    private static object? GetDefault([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
+        => type.IsValueType ? Activator.CreateInstance(type) : null;
 
     // ── Slash command auto-registration ──────────────────────────────────────
 
@@ -626,18 +752,71 @@ public class CommandsExtension
             {
                 if (param.ParameterType == typeof(InteractionCreateEvent)) continue;
 
-                var optAttr  = param.GetCustomAttribute<SlashOptionAttribute>();
-                var optName  = optAttr?.Name ?? param.Name ?? "option";
-                var optDesc  = optAttr?.Description ?? "No description provided.";
+                var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
+                var optName = optAttr?.Name ?? param.Name ?? "option";
+                var optDesc = optAttr?.Description ?? "No description provided.";
                 var required = optAttr?.Required ?? !IsOptionalType(param.ParameterType);
 
-                options.Add(new ApplicationCommandOption
+                var option = new ApplicationCommandOption
                 {
-                    Name        = optName,
+                    Name = optName,
                     Description = optDesc,
-                    Required    = required,
-                    Type        = MapTypeToOptionType(param.ParameterType),
-                });
+                    Required = required,
+                    Type = MapTypeToOptionType(param.ParameterType),
+                };
+
+                // Add choices if present
+                var choiceAttrs = param.GetCustomAttributes<SlashChoiceAttribute>();
+                if (choiceAttrs.Any())
+                {
+                    option.Choices = choiceAttrs.Select(c => new ApplicationCommandOptionChoice
+                    {
+                        Name = c.Name,
+                        Value = c.Value
+                    }).ToList();
+                }
+
+                // Add min/max value for numeric types
+                var minValAttr = param.GetCustomAttribute<SlashMinValueAttribute>();
+                if (minValAttr != null)
+                {
+                    option.MinValue = minValAttr.MinValue;
+                }
+
+                var maxValAttr = param.GetCustomAttribute<SlashMaxValueAttribute>();
+                if (maxValAttr != null)
+                {
+                    option.MaxValue = maxValAttr.MaxValue;
+                }
+
+                // Add min/max length for string types
+                var minLenAttr = param.GetCustomAttribute<SlashMinLengthAttribute>();
+                if (minLenAttr != null)
+                {
+                    option.MinLength = minLenAttr.MinLength;
+                }
+
+                var maxLenAttr = param.GetCustomAttribute<SlashMaxLengthAttribute>();
+                if (maxLenAttr != null)
+                {
+                    option.MaxLength = maxLenAttr.MaxLength;
+                }
+
+                // Add channel types for channel options
+                var channelTypesAttr = param.GetCustomAttribute<SlashChannelTypesAttribute>();
+                if (channelTypesAttr != null)
+                {
+                    option.ChannelTypes = channelTypesAttr.ChannelTypes.ToList();
+                }
+
+                // Add autocomplete flag
+                var autocompleteAttr = param.GetCustomAttribute<SlashAutocompleteAttribute>();
+                if (autocompleteAttr != null)
+                {
+                    option.Autocomplete = true;
+                }
+
+                options.Add(option);
             }
 
             var request = new CreateApplicationCommandRequest
@@ -647,6 +826,41 @@ public class CommandsExtension
                 Type        = 1, // CHAT_INPUT
                 Options     = options.Count > 0 ? options : null,
             };
+
+            // Add NSFW flag
+            var nsfwAttr = method.GetCustomAttribute<SlashNsfwAttribute>();
+            if (nsfwAttr != null)
+            {
+                request.Nsfw = true;
+            }
+
+            // Add DM permission
+            var dmPermAttr = method.GetCustomAttribute<SlashDmPermissionAttribute>();
+            if (dmPermAttr != null)
+            {
+                request.DmPermission = dmPermAttr.AllowDm;
+            }
+
+            // Add default member permissions
+            var defaultPermAttr = method.GetCustomAttribute<SlashDefaultPermissionAttribute>();
+            if (defaultPermAttr != null)
+            {
+                request.DefaultPermission = defaultPermAttr.Permission;
+            }
+
+            // Add localized names
+            var nameLocalizations = method.GetCustomAttributes<SlashLocalizedNameAttribute>();
+            if (nameLocalizations.Any())
+            {
+                request.NameLocalizations = nameLocalizations.ToDictionary(l => l.Locale, l => l.Name);
+            }
+
+            // Add localized descriptions
+            var descLocalizations = method.GetCustomAttributes<SlashLocalizedDescriptionAttribute>();
+            if (descLocalizations.Any())
+            {
+                request.DescriptionLocalizations = descLocalizations.ToDictionary(l => l.Locale, l => l.Description);
+            }
 
             // Register with Discord REST API
             try
@@ -703,7 +917,10 @@ public class CommandsExtension
                             await CommandErrored(new CommandErrorEventArgs(
                                 new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
                         }
-                        catch { /* swallow handler exceptions */ }
+                        catch (Exception handlerEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
+                        }
                     }
                 }
             });
@@ -813,7 +1030,10 @@ public class CommandsExtension
                                 await CommandErrored(new CommandErrorEventArgs(
                                     new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
                             }
-                            catch { /* swallow handler exceptions */ }
+                            catch (Exception handlerEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
+                            }
                         }
                     }
                 }));
@@ -853,10 +1073,15 @@ public class CommandsExtension
         // Unwrap Nullable<T> — Discord doesn't have a nullable concept; Required=false handles optionality.
         var inner = Nullable.GetUnderlyingType(type) ?? type;
 
-        if (inner == typeof(string))                       return ApplicationCommandOptionType.String;
+        if (inner == typeof(string)) return ApplicationCommandOptionType.String;
         if (inner == typeof(int) || inner == typeof(long)) return ApplicationCommandOptionType.Integer;
-        if (inner == typeof(bool))                         return ApplicationCommandOptionType.Boolean;
+        if (inner == typeof(bool)) return ApplicationCommandOptionType.Boolean;
         if (inner == typeof(double) || inner == typeof(float)) return ApplicationCommandOptionType.Number;
+        if (inner == typeof(PawSharp.Core.Entities.User)) return ApplicationCommandOptionType.User;
+        if (inner == typeof(PawSharp.Core.Entities.Channel)) return ApplicationCommandOptionType.Channel;
+        if (inner == typeof(PawSharp.Core.Entities.Role)) return ApplicationCommandOptionType.Role;
+        if (inner == typeof(PawSharp.Core.Entities.GuildMember)) return ApplicationCommandOptionType.Mentionable;
+        if (inner == typeof(PawSharp.Core.Entities.Attachment)) return ApplicationCommandOptionType.Attachment;
 
         // Default to string for any type we don't recognise
         return ApplicationCommandOptionType.String;
@@ -889,11 +1114,258 @@ public class CommandsExtension
         }
 
         try { return Convert.ChangeType(option.Value, inner, CultureInfo.InvariantCulture); }
-        catch { return GetDefault(targetType); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Type conversion failed for {targetType.Name}: {ex.Message}");
+            return GetDefault(targetType);
+        }
     }
 
-    private static object? GetDefault(Type type)
-        => type.IsValueType ? Activator.CreateInstance(type) : null;
+    // ── Context menu command auto-registration ─────────────────────────────────
+
+    /// <summary>
+    /// Scans a module for context menu command attributes and registers them with Discord.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="module">The command module to scan.</param>
+    /// <param name="applicationId">The bot application ID.</param>
+    /// <param name="guildId">Optional guild ID for guild-scoped registration.</param>
+    public async Task RegisterContextMenuModuleAsync(
+        DiscordClient client,
+        BaseCommandModule module,
+        ulong applicationId,
+        ulong? guildId = null)
+    {
+        if (client == null) throw new ArgumentNullException(nameof(client));
+        if (module == null) throw new ArgumentNullException(nameof(module));
+
+        var type = module.GetType();
+        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var method in methods)
+        {
+            var userMenuAttr = method.GetCustomAttribute<UserContextMenuAttribute>();
+            var messageMenuAttr = method.GetCustomAttribute<MessageContextMenuAttribute>();
+
+            if (userMenuAttr == null && messageMenuAttr == null) continue;
+
+            var isUserMenu = userMenuAttr != null;
+            var name = isUserMenu ? userMenuAttr.Name : messageMenuAttr!.Name;
+            var typeValue = isUserMenu ? 2 : 3; // 2 = USER, 3 = MESSAGE
+
+            var request = new CreateApplicationCommandRequest
+            {
+                Name = name,
+                Type = typeValue,
+            };
+
+            try
+            {
+                if (guildId.HasValue)
+                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, request);
+                else
+                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register context menu command {Name} with Discord", name);
+                continue;
+            }
+
+            // Wire the interaction handler
+            var capturedMethod = method;
+            var capturedModule = module;
+            var capturedName = name;
+
+            if (isUserMenu)
+            {
+                client.Interactions.RegisterUserContextMenu(name, async interaction =>
+                {
+                    try
+                    {
+                        var result = capturedMethod.Invoke(capturedModule, new object[] { interaction });
+                        if (result is Task task) await task;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error executing context menu command {Name}", capturedName);
+                        if (CommandErrored != null)
+                        {
+                            try
+                            {
+                                await CommandErrored(new CommandErrorEventArgs(
+                                    new SlashCommandContext(client, interaction, capturedName), ex));
+                            }
+                            catch (Exception handlerEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                            }
+                        }
+                    }
+                });
+            }
+            else
+            {
+                client.Interactions.RegisterMessageContextMenu(name, async interaction =>
+                {
+                    try
+                    {
+                        var result = capturedMethod.Invoke(capturedModule, new object[] { interaction });
+                        if (result is Task task) await task;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error executing context menu command {Name}", capturedName);
+                        if (CommandErrored != null)
+                        {
+                            try
+                            {
+                                await CommandErrored(new CommandErrorEventArgs(
+                                    new SlashCommandContext(client, interaction, capturedName), ex));
+                            }
+                            catch (Exception handlerEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                            }
+                        }
+                    }
+                });
+            }
+
+            _logger.LogDebug("Registered context menu command {Name} for application {AppId}", name, applicationId);
+        }
+    }
+
+    /// <summary>
+    /// Bulk registers context menu commands from multiple modules in a single API call.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="modules">The command modules to scan.</param>
+    /// <param name="applicationId">The bot application ID.</param>
+    /// <param name="guildId">Optional guild ID for guild-scoped registration.</param>
+    public async Task BulkRegisterContextMenuModulesAsync(
+        DiscordClient client,
+        IEnumerable<BaseCommandModule> modules,
+        ulong applicationId,
+        ulong? guildId = null)
+    {
+        if (client == null) throw new ArgumentNullException(nameof(client));
+        if (modules == null) throw new ArgumentNullException(nameof(modules));
+
+        var requests = new List<CreateApplicationCommandRequest>();
+        var handlerBuilders = new List<(string Name, int Type, Func<InteractionCreateEvent, Task> Handler)>();
+
+        foreach (var module in modules)
+        {
+            if (module == null) continue;
+            var type = module.GetType();
+
+            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+            {
+                var userMenuAttr = method.GetCustomAttribute<UserContextMenuAttribute>();
+                var messageMenuAttr = method.GetCustomAttribute<MessageContextMenuAttribute>();
+
+                if (userMenuAttr == null && messageMenuAttr == null) continue;
+
+                var isUserMenu = userMenuAttr != null;
+                var name = isUserMenu ? userMenuAttr.Name : messageMenuAttr!.Name;
+                var typeValue = isUserMenu ? 2 : 3;
+
+                requests.Add(new CreateApplicationCommandRequest
+                {
+                    Name = name,
+                    Type = typeValue,
+                });
+
+                var capturedMethod = method;
+                var capturedModule = module;
+                var capturedName = name;
+
+                if (isUserMenu)
+                {
+                    handlerBuilders.Add((name, typeValue, async interaction =>
+                    {
+                        try
+                        {
+                            var result = capturedMethod.Invoke(capturedModule, new object[] { interaction });
+                            if (result is Task task) await task;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error executing context menu command {Name}", capturedName);
+                            if (CommandErrored != null)
+                            {
+                                try
+                                {
+                                    await CommandErrored(new CommandErrorEventArgs(
+                                        new SlashCommandContext(client, interaction, capturedName), ex));
+                                }
+                                catch (Exception handlerEx)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                                }
+                            }
+                        }
+                    }));
+                }
+                else
+                {
+                    handlerBuilders.Add((name, typeValue, async interaction =>
+                    {
+                        try
+                        {
+                            var result = capturedMethod.Invoke(capturedModule, new object[] { interaction });
+                            if (result is Task task) await task;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error executing context menu command {Name}", capturedName);
+                            if (CommandErrored != null)
+                            {
+                                try
+                                {
+                                    await CommandErrored(new CommandErrorEventArgs(
+                                        new SlashCommandContext(client, interaction, capturedName), ex));
+                                }
+                                catch (Exception handlerEx)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                                }
+                            }
+                        }
+                    }));
+                }
+            }
+        }
+
+        if (requests.Count == 0)
+            return;
+
+        try
+        {
+            if (guildId.HasValue)
+                await client.Rest.BulkOverwriteGuildApplicationCommandsAsync(applicationId, guildId.Value, requests);
+            else
+                await client.Rest.BulkOverwriteGlobalApplicationCommandsAsync(applicationId, requests);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to bulk register context menu commands with Discord");
+            return;
+        }
+
+        // Wire all handlers
+        foreach (var (name, typeValue, handler) in handlerBuilders)
+        {
+            if (typeValue == 2)
+                client.Interactions.RegisterUserContextMenu(name, handler);
+            else
+                client.Interactions.RegisterMessageContextMenu(name, handler);
+        }
+
+        _logger.LogInformation("Bulk-registered {Count} context menu command(s) for application {AppId}",
+            requests.Count, applicationId);
+    }
 }
 
 /// <summary>

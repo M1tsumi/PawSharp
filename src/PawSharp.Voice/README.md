@@ -19,7 +19,7 @@ It covers the core building blocks needed for real voice features: voice gateway
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice --version 1.0.0-alpha.2
+dotnet add package PawSharp.Voice --version 1.0.0-alpha.4
 ```
 
 ## Quick Start
