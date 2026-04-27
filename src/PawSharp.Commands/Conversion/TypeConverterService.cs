@@ -69,6 +69,24 @@ public class TypeConverterService
     }
 
     /// <summary>
+    /// Attempts to convert a string value to the specified type using reflection.
+    /// </summary>
+    /// <param name="targetType">The target type.</param>
+    /// <param name="value">The string value to convert.</param>
+    /// <param name="context">The command context.</param>
+    /// <returns>A conversion result.</returns>
+    public async Task<object?> ConvertAsync(Type targetType, string value, CommandContext context)
+    {
+        var method = typeof(TypeConverterService).GetMethod(nameof(ConvertAsync), 1, new[] { typeof(string), typeof(CommandContext) });
+        if (method == null)
+            return null;
+
+        var genericMethod = method.MakeGenericMethod(targetType);
+        var result = await (dynamic)genericMethod.Invoke(this, new object[] { value, context });
+        return result?.GetType().GetProperty("Value")?.GetValue(result);
+    }
+
+    /// <summary>
     /// Checks if a converter is registered for the specified type.
     /// </summary>
     /// <typeparam name="T">The type to check.</typeparam>

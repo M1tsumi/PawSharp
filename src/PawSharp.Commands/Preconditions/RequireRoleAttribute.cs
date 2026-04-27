@@ -71,8 +71,23 @@ public sealed class RequireRoleAttribute : Attribute, IPrecondition
             }
 
             // Fallback to API call
-            var memberRoles = await ctx.Client.Rest.GetGuildMemberRolesAsync(ctx.GuildId.Value, member.User.Id);
-            return memberRoles;
+            var guildMember = await ctx.Client.Rest.GetGuildMemberAsync(ctx.GuildId.Value, member.User.Id);
+            if (guildMember == null)
+                return null;
+            
+            var guild = ctx.Client.Cache.GetGuild(ctx.GuildId.Value);
+            if (guild != null && guildMember.Roles != null)
+            {
+                var roleList = new List<Role>();
+                foreach (var roleId in guildMember.Roles)
+                {
+                    var role = guild.Roles?.FirstOrDefault(r => r.Id == roleId);
+                    if (role != null)
+                        roleList.Add(role);
+                }
+                return roleList;
+            }
+            return null;
         }
         catch
         {

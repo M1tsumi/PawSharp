@@ -398,7 +398,7 @@ public class CommandsExtension
     {
         _prefix = prefix ?? throw new ArgumentNullException(nameof(prefix));
         _logger = logger ?? NullLogger<CommandsExtension>.Instance;
-        _typeConverterService = typeConverterService ?? new TypeConverterService(logger);
+        _typeConverterService = typeConverterService ?? new TypeConverterService(null);
         _middlewarePipeline = middlewarePipeline ?? new MiddlewarePipeline();
         _serviceProvider = serviceProvider;
         _caseSensitive = caseSensitive;
@@ -652,7 +652,7 @@ public class CommandsExtension
                         else
                         {
                             // Use type converter service
-                            var conversionResult = await _typeConverterService.ConvertAsync(argValue, ctx);
+                            var conversionResult = await _typeConverterService.ConvertAsync(paramType, argValue, ctx);
                             if (conversionResult.IsSuccess)
                             {
                                 argsArray[i] = conversionResult.Value;
@@ -804,7 +804,7 @@ public class CommandsExtension
                 var channelTypesAttr = param.GetCustomAttribute<SlashChannelTypesAttribute>();
                 if (channelTypesAttr != null)
                 {
-                    option.ChannelTypes = channelTypesAttr.ChannelTypes;
+                    option.ChannelTypes = channelTypesAttr.ChannelTypes.ToList();
                 }
 
                 // Add autocomplete flag

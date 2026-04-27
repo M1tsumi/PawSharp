@@ -51,10 +51,10 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
             return Task.FromResult(PreconditionResult.FromError(
                 "Unable to resolve guild member permissions."));
 
-        // Discord sends the member's effective permissions as a decimal string
-        if (!ulong.TryParse(member.Permissions, out var effectivePerms))
-            return Task.FromResult(PreconditionResult.FromError(
-                "Unable to parse member permissions."));
+        // Permissions are not directly on GuildMember - need to get from guild cache or calculate
+        // For now, return error as this requires more complex permission calculation
+        return Task.FromResult(PreconditionResult.FromError(
+                "Permission checking not yet implemented for this context."));
 
         // Administrators and guild owners bypass checks
         const ulong administratorBit = 0x8UL;
