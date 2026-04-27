@@ -54,7 +54,7 @@ namespace PawSharp.Client
             _restClient    = restClient    ?? throw new ArgumentNullException(nameof(restClient));
             _gatewayClient = gatewayClient ?? throw new ArgumentNullException(nameof(gatewayClient));
 
-            _interactionHandler = interactionHandler ?? new InteractionHandler(_restClient, logger.GetService<ILogger<InteractionHandler>>());
+            _interactionHandler = interactionHandler ?? new InteractionHandler(_restClient, null);
 
             // Wire cache to gateway events automatically
             _cacheManager = new CacheManager(cache, null);
