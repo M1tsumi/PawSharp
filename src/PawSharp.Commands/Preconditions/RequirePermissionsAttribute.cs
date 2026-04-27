@@ -55,16 +55,5 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
         // For now, return error as this requires more complex permission calculation
         return Task.FromResult(PreconditionResult.FromError(
                 "Permission checking not yet implemented for this context."));
-
-        // Administrators and guild owners bypass checks
-        const ulong administratorBit = 0x8UL;
-        if (IgnoreAdmins && (effectivePerms & administratorBit) != 0)
-            return Task.FromResult(PreconditionResult.FromSuccess());
-
-        if ((effectivePerms & RequiredPermissions) == RequiredPermissions)
-            return Task.FromResult(PreconditionResult.FromSuccess());
-
-        return Task.FromResult(PreconditionResult.FromError(
-            "You do not have the required permissions to run this command."));
     }
 }

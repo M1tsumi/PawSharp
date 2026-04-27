@@ -653,9 +653,9 @@ public class CommandsExtension
                         {
                             // Use type converter service
                             var conversionResult = await _typeConverterService.ConvertAsync(paramType, argValue, ctx);
-                            if (conversionResult.IsSuccess)
+                            if (conversionResult != null)
                             {
-                                argsArray[i] = conversionResult.Value;
+                                argsArray[i] = conversionResult;
                             }
                             else
                             {
@@ -663,7 +663,7 @@ public class CommandsExtension
                                 if (CommandErrored != null)
                                 {
                                     await CommandErrored(new CommandErrorEventArgs(
-                                        ctx, new ArgumentException(conversionResult.ErrorMessage ?? "Type conversion failed")));
+                                        ctx, new ArgumentException("Type conversion failed")));
                                 }
                                 return;
                             }

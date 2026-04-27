@@ -75,7 +75,7 @@ public sealed class RequireRoleAttribute : Attribute, IPrecondition
             if (guildMember == null)
                 return null;
             
-            var guild = ctx.Client.Cache.GetGuild(ctx.GuildId.Value);
+            // Reuse existing guild variable from cache
             if (guild != null && guildMember.Roles != null)
             {
                 var roleList = new List<Role>();
