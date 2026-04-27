@@ -45,7 +45,8 @@ namespace PawSharp.Client
             IEntityCache cache,
             ILogger<DiscordClient> logger,
             IDiscordRestClient restClient,
-            IGatewayClient gatewayClient)
+            IGatewayClient gatewayClient,
+            InteractionHandler? interactionHandler = null)
         {
             _options       = options       ?? throw new ArgumentNullException(nameof(options));
             _cache         = cache         ?? throw new ArgumentNullException(nameof(cache));
@@ -53,7 +54,7 @@ namespace PawSharp.Client
             _restClient    = restClient    ?? throw new ArgumentNullException(nameof(restClient));
             _gatewayClient = gatewayClient ?? throw new ArgumentNullException(nameof(gatewayClient));
 
-            _interactionHandler = new InteractionHandler(_restClient);
+            _interactionHandler = interactionHandler ?? new InteractionHandler(_restClient, null);
 
             // Wire cache to gateway events automatically
             _cacheManager = new CacheManager(cache, null);
@@ -525,6 +526,60 @@ namespace PawSharp.Client
         /// <summary>Subscribes to the APPLICATION_COMMAND_PERMISSIONS_UPDATE gateway event.</summary>
         public IDisposable OnApplicationCommandPermissionsUpdated(Func<ApplicationCommandPermissionsUpdateEvent, Task> handler)
             => _gatewayClient.Events.On<ApplicationCommandPermissionsUpdateEvent>("APPLICATION_COMMAND_PERMISSIONS_UPDATE", handler);
+
+        // Guild integrations ─────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the GUILD_INTEGRATIONS_UPDATE gateway event.</summary>
+        public IDisposable OnGuildIntegrationsUpdated(Func<GuildIntegrationsUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildIntegrationsUpdateEvent>("GUILD_INTEGRATIONS_UPDATE", handler);
+
+        // User ───────────────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the USER_UPDATE gateway event.</summary>
+        public IDisposable OnUserUpdated(Func<UserUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<UserUpdateEvent>("USER_UPDATE", handler);
+
+        // Soundboard ─────────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the GUILD_SOUNDBOARD_SOUND_CREATE gateway event.</summary>
+        public IDisposable OnSoundboardSoundCreated(Func<GuildSoundboardSoundCreateEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildSoundboardSoundCreateEvent>("GUILD_SOUNDBOARD_SOUND_CREATE", handler);
+
+        /// <summary>Subscribes to the GUILD_SOUNDBOARD_SOUND_UPDATE gateway event.</summary>
+        public IDisposable OnSoundboardSoundUpdated(Func<GuildSoundboardSoundUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildSoundboardSoundUpdateEvent>("GUILD_SOUNDBOARD_SOUND_UPDATE", handler);
+
+        /// <summary>Subscribes to the GUILD_SOUNDBOARD_SOUND_DELETE gateway event.</summary>
+        public IDisposable OnSoundboardSoundDeleted(Func<GuildSoundboardSoundDeleteEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildSoundboardSoundDeleteEvent>("GUILD_SOUNDBOARD_SOUND_DELETE", handler);
+
+        /// <summary>Subscribes to the GUILD_SOUNDBOARD_SOUNDS_UPDATE gateway event.</summary>
+        public IDisposable OnSoundboardSoundsUpdated(Func<GuildSoundboardSoundsUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<GuildSoundboardSoundsUpdateEvent>("GUILD_SOUNDBOARD_SOUNDS_UPDATE", handler);
+
+        // Subscriptions ───────────────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the SUBSCRIPTION_CREATE gateway event.</summary>
+        public IDisposable OnSubscriptionCreated(Func<SubscriptionCreateEvent, Task> handler)
+            => _gatewayClient.Events.On<SubscriptionCreateEvent>("SUBSCRIPTION_CREATE", handler);
+
+        /// <summary>Subscribes to the SUBSCRIPTION_UPDATE gateway event.</summary>
+        public IDisposable OnSubscriptionUpdated(Func<SubscriptionUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<SubscriptionUpdateEvent>("SUBSCRIPTION_UPDATE", handler);
+
+        /// <summary>Subscribes to the SUBSCRIPTION_DELETE gateway event.</summary>
+        public IDisposable OnSubscriptionDeleted(Func<SubscriptionDeleteEvent, Task> handler)
+            => _gatewayClient.Events.On<SubscriptionDeleteEvent>("SUBSCRIPTION_DELETE", handler);
+
+        // Voice channel effects ─────────────────────────────────────────────────
+
+        /// <summary>Subscribes to the VOICE_CHANNEL_EFFECT_SEND gateway event.</summary>
+        public IDisposable OnVoiceChannelEffectSent(Func<VoiceChannelEffectSendEvent, Task> handler)
+            => _gatewayClient.Events.On<VoiceChannelEffectSendEvent>("VOICE_CHANNEL_EFFECT_SEND", handler);
+
+        /// <summary>Subscribes to the VOICE_CHANNEL_STATUS_UPDATE gateway event.</summary>
+        public IDisposable OnVoiceChannelStatusUpdated(Func<VoiceChannelStatusUpdateEvent, Task> handler)
+            => _gatewayClient.Events.On<VoiceChannelStatusUpdateEvent>("VOICE_CHANNEL_STATUS_UPDATE", handler);
 
         // ── Internal ──────────────────────────────────────────────────────────────
 

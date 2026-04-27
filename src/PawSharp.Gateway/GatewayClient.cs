@@ -12,6 +12,7 @@ using PawSharp.Core.Serialization;
 using PawSharp.Gateway.Connection;
 using PawSharp.Gateway.Events;
 using PawSharp.Gateway.Heartbeat;
+using PawSharp.Gateway.Serialization;
 
 namespace PawSharp.Gateway
 {
@@ -52,7 +53,9 @@ namespace PawSharp.Gateway
         // (e.g. VoiceStateUpdate / VoiceServerUpdate mirror-events).
         private static readonly JsonSerializerOptions _snowflakeOptions = new()
         {
-            Converters = { new SnowflakeJsonConverter(), new NullableSnowflakeJsonConverter() }
+            Converters = { new SnowflakeJsonConverter(), new NullableSnowflakeJsonConverter() },
+            // Enable source generator for better AOT compatibility
+            TypeInfoResolver = PawSharp.Core.Serialization.PawSharpJsonContext.Default
         };
 
         /// <summary>
@@ -95,9 +98,15 @@ namespace PawSharp.Gateway
             _options = options;
             _logger = logger;
             _metrics = metrics;
-            _webSocket = new WebSocketConnection(_options.EnableCompression);
+            _webSocket = new WebSocketConnection(
+                options.EnableCompression, 
+                options.EventDispatch.EnableArrayPooling);
             _heartbeatManager = new HeartbeatManager(41250, SendHeartbeatAsync, logger, _options.MaxMissedHeartbeatAcks);
-            _eventDispatcher = new EventDispatcher(logger);
+            _eventDispatcher = new EventDispatcher(
+                logger,
+                options.EventDispatch.MaxQueueSize,
+                options.EventDispatch.EnableParallelDispatch,
+                options.EventDispatch.MaxDegreeOfParallelism);
             _reconnectionManager = new ReconnectionManager(logger, metrics);
             
             _reconnectionManager.OnReconnectionAttempt += async (attempt) =>
@@ -151,7 +160,10 @@ namespace PawSharp.Gateway
             var gatewayHost = (_resumeSessionId is not null && _resumeGatewayUrl is not null)
                 ? _resumeGatewayUrl
                 : "wss://gateway.discord.gg";
-            var uri = new Uri($"{gatewayHost}?v={_options.ApiVersion}&encoding=json");
+            
+            // Add compression parameter to URI if enabled
+            var compressionParam = _options.EnableCompression ? "&compress=zlib-stream" : "";
+            var uri = new Uri($"{gatewayHost}?v={_options.ApiVersion}&encoding=json{compressionParam}");
 
             try
             {
@@ -735,10 +747,11 @@ namespace PawSharp.Gateway
                     case "USER_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<UserUpdateEvent>(eventType, eventData);
                         break;
-                    case "VOICE_STATE_UPDATE":                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
+                    case "VOICE_STATE_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData);
                         if (VoiceStateUpdate != null)
                         {
-                            var voiceStateEvent = JsonSerializer.Deserialize<VoiceStateUpdateEvent>(eventData, _snowflakeOptions);
+                            var voiceStateEvent = JsonSerializer.Deserialize(eventData, PawSharp.Gateway.Serialization.PawSharpGatewayJsonContext.Default.VoiceStateUpdateEvent);
                             if (voiceStateEvent != null)
                             {
                                 await VoiceStateUpdate.Invoke(voiceStateEvent);
@@ -749,7 +762,7 @@ namespace PawSharp.Gateway
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceServerUpdateEvent>(eventType, eventData);
                         if (VoiceServerUpdate != null)
                         {
-                            var voiceServerEvent = JsonSerializer.Deserialize<VoiceServerUpdateEvent>(eventData, _snowflakeOptions);
+                            var voiceServerEvent = JsonSerializer.Deserialize(eventData, PawSharp.Gateway.Serialization.PawSharpGatewayJsonContext.Default.VoiceServerUpdateEvent);
                             if (voiceServerEvent != null)
                             {
                                 await VoiceServerUpdate.Invoke(voiceServerEvent);

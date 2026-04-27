@@ -38,11 +38,11 @@ namespace PawSharp.Cache.Interfaces
         IEnumerable<GuildMember> GetGuildMembers(ulong guildId);
         
         void CacheRole(ulong guildId, Role role);
-        Role? GetRole(ulong roleId);
+        Role? GetRole(ulong guildId, ulong roleId);
         IEnumerable<Role> GetGuildRoles(ulong guildId);
         
         void CacheEmoji(ulong guildId, Emoji emoji);
-        Emoji? GetEmoji(ulong emojiId);
+        Emoji? GetEmoji(ulong guildId, ulong emojiId);
         IEnumerable<Emoji> GetGuildEmojis(ulong guildId);
         
         // Bulk operations
@@ -64,7 +64,8 @@ namespace PawSharp.Cache.Interfaces
         Task<Channel?> GetChannelAsync(ulong channelId);
         Task<Message?> GetMessageAsync(ulong messageId);
         Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId);
-        Task<Role?> GetRoleAsync(ulong roleId);
+        Task<Role?> GetRoleAsync(ulong guildId, ulong roleId);
+        Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId);
     }
 
     /// <summary>

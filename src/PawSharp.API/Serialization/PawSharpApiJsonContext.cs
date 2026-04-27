@@ -1,0 +1,72 @@
+#nullable enable
+using System.Text.Json.Serialization;
+using PawSharp.API.Models;
+
+namespace PawSharp.API.Serialization;
+
+/// <summary>
+/// Source-generated JSON serialization context for PawSharp API request models.
+/// Enables Native AOT compatibility by eliminating reflection-based serialization.
+/// </summary>
+[JsonSerializable(typeof(CreateMessageRequest))]
+[JsonSerializable(typeof(EditMessageRequest))]
+[JsonSerializable(typeof(CreateChannelRequest))]
+[JsonSerializable(typeof(ModifyChannelRequest))]
+[JsonSerializable(typeof(CreateGuildRequest))]
+[JsonSerializable(typeof(ModifyGuildRequest))]
+[JsonSerializable(typeof(ModifyGuildMfaLevelRequest))]
+[JsonSerializable(typeof(ModifyGuildMemberRequest))]
+[JsonSerializable(typeof(AddGuildMemberRequest))]
+[JsonSerializable(typeof(CreateRoleRequest))]
+[JsonSerializable(typeof(ModifyRoleRequest))]
+[JsonSerializable(typeof(InteractionResponse))]
+[JsonSerializable(typeof(InteractionCallbackData))]
+[JsonSerializable(typeof(AutocompleteChoice))]
+[JsonSerializable(typeof(CreateInviteRequest))]
+[JsonSerializable(typeof(CreateApplicationCommandRequest))]
+[JsonSerializable(typeof(CreateThreadRequest))]
+[JsonSerializable(typeof(ModifyThreadRequest))]
+[JsonSerializable(typeof(CreateWebhookRequest))]
+[JsonSerializable(typeof(ModifyWebhookRequest))]
+[JsonSerializable(typeof(ExecuteWebhookRequest))]
+[JsonSerializable(typeof(CreateGuildScheduledEventRequest))]
+[JsonSerializable(typeof(ModifyGuildScheduledEventRequest))]
+[JsonSerializable(typeof(CreateAutoModerationRuleRequest))]
+[JsonSerializable(typeof(ModifyAutoModerationRuleRequest))]
+[JsonSerializable(typeof(CreateStageInstanceRequest))]
+[JsonSerializable(typeof(ModifyStageInstanceRequest))]
+[JsonSerializable(typeof(CreateGuildStickerRequest))]
+[JsonSerializable(typeof(ModifyGuildStickerRequest))]
+[JsonSerializable(typeof(EditChannelPermissionsRequest))]
+[JsonSerializable(typeof(CreatePollRequest))]
+[JsonSerializable(typeof(PollMediaRequest))]
+[JsonSerializable(typeof(PollAnswerRequest))]
+[JsonSerializable(typeof(CreateTestEntitlementRequest))]
+[JsonSerializable(typeof(CreateGuildSoundboardSoundRequest))]
+[JsonSerializable(typeof(ModifyGuildSoundboardSoundRequest))]
+[JsonSerializable(typeof(ModifyGuildOnboardingRequest))]
+[JsonSerializable(typeof(OnboardingPromptRequest))]
+[JsonSerializable(typeof(OnboardingPromptOptionRequest))]
+[JsonSerializable(typeof(PollVotersResponse))]
+[JsonSerializable(typeof(GuildSoundboardSoundsResponse))]
+[JsonSerializable(typeof(CreateGuildTemplateRequest))]
+[JsonSerializable(typeof(ModifyGuildTemplateRequest))]
+[JsonSerializable(typeof(CreateGuildFromTemplateRequest))]
+[JsonSerializable(typeof(ModifyGuildWidgetRequest))]
+[JsonSerializable(typeof(ModifyGuildWelcomeScreenRequest))]
+[JsonSerializable(typeof(WelcomeScreenChannelRequest))]
+[JsonSerializable(typeof(ModifyChannelPositionRequest))]
+[JsonSerializable(typeof(ModifyRolePositionRequest))]
+[JsonSerializable(typeof(CreateGuildEmojiRequest))]
+[JsonSerializable(typeof(ModifyGuildEmojiRequest))]
+[JsonSerializable(typeof(CreateApplicationEmojiRequest))]
+[JsonSerializable(typeof(ModifyApplicationEmojiRequest))]
+[JsonSerializable(typeof(EditCurrentApplicationRequest))]
+[JsonSerializable(typeof(BeginGuildPruneRequest))]
+[JsonSerializable(typeof(BulkGuildBanRequest))]
+[JsonSerializable(typeof(ModifyGuildIncidentActionsRequest))]
+[JsonSerializable(typeof(UpdateUserApplicationRoleConnectionRequest))]
+[JsonSerializable(typeof(CreateGroupDmRequest))]
+public partial class PawSharpApiJsonContext : JsonSerializerContext
+{
+}

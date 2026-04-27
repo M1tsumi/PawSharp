@@ -1,11 +1,13 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using PawSharp.API;
 using PawSharp.API.Clients;
 using PawSharp.API.Interfaces;
@@ -23,12 +25,13 @@ namespace PawSharp.Interactions;
 public class InteractionHandler
 {
     private readonly IDiscordRestClient _restClient;
-    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _commandHandlers = new();
-    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _componentHandlers = new();
-    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _modalHandlers = new();
-    private readonly Dictionary<string, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>>> _autocompleteHandlers = new();
-    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _userContextMenuHandlers = new();
-    private readonly Dictionary<string, Func<InteractionCreateEvent, Task>> _messageContextMenuHandlers = new();
+    private readonly ILogger<InteractionHandler>? _logger;
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _commandHandlers = new();
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _componentHandlers = new();
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _modalHandlers = new();
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>>> _autocompleteHandlers = new();
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _userContextMenuHandlers = new();
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _messageContextMenuHandlers = new();
 
     /// <summary>
     /// Optional warning callback invoked when a registration overwrites an existing handler.
@@ -41,9 +44,10 @@ public class InteractionHandler
     /// </summary>
     public bool ThrowOnDuplicateRegistration { get; set; }
 
-    public InteractionHandler(IDiscordRestClient restClient)
+    public InteractionHandler(IDiscordRestClient restClient, ILogger<InteractionHandler>? logger = null)
     {
         _restClient = restClient;
+        _logger = logger;
     }
 
     /// <summary>
@@ -96,7 +100,7 @@ public class InteractionHandler
     }
 
     private void RegisterWithDiagnostics<THandler>(
-        Dictionary<string, THandler> handlers,
+        ConcurrentDictionary<string, THandler> handlers,
         string key,
         THandler handler,
         string kind)
@@ -108,9 +112,11 @@ public class InteractionHandler
                 throw new InvalidOperationException(message);
 
             RegistrationWarning?.Invoke(message);
+            _logger?.LogWarning("{Message}", message);
         }
 
         handlers[key] = handler;
+        _logger?.LogDebug("Registered {Kind} handler with key '{Key}'", kind, key);
     }
 
     /// <summary>
@@ -118,65 +124,163 @@ public class InteractionHandler
     /// </summary>
     public async Task HandleInteractionAsync(InteractionCreateEvent interaction)
     {
-        switch ((InteractionType)interaction.Type)
+        _logger?.LogDebug("Handling interaction of type {Type}, ID: {Id}", interaction.Type, interaction.Id);
+
+        try
         {
-            case InteractionType.ApplicationCommand:
-                await HandleApplicationCommandAsync(interaction);
-                break;
+            switch ((InteractionType)interaction.Type)
+            {
+                case InteractionType.ApplicationCommand:
+                    await HandleApplicationCommandAsync(interaction);
+                    break;
 
-            case InteractionType.MessageComponent:
-                if (interaction.Data?.CustomId != null &&
-                    _componentHandlers.TryGetValue(interaction.Data.CustomId, out var componentHandler))
-                {
-                    await componentHandler(interaction);
-                }
-                break;
-
-            case InteractionType.ApplicationCommandAutocomplete:
-                if (interaction.Data?.Name != null &&
-                    _autocompleteHandlers.TryGetValue(interaction.Data.Name, out var autocompleteHandler))
-                {
-                    var choices = await autocompleteHandler(interaction);
-                    var response = new InteractionResponse
+                case InteractionType.MessageComponent:
+                    if (interaction.Data?.CustomId != null &&
+                        _componentHandlers.TryGetValue(interaction.Data.CustomId, out var componentHandler))
                     {
-                        Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
-                        Data = new InteractionCallbackData { Choices = choices }
-                    };
-                    await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
-                }
-                break;
+                        await InvokeHandlerSafelyAsync(componentHandler, interaction, "component", interaction.Data.CustomId);
+                    }
+                    else
+                    {
+                        _logger?.LogWarning("No component handler registered for custom_id: {CustomId}", interaction.Data.CustomId);
+                    }
+                    break;
 
-            case InteractionType.ModalSubmit:
-                if (interaction.Data?.CustomId != null &&
-                    _modalHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
-                {
-                    await modalHandler(interaction);
-                }
-                break;
+                case InteractionType.ApplicationCommandAutocomplete:
+                    if (interaction.Data?.Name != null &&
+                        _autocompleteHandlers.TryGetValue(interaction.Data.Name, out var autocompleteHandler))
+                    {
+                        await HandleAutocompleteAsync(interaction, autocompleteHandler);
+                    }
+                    else
+                    {
+                        _logger?.LogWarning("No autocomplete handler registered for command: {CommandName}", interaction.Data.Name);
+                    }
+                    break;
+
+                case InteractionType.ModalSubmit:
+                    if (interaction.Data?.CustomId != null &&
+                        _modalHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
+                    {
+                        await InvokeHandlerSafelyAsync(modalHandler, interaction, "modal", interaction.Data.CustomId);
+                    }
+                    else
+                    {
+                        _logger?.LogWarning("No modal handler registered for custom_id: {CustomId}", interaction.Data.CustomId);
+                    }
+                    break;
+
+                default:
+                    _logger?.LogWarning("Unhandled interaction type: {Type}", interaction.Type);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Unhandled exception in HandleInteractionAsync for interaction ID: {Id}", interaction.Id);
+            throw;
         }
     }
 
     private async Task HandleApplicationCommandAsync(InteractionCreateEvent interaction)
     {
-        if (interaction.Data?.Name == null) return;
+        if (interaction.Data?.Name == null)
+        {
+            _logger?.LogWarning("Application command interaction has no name");
+            return;
+        }
 
         // Route by application command type: CHAT_INPUT=1, USER=2, MESSAGE=3
         switch (interaction.Data.Type)
         {
             case (int)PawSharp.Interactions.Models.ApplicationCommandType.User:
                 if (_userContextMenuHandlers.TryGetValue(interaction.Data.Name, out var userHandler))
-                    await userHandler(interaction);
+                {
+                    await InvokeHandlerSafelyAsync(userHandler, interaction, "user context menu", interaction.Data.Name);
+                }
+                else
+                {
+                    _logger?.LogWarning("No user context menu handler registered for: {CommandName}", interaction.Data.Name);
+                }
                 break;
 
             case (int)PawSharp.Interactions.Models.ApplicationCommandType.Message:
                 if (_messageContextMenuHandlers.TryGetValue(interaction.Data.Name, out var messageHandler))
-                    await messageHandler(interaction);
+                {
+                    await InvokeHandlerSafelyAsync(messageHandler, interaction, "message context menu", interaction.Data.Name);
+                }
+                else
+                {
+                    _logger?.LogWarning("No message context menu handler registered for: {CommandName}", interaction.Data.Name);
+                }
                 break;
 
             default: // CHAT_INPUT (1) or unrecognised — fall through to slash command handlers
                 if (_commandHandlers.TryGetValue(interaction.Data.Name, out var slashHandler))
-                    await slashHandler(interaction);
+                {
+                    await InvokeHandlerSafelyAsync(slashHandler, interaction, "slash command", interaction.Data.Name);
+                }
+                else
+                {
+                    _logger?.LogWarning("No slash command handler registered for: {CommandName}", interaction.Data.Name);
+                }
                 break;
+        }
+    }
+
+    private async Task HandleAutocompleteAsync(InteractionCreateEvent interaction, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>> handler)
+    {
+        try
+        {
+            var choices = await handler(interaction);
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                Data = new InteractionCallbackData { Choices = choices }
+            };
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Autocomplete handler failed for command: {CommandName}", interaction.Data?.Name);
+            // Send empty choices to prevent timeout
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
+            };
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+        }
+    }
+
+    private async Task InvokeHandlerSafelyAsync(Func<InteractionCreateEvent, Task> handler, InteractionCreateEvent interaction, string handlerType, string key)
+    {
+        if (handler == null)
+        {
+            _logger?.LogWarning("Handler is null for {HandlerType} with key '{Key}'", handlerType, key);
+            return;
+        }
+
+        try
+        {
+            await handler(interaction);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'", handlerType, key);
+            // Optionally send error response to user
+            try
+            {
+                await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
+                {
+                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
+                });
+            }
+            catch (Exception responseEx)
+            {
+                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler", handlerType);
+            }
         }
     }
 
@@ -234,9 +338,10 @@ public class InteractionHandler
     /// <summary>
     /// Edits the original interaction response.
     /// </summary>
-    public async Task<HttpResponseMessage> EditResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
+    public async Task<bool> EditResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
     {
-        return await _restClient.EditOriginalInteractionResponseAsync(applicationId, interactionToken, request);
+        var response = await _restClient.EditOriginalInteractionResponseAsync(applicationId, interactionToken, request);
+        return response.IsSuccessStatusCode;
     }
 
     /// <summary>
@@ -263,16 +368,6 @@ public class InteractionHandler
         return await _restClient.DeleteFollowupMessageAsync(applicationId, interactionToken, messageId);
     }
 
-    /// <summary>
-    /// Follows up with an additional message (legacy overload using InteractionCallbackData).
-    /// </summary>
-    [Obsolete("Use CreateFollowupAsync(applicationId, interactionToken, CreateMessageRequest) instead.")]
-    public async Task<HttpResponseMessage> FollowupAsync(string applicationId, string interactionToken, InteractionCallbackData data)
-    {
-        // InteractionCallbackData has [JsonPropertyName] attributes ensuring correct snake_case output.
-        var content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
-        return await _restClient.PostAsync($"webhooks/{applicationId}/{interactionToken}", content);
-    }
 
     /// <summary>
     /// Gets all application command permissions for a guild.

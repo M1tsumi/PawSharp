@@ -21,7 +21,7 @@ public class ShardManager
     private readonly Dictionary<int, ShardStatus> _shardStatuses = new();
     private readonly PawSharpOptions _options;
     private readonly ILogger _logger;
-    private readonly EventDispatcher _eventDispatcher = new();
+    private readonly EventDispatcher _eventDispatcher;
     private readonly IDiscordRestClient? _restClient;
 
     /// <summary>
@@ -35,6 +35,11 @@ public class ShardManager
         _options = options;
         _logger = logger;
         _restClient = restClient;
+        _eventDispatcher = new EventDispatcher(
+            logger,
+            options.EventDispatch.MaxQueueSize,
+            options.EventDispatch.EnableParallelDispatch,
+            options.EventDispatch.MaxDegreeOfParallelism);
     }
 
     /// <summary>

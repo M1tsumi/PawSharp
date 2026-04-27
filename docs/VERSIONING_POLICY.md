@@ -30,7 +30,7 @@ PawSharp uses **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH[-pre-release]`).
 ### Pre-release identifiers (in order of maturity)
 
 ```
-1.0.0-alpha.2   ← early development, APIs may change freely
+1.0.0-alpha.4   ← early development, APIs may change freely
 6.1.0-beta-1    ← feature-complete, undergoing stabilisation
 6.1.0-rc-1      ← release candidate, only critical fixes
 6.1.0           ← stable release
@@ -88,7 +88,7 @@ These branches are cut from `main` and merged back via Pull Request.
 ```
 main ──┬──────────────────────────────────────────► main
        │
-       └── release/v1.0.0-alpha.2 ──► PR ──► merge ──► tag v1.0.0-alpha.2
+       └── release/v1.0.0-alpha.4 ──► PR ──► merge ──► tag v1.0.0-alpha.4
 ```
 
 1. Cut `release/vX.Y.Z` from `main`.
@@ -134,8 +134,8 @@ PawSharp uses **Conventional Commits** (`https://www.conventionalcommits.org`).
 ```
 feat(interactions): add GetOptionValue<T> extension for slash command options
 fix(gateway): handle WebSocket reconnect race condition on RESUME
-chore: bump all packages to 1.0.0-alpha.2
-release: v1.0.0-alpha.2
+chore: bump all packages to 1.0.0-alpha.4
+release: v1.0.0-alpha.4
 ci: add release.yml workflow with NuGet publish step
 docs: update VERSIONING_POLICY with branch naming rules
 ```
@@ -156,27 +156,27 @@ docs: update VERSIONING_POLICY with branch naming rules
 ```bash
 # 1. Cut version branch from main
 git checkout main && git pull
-git checkout -b release/v1.0.0-alpha.2
+git checkout -b release/v1.0.0-alpha.4
 
 # 2. Bump version in Directory.Build.props AND all individual .csproj files
 #    (also update User-Agent string, per-package READMEs, root README, CHANGELOG)
 
 # 3. Update CHANGELOG.md
-#    Move content under the new [1.0.0-alpha.2] heading, set the date.
+#    Move content under the new [1.0.0-alpha.4] heading, set the date.
 
 # 4. Commit
 git add -A
-git commit -m "release: v1.0.0-alpha.2"
+git commit -m "release: v1.0.0-alpha.4"
 
 # 5. Push the version branch
-git push -u origin release/v1.0.0-alpha.2
+git push -u origin release/v1.0.0-alpha.4
 
 # 6. Open PR  →  review  →  merge into main
 
 # 7. On main, push the tag  →  triggers release.yml automatically
 git checkout main && git pull
-git tag v1.0.0-alpha.2
-git push origin v1.0.0-alpha.2
+git tag v1.0.0-alpha.4
+git push origin v1.0.0-alpha.4
 ```
 
 ### What the `release.yml` workflow does automatically on tag push
@@ -237,9 +237,9 @@ main               ← always green, never force-push
 release/vX.Y.Z     ← one branch per version, merged via PR, then tagged
 feat/*  fix/*      ← short-lived feature/fix branches
 
-Version format:  1.0.0-alpha.2   (pre-release suffix uses dot notation, e.g. alpha.2)
-Tag format:      v1.0.0-alpha.2  (no spaces, no underscores)
-Branch format:   release/v1.0.0-alpha.2
+Version format:  1.0.0-alpha.4   (pre-release suffix uses dot notation, e.g. alpha.4)
+Tag format:      v1.0.0-alpha.4  (no spaces, no underscores)
+Branch format:   release/v1.0.0-alpha.4
 
 Conventional commit types: feat fix perf refactor test docs chore ci release
 ```

@@ -11,6 +11,8 @@ using PawSharp.API.Models;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Client;
 using PawSharp.Commands;
+using PawSharp.Commands.Attributes;
+using PawSharp.Commands.Conversion;
 using PawSharp.Commands.Preconditions;
 using PawSharp.Core.Entities;
 using PawSharp.Core.Models;
@@ -261,6 +263,75 @@ public class CommandsExtensionTests
         errorArgs!.Exception.Message.Should().Contain("server");
     }
 
+    // ── Type conversion tests ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task TypeConversion_Converts_Int_Parameter()
+    {
+        var ext = new CommandsExtension("!", typeConverterService: new TypeConverterService());
+        var (client, dispatcher) = BuildTestClient();
+
+        ext.RegisterModule(client, new TypeConversionModule());
+
+        await dispatcher.DispatchAsync("MESSAGE_CREATE", BuildMessageEvent("!add 5 10"));
+
+        TypeConversionModule.LastResult.Should().Be(15);
+    }
+
+    [Fact]
+    public async Task TypeConversion_Converts_Bool_Parameter()
+    {
+        var ext = new CommandsExtension("!", typeConverterService: new TypeConverterService());
+        var (client, dispatcher) = BuildTestClient();
+
+        ext.RegisterModule(client, new TypeConversionModule());
+
+        await dispatcher.DispatchAsync("MESSAGE_CREATE", BuildMessageEvent("!toggle true"));
+
+        TypeConversionModule.LastBool.Should().Be(true);
+    }
+
+    // ── Advanced parsing tests ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AdvancedParsing_Handles_Quotes()
+    {
+        var ext = new CommandsExtension("!");
+        var (client, dispatcher) = BuildTestClient();
+
+        ext.RegisterModule(client, new AdvancedParsingModule());
+
+        await dispatcher.DispatchAsync("MESSAGE_CREATE", BuildMessageEvent("!echo \"hello world\""));
+
+        AdvancedParsingModule.LastMessage.Should().Be("hello world");
+    }
+
+    [Fact]
+    public async Task RemainingAttribute_Captures_All_Arguments()
+    {
+        var ext = new CommandsExtension("!");
+        var (client, dispatcher) = BuildTestClient();
+
+        ext.RegisterModule(client, new AdvancedParsingModule());
+
+        await dispatcher.DispatchAsync("MESSAGE_CREATE", BuildMessageEvent("!say hello world this is a test"));
+
+        AdvancedParsingModule.LastMessage.Should().Be("hello world this is a test");
+    }
+
+    [Fact]
+    public async Task OptionalAttribute_Uses_Default_Value()
+    {
+        var ext = new CommandsExtension("!");
+        var (client, dispatcher) = BuildTestClient();
+
+        ext.RegisterModule(client, new AdvancedParsingModule());
+
+        await dispatcher.DispatchAsync("MESSAGE_CREATE", BuildMessageEvent("!greet John"));
+
+        AdvancedParsingModule.LastGreeting.Should().Be("Hello, John!");
+    }
+
     // ── SlashCommand scanner tests ────────────────────────────────────────────
 
     [Fact]
@@ -404,6 +475,53 @@ internal class SlashModule : BaseCommandModule
         [SlashOption("name", "The person to greet")] string name = "World")
     {
         SlashInvoked = true;
+        return Task.CompletedTask;
+    }
+}
+
+internal class TypeConversionModule : BaseCommandModule
+{
+    public static int LastResult { get; private set; }
+    public static bool LastBool { get; private set; }
+
+    [Command("add")]
+    public Task AddAsync(CommandContext ctx, int a, int b)
+    {
+        LastResult = a + b;
+        return Task.CompletedTask;
+    }
+
+    [Command("toggle")]
+    public Task ToggleAsync(CommandContext ctx, bool value)
+    {
+        LastBool = value;
+        return Task.CompletedTask;
+    }
+}
+
+internal class AdvancedParsingModule : BaseCommandModule
+{
+    public static string? LastMessage { get; private set; }
+    public static string? LastGreeting { get; private set; }
+
+    [Command("echo")]
+    public Task EchoAsync(CommandContext ctx, string message)
+    {
+        LastMessage = message;
+        return Task.CompletedTask;
+    }
+
+    [Command("say")]
+    public Task SayAsync(CommandContext ctx, [Remaining] string message)
+    {
+        LastMessage = message;
+        return Task.CompletedTask;
+    }
+
+    [Command("greet")]
+    public Task GreetAsync(CommandContext ctx, string name, [Optional] string title = "")
+    {
+        LastGreeting = string.IsNullOrEmpty(title) ? $"Hello, {name}!" : $"Hello, {title} {name}!";
         return Task.CompletedTask;
     }
 }

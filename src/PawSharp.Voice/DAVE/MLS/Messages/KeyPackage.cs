@@ -110,10 +110,21 @@ internal sealed class KeyPackage
             throw new MlsDecodeException($"Unsupported ciphersuite: {suite}");
 
         var initKey = r.ReadVector16();
-        var leaf    = LeafNode.Decode(data.Slice(r.Position));
-        // Advance past the leaf bytes (re-read length from the encoded form)
-        var leafBytes = leaf.Encode();
-        var r2 = new TlsReader(data.Slice(r.Position + leafBytes.Length));
+        // Track position before decoding leaf
+        var leafStartPosition = r.Position;
+        var leaf = LeafNode.Decode(data.Slice(r.Position));
+        // Create a new reader at the leaf start position and decode to get the actual end position
+        var leafReader = new TlsReader(data.Slice(leafStartPosition));
+        leafReader.ReadVector16(); // encryption_key
+        leafReader.ReadVector16(); // signature_key
+        leafReader.ReadVector16(); // credential
+        leafReader.ReadUint8();    // leaf_node_source
+        leafReader.ReadVector16(); // capabilities
+        leafReader.ReadVector16(); // extensions
+        leafReader.ReadVector16(); // signature
+        var leafEndPosition = leafStartPosition + leafReader.Position;
+        
+        var r2 = new TlsReader(data.Slice(leafEndPosition));
         r2.ReadVector16(); // extensions
         var sig = r2.ReadVector16();
 

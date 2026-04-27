@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using PawSharp.Core.Serialization;
 
 namespace PawSharp.Core.Entities;
 
@@ -59,9 +61,12 @@ public enum TextInputStyle
 /// <summary>
 /// Dispatches deserialization of message components to the correct concrete type
 /// based on the <c>type</c> integer discriminator field.
+/// Uses source-generated serialization context for AOT compatibility.
 /// </summary>
 public sealed class MessageComponentJsonConverter : JsonConverter<MessageComponent>
 {
+    private readonly PawSharpJsonContext _context = new();
+
     public override MessageComponent? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         using var doc = JsonDocument.ParseValue(ref reader);
@@ -75,28 +80,50 @@ public sealed class MessageComponentJsonConverter : JsonConverter<MessageCompone
 
         return (ComponentType)type switch
         {
-            ComponentType.ActionRow         => JsonSerializer.Deserialize<ActionRow>(raw, options),
-            ComponentType.Button            => JsonSerializer.Deserialize<Button>(raw, options),
-            ComponentType.StringSelect      => JsonSerializer.Deserialize<SelectMenu>(raw, options),
-            ComponentType.TextInput         => JsonSerializer.Deserialize<TextInput>(raw, options),
-            ComponentType.UserSelect        => JsonSerializer.Deserialize<UserSelectMenu>(raw, options),
-            ComponentType.RoleSelect        => JsonSerializer.Deserialize<RoleSelectMenu>(raw, options),
-            ComponentType.MentionableSelect => JsonSerializer.Deserialize<MentionableSelectMenu>(raw, options),
-            ComponentType.ChannelSelect     => JsonSerializer.Deserialize<ChannelSelectMenu>(raw, options),
+            ComponentType.ActionRow         => JsonSerializer.Deserialize(raw, _context.ActionRow),
+            ComponentType.Button            => JsonSerializer.Deserialize(raw, _context.Button),
+            ComponentType.StringSelect      => JsonSerializer.Deserialize(raw, _context.SelectMenu),
+            ComponentType.TextInput         => JsonSerializer.Deserialize(raw, _context.TextInput),
+            ComponentType.UserSelect        => JsonSerializer.Deserialize(raw, _context.UserSelectMenu),
+            ComponentType.RoleSelect        => JsonSerializer.Deserialize(raw, _context.RoleSelectMenu),
+            ComponentType.MentionableSelect => JsonSerializer.Deserialize(raw, _context.MentionableSelectMenu),
+            ComponentType.ChannelSelect     => JsonSerializer.Deserialize(raw, _context.ChannelSelectMenu),
             // Components v2
-            ComponentType.Section           => JsonSerializer.Deserialize<Section>(raw, options),
-            ComponentType.TextDisplay       => JsonSerializer.Deserialize<TextDisplay>(raw, options),
-            ComponentType.Thumbnail         => JsonSerializer.Deserialize<ThumbnailComponent>(raw, options),
-            ComponentType.MediaGallery      => JsonSerializer.Deserialize<MediaGallery>(raw, options),
-            ComponentType.File              => JsonSerializer.Deserialize<FileComponent>(raw, options),
-            ComponentType.Separator         => JsonSerializer.Deserialize<Separator>(raw, options),
-            ComponentType.Container         => JsonSerializer.Deserialize<Container>(raw, options),
-            _                               => JsonSerializer.Deserialize<UnknownComponent>(raw, options),
+            ComponentType.Section           => JsonSerializer.Deserialize(raw, _context.Section),
+            ComponentType.TextDisplay       => JsonSerializer.Deserialize(raw, _context.TextDisplay),
+            ComponentType.Thumbnail         => JsonSerializer.Deserialize(raw, _context.ThumbnailComponent),
+            ComponentType.MediaGallery      => JsonSerializer.Deserialize(raw, _context.MediaGallery),
+            ComponentType.File              => JsonSerializer.Deserialize(raw, _context.FileComponent),
+            ComponentType.Separator         => JsonSerializer.Deserialize(raw, _context.Separator),
+            ComponentType.Container         => JsonSerializer.Deserialize(raw, _context.Container),
+            _                               => JsonSerializer.Deserialize(raw, _context.UnknownComponent),
         };
     }
 
     public override void Write(Utf8JsonWriter writer, MessageComponent value, JsonSerializerOptions options)
-        => JsonSerializer.Serialize(writer, value, value.GetType(), options);
+    {
+        JsonTypeInfo typeInfo = value.GetType() switch
+        {
+            var t when t == typeof(ActionRow) => _context.ActionRow,
+            var t when t == typeof(Button) => _context.Button,
+            var t when t == typeof(SelectMenu) => _context.SelectMenu,
+            var t when t == typeof(TextInput) => _context.TextInput,
+            var t when t == typeof(UserSelectMenu) => _context.UserSelectMenu,
+            var t when t == typeof(RoleSelectMenu) => _context.RoleSelectMenu,
+            var t when t == typeof(MentionableSelectMenu) => _context.MentionableSelectMenu,
+            var t when t == typeof(ChannelSelectMenu) => _context.ChannelSelectMenu,
+            var t when t == typeof(Section) => _context.Section,
+            var t when t == typeof(TextDisplay) => _context.TextDisplay,
+            var t when t == typeof(ThumbnailComponent) => _context.ThumbnailComponent,
+            var t when t == typeof(MediaGallery) => _context.MediaGallery,
+            var t when t == typeof(FileComponent) => _context.FileComponent,
+            var t when t == typeof(Separator) => _context.Separator,
+            var t when t == typeof(Container) => _context.Container,
+            _ => _context.UnknownComponent
+        };
+
+        JsonSerializer.Serialize(writer, value, typeInfo);
+    }
 }
 
 // ── Base ─────────────────────────────────────────────────────────────────────

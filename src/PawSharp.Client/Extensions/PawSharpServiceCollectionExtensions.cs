@@ -3,17 +3,15 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using PawSharp.API.Clients;
 using PawSharp.API.Interfaces;
 using PawSharp.API.RateLimit;
 using PawSharp.Cache.Interfaces;
+using PawSharp.Cache.Providers;
 using PawSharp.Core.Models;
 using PawSharp.Gateway;
 using PawSharp.Interactions;
-
-using PawSharp.Cache.Providers;
 
 namespace PawSharp.Client.Extensions;
 
@@ -54,20 +52,20 @@ public static class PawSharpServiceCollectionExtensions
         if (options == null) throw new ArgumentNullException(nameof(options));
 
         // Register options as a singleton so downstream services can inject them
-        services.TryAddSingleton(options);
+        services.AddSingleton(options);
 
         // HTTP client for REST
-        services.TryAddSingleton<HttpClient>(_ =>
+        services.AddSingleton<HttpClient>(_ =>
         {
             var client = new HttpClient();
             return client;
         });
 
         // Rate limiter
-        services.TryAddSingleton<IAdvancedRateLimiter>(_ => new AdvancedRateLimiter());
+        services.AddSingleton<IAdvancedRateLimiter>(_ => new AdvancedRateLimiter());
 
         // REST client
-        services.TryAddSingleton<IDiscordRestClient>(sp =>
+        services.AddSingleton<IDiscordRestClient>(sp =>
             new DiscordRestClient(
                 sp.GetRequiredService<HttpClient>(),
                 sp.GetRequiredService<PawSharpOptions>(),
@@ -75,7 +73,7 @@ public static class PawSharpServiceCollectionExtensions
                 sp.GetRequiredService<IAdvancedRateLimiter>()));
 
         // Gateway client
-        services.TryAddSingleton<IGatewayClient>(sp =>
+        services.AddSingleton<IGatewayClient>(sp =>
             new GatewayClient(
                 sp.GetRequiredService<PawSharpOptions>(),
                 sp.GetRequiredService<ILogger<GatewayClient>>()));
@@ -83,15 +81,17 @@ public static class PawSharpServiceCollectionExtensions
         // Cache — use factory if provided, otherwise expect the consumer to register IEntityCache themselves
         if (cacheFactory != null)
         {
-            services.TryAddSingleton<IEntityCache>(cacheFactory);
+            services.AddSingleton<IEntityCache>(cacheFactory);
         }
 
         // Interaction handler
-        services.TryAddSingleton<InteractionHandler>(sp =>
-            new InteractionHandler(sp.GetRequiredService<IDiscordRestClient>()));
+        services.AddSingleton<InteractionHandler>(sp =>
+            new InteractionHandler(
+                sp.GetRequiredService<IDiscordRestClient>(),
+                sp.GetService<ILogger<InteractionHandler>>()));
 
         // Top-level Discord client
-        services.TryAddSingleton<DiscordClient>(sp =>
+        services.AddSingleton<DiscordClient>(sp =>
             new DiscordClient(
                 sp.GetRequiredService<PawSharpOptions>(),
                 sp.GetRequiredService<IEntityCache>(),
@@ -104,8 +104,6 @@ public static class PawSharpServiceCollectionExtensions
 
     /// <summary>
     /// Registers all PawSharp services with an in-memory entity cache.
-    /// Equivalent to calling <see cref="AddPawSharp(IServiceCollection,PawSharpOptions,Func{IServiceProvider,IEntityCache}?)"/>
-    /// with <c>cacheFactory: _ =&gt; new MemoryCacheProvider()</c>.
     /// </summary>
     public static IServiceCollection AddPawSharpWithMemoryCache(
         this IServiceCollection services,

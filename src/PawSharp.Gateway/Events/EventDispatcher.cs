@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.Core.Serialization;
+using PawSharp.Gateway.Serialization;
 
 namespace PawSharp.Gateway.Events
 {
@@ -22,6 +23,8 @@ namespace PawSharp.Gateway.Events
         private readonly List<Func<string, object, Task>> _middleware = new();
         private readonly object _middlewareLock = new();
         private readonly ILogger? _logger;
+        private readonly EventDispatchQueue? _dispatchQueue;
+        private readonly bool _useQueue;
 
         // Shared options instance – created once, reused for every deserialization call.
         private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -34,12 +37,25 @@ namespace PawSharp.Gateway.Events
                 // when no [JsonConverter] attribute is present on the property.
                 new SnowflakeJsonConverter(),
                 new NullableSnowflakeJsonConverter()
-            }
+            },
+            // Enable source generator for better AOT compatibility
+            TypeInfoResolver = PawSharpGatewayJsonContext.Default
         };
 
-        public EventDispatcher(ILogger? logger = null)
+        public EventDispatcher(ILogger? logger = null, int maxQueueSize = 0, bool enableParallelDispatch = false, int maxDegreeOfParallelism = 4)
         {
             _logger = logger;
+            _useQueue = maxQueueSize > 0;
+            
+            if (_useQueue)
+            {
+                _dispatchQueue = new EventDispatchQueue(
+                    this, 
+                    maxQueueSize, 
+                    enableParallelDispatch, 
+                    maxDegreeOfParallelism, 
+                    logger);
+            }
         }
 
         // ---- Registration ----
@@ -107,6 +123,28 @@ namespace PawSharp.Gateway.Events
         {
             if (rawJson != null) eventData.RawJson = rawJson;
 
+            // If queue is enabled, enqueue for background processing
+            if (_useQueue && _dispatchQueue != null)
+            {
+                await _dispatchQueue.EnqueueAsync(new EventDispatchItem
+                {
+                    EventName = eventName,
+                    EventData = eventData,
+                    RawJson = rawJson,
+                    EventType = typeof(TEvent)
+                });
+                return;
+            }
+
+            // Direct dispatch (legacy behavior)
+            await DispatchDirectAsync(eventName, eventData, rawJson);
+        }
+
+        /// <summary>
+        /// Direct dispatch without queueing (used when queue is disabled or for internal calls).
+        /// </summary>
+        private async Task DispatchDirectAsync<TEvent>(string eventName, TEvent eventData, string? rawJson) where TEvent : GatewayEvent
+        {
             // Run middleware
             List<Func<string, object, Task>> middlewareCopy;
             lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
@@ -140,12 +178,18 @@ namespace PawSharp.Gateway.Events
         /// <summary>
         /// Deserializes the raw JSON payload and dispatches the resulting event.
         /// Falls back to raw-JSON handlers on deserialization failure.
+        /// Uses source-generated serialization for AOT compatibility.
         /// </summary>
         public async Task DispatchFromJsonAsync<TEvent>(string eventName, string json) where TEvent : GatewayEvent
         {
             try
             {
-                var eventData = JsonSerializer.Deserialize<TEvent>(json, _jsonOptions);
+                // Use source-generated deserialization with JsonTypeInfo
+                var typeInfo = _jsonOptions.TypeInfoResolver?.GetTypeInfo(typeof(TEvent), _jsonOptions);
+                var eventData = typeInfo != null
+                    ? JsonSerializer.Deserialize(json, typeInfo) as TEvent
+                    : JsonSerializer.Deserialize<TEvent>(json, _jsonOptions);
+                
                 if (eventData != null)
                     await DispatchAsync(eventName, eventData, json);
             }
@@ -196,6 +240,16 @@ namespace PawSharp.Gateway.Events
         /// </summary>
         public int HandlerCount(string eventName)
             => _eventHandlers.TryGetValue(eventName, out var list) ? list.Count : 0;
+
+        /// <summary>
+        /// Gets the current queue depth if backpressure is enabled.
+        /// </summary>
+        public int QueueDepth => _dispatchQueue?.QueueDepth ?? 0;
+
+        public void Dispose()
+        {
+            _dispatchQueue?.Dispose();
+        }
 
         // ---- Subscription token ----
 
