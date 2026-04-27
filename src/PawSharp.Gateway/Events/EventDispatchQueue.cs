@@ -42,21 +42,26 @@ namespace PawSharp.Gateway.Events
             _maxDegreeOfParallelism = maxDegreeOfParallelism;
             _logger = logger;
 
-            // Create bounded channel for automatic backpressure
-            var options = maxQueueSize > 0
-                ? new BoundedChannelOptions(maxQueueSize)
+            // Create channel for automatic backpressure
+            if (maxQueueSize > 0)
+            {
+                var boundedOptions = new BoundedChannelOptions(maxQueueSize)
                 {
                     FullMode = BoundedChannelFullMode.Wait, // Block producer when full
                     SingleReader = !enableParallelDispatch, // Single reader for sequential processing
                     SingleWriter = true
-                }
-                : new UnboundedChannelOptions()
+                };
+                _channel = Channel.CreateBounded<EventDispatchItem>(boundedOptions);
+            }
+            else
+            {
+                var unboundedOptions = new UnboundedChannelOptions()
                 {
                     SingleReader = !enableParallelDispatch,
                     SingleWriter = true
                 };
-
-            _channel = Channel.CreateUnbounded<EventDispatchItem>(options);
+                _channel = Channel.CreateUnbounded<EventDispatchItem>(unboundedOptions);
+            }
 
             // Start background processing task
             _processingTask = ProcessQueueAsync();
