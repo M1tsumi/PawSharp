@@ -11,7 +11,6 @@ namespace PawSharp.Cache.Providers
 {
     public class MemoryCacheProvider : IEntityCache
     {
-        private readonly ConcurrentDictionary<string, CacheItem> _cache;
         private readonly ConcurrentDictionary<ulong, Guild> _guilds;
         private readonly ConcurrentDictionary<ulong, Channel> _channels;
         private readonly ConcurrentDictionary<ulong, User> _users;
@@ -21,7 +20,6 @@ namespace PawSharp.Cache.Providers
         private readonly ConcurrentDictionary<string, Emoji> _emojis; // Key: guildId:emojiId
 
         // Bounded caching configuration
-        private readonly int _maxCacheSize;
         private readonly int _maxGuilds;
         private readonly int _maxChannels;
         private readonly int _maxUsers;
@@ -29,16 +27,9 @@ namespace PawSharp.Cache.Providers
         private readonly int _maxMembers;
         private readonly int _maxRoles;
         private readonly int _maxEmojis;
-        private readonly TimeSpan? _defaultExpiration;
-        private readonly object _cleanupLock = new object();
         private readonly object _evictionLock = new object();
-        private DateTime _lastCleanup = DateTime.UtcNow;
-        // Min-heap ordered by expiration: O(log n) insert, O(1) peek, O(log n) dequeue.
-        // Items without expiration are excluded; they are evicted last.
-        private readonly PriorityQueue<string, DateTime> _expirationQueue = new();
 
         // Statistics
-        public int CacheSize => _cache.Count;
         public int GuildCacheSize => _guilds.Count;
         public int ChannelCacheSize => _channels.Count;
         public int UserCacheSize => _users.Count;
@@ -50,8 +41,7 @@ namespace PawSharp.Cache.Providers
         public MemoryCacheProvider(CacheOptions? options = null)
         {
             var opts = options ?? new CacheOptions();
-            
-            _maxCacheSize = 10000;
+
             _maxGuilds = opts.MaxGuilds;
             _maxChannels = opts.MaxChannels;
             _maxUsers = opts.MaxUsers;
@@ -59,9 +49,7 @@ namespace PawSharp.Cache.Providers
             _maxMembers = opts.MaxMembers;
             _maxRoles = opts.MaxRoles;
             _maxEmojis = opts.MaxEmojis;
-            _defaultExpiration = opts.DefaultExpiration;
-            
-            _cache = new ConcurrentDictionary<string, CacheItem>();
+
             _guilds = new ConcurrentDictionary<ulong, Guild>();
             _channels = new ConcurrentDictionary<ulong, Channel>();
             _users = new ConcurrentDictionary<ulong, User>();
@@ -73,50 +61,24 @@ namespace PawSharp.Cache.Providers
 
         public void Add(string key, object entity)
         {
-            AddInternal(key, entity, null);
-        }
-
-        private void AddInternal(string key, object value, TimeSpan? expiration = null)
-        {
-            var actualExpiration = expiration ?? _defaultExpiration;
-            var cacheItem = new CacheItem(value, actualExpiration.HasValue ? DateTime.UtcNow.Add(actualExpiration.Value) : (DateTime?)null);
-            _cache[key] = cacheItem;
-
-            // Track expiring items in the heap so cleanup is O(log n) not O(n log n)
-            if (cacheItem.Expiration.HasValue)
-            {
-                lock (_cleanupLock)
-                {
-                    _expirationQueue.Enqueue(key, cacheItem.Expiration.Value);
-                }
-            }
-
-            // Perform bounded caching cleanup if necessary
-            if (_cache.Count > _maxCacheSize)
-            {
-                PerformCleanup();
-            }
+            // Generic cache operations are not used by typed entity operations
+            // This method is kept for interface compatibility but does nothing
+            // Use typed operations (CacheUser, CacheGuild, etc.) instead
         }
 
         public object? Get(string key)
         {
-            if (_cache.TryGetValue(key, out var cacheItem))
-            {
-                if (!cacheItem.IsExpired)
-                {
-                    return cacheItem.Value;
-                }
-                else
-                {
-                    Remove(key);
-                }
-            }
+            // Generic cache operations are not used by typed entity operations
+            // This method is kept for interface compatibility but returns null
+            // Use typed operations (GetUser, GetGuild, etc.) instead
             return null;
         }
 
         public void Remove(string key)
         {
-            _cache.TryRemove(key, out _);
+            // Generic cache operations are not used by typed entity operations
+            // This method is kept for interface compatibility but does nothing
+            // Use typed operations or RemoveGuild for entity removal
         }
 
         private void EnforceEntityCacheBounds<TKey, TValue>(ConcurrentDictionary<TKey, TValue> cache, int maxSize)
@@ -138,57 +100,22 @@ namespace PawSharp.Cache.Providers
             }
         }
 
-        private void PerformCleanup()
-        {
-            lock (_cleanupLock)
-            {
-                // Only perform cleanup if it's been more than 5 minutes since last cleanup
-                if ((DateTime.UtcNow - _lastCleanup).TotalMinutes < 5)
-                    return;
-
-                _lastCleanup = DateTime.UtcNow;
-
-                // Drain the heap: dequeue all entries whose expiration has passed.
-                // This is O(k log n) where k = number of expired items, vs O(n log n) for full sort.
-                var now = DateTime.UtcNow;
-                while (_expirationQueue.TryPeek(out _, out var soonest) && soonest <= now)
-                {
-                    if (_expirationQueue.TryDequeue(out var expiredKey, out _))
-                        _cache.TryRemove(expiredKey, out _);
-                }
-
-                // If still over limit, evict by soonest expiration first (cheapest to lose).
-                // Non-expiring items are not in the heap and are kept longest.
-                while (_cache.Count > _maxCacheSize && _expirationQueue.TryDequeue(out var victimKey, out _))
-                {
-                    _cache.TryRemove(victimKey, out _);
-                }
-
-                // Last resort: the cache is over limit and no expiring items remain.
-                // Evict an arbitrary batch (keys() snapshot is O(n) but this path is rare).
-                if (_cache.Count > _maxCacheSize)
-                {
-                    var overflow = _cache.Count - _maxCacheSize;
-                    foreach (var key in _cache.Keys.Take(overflow).ToList())
-                        _cache.TryRemove(key, out _);
-                }
-            }
-        }
-
         public bool Exists(string key)
         {
-            return _cache.ContainsKey(key) && !_cache[key].IsExpired;
+            // Generic cache operations are not used by typed entity operations
+            // This method is kept for interface compatibility but returns false
+            return false;
         }
 
         public void Clear()
         {
-            _cache.Clear();
             _guilds.Clear();
             _channels.Clear();
             _users.Clear();
             _messages.Clear();
             _members.Clear();
             _roles.Clear();
+            _emojis.Clear();
         }
 
         // Typed entity operations
@@ -409,13 +336,20 @@ namespace PawSharp.Cache.Providers
 
         public int GetEntityCount()
         {
-            return _cache.Count + _guilds.Count + _channels.Count + _users.Count + _messages.Count + _members.Count + _roles.Count;
+            return _guilds.Count + _channels.Count + _users.Count + _messages.Count + _members.Count + _roles.Count + _emojis.Count;
         }
 
         public long GetMemoryUsage()
         {
-            // Rough estimate - would need more sophisticated calculation for accurate numbers
-            return GC.GetTotalMemory(false);
+            // Estimate based on entity counts and average sizes
+            // These are rough estimates: User~1KB, Guild~2KB, Channel~1KB, Message~2KB, Member~1KB, Role~0.5KB, Emoji~0.5KB
+            return (_users.Count * 1024L) +
+                   (_guilds.Count * 2048L) +
+                   (_channels.Count * 1024L) +
+                   (_messages.Count * 2048L) +
+                   (_members.Count * 1024L) +
+                   (_roles.Count * 512L) +
+                   (_emojis.Count * 512L);
         }
 
         // Async overloads — in-memory provider delegates to sync methods via Task.FromResult
@@ -426,19 +360,5 @@ namespace PawSharp.Cache.Providers
         public Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId) => Task.FromResult(GetGuildMember(guildId, userId));
         public Task<Role?> GetRoleAsync(ulong guildId, ulong roleId) => Task.FromResult(GetRole(guildId, roleId));
         public Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId) => Task.FromResult(GetEmoji(guildId, emojiId));
-
-        private class CacheItem
-        {
-            public object Value { get; }
-            public DateTime? Expiration { get; }
-
-            public CacheItem(object value, DateTime? expiration)
-            {
-                Value = value;
-                Expiration = expiration;
-            }
-
-            public bool IsExpired => Expiration.HasValue && DateTime.UtcNow > Expiration.Value;
-        }
     }
 }

@@ -64,13 +64,18 @@ namespace PawSharp.Cache.Providers
 
         /// <summary>
         /// Helper method to get keys matching a pattern using Keys (blocking but compatible).
+        /// Iterates through all endpoints to support clustered Redis configurations.
         /// </summary>
         private IEnumerable<RedisKey> ScanKeys(string pattern)
         {
-            var server = _redis.GetServer(_redis.GetEndPoints()[0]);
-            foreach (var key in server.Keys(pattern: pattern, database: _options.Database))
+            var endpoints = _redis.GetEndPoints();
+            foreach (var endpoint in endpoints)
             {
-                yield return key;
+                var server = _redis.GetServer(endpoint);
+                foreach (var key in server.Keys(pattern: pattern, database: _options.Database))
+                {
+                    yield return key;
+                }
             }
         }
 
@@ -381,8 +386,11 @@ namespace PawSharp.Cache.Providers
         /// <param name="emoji">The emoji to cache.</param>
         public void CacheEmoji(ulong guildId, Emoji emoji)
         {
-            var key = $"emoji:{guildId}:{emoji.Id}";
-            Add(key, emoji);
+            if (emoji.Id.HasValue)
+            {
+                var key = $"emoji:{guildId}:{emoji.Id.Value}";
+                Add(key, emoji);
+            }
         }
 
         /// <summary>
@@ -540,9 +548,16 @@ namespace PawSharp.Cache.Providers
         /// <returns>Estimated memory usage in bytes.</returns>
         public long GetMemoryUsage()
         {
-            // Redis doesn't provide direct memory usage per key pattern
-            // This is a rough estimate
-            return GetEntityCount() * 1024L; // Rough estimate: 1KB per entity
+            // Estimate based on entity counts and average sizes
+            // These are rough estimates: User~1KB, Guild~2KB, Channel~1KB, Message~2KB, Member~1KB, Role~0.5KB, Emoji~0.5KB
+            var stats = GetCacheStats();
+            return (stats.UserCount * 1024L) +
+                   (stats.GuildCount * 2048L) +
+                   (stats.ChannelCount * 1024L) +
+                   (stats.MessageCount * 2048L) +
+                   (stats.MemberCount * 1024L) +
+                   (stats.RoleCount * 512L) +
+                   (stats.EmojiCount * 512L);
         }
 
         /// <summary>
@@ -608,6 +623,149 @@ namespace PawSharp.Cache.Providers
             var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}");
             return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
         }
+
+        #region Async Cache Operations
+
+        public async Task CacheUserAsync(User user)
+        {
+            var key = $"user:{user.Id}";
+            var json = JsonSerializer.Serialize(user, _jsonOptions);
+            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+        }
+
+        public async Task CacheGuildAsync(Guild guild)
+        {
+            var key = $"guild:{guild.Id}";
+            var json = JsonSerializer.Serialize(guild, _jsonOptions);
+            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+        }
+
+        public async Task CacheChannelAsync(Channel channel)
+        {
+            var key = $"channel:{channel.Id}";
+            var json = JsonSerializer.Serialize(channel, _jsonOptions);
+            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+        }
+
+        public async Task CacheMessageAsync(Message message)
+        {
+            var key = $"message:{message.Id}";
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
+            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+
+            // Also maintain a sorted set for channel messages
+            var channelKey = $"channel:{message.ChannelId}:messages";
+            await _db.SortedSetAddAsync(channelKey, message.Id.ToString(), message.Id);
+            await _db.KeyExpireAsync(channelKey, _options.DefaultExpiry);
+        }
+
+        public async Task CacheGuildMemberAsync(ulong guildId, GuildMember member)
+        {
+            if (member.User is null) return;
+            var key = $"member:{guildId}:{member.User.Id}";
+            var json = JsonSerializer.Serialize(member, _jsonOptions);
+            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+        }
+
+        public async Task CacheRoleAsync(ulong guildId, PawSharp.Core.Entities.Role role)
+        {
+            var key = $"role:{guildId}:{role.Id}";
+            var json = JsonSerializer.Serialize(role, _jsonOptions);
+            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+        }
+
+        public async Task CacheEmojiAsync(ulong guildId, Emoji emoji)
+        {
+            if (emoji.Id.HasValue)
+            {
+                var key = $"emoji:{guildId}:{emoji.Id.Value}";
+                var json = JsonSerializer.Serialize(emoji, _jsonOptions);
+                await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+            }
+        }
+
+        public async Task CacheGuildDataAsync(Guild guild)
+        {
+            await CacheGuildAsync(guild);
+
+            if (guild.Channels != null)
+            {
+                foreach (var channel in guild.Channels)
+                {
+                    await CacheChannelAsync(channel);
+                }
+            }
+
+            if (guild.Members != null)
+            {
+                foreach (var member in guild.Members)
+                {
+                    await CacheGuildMemberAsync(guild.Id, member);
+                }
+            }
+
+            if (guild.Roles != null)
+            {
+                foreach (var role in guild.Roles)
+                {
+                    await CacheRoleAsync(guild.Id, role);
+                }
+            }
+
+            if (guild.Emojis != null)
+            {
+                foreach (var emoji in guild.Emojis)
+                {
+                    await CacheEmojiAsync(guild.Id, emoji);
+                }
+            }
+        }
+
+        public async Task RemoveGuildAsync(ulong guildId)
+        {
+            var keys = new List<RedisKey>();
+
+            foreach (var key in ScanKeys($"guild:{guildId}"))
+                keys.Add(key);
+            foreach (var key in ScanKeys($"member:{guildId}:*"))
+                keys.Add(key);
+            foreach (var key in ScanKeys($"role:{guildId}:*"))
+                keys.Add(key);
+            foreach (var key in ScanKeys($"emoji:{guildId}:*"))
+                keys.Add(key);
+
+            foreach (var key in ScanKeys("channel:*"))
+            {
+                var json = _db.StringGet(key);
+                if (json.HasValue)
+                {
+                    var channel = JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions);
+                    if (channel != null && channel.GuildId == guildId)
+                    {
+                        keys.Add(key);
+                        var channelKey = $"channel:{channel.Id}:messages";
+                        keys.Add(channelKey);
+                    }
+                }
+            }
+
+            if (keys.Count > 0)
+            {
+                await _db.KeyDeleteAsync(keys.ToArray());
+            }
+        }
+
+        public async Task ClearAsync()
+        {
+            var endpoints = _redis.GetEndPoints();
+            foreach (var endpoint in endpoints)
+            {
+                var server = _redis.GetServer(endpoint);
+                server.FlushDatabase(_options.Database);
+            }
+        }
+
+        #endregion
 
         /// <summary>
         /// Disposes the Redis connection.
