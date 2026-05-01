@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -22,6 +23,14 @@ namespace PawSharp.Cache.Providers
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly RedisCacheOptions _options;
         private bool _disposed;
+
+        // Metrics tracking
+        private long _hits;
+        private long _misses;
+
+        // Cache invalidation events
+        public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
+        public event EventHandler? CacheCleared;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RedisCacheProvider"/> class.
@@ -121,6 +130,7 @@ namespace PawSharp.Cache.Providers
                 var server = _redis.GetServer(endpoint);
                 server.FlushDatabase(_options.Database);
             }
+            CacheCleared?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>
@@ -144,7 +154,9 @@ namespace PawSharp.Cache.Providers
         public void CacheUser(User user)
         {
             var key = $"user:{user.Id}";
-            Add(key, user);
+            var json = JsonSerializer.Serialize(user, _jsonOptions);
+            var expiry = _options.UserExpiry ?? _options.DefaultExpiry;
+            _db.StringSet(key, json, expiry);
         }
 
         /// <summary>
@@ -156,7 +168,13 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"user:{userId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<User>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<User>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         /// <summary>
@@ -166,7 +184,9 @@ namespace PawSharp.Cache.Providers
         public void CacheGuild(Guild guild)
         {
             var key = $"guild:{guild.Id}";
-            Add(key, guild);
+            var json = JsonSerializer.Serialize(guild, _jsonOptions);
+            var expiry = _options.GuildExpiry ?? _options.DefaultExpiry;
+            _db.StringSet(key, json, expiry);
         }
 
         /// <summary>
@@ -178,7 +198,13 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"guild:{guildId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         /// <summary>
@@ -206,7 +232,9 @@ namespace PawSharp.Cache.Providers
         public void CacheChannel(Channel channel)
         {
             var key = $"channel:{channel.Id}";
-            Add(key, channel);
+            var json = JsonSerializer.Serialize(channel, _jsonOptions);
+            var expiry = _options.ChannelExpiry ?? _options.DefaultExpiry;
+            _db.StringSet(key, json, expiry);
         }
 
         /// <summary>
@@ -218,7 +246,13 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"channel:{channelId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         /// <summary>
@@ -247,12 +281,14 @@ namespace PawSharp.Cache.Providers
         public void CacheMessage(Message message)
         {
             var key = $"message:{message.Id}";
-            Add(key, message);
+            var json = JsonSerializer.Serialize(message, _jsonOptions);
+            var expiry = _options.MessageExpiry ?? _options.DefaultExpiry;
+            _db.StringSet(key, json, expiry);
 
             // Also maintain a sorted set for channel messages
             var channelKey = $"channel:{message.ChannelId}:messages";
             _db.SortedSetAdd(channelKey, message.Id.ToString(), message.Id);
-            _db.KeyExpire(channelKey, _options.DefaultExpiry);
+            _db.KeyExpire(channelKey, expiry);
         }
 
         /// <summary>
@@ -264,7 +300,13 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"message:{messageId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         /// <summary>
@@ -299,7 +341,9 @@ namespace PawSharp.Cache.Providers
             // GuildMember.User can be absent in some gateway events; skip caching without a User ID
             if (member.User is null) return;
             var key = $"member:{guildId}:{member.User.Id}";
-            Add(key, member);
+            var json = JsonSerializer.Serialize(member, _jsonOptions);
+            var expiry = _options.MemberExpiry ?? _options.DefaultExpiry;
+            _db.StringSet(key, json, expiry);
         }
 
         /// <summary>
@@ -312,7 +356,13 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"member:{guildId}:{userId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         /// <summary>
@@ -342,7 +392,9 @@ namespace PawSharp.Cache.Providers
         public void CacheRole(ulong guildId, PawSharp.Core.Entities.Role role)
         {
             var key = $"role:{guildId}:{role.Id}";
-            Add(key, role);
+            var json = JsonSerializer.Serialize(role, _jsonOptions);
+            var expiry = _options.RoleExpiry ?? _options.DefaultExpiry;
+            _db.StringSet(key, json, expiry);
         }
 
         /// <summary>
@@ -355,7 +407,13 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"role:{guildId}:{roleId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         /// <summary>
@@ -389,7 +447,9 @@ namespace PawSharp.Cache.Providers
             if (emoji.Id.HasValue)
             {
                 var key = $"emoji:{guildId}:{emoji.Id.Value}";
-                Add(key, emoji);
+                var json = JsonSerializer.Serialize(emoji, _jsonOptions);
+                var expiry = _options.EmojiExpiry ?? _options.DefaultExpiry;
+                _db.StringSet(key, json, expiry);
             }
         }
 
@@ -403,7 +463,13 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"emoji:{guildId}:{emojiId}";
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         /// <summary>
@@ -575,7 +641,9 @@ namespace PawSharp.Cache.Providers
                 MemberCount = ScanKeys("member:*").Count(),
                 RoleCount = ScanKeys("role:*").Count(),
                 EmojiCount = ScanKeys("emoji:*").Count(),
-                MemoryUsage = GetMemoryUsage()
+                MemoryUsage = GetMemoryUsage(),
+                Hits = Interlocked.Read(ref _hits),
+                Misses = Interlocked.Read(ref _misses)
             };
         }
 
@@ -585,43 +653,85 @@ namespace PawSharp.Cache.Providers
         public async Task<User?> GetUserAsync(ulong userId)
         {
             var json = await _db.StringGetAsync($"user:{userId}");
-            return json.HasValue ? JsonSerializer.Deserialize<User>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<User>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public async Task<Guild?> GetGuildAsync(ulong guildId)
         {
             var json = await _db.StringGetAsync($"guild:{guildId}");
-            return json.HasValue ? JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public async Task<Channel?> GetChannelAsync(ulong channelId)
         {
             var json = await _db.StringGetAsync($"channel:{channelId}");
-            return json.HasValue ? JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public async Task<Message?> GetMessageAsync(ulong messageId)
         {
             var json = await _db.StringGetAsync($"message:{messageId}");
-            return json.HasValue ? JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
         {
             var json = await _db.StringGetAsync($"member:{guildId}:{userId}");
-            return json.HasValue ? JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public async Task<PawSharp.Core.Entities.Role?> GetRoleAsync(ulong guildId, ulong roleId)
         {
             var json = await _db.StringGetAsync($"role:{guildId}:{roleId}");
-            return json.HasValue ? JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public async Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId)
         {
             var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}");
-            return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
+            if (json.HasValue)
+            {
+                Interlocked.Increment(ref _hits);
+                return JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions);
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         #region Async Cache Operations
@@ -630,33 +740,37 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"user:{user.Id}";
             var json = JsonSerializer.Serialize(user, _jsonOptions);
-            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+            var expiry = _options.UserExpiry ?? _options.DefaultExpiry;
+            await _db.StringSetAsync(key, json, expiry);
         }
 
         public async Task CacheGuildAsync(Guild guild)
         {
             var key = $"guild:{guild.Id}";
             var json = JsonSerializer.Serialize(guild, _jsonOptions);
-            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+            var expiry = _options.GuildExpiry ?? _options.DefaultExpiry;
+            await _db.StringSetAsync(key, json, expiry);
         }
 
         public async Task CacheChannelAsync(Channel channel)
         {
             var key = $"channel:{channel.Id}";
             var json = JsonSerializer.Serialize(channel, _jsonOptions);
-            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+            var expiry = _options.ChannelExpiry ?? _options.DefaultExpiry;
+            await _db.StringSetAsync(key, json, expiry);
         }
 
         public async Task CacheMessageAsync(Message message)
         {
             var key = $"message:{message.Id}";
             var json = JsonSerializer.Serialize(message, _jsonOptions);
-            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+            var expiry = _options.MessageExpiry ?? _options.DefaultExpiry;
+            await _db.StringSetAsync(key, json, expiry);
 
             // Also maintain a sorted set for channel messages
             var channelKey = $"channel:{message.ChannelId}:messages";
             await _db.SortedSetAddAsync(channelKey, message.Id.ToString(), message.Id);
-            await _db.KeyExpireAsync(channelKey, _options.DefaultExpiry);
+            await _db.KeyExpireAsync(channelKey, expiry);
         }
 
         public async Task CacheGuildMemberAsync(ulong guildId, GuildMember member)
@@ -664,14 +778,16 @@ namespace PawSharp.Cache.Providers
             if (member.User is null) return;
             var key = $"member:{guildId}:{member.User.Id}";
             var json = JsonSerializer.Serialize(member, _jsonOptions);
-            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+            var expiry = _options.MemberExpiry ?? _options.DefaultExpiry;
+            await _db.StringSetAsync(key, json, expiry);
         }
 
         public async Task CacheRoleAsync(ulong guildId, PawSharp.Core.Entities.Role role)
         {
             var key = $"role:{guildId}:{role.Id}";
             var json = JsonSerializer.Serialize(role, _jsonOptions);
-            await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+            var expiry = _options.RoleExpiry ?? _options.DefaultExpiry;
+            await _db.StringSetAsync(key, json, expiry);
         }
 
         public async Task CacheEmojiAsync(ulong guildId, Emoji emoji)
@@ -680,7 +796,8 @@ namespace PawSharp.Cache.Providers
             {
                 var key = $"emoji:{guildId}:{emoji.Id.Value}";
                 var json = JsonSerializer.Serialize(emoji, _jsonOptions);
-                await _db.StringSetAsync(key, json, _options.DefaultExpiry);
+                var expiry = _options.EmojiExpiry ?? _options.DefaultExpiry;
+                await _db.StringSetAsync(key, json, expiry);
             }
         }
 
@@ -763,9 +880,26 @@ namespace PawSharp.Cache.Providers
                 var server = _redis.GetServer(endpoint);
                 server.FlushDatabase(_options.Database);
             }
+            CacheCleared?.Invoke(this, EventArgs.Empty);
         }
 
         #endregion
+
+        /// <summary>
+        /// Performs a health check on the Redis cache provider.
+        /// </summary>
+        /// <returns>True if the cache is healthy, false otherwise.</returns>
+        public bool IsHealthy()
+        {
+            try
+            {
+                return _redis.IsConnected && _db.IsConnected(_options.Database);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         /// <summary>
         /// Disposes the Redis connection.
@@ -819,5 +953,40 @@ namespace PawSharp.Cache.Providers
         /// Default cache expiry time (default: 1 hour).
         /// </summary>
         public TimeSpan DefaultExpiry { get; set; } = TimeSpan.FromHours(1);
+
+        /// <summary>
+        /// Expiry time for users (overrides DefaultExpiry if set).
+        /// </summary>
+        public TimeSpan? UserExpiry { get; set; } = null;
+
+        /// <summary>
+        /// Expiry time for guilds (overrides DefaultExpiry if set).
+        /// </summary>
+        public TimeSpan? GuildExpiry { get; set; } = null;
+
+        /// <summary>
+        /// Expiry time for channels (overrides DefaultExpiry if set).
+        /// </summary>
+        public TimeSpan? ChannelExpiry { get; set; } = null;
+
+        /// <summary>
+        /// Expiry time for messages (overrides DefaultExpiry if set).
+        /// </summary>
+        public TimeSpan? MessageExpiry { get; set; } = null;
+
+        /// <summary>
+        /// Expiry time for guild members (overrides DefaultExpiry if set).
+        /// </summary>
+        public TimeSpan? MemberExpiry { get; set; } = null;
+
+        /// <summary>
+        /// Expiry time for roles (overrides DefaultExpiry if set).
+        /// </summary>
+        public TimeSpan? RoleExpiry { get; set; } = null;
+
+        /// <summary>
+        /// Expiry time for emojis (overrides DefaultExpiry if set).
+        /// </summary>
+        public TimeSpan? EmojiExpiry { get; set; } = null;
     }
 }
