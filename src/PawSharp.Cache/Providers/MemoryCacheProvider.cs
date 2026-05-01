@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Core.Entities;
@@ -29,6 +30,23 @@ namespace PawSharp.Cache.Providers
         private readonly int _maxEmojis;
         private readonly object _evictionLock = new object();
 
+        // Expiration configuration
+        private readonly TimeSpan? _userExpiration;
+        private readonly TimeSpan? _guildExpiration;
+        private readonly TimeSpan? _channelExpiration;
+        private readonly TimeSpan? _messageExpiration;
+        private readonly TimeSpan? _memberExpiration;
+        private readonly TimeSpan? _roleExpiration;
+        private readonly TimeSpan? _emojiExpiration;
+
+        // Metrics tracking
+        private long _hits;
+        private long _misses;
+
+        // Cache invalidation events
+        public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
+        public event EventHandler? CacheCleared;
+
         // Statistics
         public int GuildCacheSize => _guilds.Count;
         public int ChannelCacheSize => _channels.Count;
@@ -49,6 +67,14 @@ namespace PawSharp.Cache.Providers
             _maxMembers = opts.MaxMembers;
             _maxRoles = opts.MaxRoles;
             _maxEmojis = opts.MaxEmojis;
+
+            _userExpiration = opts.UserExpiration ?? opts.DefaultExpiration;
+            _guildExpiration = opts.GuildExpiration ?? opts.DefaultExpiration;
+            _channelExpiration = opts.ChannelExpiration ?? opts.DefaultExpiration;
+            _messageExpiration = opts.MessageExpiration ?? opts.DefaultExpiration;
+            _memberExpiration = opts.MemberExpiration ?? opts.DefaultExpiration;
+            _roleExpiration = opts.RoleExpiration ?? opts.DefaultExpiration;
+            _emojiExpiration = opts.EmojiExpiration ?? opts.DefaultExpiration;
 
             _guilds = new ConcurrentDictionary<ulong, Guild>();
             _channels = new ConcurrentDictionary<ulong, Channel>();
@@ -81,7 +107,7 @@ namespace PawSharp.Cache.Providers
             // Use typed operations or RemoveGuild for entity removal
         }
 
-        private void EnforceEntityCacheBounds<TKey, TValue>(ConcurrentDictionary<TKey, TValue> cache, int maxSize)
+        private void EnforceEntityCacheBounds<TKey, TValue>(ConcurrentDictionary<TKey, TValue> cache, int maxSize, string entityType)
             where TKey : notnull
         {
             if (cache.Count <= maxSize) return;
@@ -95,7 +121,18 @@ namespace PawSharp.Cache.Providers
                 var keysToRemove = cache.Keys.Take(cache.Count - maxSize).ToList();
                 foreach (var key in keysToRemove)
                 {
-                    cache.TryRemove(key, out _);
+                    if (cache.TryRemove(key, out _))
+                    {
+                        // Trigger eviction event for entity keys that are ulong IDs
+                        if (key is ulong entityId)
+                        {
+                            EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs
+                            {
+                                EntityType = entityType,
+                                EntityId = entityId
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -116,29 +153,42 @@ namespace PawSharp.Cache.Providers
             _members.Clear();
             _roles.Clear();
             _emojis.Clear();
+            CacheCleared?.Invoke(this, EventArgs.Empty);
         }
 
         // Typed entity operations
         public void CacheUser(User user)
         {
             _users[user.Id] = user;
-            EnforceEntityCacheBounds(_users, _maxUsers);
+            EnforceEntityCacheBounds(_users, _maxUsers, "User");
         }
 
         public User? GetUser(ulong userId)
         {
-            return _users.TryGetValue(userId, out var user) ? user : null;
+            if (_users.TryGetValue(userId, out var user))
+            {
+                Interlocked.Increment(ref _hits);
+                return user;
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public void CacheGuild(Guild guild)
         {
             _guilds[guild.Id] = guild;
-            EnforceEntityCacheBounds(_guilds, _maxGuilds);
+            EnforceEntityCacheBounds(_guilds, _maxGuilds, "Guild");
         }
 
         public Guild? GetGuild(ulong guildId)
         {
-            return _guilds.TryGetValue(guildId, out var guild) ? guild : null;
+            if (_guilds.TryGetValue(guildId, out var guild))
+            {
+                Interlocked.Increment(ref _hits);
+                return guild;
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public IEnumerable<Guild> GetAllGuilds()
@@ -149,12 +199,18 @@ namespace PawSharp.Cache.Providers
         public void CacheChannel(Channel channel)
         {
             _channels[channel.Id] = channel;
-            EnforceEntityCacheBounds(_channels, _maxChannels);
+            EnforceEntityCacheBounds(_channels, _maxChannels, "Channel");
         }
 
         public Channel? GetChannel(ulong channelId)
         {
-            return _channels.TryGetValue(channelId, out var channel) ? channel : null;
+            if (_channels.TryGetValue(channelId, out var channel))
+            {
+                Interlocked.Increment(ref _hits);
+                return channel;
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public IEnumerable<Channel> GetGuildChannels(ulong guildId)
@@ -165,12 +221,18 @@ namespace PawSharp.Cache.Providers
         public void CacheMessage(Message message)
         {
             _messages[message.Id] = message;
-            EnforceEntityCacheBounds(_messages, _maxMessages);
+            EnforceEntityCacheBounds(_messages, _maxMessages, "Message");
         }
 
         public Message? GetMessage(ulong messageId)
         {
-            return _messages.TryGetValue(messageId, out var message) ? message : null;
+            if (_messages.TryGetValue(messageId, out var message))
+            {
+                Interlocked.Increment(ref _hits);
+                return message;
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public IEnumerable<Message> GetChannelMessages(ulong channelId, int limit = 50)
@@ -197,7 +259,13 @@ namespace PawSharp.Cache.Providers
         public GuildMember? GetGuildMember(ulong guildId, ulong userId)
         {
             var key = $"{guildId}:{userId}";
-            return _members.TryGetValue(key, out var member) ? member : null;
+            if (_members.TryGetValue(key, out var member))
+            {
+                Interlocked.Increment(ref _hits);
+                return member;
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public IEnumerable<GuildMember> GetGuildMembers(ulong guildId)
@@ -209,13 +277,19 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"{guildId}:{role.Id}";
             _roles[key] = role;
-            EnforceEntityCacheBounds(_roles, _maxRoles);
+            EnforceEntityCacheBounds(_roles, _maxRoles, "Role");
         }
 
         public Role? GetRole(ulong guildId, ulong roleId)
         {
             var key = $"{guildId}:{roleId}";
-            return _roles.TryGetValue(key, out var role) ? role : null;
+            if (_roles.TryGetValue(key, out var role))
+            {
+                Interlocked.Increment(ref _hits);
+                return role;
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public IEnumerable<Role> GetGuildRoles(ulong guildId)
@@ -229,14 +303,20 @@ namespace PawSharp.Cache.Providers
             {
                 var key = $"{guildId}:{emoji.Id.Value}";
                 _emojis[key] = emoji;
-                EnforceEntityCacheBounds(_emojis, _maxEmojis);
+                EnforceEntityCacheBounds(_emojis, _maxEmojis, "Emoji");
             }
         }
 
         public Emoji? GetEmoji(ulong guildId, ulong emojiId)
         {
             var key = $"{guildId}:{emojiId}";
-            return _emojis.TryGetValue(key, out var emoji) ? emoji : null;
+            if (_emojis.TryGetValue(key, out var emoji))
+            {
+                Interlocked.Increment(ref _hits);
+                return emoji;
+            }
+            Interlocked.Increment(ref _misses);
+            return null;
         }
 
         public IEnumerable<Emoji> GetGuildEmojis(ulong guildId)
@@ -330,7 +410,9 @@ namespace PawSharp.Cache.Providers
                 MemberCount = _members.Count,
                 RoleCount = _roles.Count,
                 EmojiCount = _emojis.Count,
-                MemoryUsage = GetMemoryUsage()
+                MemoryUsage = GetMemoryUsage(),
+                Hits = Interlocked.Read(ref _hits),
+                Misses = Interlocked.Read(ref _misses)
             };
         }
 
@@ -360,5 +442,11 @@ namespace PawSharp.Cache.Providers
         public Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId) => Task.FromResult(GetGuildMember(guildId, userId));
         public Task<Role?> GetRoleAsync(ulong guildId, ulong roleId) => Task.FromResult(GetRole(guildId, roleId));
         public Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId) => Task.FromResult(GetEmoji(guildId, emojiId));
+
+        public bool IsHealthy()
+        {
+            // In-memory cache is always healthy as long as it's accessible
+            return true;
+        }
     }
 }
