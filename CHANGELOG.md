@@ -4,6 +4,97 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.1.0-alpha.1] - 2026-05-01
+
+### New Features
+
+- **Cache System Enhancements** (`PawSharp.Cache`)
+  - Added cache metrics for monitoring and observability.
+  - Added per-entity TTL (time-to-live) configuration options.
+  - Added cache invalidation events to notify subscribers of cache changes.
+  - Added health checks for cache providers (Memory and Redis).
+  - `RedisCacheProvider` guild-role and guild-emoji tracking improved with guild-specific cache keys.
+  - `MemoryCacheProvider` role and emoji tracking fixed with guild-specific key storage.
+
+- **Commands System** (`PawSharp.Commands`)
+  - Added `AutocompleteHandlerAttribute` for autocomplete interaction handlers.
+  - Added `SlashContextsAttribute` for specifying interaction contexts.
+  - Added `SlashDefaultMemberPermissionsAttribute` for default member permissions on slash commands.
+  - Added `SlashIntegrationTypesAttribute` for integration type configuration.
+  - Enhanced `RequirePermissionsAttribute` with improved permission checking logic.
+  - Added `DiscordPermissions` helper class for permission calculations.
+  - Enhanced `TypeConverterService` with additional conversion support.
+  - Added `CommandsBuilder` DI improvements for better service registration.
+
+- **Core Entities & Builders** (`PawSharp.Core`)
+  - Added new entity types: `VerificationLevel` enum, enhanced `Channel` properties.
+  - Enhanced `EmbedBuilder` with new helper methods for embed construction.
+  - Added `ComponentBuilder` for easier component creation.
+  - Added `DiscordResources` entity for resource management.
+  - Enhanced `Guild`, `Message`, `Presence`, `Role`, and `User` entities with additional properties.
+  - Added multiple extension methods:
+    - `ChannelTypeExtensions` - helper methods for channel types
+    - `CollectionExtensions` - utility methods for collections
+    - `ColorExtensions` - color manipulation helpers
+    - `GuildFeatureExtensions` - guild feature checking
+    - `InteractionTypeExtensions` - interaction type helpers
+    - `MessageTypeExtensions` - message type utilities
+    - `PermissionsExtensions` - permission calculation helpers
+    - `SnowflakeExtensions` - Discord snowflake utilities
+    - `StringExtensions` - string manipulation helpers
+    - `VerificationLevelExtensions` - verification level helpers
+  - Enhanced `PerformanceMetrics` with additional telemetry.
+  - Enhanced `PawSharpOptions` with new configuration options.
+
+- **Gateway & Events** (`PawSharp.Gateway`)
+  - Added `EventFilteringMiddleware` for custom event filtering.
+  - Added `EventReplayBuffer` for event replay capabilities.
+  - Added `GatewayDiagnostics` for enhanced diagnostics and monitoring.
+  - Added `ShardRebalancingManager` for automatic shard rebalancing.
+  - Enhanced `ShardManager` with improved sharding logic.
+  - Enhanced `WebSocketConnection` with better connection management.
+  - Enhanced `EventDispatcher` with improved event routing.
+  - Enhanced `HeartbeatManager` with better heartbeat tracking.
+  - Enhanced `ReconnectionManager` with improved reconnection logic.
+
+- **Interactions** (`PawSharp.Interactions`)
+  - Enhanced `InteractionHandler` with improved handler registration.
+  - Enhanced `InteractionExtensions` with additional helper methods.
+  - Enhanced `ModalBuilder` with improved modal construction.
+  - Added `ComponentBuilders` for various component types.
+
+- **Extensions** (`PawSharp.Extensions`)
+  - Enhanced `ChannelExtensions` with additional channel operations.
+  - Added `InteractionCreateEventExtensions` for interaction event helpers.
+  - Enhanced `MessageExtensions` with additional message operations.
+
+- **API Client** (`PawSharp.API`)
+  - Enhanced `RestClient` with additional REST operation support.
+  - Enhanced `IDiscordRestClient` interface with new methods.
+
+### Bug Fixes
+
+- Fixed `CS0121` ambiguous method call errors by removing duplicate overloads without `CancellationToken`.
+- Fixed build errors: added missing using for `InteractionResponseType` and fixed `WaitForAnyComponentAsync` parameter calls.
+- Fixed critical and moderate issues in `PawSharp.Cache` package.
+- Fixed stale release references in documentation and examples.
+- Fixed `MemoryCacheProvider` and `RedisCacheProvider` guild-role/emoji tracking issues.
+- Fixed error logging in empty catch blocks throughout the codebase.
+
+### Documentation
+
+- Updated README with new cache features documentation.
+- Updated client README with default memory cache documentation.
+- Removed individual version settings from all `.csproj` files to use centralized versioning.
+
+### Internal / Tooling
+
+- Removed PawSharp package txt files from repository.
+- Added release-hygiene checks to prevent version drift.
+- All package versions now centralized in `Directory.Build.props`.
+
+---
+
 ## [1.0.0-alpha.4] - 2026-04-22
 
 ### Bug Fixes

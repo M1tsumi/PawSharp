@@ -122,7 +122,7 @@ public class DashboardCommands : InteractionModule
             .AddField("Servers", client.Guilds.Count.ToString(), true)
             .AddField("Users", client.Guilds.Sum(g => g.MemberCount).ToString(), true)
             .AddField("Uptime", "Running", true)
-            .AddField("Version", "PawSharp 1.0.0-alpha.4", false)
+            .AddField("Version", "PawSharp 1.1.0-alpha.1", false)
             .WithColor(Color.Purple);
 
         await RespondAsync(embed: embed.Build());
