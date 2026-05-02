@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using PawSharp.Core.Enums;
 using PawSharp.Core.Serialization;
 
 namespace PawSharp.Core.Entities;
@@ -53,6 +54,66 @@ public class Role : DiscordEntity
     /// <summary>Role flags bitfield.</summary>
     [JsonPropertyName("flags")]
     public RoleFlags Flags { get; set; }
+
+    /// <summary>
+    /// Gets whether this role is managed by an integration.
+    /// </summary>
+    public bool IsManaged => Managed;
+
+    /// <summary>
+    /// Gets whether this role is mentionable.
+    /// </summary>
+    public bool IsMentionable => Mentionable;
+
+    /// <summary>
+    /// Gets whether this role is hoisted (displayed separately in member list).
+    /// </summary>
+    public bool IsHoisted => Hoist;
+
+    /// <summary>
+    /// Checks if this role has a specific permission.
+    /// </summary>
+    /// <param name="permission">The permission to check.</param>
+    /// <returns>True if the role has the permission.</returns>
+    public bool HasPermission(Permissions permission)
+    {
+        var rolePermissions = (Permissions)ulong.Parse(Permissions);
+        return (rolePermissions & permission) == permission;
+    }
+
+    /// <summary>
+    /// Gets the role's color as a hexadecimal string.
+    /// </summary>
+    public string GetColorHex()
+    {
+        return Color.ToString("X6").PadLeft(6, '0');
+    }
+
+    /// <summary>
+    /// Gets the role's color as RGB components.
+    /// </summary>
+    /// <returns>A tuple containing R, G, and B components (0-255 each).</returns>
+    public (byte R, byte G, byte B) GetColorRgb()
+    {
+        return ((byte)((Color >> 16) & 0xFF),
+                (byte)((Color >> 8) & 0xFF),
+                (byte)(Color & 0xFF));
+    }
+
+    /// <summary>
+    /// Gets whether this is the guild's premium subscriber (booster) role.
+    /// </summary>
+    public bool IsPremiumSubscriber => Tags?.PremiumSubscriber != null;
+
+    /// <summary>
+    /// Gets whether this role is available for purchase.
+    /// </summary>
+    public bool IsAvailableForPurchase => Tags?.AvailableForPurchase != null;
+
+    /// <summary>
+    /// Gets whether this is a guild's linked role.
+    /// </summary>
+    public bool IsLinkedRole => Tags?.GuildConnections != null;
 }
 
 /// <summary>

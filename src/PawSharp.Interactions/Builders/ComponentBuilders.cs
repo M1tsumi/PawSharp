@@ -314,6 +314,23 @@ public class SectionBuilder
         return this;
     }
 
+    /// <summary>Sets a thumbnail as the accessory using a <see cref="ThumbnailBuilder"/>.</summary>
+    public SectionBuilder SetThumbnailAccessory(ThumbnailBuilder thumbnailBuilder)
+    {
+        _component.Accessory = thumbnailBuilder.Build();
+        return this;
+    }
+
+    /// <summary>Sets a thumbnail as the accessory directly from a URL.</summary>
+    public SectionBuilder SetThumbnailAccessory(string url, string? description = null, bool spoiler = false)
+    {
+        _component.Accessory = new ThumbnailBuilder(url)
+            .SetDescription(description)
+            .SetSpoiler(spoiler)
+            .Build();
+        return this;
+    }
+
     public CoreComponents.Section Build() => _component;
 }
 
@@ -346,6 +363,20 @@ public class ContainerBuilder
     public ContainerBuilder AddSection(CoreComponents.Section section)
         => AddComponent(section);
 
+    /// <summary>Adds a file component to the container.</summary>
+    public ContainerBuilder AddFile(string attachmentUrl, bool spoiler = false)
+    {
+        _component.Components!.Add(new FileBuilder(attachmentUrl).SetSpoiler(spoiler).Build());
+        return this;
+    }
+
+    /// <summary>Adds a file component using a <see cref="FileBuilder"/>.</summary>
+    public ContainerBuilder AddFile(FileBuilder fileBuilder)
+    {
+        _component.Components!.Add(fileBuilder.Build());
+        return this;
+    }
+
     public ContainerBuilder SetAccentColor(int color)
     {
         _component.AccentColor = color;
@@ -359,4 +390,76 @@ public class ContainerBuilder
     }
 
     public CoreComponents.Container Build() => _component;
+}
+
+/// <summary>
+/// Builder for <see cref="CoreComponents.ThumbnailComponent"/> (component type 11).
+/// A thumbnail shows an image and is typically used as the accessory in a Section.
+/// </summary>
+public class ThumbnailBuilder
+{
+    private readonly CoreComponents.ThumbnailComponent _component = new();
+
+    public ThumbnailBuilder(string url)
+    {
+        _component.Media = new CoreComponents.UnfurledMediaItem { Url = url };
+    }
+
+    /// <summary>Sets the media URL. Can be a Discord CDN URL, attachment://, or external URL.</summary>
+    public ThumbnailBuilder SetUrl(string url)
+    {
+        _component.Media ??= new CoreComponents.UnfurledMediaItem();
+        _component.Media.Url = url;
+        return this;
+    }
+
+    /// <summary>Sets optional alt text / description for the thumbnail.</summary>
+    public ThumbnailBuilder SetDescription(string? description)
+    {
+        _component.Description = description;
+        return this;
+    }
+
+    /// <summary>Marks the thumbnail as a spoiler (blurred until clicked).</summary>
+    public ThumbnailBuilder SetSpoiler(bool spoiler)
+    {
+        _component.Spoiler = spoiler;
+        return this;
+    }
+
+    public CoreComponents.ThumbnailComponent Build() => _component;
+}
+
+/// <summary>
+/// Builder for <see cref="CoreComponents.FileComponent"/> (component type 13).
+/// A file renders a file attachment inline in the message.
+/// </summary>
+public class FileBuilder
+{
+    private readonly CoreComponents.FileComponent _component = new();
+
+    public FileBuilder(string attachmentUrl)
+    {
+        _component.File = new CoreComponents.UnfurledMediaItem { Url = attachmentUrl };
+    }
+
+    /// <summary>
+    /// Sets the file reference URL.
+    /// Use an <c>attachment://filename</c> URL to reference one of the message's attachments.
+    /// </summary>
+    public FileBuilder SetFile(string url)
+    {
+        _component.File ??= new CoreComponents.UnfurledMediaItem();
+        _component.File.Url = url;
+        return this;
+    }
+
+    /// <summary>Marks the file as a spoiler.</summary>
+    public FileBuilder SetSpoiler(bool spoiler)
+    {
+        _component.Spoiler = spoiler;
+        return this;
+    }
+
+    public CoreComponents.FileComponent Build() => _component;
 }

@@ -13,6 +13,8 @@ using PawSharp.Client;
 using PawSharp.Commands;
 using PawSharp.Commands.Attributes;
 using PawSharp.Commands.Conversion;
+using PawSharp.Commands.Discovery;
+using PawSharp.Commands.Execution;
 using PawSharp.Commands.Preconditions;
 using PawSharp.Core.Entities;
 using PawSharp.Core.Models;
@@ -415,6 +417,175 @@ public class CommandsExtensionTests
 
         module.SlashInvoked.Should().BeTrue("the slash command handler should have been called");
     }
+
+    [Fact]
+    public async Task BulkRegisterSlashModulesAsync_Preserves_Option_Metadata()
+    {
+        var restMock = new Mock<IDiscordRestClient>();
+        var cacheMock = new Mock<IEntityCache>();
+        var dispatcher = new EventDispatcher();
+        var gatewayMock = new Mock<IGatewayClient>();
+
+        gatewayMock.SetupGet(g => g.Events).Returns(dispatcher);
+        gatewayMock.Setup(g => g.CurrentState).Returns(GatewayState.Connected);
+
+        restMock.Setup(r => r.CreateMessageAsync(It.IsAny<ulong>(), It.IsAny<CreateMessageRequest>()))
+            .ReturnsAsync(new Message { Id = 1UL });
+        restMock.Setup(r => r.BulkOverwriteGlobalApplicationCommandsAsync(
+                It.IsAny<ulong>(), It.IsAny<List<CreateApplicationCommandRequest>>()))
+            .ReturnsAsync(new List<ApplicationCommand>());
+
+        var options = new PawSharpOptions { Token = "Bot test.token.value" };
+        var client = new DiscordClient(
+            options, cacheMock.Object, NullLogger<DiscordClient>.Instance,
+            restMock.Object, gatewayMock.Object);
+
+        var ext = new CommandsExtension("!");
+        var module = new RichSlashModule();
+
+        await ext.BulkRegisterSlashModulesAsync(client, new[] { module }, applicationId: 54321UL);
+
+        restMock.Verify(r => r.BulkOverwriteGlobalApplicationCommandsAsync(
+                54321UL,
+                It.Is<List<CreateApplicationCommandRequest>>(commands =>
+                    commands.Count == 1 &&
+                    commands[0].Name == "search" &&
+                    commands[0].Nsfw == true &&
+                    commands[0].DmPermission == false &&
+                    commands[0].Contexts != null &&
+                    commands[0].Contexts.Contains(0) &&
+                    commands[0].IntegrationTypes != null &&
+                    commands[0].IntegrationTypes.Contains(0) &&
+                    commands[0].DefaultMemberPermissions == "8" &&
+                    commands[0].Options != null &&
+                    commands[0].Options.Count == 1 &&
+                    commands[0].Options[0].Autocomplete != true &&
+                    commands[0].Options[0].MinLength == 2 &&
+                    commands[0].Options[0].MaxLength == 32 &&
+                    commands[0].Options[0].Choices != null &&
+                    commands[0].Options[0].Choices.Count == 1 &&
+                    commands[0].Options[0].NameLocalizations != null &&
+                    commands[0].Options[0].DescriptionLocalizations != null)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RegisterSlashModuleAsync_Registers_SlashGroup_Subcommands_As_Single_Command()
+    {
+        var restMock = new Mock<IDiscordRestClient>();
+        var cacheMock = new Mock<IEntityCache>();
+        var dispatcher = new EventDispatcher();
+        var gatewayMock = new Mock<IGatewayClient>();
+
+        gatewayMock.SetupGet(g => g.Events).Returns(dispatcher);
+        gatewayMock.Setup(g => g.CurrentState).Returns(GatewayState.Connected);
+
+        restMock.Setup(r => r.CreateMessageAsync(It.IsAny<ulong>(), It.IsAny<CreateMessageRequest>()))
+            .ReturnsAsync(new Message { Id = 1UL });
+        restMock.Setup(r => r.CreateGlobalApplicationCommandAsync(It.IsAny<ulong>(), It.IsAny<CreateApplicationCommandRequest>()))
+            .ReturnsAsync(new ApplicationCommand { Id = 1UL, Name = "admin" });
+
+        var options = new PawSharpOptions { Token = "Bot test.token.value" };
+        var client = new DiscordClient(
+            options, cacheMock.Object, NullLogger<DiscordClient>.Instance,
+            restMock.Object, gatewayMock.Object);
+
+        var module = new GroupSlashModule();
+        var ext = new CommandsExtension("!");
+
+        await ext.RegisterSlashModuleAsync(client, module, applicationId: 12345UL);
+
+        restMock.Verify(r => r.CreateGlobalApplicationCommandAsync(
+                12345UL,
+                It.Is<CreateApplicationCommandRequest>(req =>
+                    req.Name == "admin" &&
+                    req.Options != null &&
+                    req.Options.Count == 2 &&
+                    req.Options.All(o => o.Type == PawSharp.Core.Entities.ApplicationCommandOptionType.SubCommand))),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RegisterSlashModuleAsync_Routes_To_Group_Subcommand_Handler()
+    {
+        var restMock = new Mock<IDiscordRestClient>();
+        var cacheMock = new Mock<IEntityCache>();
+        var dispatcher = new EventDispatcher();
+        var gatewayMock = new Mock<IGatewayClient>();
+
+        gatewayMock.SetupGet(g => g.Events).Returns(dispatcher);
+        gatewayMock.Setup(g => g.CurrentState).Returns(GatewayState.Connected);
+
+        restMock.Setup(r => r.CreateMessageAsync(It.IsAny<ulong>(), It.IsAny<CreateMessageRequest>()))
+            .ReturnsAsync(new Message { Id = 1UL });
+        restMock.Setup(r => r.CreateGlobalApplicationCommandAsync(It.IsAny<ulong>(), It.IsAny<CreateApplicationCommandRequest>()))
+            .ReturnsAsync(new ApplicationCommand { Id = 1UL, Name = "admin" });
+
+        var options = new PawSharpOptions { Token = "Bot test.token.value" };
+        var client = new DiscordClient(
+            options, cacheMock.Object, NullLogger<DiscordClient>.Instance,
+            restMock.Object, gatewayMock.Object);
+
+        var module = new GroupSlashModule();
+        var ext = new CommandsExtension("!");
+
+        await ext.RegisterSlashModuleAsync(client, module, applicationId: 12345UL);
+
+        var slashEvent = new InteractionCreateEvent
+        {
+            Id = 2UL,
+            Token = "tok",
+            Type = 2, // APPLICATION_COMMAND
+            Data = new PawSharp.Gateway.Events.InteractionData
+            {
+                Name = "admin",
+                Type = 1,
+                Options = new List<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>
+                {
+                    new()
+                    {
+                        Name = "ban",
+                        Type = 1,
+                        Options = new List<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>
+                        {
+                            new() { Name = "user", Type = 3, Value = "Alice" }
+                        }
+                    }
+                }
+            },
+            ChannelId = 1UL
+        };
+
+        await dispatcher.DispatchAsync("INTERACTION_CREATE", slashEvent);
+
+        module.LastAction.Should().Be("ban:Alice");
+    }
+
+    [Fact]
+    public void CommandDelegateFactory_Supports_Void_Returning_Command_Methods()
+    {
+        var method = typeof(VoidMethodModule).GetMethod(nameof(VoidMethodModule.Increment))
+            ?? throw new InvalidOperationException("Test method not found.");
+        var compiled = CommandDelegateFactory.CreateDelegate(method);
+        var module = new VoidMethodModule();
+
+        compiled(module, Array.Empty<object?>()).GetAwaiter().GetResult();
+
+        module.Counter.Should().Be(1);
+    }
+
+    [Fact]
+    public void CommandDiscoveryService_Finds_Commands_With_Preconditions()
+    {
+        var ext = new CommandsExtension("!");
+        var (client, _) = BuildTestClient();
+        ext.RegisterModule(client, new GuildOnlyModule());
+
+        var discovery = new CommandDiscoveryService(ext);
+        var withRequireGuild = discovery.GetCommandsWithPrecondition<RequireGuildAttribute>();
+
+        withRequireGuild.Should().ContainSingle(c => c.Name == "guildonly");
+    }
 }
 
 // ── Test command modules ──────────────────────────────────────────────────────
@@ -523,5 +694,66 @@ internal class AdvancedParsingModule : BaseCommandModule
     {
         LastGreeting = string.IsNullOrEmpty(title) ? $"Hello, {name}!" : $"Hello, {title} {name}!";
         return Task.CompletedTask;
+    }
+}
+
+internal class RichSlashModule : BaseCommandModule
+{
+    [SlashCommand("search", "Search for things")]
+    [SlashNsfw]
+    [SlashDmPermission(false)]
+    [SlashContexts(0)]
+    [SlashIntegrationTypes(0)]
+    [SlashDefaultMemberPermissions(8)]
+    public Task SearchAsync(
+        InteractionCreateEvent interaction,
+        [SlashOption("query", "Search query")]
+        [SlashAutocomplete]
+        [SlashMinLength(2)]
+        [SlashMaxLength(32)]
+        [SlashChoice("help", "help")]
+        [SlashLocalizedName("fr", "requete")]
+        [SlashLocalizedDescription("fr", "Texte de recherche")]
+        string query)
+    {
+        _ = interaction;
+        _ = query;
+        return Task.CompletedTask;
+    }
+}
+
+[SlashGroup("admin", "Administrative commands")]
+internal class GroupSlashModule : BaseCommandModule
+{
+    public string? LastAction { get; private set; }
+
+    [SlashSubCommand("ban", "Ban a member")]
+    public Task BanAsync(
+        InteractionCreateEvent interaction,
+        [SlashOption("user", "User to ban")] string user)
+    {
+        _ = interaction;
+        LastAction = $"ban:{user}";
+        return Task.CompletedTask;
+    }
+
+    [SlashSubCommand("kick", "Kick a member")]
+    public Task KickAsync(
+        InteractionCreateEvent interaction,
+        [SlashOption("user", "User to kick")] string user)
+    {
+        _ = interaction;
+        LastAction = $"kick:{user}";
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class VoidMethodModule : BaseCommandModule
+{
+    public int Counter { get; private set; }
+
+    public void Increment()
+    {
+        Counter++;
     }
 }

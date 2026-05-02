@@ -33,6 +33,21 @@ public interface IPerformanceMetrics
     void RecordReconnection();
 
     /// <summary>
+    /// Records the heartbeat latency (round-trip time to Discord).
+    /// </summary>
+    void RecordHeartbeatLatency(long latencyMs);
+
+    /// <summary>
+    /// Records event dispatch duration.
+    /// </summary>
+    void RecordEventDispatch(string eventName, long durationMs);
+
+    /// <summary>
+    /// Records current event queue depth.
+    /// </summary>
+    void RecordQueueDepth(int depth);
+
+    /// <summary>
     /// Gets current metrics summary.
     /// </summary>
     MetricsSummary GetSummary();
@@ -59,6 +74,14 @@ public class PerformanceMetrics : IPerformanceMetrics
     private long _totalGatewayMessages;
     private long _totalApiDurationMs;
     private long _totalReconnections;
+    private long _totalHeartbeatLatencyMs;
+    private long _heartbeatCount;
+    private long _totalEventDispatchDurationMs;
+    private long _eventDispatchCount;
+    private long _currentQueueDepth;
+    private long _maxQueueDepth;
+    
+    private readonly ConcurrentDictionary<string, EventMetric> _eventMetrics = new();
     
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
 
@@ -119,6 +142,37 @@ public class PerformanceMetrics : IPerformanceMetrics
         Interlocked.Increment(ref _totalReconnections);
     }
 
+    public void RecordHeartbeatLatency(long latencyMs)
+    {
+        Interlocked.Increment(ref _heartbeatCount);
+        Interlocked.Add(ref _totalHeartbeatLatencyMs, latencyMs);
+    }
+
+    public void RecordEventDispatch(string eventName, long durationMs)
+    {
+        Interlocked.Increment(ref _eventDispatchCount);
+        Interlocked.Add(ref _totalEventDispatchDurationMs, durationMs);
+        
+        _eventMetrics.AddOrUpdate(eventName,
+            new EventMetric { Name = eventName, Count = 1, TotalDurationMs = durationMs, AverageDurationMs = durationMs, MaxDurationMs = durationMs },
+            (_, metric) => new EventMetric
+            {
+                Name = eventName,
+                Count = metric.Count + 1,
+                TotalDurationMs = metric.TotalDurationMs + durationMs,
+                AverageDurationMs = (metric.TotalDurationMs + durationMs) / (metric.Count + 1),
+                MaxDurationMs = Math.Max(metric.MaxDurationMs, durationMs)
+            });
+    }
+
+    public void RecordQueueDepth(int depth)
+    {
+        Interlocked.Exchange(ref _currentQueueDepth, depth);
+        long currentMax = Interlocked.Read(ref _maxQueueDepth);
+        if (depth > currentMax)
+            Interlocked.CompareExchange(ref _maxQueueDepth, depth, currentMax);
+    }
+
     public MetricsSummary GetSummary()
     {
         long totalCacheOperations = _totalCacheHits + _totalCacheMisses;
@@ -144,7 +198,12 @@ public class PerformanceMetrics : IPerformanceMetrics
             // Gateway Metrics
             TotalGatewayMessages = _totalGatewayMessages,
             GatewayOpcodes = _gatewayOpcodes.ToDictionary(x => x.Key, x => x.Value),
-            TotalReconnections = _totalReconnections
+            TotalReconnections = _totalReconnections,
+            AverageHeartbeatLatencyMs = _heartbeatCount > 0 ? _totalHeartbeatLatencyMs / _heartbeatCount : 0,
+            AverageEventDispatchMs = _eventDispatchCount > 0 ? _totalEventDispatchDurationMs / _eventDispatchCount : 0,
+            CurrentQueueDepth = _currentQueueDepth,
+            MaxQueueDepth = _maxQueueDepth,
+            EventMetrics = _eventMetrics.Values.ToList()
         };
     }
 
@@ -153,6 +212,7 @@ public class PerformanceMetrics : IPerformanceMetrics
         _apiMetrics.Clear();
         _cacheMetrics.Clear();
         _gatewayOpcodes.Clear();
+        _eventMetrics.Clear();
         _totalApiRequests = 0;
         _totalApiErrors = 0;
         _totalCacheHits = 0;
@@ -160,6 +220,12 @@ public class PerformanceMetrics : IPerformanceMetrics
         _totalGatewayMessages = 0;
         _totalApiDurationMs = 0;
         _totalReconnections = 0;
+        _totalHeartbeatLatencyMs = 0;
+        _heartbeatCount = 0;
+        _totalEventDispatchDurationMs = 0;
+        _eventDispatchCount = 0;
+        _currentQueueDepth = 0;
+        _maxQueueDepth = 0;
         _uptime.Restart();
     }
 }
@@ -188,6 +254,11 @@ public class MetricsSummary
     public long TotalGatewayMessages { get; set; }
     public Dictionary<string, long> GatewayOpcodes { get; set; } = new();
     public long TotalReconnections { get; set; }
+    public long AverageHeartbeatLatencyMs { get; set; }
+    public long AverageEventDispatchMs { get; set; }
+    public long CurrentQueueDepth { get; set; }
+    public long MaxQueueDepth { get; set; }
+    public List<EventMetric> EventMetrics { get; set; } = new();
 }
 
 /// <summary>
@@ -210,4 +281,16 @@ public class CacheMetric
     public long Hits { get; set; }
     public long Misses { get; set; }
     public double HitRate => Hits + Misses > 0 ? (Hits * 100.0) / (Hits + Misses) : 0;
+}
+
+/// <summary>
+/// Metrics for a specific event type dispatch.
+/// </summary>
+public class EventMetric
+{
+    public string Name { get; set; } = string.Empty;
+    public long Count { get; set; }
+    public long TotalDurationMs { get; set; }
+    public long AverageDurationMs { get; set; }
+    public long MaxDurationMs { get; set; }
 }

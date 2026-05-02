@@ -244,6 +244,96 @@ public class Message : DiscordEntity
     /// <summary>Approximate position of this message in a thread, used for jump-to-message.</summary>
     [JsonPropertyName("position")]
     public int? Position { get; set; }
+
+    /// <summary>
+    /// Gets whether this message has been edited.
+    /// </summary>
+    public bool IsEdited => EditedTimestamp.HasValue;
+
+    /// <summary>
+    /// Gets whether this message is pinned.
+    /// </summary>
+    public bool IsPinned => Pinned;
+
+    /// <summary>
+    /// Gets whether this is a TTS (text-to-speech) message.
+    /// </summary>
+    public bool IsTts => Tts;
+
+    /// <summary>
+    /// Gets whether this message was sent by a webhook.
+    /// </summary>
+    public bool IsWebhook => WebhookId.HasValue;
+
+    /// <summary>
+    /// Gets whether this message mentions everyone.
+    /// </summary>
+    public bool MentionsEveryone => MentionEveryone;
+
+    /// <summary>
+    /// Gets whether this message has content.
+    /// </summary>
+    public bool HasContent => !string.IsNullOrEmpty(Content);
+
+    /// <summary>
+    /// Gets whether this message has embeds.
+    /// </summary>
+    public bool HasEmbeds => Embeds?.Count > 0;
+
+    /// <summary>
+    /// Gets whether this message has attachments.
+    /// </summary>
+    public bool HasAttachments => Attachments?.Count > 0;
+
+    /// <summary>
+    /// Gets whether this message has reactions.
+    /// </summary>
+    public bool HasReactions => Reactions?.Count > 0;
+
+    /// <summary>
+    /// Gets whether this message has components.
+    /// </summary>
+    public bool HasComponents => Components?.Count > 0;
+
+    /// <summary>
+    /// Gets whether this message is a reply to another message.
+    /// </summary>
+    public bool IsReply => Type == MessageType.Reply;
+
+    /// <summary>
+    /// Gets whether this message is a slash command.
+    /// </summary>
+    public bool IsCommand => Type == MessageType.ChatInputCommand;
+
+    /// <summary>
+    /// Gets whether this message is from an auto moderation action.
+    /// </summary>
+    public bool IsAutoModeration => Type == MessageType.AutoModerationAction;
+
+    /// <summary>
+    /// Gets whether this message is a system message.
+    /// </summary>
+    public bool IsSystemMessage => Type is MessageType.RecipientAdd or MessageType.RecipientRemove or
+        MessageType.Call or MessageType.ChannelNameChange or MessageType.ChannelIconChange or
+        MessageType.ChannelPinnedMessage or MessageType.UserJoin or MessageType.GuildBoost or
+        MessageType.GuildBoostTier1 or MessageType.GuildBoostTier2 or MessageType.GuildBoostTier3 or
+        MessageType.ChannelFollowAdd or MessageType.GuildDiscoveryDisqualified or
+        MessageType.GuildDiscoveryRequalified or MessageType.GuildDiscoveryGracePeriodInitialWarning or
+        MessageType.GuildDiscoveryGracePeriodFinalWarning or MessageType.ThreadCreated or
+        MessageType.GuildInviteReminder or MessageType.StageStart or MessageType.StageEnd or
+        MessageType.StageSpeaker or MessageType.StageTopic;
+
+    /// <summary>
+    /// Gets the jump URL for this message.
+    /// </summary>
+    /// <param name="guildId">The guild ID (null for DMs).</param>
+    /// <returns>The jump URL.</returns>
+    public string GetJumpUrl(ulong? guildId)
+    {
+        if (guildId.HasValue)
+            return $"https://discord.com/channels/{guildId.Value}/{ChannelId}/{Id}";
+        return $"https://discord.com/channels/@me/{ChannelId}/{Id}";
+    }
 }
 
 /// <summary>
