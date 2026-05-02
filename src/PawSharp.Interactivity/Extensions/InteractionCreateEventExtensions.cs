@@ -78,7 +78,7 @@ public static class InteractionCreateEventExtensions
             return new InteractivityResult<InteractionCreateEvent> { TimedOut = true };
 
         // Wait for any component interaction on this message from the same user
-        return await WaitForAnyComponentAsync(message, client, GetUserFromInteraction(interaction), timeout, cancellationToken);
+        return await WaitForAnyComponentAsync(message, client, GetUserFromInteraction(interaction), targetCustomId: null, timeout, cancellationToken);
     }
 
     /// <summary>
@@ -237,6 +237,7 @@ public static class InteractionCreateEventExtensions
             message,
             client,
             GetUserFromInteraction(interaction),
+            targetCustomId: null,
             timeout: timeout,
             cancellationToken: cancellationToken);
     }
