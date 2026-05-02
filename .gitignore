@@ -135,3 +135,12 @@ node_modules/
 npm-debug.log
 yarn-error.log
 ROADMAP.md
+
+# Package analysis files (local documentation)
+PawSharp.Core.txt
+PawSharp.API.txt
+PawSharp.Gateway.txt
+PawSharp.Client.txt
+PawSharp.Commands.txt
+PawSharp.Interactions.txt
+PawSharp.Voice.txt

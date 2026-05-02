@@ -102,6 +102,63 @@ public class ActionRowBuilder
         _components.Add(builder.Build());
         return this;
     }
+
+    // ── Quick button methods ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Adds a primary (blurple) button to the ActionRow.
+    /// </summary>
+    /// <param name="label">The button label.</param>
+    /// <param name="customId">The button's custom ID.</param>
+    /// <returns>The builder for method chaining.</returns>
+    public ActionRowBuilder AddPrimaryButton(string label, string customId)
+    {
+        return AddButton(b => b.WithStyle(ButtonStyle.Primary).WithLabel(label).WithCustomId(customId));
+    }
+
+    /// <summary>
+    /// Adds a secondary (gray) button to the ActionRow.
+    /// </summary>
+    /// <param name="label">The button label.</param>
+    /// <param name="customId">The button's custom ID.</param>
+    /// <returns>The builder for method chaining.</returns>
+    public ActionRowBuilder AddSecondaryButton(string label, string customId)
+    {
+        return AddButton(b => b.WithStyle(ButtonStyle.Secondary).WithLabel(label).WithCustomId(customId));
+    }
+
+    /// <summary>
+    /// Adds a success (green) button to the ActionRow.
+    /// </summary>
+    /// <param name="label">The button label.</param>
+    /// <param name="customId">The button's custom ID.</param>
+    /// <returns>The builder for method chaining.</returns>
+    public ActionRowBuilder AddSuccessButton(string label, string customId)
+    {
+        return AddButton(b => b.WithStyle(ButtonStyle.Success).WithLabel(label).WithCustomId(customId));
+    }
+
+    /// <summary>
+    /// Adds a danger (red) button to the ActionRow.
+    /// </summary>
+    /// <param name="label">The button label.</param>
+    /// <param name="customId">The button's custom ID.</param>
+    /// <returns>The builder for method chaining.</returns>
+    public ActionRowBuilder AddDangerButton(string label, string customId)
+    {
+        return AddButton(b => b.WithStyle(ButtonStyle.Danger).WithLabel(label).WithCustomId(customId));
+    }
+
+    /// <summary>
+    /// Adds a link button to the ActionRow.
+    /// </summary>
+    /// <param name="label">The button label.</param>
+    /// <param name="url">The URL the button links to.</param>
+    /// <returns>The builder for method chaining.</returns>
+    public ActionRowBuilder AddLinkButton(string label, string url)
+    {
+        return AddButton(b => b.WithStyle(ButtonStyle.Link).WithLabel(label).WithUrl(url));
+    }
     
     /// <summary>
     /// Adds a string select menu to the ActionRow.

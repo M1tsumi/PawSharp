@@ -58,6 +58,47 @@ namespace PawSharp.Gateway.Heartbeat
             _heartbeatTask = RunHeartbeatLoopAsync(_cts.Token);
         }
 
+        /// <summary>
+        /// Stops the heartbeat manager and waits for the heartbeat task to complete.
+        /// Use this overload during graceful shutdown to ensure proper cleanup.
+        /// </summary>
+        /// <param name="timeout">Maximum time to wait for the heartbeat task to complete (default: 5 seconds)</param>
+        public async Task StopAsync(TimeSpan? timeout = null)
+        {
+            if (_cts?.IsCancellationRequested == false)
+            {
+                _cts.Cancel();
+            }
+
+            // Wait for the heartbeat task to complete (with timeout to prevent hanging)
+            if (_heartbeatTask != null)
+            {
+                var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(5);
+                try
+                {
+                    await _heartbeatTask.WaitAsync(effectiveTimeout);
+                }
+                catch (TimeoutException)
+                {
+                    _logger?.LogWarning("Heartbeat task did not complete within {TimeoutMs}ms, forcing stop", effectiveTimeout.TotalMilliseconds);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger?.LogError(ex, "Error waiting for heartbeat task to complete");
+                }
+            }
+
+            // Clean up resources
+            _cts?.Dispose();
+            _cts = null;
+            _heartbeatTask = null;
+        }
+
+        /// <summary>
+        /// Stops the heartbeat manager without waiting for task completion.
+        /// Use StopAsync() for graceful shutdown to prevent task leaks.
+        /// </summary>
+        [Obsolete("Use StopAsync() for proper cleanup to prevent task leaks")]
         public void Stop()
         {
             _cts?.Cancel();

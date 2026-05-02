@@ -247,7 +247,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"{guildId}:{member.User?.Id}";
             _members[key] = member;
-            EnforceEntityCacheBounds(_members, _maxMembers);
+            EnforceEntityCacheBounds(_members, _maxMembers, "Member");
             
             // Also cache the user
             if (member.User != null)

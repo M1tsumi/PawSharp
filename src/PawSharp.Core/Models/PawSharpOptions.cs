@@ -51,9 +51,51 @@ public class PawSharpOptions
     public int ShardCount { get; set; } = 1;
     
     /// <summary>
+    /// Delay in milliseconds between connecting each shard (default: 5000ms).
+    /// Discord recommends 5 seconds between shard connections to avoid rate limiting.
+    /// </summary>
+    public int ShardConnectionDelayMs { get; set; } = 5000;
+    
+    /// <summary>
     /// API version to use (default: 10).
+    /// Valid versions: 10 (Discord recommends always using the latest stable version)
     /// </summary>
     public int ApiVersion { get; set; } = 10;
+    
+    /// <summary>
+    /// Minimum supported gateway API version.
+    /// </summary>
+    public const int MinSupportedApiVersion = 10;
+    
+    /// <summary>
+    /// Maximum supported gateway API version.
+    /// </summary>
+    public const int MaxSupportedApiVersion = 10;
+    
+    /// <summary>
+    /// Validates that the configured API version is supported.
+    /// Throws ArgumentOutOfRangeException if version is not supported.
+    /// </summary>
+    public void ValidateApiVersion()
+    {
+        if (ApiVersion < MinSupportedApiVersion || ApiVersion > MaxSupportedApiVersion)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ApiVersion), 
+                $"API version {ApiVersion} is not supported. Supported versions: {MinSupportedApiVersion}-{MaxSupportedApiVersion}");
+        }
+    }
+    
+    /// <summary>
+    /// Custom gateway URL for testing/staging environments.
+    /// When set, this URL is used instead of fetching from Discord's API.
+    /// Format: wss://gateway.example.com (without query parameters)
+    /// </summary>
+    public string? CustomGatewayUrl { get; set; }
+    
+    /// <summary>
+    /// Reconnection backoff configuration options.
+    /// </summary>
+    public ReconnectionOptions Reconnection { get; set; } = new ReconnectionOptions();
     
     /// <summary>
     /// Whether to enable gateway compression (default: false).
@@ -61,6 +103,14 @@ public class PawSharpOptions
     /// bandwidth by up to 40% for high-volume bots.
     /// </summary>
     public bool EnableCompression { get; set; } = false;
+    
+    /// <summary>
+    /// WebSocket receive buffer size in KB (default: 64).
+    /// Larger values reduce loop iterations for large events (e.g., GUILD_CREATE 
+    /// for servers with many members). Values above 1024KB (1MB) are not recommended.
+    /// For bots in large guilds (10k+ members), consider 128KB or 256KB.
+    /// </summary>
+    public int WebSocketBufferSizeKb { get; set; } = 64;
     
     /// <summary>
     /// Maximum number of missed heartbeat acknowledgments before reconnecting (default: 3).
@@ -76,6 +126,33 @@ public class PawSharpOptions
     /// Cache configuration options.
     /// </summary>
     public CacheOptions Cache { get; set; } = new CacheOptions();
+
+    /// <summary>
+    /// Reconnection backoff configuration options.
+    /// </summary>
+    public class ReconnectionOptions
+    {
+        /// <summary>
+        /// Maximum number of reconnection attempts before giving up (default: 10).
+        /// </summary>
+        public int MaxAttempts { get; set; } = 10;
+        
+        /// <summary>
+        /// Initial backoff delay in milliseconds (default: 1000ms).
+        /// </summary>
+        public int InitialDelayMs { get; set; } = 1000;
+        
+        /// <summary>
+        /// Maximum backoff delay in milliseconds (default: 16000ms).
+        /// </summary>
+        public int MaxDelayMs { get; set; } = 16000;
+        
+        /// <summary>
+        /// Jitter factor for randomizing delays (default: 0.25 = ±25%).
+        /// Helps prevent thundering herd issues when many shards reconnect.
+        /// </summary>
+        public double JitterFactor { get; set; } = 0.25;
+    }
 
     /// <summary>
     /// Cache configuration options.
@@ -153,5 +230,13 @@ public class PawSharpOptions
         /// Reduces GC pressure by reusing large byte arrays.
         /// </summary>
         public bool EnableArrayPooling { get; set; } = true;
+        
+        /// <summary>
+        /// Timeout in milliseconds for async event handlers (default: 0 = disabled).
+        /// When set, handlers that exceed this timeout will be cancelled to prevent
+        /// slow handlers from blocking the dispatch pipeline.
+        /// Set to 0 to disable timeout (not recommended for production).
+        /// </summary>
+        public int HandlerTimeoutMs { get; set; } = 0;
     }
 }

@@ -6,6 +6,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PawSharp.API.Interfaces;
+using PawSharp.Core.Entities;
 using PawSharp.Core.Models;
 using PawSharp.Core.Metrics;
 using PawSharp.Core.Serialization;
@@ -21,14 +23,21 @@ namespace PawSharp.Gateway
         private readonly PawSharpOptions _options;
         private readonly ILogger _logger;
         private readonly IPerformanceMetrics? _metrics;
+        private readonly IDiscordRestClient? _restClient;
         private readonly WebSocketConnection _webSocket;
         private HeartbeatManager _heartbeatManager;
         private readonly EventDispatcher _eventDispatcher;
         private readonly ReconnectionManager _reconnectionManager;
+        private readonly GatewayDiagnostics _diagnostics;
         private CancellationTokenSource? _cts;
         private Task? _receiveTask;
         
         private GatewayState _currentState = GatewayState.Disconnected;
+        
+        /// <summary>
+        /// Gets the diagnostics instance for detailed connection information.
+        /// </summary>
+        public GatewayDiagnostics Diagnostics => _diagnostics;
         /// <remarks>
         /// Discord session IDs are opaque hex-like strings (e.g. "abc123...").
         /// They must be stored as <see cref="string"/>, not a numeric snowflake.
@@ -41,6 +50,12 @@ namespace PawSharp.Gateway
         /// per Discord API documentation.
         /// </summary>
         private string? _resumeGatewayUrl;
+        /// <summary>
+        /// The gateway URL fetched from GET /gateway endpoint, cached for fresh connections.
+        /// </summary>
+        private string? _gatewayUrl;
+        private DateTimeOffset? _gatewayUrlFetchedAt;
+        private static readonly TimeSpan GatewayUrlCacheTtl = TimeSpan.FromHours(24); // Discord gateway URLs rarely change
         private DateTimeOffset? _lastHeartbeatSent;
         private TimeSpan? _lastHeartbeatLatency;
 
@@ -93,21 +108,26 @@ namespace PawSharp.Gateway
         /// </summary>
         public event Func<string, Task>? OnResumeFailed;
 
-        public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics? metrics = null)
+        public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics? metrics = null, IDiscordRestClient? restClient = null)
         {
             _options = options;
             _logger = logger;
             _metrics = metrics;
+            _restClient = restClient;
             _webSocket = new WebSocketConnection(
                 options.EnableCompression, 
-                options.EventDispatch.EnableArrayPooling);
-            _heartbeatManager = new HeartbeatManager(41250, SendHeartbeatAsync, logger, _options.MaxMissedHeartbeatAcks);
+                options.EventDispatch.EnableArrayPooling,
+                options.WebSocketBufferSizeKb);
+            _heartbeatManager = new HeartbeatManager(0, SendHeartbeatAsync, logger, _options.MaxMissedHeartbeatAcks);
             _eventDispatcher = new EventDispatcher(
                 logger,
                 options.EventDispatch.MaxQueueSize,
                 options.EventDispatch.EnableParallelDispatch,
-                options.EventDispatch.MaxDegreeOfParallelism);
-            _reconnectionManager = new ReconnectionManager(logger, metrics);
+                options.EventDispatch.MaxDegreeOfParallelism,
+                metrics,
+                options.EventDispatch.HandlerTimeoutMs);
+            _reconnectionManager = new ReconnectionManager(logger, metrics, options.Reconnection);
+            _diagnostics = new GatewayDiagnostics();
             
             _reconnectionManager.OnReconnectionAttempt += async (attempt) =>
             {
@@ -151,15 +171,74 @@ namespace PawSharp.Gateway
                 return;
             }
 
+            // Validate API version before attempting connection
+            try
+            {
+                _options.ValidateApiVersion();
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                _logger.LogError(ex, "Invalid API version configuration");
+                throw;
+            }
+
             await SetStateAsync(GatewayState.Connecting);
             _cts = new CancellationTokenSource();
 
             // Discord requires using resume_gateway_url (from the most recent READY) when
             // reconnecting to resume a session.  Fall back to the canonical gateway URL for
             // fresh connections.
-            var gatewayHost = (_resumeSessionId is not null && _resumeGatewayUrl is not null)
-                ? _resumeGatewayUrl
-                : "wss://gateway.discord.gg";
+            string gatewayHost;
+            
+            // Check for custom gateway URL first (for testing/staging)
+            if (!string.IsNullOrWhiteSpace(_options.CustomGatewayUrl))
+            {
+                gatewayHost = _options.CustomGatewayUrl.Trim();
+                _logger.LogInformation("Using custom gateway URL: {Url}", gatewayHost);
+            }
+            else if (_resumeSessionId is not null && _resumeGatewayUrl is not null)
+            {
+                gatewayHost = _resumeGatewayUrl;
+            }
+            else if (_gatewayUrl is not null && _gatewayUrlFetchedAt.HasValue && 
+                     DateTimeOffset.UtcNow - _gatewayUrlFetchedAt.Value < GatewayUrlCacheTtl)
+            {
+                // Use cached gateway URL if still valid (within TTL)
+                _logger.LogDebug("Using cached gateway URL (fetched {Hours:N1} hours ago)", 
+                    (DateTimeOffset.UtcNow - _gatewayUrlFetchedAt.Value).TotalHours);
+                gatewayHost = _gatewayUrl;
+            }
+            else if (_restClient is not null)
+            {
+                // Fetch gateway URL from Discord API (cache expired or not present)
+                if (_gatewayUrl != null)
+                {
+                    _logger.LogDebug("Gateway URL cache expired, fetching fresh URL from Discord API...");
+                }
+                else
+                {
+                    _logger.LogDebug("Fetching gateway URL from Discord API...");
+                }
+                
+                var gatewayInfo = await _restClient.GetGatewayAsync();
+                if (gatewayInfo?.Url is not null)
+                {
+                    _gatewayUrl = gatewayInfo.Url;
+                    _gatewayUrlFetchedAt = DateTimeOffset.UtcNow;
+                    gatewayHost = _gatewayUrl;
+                    _logger.LogDebug("Fetched gateway URL: {Url} (cached for {TtlHours} hours)", gatewayHost, GatewayUrlCacheTtl.TotalHours);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to fetch gateway URL from API, falling back to default");
+                    gatewayHost = "wss://gateway.discord.gg";
+                }
+            }
+            else
+            {
+                // Fallback to default when no REST client available
+                gatewayHost = "wss://gateway.discord.gg";
+            }
             
             // Add compression parameter to URI if enabled
             var compressionParam = _options.EnableCompression ? "&compress=zlib-stream" : "";
@@ -202,7 +281,7 @@ namespace PawSharp.Gateway
             }
 
             _logger.LogInformation("Disconnecting from Discord Gateway...");
-            _heartbeatManager.Stop();
+            await _heartbeatManager.StopAsync();
             _cts?.Cancel();
             await _webSocket.DisconnectAsync(_cts?.Token ?? CancellationToken.None);
             await SetStateAsync(GatewayState.Disconnected);
@@ -314,14 +393,16 @@ namespace PawSharp.Gateway
         /// <summary>
         /// Gracefully reconnect with exponential backoff on transient errors.
         /// </summary>
-        private async Task ReconnectAsync()
+        private async Task ReconnectAsync(string reason = "Transient error")
         {
             if (!_reconnectionManager.CanReconnect)
             {
                 _logger.LogError("Cannot reconnect - maximum attempts exceeded");
+                _diagnostics.RecordError("Max reconnection attempts exceeded");
                 return;
             }
 
+            _diagnostics.RecordReconnection(reason);
             await DisconnectAsync();
 
             if (!await _reconnectionManager.ReconnectAsync())
@@ -339,15 +420,17 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Reconnection attempt failed");
+                _diagnostics.RecordError($"Reconnection failed: {ex.Message}");
             }
         }
 
-        private async Task SetStateAsync(GatewayState newState)
+        private async Task SetStateAsync(GatewayState newState, string? reason = null)
         {
             if (_currentState != newState)
             {
                 var oldState = _currentState;
                 _currentState = newState;
+                _diagnostics.RecordStateChange(oldState, newState, reason);
                 _logger.LogInformation("Gateway state: {OldState} -> {NewState}", oldState, newState);
                 if (OnStateChanged is { } handler) await handler(oldState, newState);
             }
@@ -358,6 +441,10 @@ namespace PawSharp.Gateway
         {
             try
             {
+                // Validate that registered event handlers have their required intents enabled
+                // This helps catch configuration errors early before identify is sent
+                _eventDispatcher.ValidateHandlerIntents(_options.Intents, _logger);
+                
                 var identifyPayload = new
                 {
                     op = 2, // Identify
@@ -429,7 +516,77 @@ namespace PawSharp.Gateway
                 try
                 {
                     var message = await _webSocket.ReceiveAsync(cancellationToken);
-                    await HandleMessageAsync(message);
+                    
+                    // Check if WebSocket closed with a status code
+                    if (_webSocket.CloseStatus.HasValue)
+                    {
+                        var closeCode = (int)_webSocket.CloseStatus.Value;
+                        _logger.LogWarning("Gateway closed with code {CloseCode}: {Description}", 
+                            closeCode, _webSocket.CloseStatusDescription);
+                        
+                        // Handle specific Discord gateway close codes
+                        // See https://docs.discord.com/developers/topics/opcodes-and-status-codes#gateway-close-event-codes
+                        if (closeCode >= 4000)
+                        {
+                            switch (closeCode)
+                            {
+                                case 4001: // Unknown opcode
+                                case 4002: // Decode error
+                                case 4005: // Already authenticated
+                                    _logger.LogError("Gateway protocol error ({CloseCode}) - re-identifying", closeCode);
+                                    _resumeSessionId = null;
+                                    _resumeSequence = null;
+                                    break;
+                                    
+                                case 4003: // Not authenticated
+                                case 4004: // Authentication failed
+                                    _logger.LogError("Gateway authentication failed ({CloseCode}) - check token", closeCode);
+                                    await SetStateAsync(GatewayState.Failed);
+                                    return; // Don't reconnect on auth failure
+                                    
+                                case 4007: // Invalid seq
+                                case 4009: // Session timed out
+                                    _logger.LogWarning("Gateway session invalid ({CloseCode}) - starting fresh", closeCode);
+                                    _resumeSessionId = null;
+                                    _resumeSequence = null;
+                                    break;
+                                    
+                                case 4008: // Rate limited
+                                    _logger.LogWarning("Gateway rate limited - waiting before reconnect");
+                                    await Task.Delay(5000);
+                                    break;
+                                    
+                                case 4010: // Invalid shard
+                                case 4011: // Sharding required
+                                    _logger.LogError("Gateway sharding error ({CloseCode}) - check shard configuration", closeCode);
+                                    await SetStateAsync(GatewayState.Failed);
+                                    return;
+                                    
+                                case 4012: // Invalid API version
+                                    _logger.LogError("Invalid API version - update client");
+                                    await SetStateAsync(GatewayState.Failed);
+                                    return;
+                                    
+                                case 4013: // Invalid intent(s)
+                                case 4014: // Disallowed intent(s)
+                                    _logger.LogError("Gateway intent error ({CloseCode}) - check intent configuration", closeCode);
+                                    await SetStateAsync(GatewayState.Failed);
+                                    return;
+                                    
+                                default:
+                                    _logger.LogWarning("Unknown gateway close code {CloseCode}", closeCode);
+                                    break;
+                            }
+                        }
+                        
+                        await ReconnectAsync();
+                        break;
+                    }
+                    
+                    if (!string.IsNullOrEmpty(message))
+                    {
+                        await HandleMessageAsync(message);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -472,6 +629,7 @@ namespace PawSharp.Gateway
                         if (!string.IsNullOrEmpty(t))
                         {
                             _logger.LogDebug("Dispatching event: {EventType}", t);
+                            _diagnostics.RecordEventReceived(t);
                             await HandleDispatchEventAsync(t, d.GetRawText());
                         }
                         break;
@@ -532,8 +690,13 @@ namespace PawSharp.Gateway
                         break;
                     case 11: // Heartbeat ACK — Server heartbeat response
                         _logger.LogDebug("Heartbeat acknowledged");
+                        _diagnostics.RecordHeartbeatAck();
                         if (_lastHeartbeatSent.HasValue)
+                        {
                             _lastHeartbeatLatency = DateTimeOffset.UtcNow - _lastHeartbeatSent.Value;
+                            // Record heartbeat latency metric
+                            _metrics?.RecordHeartbeatLatency((long)_lastHeartbeatLatency.Value.TotalMilliseconds);
+                        }
                         await _heartbeatManager.ReceiveAckAsync();
                         break;
                     default:
@@ -556,7 +719,7 @@ namespace PawSharp.Gateway
                     int interval = intervalProp.GetInt32();
                     _logger.LogInformation("Received heartbeat interval: {Interval}ms", interval);
                     
-                    _heartbeatManager.Stop();
+                    await _heartbeatManager.StopAsync();
                     _heartbeatManager = new HeartbeatManager(interval, SendHeartbeatAsync, _logger, _options.MaxMissedHeartbeatAcks);
                     _heartbeatManager.OnZombieConnection += async () =>
                     {
@@ -600,6 +763,7 @@ namespace PawSharp.Gateway
             try
             {
                 _lastHeartbeatSent = DateTimeOffset.UtcNow;
+                _diagnostics.RecordHeartbeatSent();
                 var heartbeatPayload = new { op = 1, d = _resumeSequence ?? (object?)null };
                 var json = JsonSerializer.Serialize(heartbeatPayload);
                 await GatewaySendAsync(json, _cts?.Token ?? CancellationToken.None, isHeartbeat: true);
@@ -608,6 +772,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending heartbeat");
+                _diagnostics.RecordError($"Heartbeat failed: {ex.Message}");
             }
         }
 

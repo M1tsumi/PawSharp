@@ -291,6 +291,60 @@ public class Guild : DiscordEntity
     [JsonPropertyName("latest_onboarding_question_id")]
     [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
     public ulong? LatestOnboardingQuestionId { get; set; }
+
+    /// <summary>
+    /// Gets the guild's icon URL.
+    /// </summary>
+    /// <param name="size">The size of the icon (default: 256).</param>
+    /// <returns>The icon URL, or null if the guild has no icon.</returns>
+    public string? GetIconUrl(ushort size = 256)
+    {
+        if (string.IsNullOrEmpty(Icon))
+            return null;
+
+        var extension = Icon.StartsWith("a_") ? "gif" : "png";
+        return $"https://cdn.discordapp.com/icons/{Id}/{Icon}.{extension}?size={size}";
+    }
+
+    /// <summary>
+    /// Gets the guild's banner URL.
+    /// </summary>
+    /// <param name="size">The size of the banner (default: 512).</param>
+    /// <returns>The banner URL, or null if the guild has no banner.</returns>
+    public string? GetBannerUrl(ushort size = 512)
+    {
+        if (string.IsNullOrEmpty(Banner))
+            return null;
+
+        var extension = Banner.StartsWith("a_") ? "gif" : "png";
+        return $"https://cdn.discordapp.com/banners/{Id}/{Banner}.{extension}?size={size}";
+    }
+
+    /// <summary>
+    /// Gets the guild's splash URL.
+    /// </summary>
+    /// <param name="size">The size of the splash (default: 512).</param>
+    /// <returns>The splash URL, or null if the guild has no splash.</returns>
+    public string? GetSplashUrl(ushort size = 512)
+    {
+        if (string.IsNullOrEmpty(Splash))
+            return null;
+
+        return $"https://cdn.discordapp.com/splashes/{Id}/{Splash}.png?size={size}";
+    }
+
+    /// <summary>
+    /// Gets the guild's discovery splash URL.
+    /// </summary>
+    /// <param name="size">The size of the discovery splash (default: 512).</param>
+    /// <returns>The discovery splash URL, or null if the guild has no discovery splash.</returns>
+    public string? GetDiscoverySplashUrl(ushort size = 512)
+    {
+        if (string.IsNullOrEmpty(DiscoverySplash))
+            return null;
+
+        return $"https://cdn.discordapp.com/discovery-splashes/{Id}/{DiscoverySplash}.png?size={size}";
+    }
 }
 
 /// <summary>

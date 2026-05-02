@@ -232,6 +232,11 @@ public interface IDiscordRestClient
 
     // Gateway Bot info
     Task<GatewayBotInfo?> GetGatewayBotAsync();
+    
+    /// <summary>
+    /// Gets the gateway URL for WebSocket connections. Does not require authentication.
+    /// </summary>
+    Task<GatewayInfo?> GetGatewayAsync();
 
     // Voice Region operations
     Task<List<VoiceRegion>?> GetVoiceRegionsAsync();

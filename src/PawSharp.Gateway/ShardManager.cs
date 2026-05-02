@@ -12,6 +12,38 @@ using PawSharp.Gateway.Events;
 namespace PawSharp.Gateway;
 
 /// <summary>
+/// Tracks Discord session start limits for shard management.
+/// </summary>
+public class SessionStartLimits
+{
+    /// <summary>Total number of session starts allowed.</summary>
+    public int Total { get; set; }
+    
+    /// <summary>Remaining number of session starts allowed.</summary>
+    public int Remaining { get; set; }
+    
+    /// <summary>Milliseconds after which the limit resets.</summary>
+    public int ResetAfter { get; set; }
+    
+    /// <summary>Number of identify requests allowed per 5 seconds (max_concurrency).</summary>
+    public int MaxConcurrency { get; set; }
+    
+    /// <summary>Timestamp when these limits were fetched.</summary>
+    public DateTimeOffset FetchedAt { get; set; }
+    
+    /// <summary>
+    /// Checks if there are enough remaining session starts for the requested shard count.
+    /// </summary>
+    public bool HasEnoughRemaining(int requestedShards) => Remaining >= requestedShards;
+    
+    /// <summary>
+    /// Gets the recommended number of shards to start now based on max_concurrency.
+    /// Discord allows starting max_concurrency shards simultaneously.
+    /// </summary>
+    public int GetRecommendedBatchSize() => Math.Max(1, MaxConcurrency);
+}
+
+/// <summary>
 /// Manages multiple gateway shards for large bots.
 /// Provides automatic shard distribution, reconnection, status monitoring, and event aggregation.
 /// </summary>
@@ -23,6 +55,7 @@ public class ShardManager
     private readonly ILogger _logger;
     private readonly EventDispatcher _eventDispatcher;
     private readonly IDiscordRestClient? _restClient;
+    private SessionStartLimits? _sessionStartLimits;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShardManager"/> class.
@@ -59,15 +92,73 @@ public class ShardManager
         _shardStatuses.Values.Count(s => s == ShardStatus.Connected);
 
     /// <summary>
+    /// Calculates the recommended connection delay based on max_concurrency and shard count.
+    /// Discord allows max_concurrency shards to identify per 5 second window per shard group.
+    /// </summary>
+    private int CalculateRecommendedDelayMs()
+    {
+        if (_sessionStartLimits == null || _sessionStartLimits.MaxConcurrency <= 0)
+            return _options.ShardConnectionDelayMs; // Use configured default
+        
+        var maxConcurrency = _sessionStartLimits.MaxConcurrency;
+        // Each "group" (shard_id % max_concurrency) can identify 1 shard per 5 seconds
+        // We need to ensure delay is at least 5000ms / maxConcurrency per shard in same group
+        // But since we connect sequentially, 5000ms is always safe
+        return Math.Max(5000, _options.ShardConnectionDelayMs);
+    }
+
+    /// <summary>
+    /// Validates shard count against max_concurrency limits before connecting.
+    /// Warns if configuration may cause rate limiting issues.
+    /// </summary>
+    private void ValidateShardConcurrency()
+    {
+        if (_sessionStartLimits == null || _sessionStartLimits.MaxConcurrency <= 0)
+            return;
+        
+        var maxConcurrency = _sessionStartLimits.MaxConcurrency;
+        
+        // Check if user is trying to start too many shards for their delay setting
+        // Discord allows max_concurrency simultaneous identifies per 5 second window
+        var groups = Math.Min(_options.Shards, maxConcurrency);
+        var shardsPerGroup = (int)Math.Ceiling(_options.Shards / (double)maxConcurrency);
+        var recommendedDelay = 5000; // 5 seconds per Discord spec
+        
+        if (_options.ShardConnectionDelayMs < recommendedDelay)
+        {
+            _logger.LogWarning(
+                "Shard connection delay ({DelayMs}ms) is less than Discord's recommended 5000ms. " +
+                "With {Shards} shards and max_concurrency of {MaxConcurrency}, this may cause rate limiting. " +
+                "Consider increasing ShardConnectionDelayMs to at least 5000ms.",
+                _options.ShardConnectionDelayMs, _options.Shards, maxConcurrency);
+        }
+        
+        _logger.LogInformation(
+            "Shard distribution: {Shards} shards across {Groups} groups (max_concurrency: {MaxConcurrency}, ~{PerGroup} shards/group)",
+            _options.Shards, groups, maxConcurrency, shardsPerGroup);
+    }
+
+    /// <summary>
     /// Connect all shards managed by this instance.
+    /// Validates against session start limits and uses appropriate delays.
     /// </summary>
     public async Task ConnectAllAsync()
     {
-        _logger.LogInformation("Connecting {ShardCount} shards...", _options.Shards);
+        // Validate session start limits
+        if (!ValidateSessionStartLimits(_options.Shards))
+        {
+            throw new InvalidOperationException("Cannot connect: insufficient session start limits remaining.");
+        }
+        
+        // Validate shard concurrency configuration
+        ValidateShardConcurrency();
+        
+        var effectiveDelay = CalculateRecommendedDelayMs();
+        _logger.LogInformation("Connecting {ShardCount} shards with {DelayMs}ms delay between each...", _options.Shards, effectiveDelay);
 
         for (int i = 0; i < _options.Shards; i++)
         {
-            var shard = new GatewayClient(_options, _logger);
+            var shard = new GatewayClient(_options, _logger, restClient: _restClient);
             _shards[i] = shard;
             _shardStatuses[i] = ShardStatus.Disconnected;
             
@@ -76,10 +167,10 @@ public class ShardManager
             
             await shard.ConnectAsync();
             
-            // Rate limit: Wait 5 seconds between shard connections
+            // Rate limit: Wait calculated delay between shard connections
             if (i < _options.Shards - 1)
             {
-                await Task.Delay(5000);
+                await Task.Delay(effectiveDelay);
             }
         }
 
@@ -192,7 +283,13 @@ public class ShardManager
     }
 
     /// <summary>
+    /// Gets the current session start limits, if fetched from Discord API.
+    /// </summary>
+    public SessionStartLimits? SessionStartLimits => _sessionStartLimits;
+
+    /// <summary>
     /// Queries Discord's <c>GET /gateway/bot</c> endpoint and returns the recommended shard count.
+    /// Also stores session start limits for later validation.
     /// Falls back to <see cref="CalculateRecommendedShardCount"/> with the configured guild count
     /// when no REST client is available.
     /// </summary>
@@ -203,8 +300,31 @@ public class ShardManager
             try
             {
                 var info = await _restClient.GetGatewayBotAsync();
-                if (info != null && info.Shards > 0)
-                    return info.Shards;
+                if (info != null)
+                {
+                    // Store session start limits for validation
+                    if (info.SessionStartLimit != null)
+                    {
+                        _sessionStartLimits = new SessionStartLimits
+                        {
+                            Total = info.SessionStartLimit.Total,
+                            Remaining = info.SessionStartLimit.Remaining,
+                            ResetAfter = info.SessionStartLimit.ResetAfter,
+                            MaxConcurrency = info.SessionStartLimit.MaxConcurrency,
+                            FetchedAt = DateTimeOffset.UtcNow
+                        };
+                        
+                        _logger.LogDebug(
+                            "Session start limits: {Remaining}/{Total} remaining, resets in {ResetAfter}ms, max_concurrency: {MaxConcurrency}",
+                            _sessionStartLimits.Remaining,
+                            _sessionStartLimits.Total,
+                            _sessionStartLimits.ResetAfter,
+                            _sessionStartLimits.MaxConcurrency);
+                    }
+                    
+                    if (info.Shards > 0)
+                        return info.Shards;
+                }
             }
             catch (Exception ex)
             {
@@ -214,6 +334,41 @@ public class ShardManager
 
         // Fallback: use local guild-count heuristic from options
         return CalculateRecommendedShardCount(_options.Shards);
+    }
+    
+    /// <summary>
+    /// Validates that there are enough remaining session starts for the requested shard count.
+    /// Logs warnings if limits are approaching or exceeded.
+    /// </summary>
+    /// <returns>True if connection should proceed, false if limits are exceeded.</returns>
+    public bool ValidateSessionStartLimits(int requestedShards)
+    {
+        if (_sessionStartLimits == null)
+        {
+            _logger.LogWarning("Session start limits not available. Consider calling CalculateRecommendedShardCountAsync() first.");
+            return true; // Allow connection when limits are unknown
+        }
+        
+        if (!_sessionStartLimits.HasEnoughRemaining(requestedShards))
+        {
+            _logger.LogError(
+                "Insufficient session starts remaining. Requested: {Requested}, Remaining: {Remaining}, Resets in: {ResetAfter}ms",
+                requestedShards,
+                _sessionStartLimits.Remaining,
+                _sessionStartLimits.ResetAfter);
+            return false;
+        }
+        
+        if (_sessionStartLimits.Remaining < requestedShards * 2)
+        {
+            _logger.LogWarning(
+                "Session starts are running low. Remaining: {Remaining}, Requested: {Requested}, Resets in: {ResetAfter}ms",
+                _sessionStartLimits.Remaining,
+                requestedShards,
+                _sessionStartLimits.ResetAfter);
+        }
+        
+        return true;
     }
 
     /// <summary>

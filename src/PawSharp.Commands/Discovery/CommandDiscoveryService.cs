@@ -69,11 +69,7 @@ public class CommandDiscoveryService
     /// <typeparam name="T">The precondition type.</typeparam>
     /// <returns>A list of commands with the precondition.</returns>
     public IReadOnlyList<CommandInfo> GetCommandsWithPrecondition<T>() where T : IPrecondition
-    {
-        // This would require access to the internal Command objects with preconditions
-        // For now, return empty as preconditions are stored in Command, not CommandInfo
-        return Array.Empty<CommandInfo>();
-    }
+        => _commandsExtension.GetRegisteredCommandsWithPrecondition<T>();
     
     /// <summary>
     /// Discovers commands from an assembly.

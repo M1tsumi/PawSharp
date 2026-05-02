@@ -119,4 +119,46 @@ public class User : DiscordEntity
         var extension = Avatar.StartsWith("a_") ? "gif" : "png";
         return $"https://cdn.discordapp.com/avatars/{Id}/{Avatar}.{extension}?size={size}";
     }
+
+    /// <summary>
+    /// Gets the user's banner URL.
+    /// </summary>
+    public string? GetBannerUrl(ushort size = 512)
+    {
+        if (string.IsNullOrEmpty(Banner))
+            return null;
+
+        var extension = Banner.StartsWith("a_") ? "gif" : "png";
+        return $"https://cdn.discordapp.com/banners/{Id}/{Banner}.{extension}?size={size}";
+    }
+
+    /// <summary>
+    /// Gets the user's display name (global name) with fallback to username.
+    /// </summary>
+    public string DisplayName => GlobalName ?? Username;
+
+    /// <summary>
+    /// Gets whether this user is a bot.
+    /// </summary>
+    public bool IsBot => Bot == true;
+
+    /// <summary>
+    /// Gets whether this user is a Discord System user.
+    /// </summary>
+    public bool IsSystem => System == true;
+
+    /// <summary>
+    /// Gets whether this user has two-factor authentication enabled.
+    /// </summary>
+    public bool HasMfa => MfaEnabled == true;
+
+    /// <summary>
+    /// Gets whether this user's email is verified.
+    /// </summary>
+    public bool IsVerified => Verified == true;
+
+    /// <summary>
+    /// Gets the user's full tag (username#discriminator). For new users, returns just the username.
+    /// </summary>
+    public string FullTag => Discriminator == "0" ? Username : $"{Username}#{Discriminator}";
 }

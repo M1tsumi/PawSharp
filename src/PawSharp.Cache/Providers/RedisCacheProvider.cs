@@ -893,7 +893,7 @@ namespace PawSharp.Cache.Providers
         {
             try
             {
-                return _redis.IsConnected && _db.IsConnected(_options.Database);
+                return _redis.IsConnected;
             }
             catch
             {
