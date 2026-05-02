@@ -24,25 +24,6 @@ public static class MessageExtensions
     /// <param name="user">The user whose reaction to wait for.</param>
     /// <param name="emoji">The specific emoji to wait for, or null for any emoji.</param>
     /// <param name="timeout">The timeout for waiting.</param>
-    /// <returns>The interactivity result.</returns>
-    public static async Task<InteractivityResult<Reaction>> WaitForReactionAsync(
-        this Message message,
-        DiscordClient client,
-        User user,
-        string? emoji = null,
-        TimeSpan? timeout = null)
-    {
-        return await WaitForReactionAsync(message, client, user, emoji, timeout, CancellationToken.None);
-    }
-
-    /// <summary>
-    /// Waits for a reaction on the message with cancellation support.
-    /// </summary>
-    /// <param name="message">The message to wait for reactions on.</param>
-    /// <param name="client">The Discord client.</param>
-    /// <param name="user">The user whose reaction to wait for.</param>
-    /// <param name="emoji">The specific emoji to wait for, or null for any emoji.</param>
-    /// <param name="timeout">The timeout for waiting.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>The interactivity result.</returns>
     public static async Task<InteractivityResult<Reaction>> WaitForReactionAsync(
@@ -150,25 +131,6 @@ public static class MessageExtensions
 
     /// <summary>
     /// Waits for a reaction to be removed from the message.
-    /// </summary>
-    /// <param name="message">The message to wait for reaction removal on.</param>
-    /// <param name="client">The Discord client.</param>
-    /// <param name="user">The user whose reaction removal to wait for.</param>
-    /// <param name="emoji">The specific emoji to wait for removal of, or null for any emoji.</param>
-    /// <param name="timeout">The timeout for waiting.</param>
-    /// <returns>The interactivity result.</returns>
-    public static async Task<InteractivityResult<Reaction>> WaitForReactionRemoveAsync(
-        this Message message,
-        DiscordClient client,
-        User user,
-        string? emoji = null,
-        TimeSpan? timeout = null)
-    {
-        return await WaitForReactionRemoveAsync(message, client, user, emoji, timeout, CancellationToken.None);
-    }
-
-    /// <summary>
-    /// Waits for a reaction to be removed from the message with cancellation support.
     /// </summary>
     /// <param name="message">The message to wait for reaction removal on.</param>
     /// <param name="client">The Discord client.</param>
@@ -338,36 +300,6 @@ public static class MessageExtensions
     /// </summary>
     /// <param name="message">The message whose buttons to listen on.</param>
     /// <param name="client">The Discord client.</param>
-    /// <param name="user">
-    /// The user whose interaction to accept, or <see langword="null"/> to accept any user.
-    /// </param>
-    /// <param name="customId">
-    /// The <c>custom_id</c> of the specific button to wait for, or <see langword="null"/>
-    /// to accept any button on the message.
-    /// </param>
-    /// <param name="timeout">
-    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
-    /// if not specified.
-    /// </param>
-    /// <returns>
-    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
-    /// when a matching click arrives, or a timed-out result after the deadline.
-    /// </returns>
-    public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForButtonAsync(
-        this Message message,
-        DiscordClient client,
-        User? user = null,
-        string? customId = null,
-        TimeSpan? timeout = null)
-    {
-        return await WaitForButtonAsync(message, client, user, customId, timeout, CancellationToken.None);
-    }
-
-    /// <summary>
-    /// Waits for a button click on this message with cancellation support.
-    /// </summary>
-    /// <param name="message">The message whose buttons to listen on.</param>
-    /// <param name="client">The Discord client.</param>
     /// <param name="user">The user whose interaction to accept, or null to accept any user.</param>
     /// <param name="customId">The custom_id of the specific button to wait for, or null for any button.</param>
     /// <param name="timeout">The maximum time to wait.</param>
@@ -421,38 +353,7 @@ public static class MessageExtensions
     }
 
     /// <summary>
-    /// Waits for a select menu interaction on this message and returns the resulting interaction.
-    /// </summary>
-    /// <param name="message">The message whose select menus to listen on.</param>
-    /// <param name="client">The Discord client.</param>
-    /// <param name="user">
-    /// The user whose interaction to accept, or <see langword="null"/> to accept any user.
-    /// </param>
-    /// <param name="customId">
-    /// The <c>custom_id</c> of the specific select menu to wait for, or <see langword="null"/>
-    /// to accept any select menu on the message.
-    /// </param>
-    /// <param name="timeout">
-    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
-    /// if not specified.
-    /// </param>
-    /// <returns>
-    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
-    /// (with <c>Data.Values</c> containing the selected values) when a matching submission
-    /// arrives, or a timed-out result after the deadline.
-    /// </returns>
-    public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForSelectAsync(
-        this Message message,
-        DiscordClient client,
-        User? user = null,
-        string? customId = null,
-        TimeSpan? timeout = null)
-    {
-        return await WaitForSelectAsync(message, client, user, customId, timeout, CancellationToken.None);
-    }
-
-    /// <summary>
-    /// Waits for a select menu interaction on this message with cancellation support.
+    /// Waits for a select menu interaction on this message.
     /// </summary>
     /// <param name="message">The message whose select menus to listen on.</param>
     /// <param name="client">The Discord client.</param>
@@ -512,38 +413,7 @@ public static class MessageExtensions
     }
 
     /// <summary>
-    /// Waits for a modal submission interaction and returns the resulting interaction.
-    /// </summary>
-    /// <param name="message">The message that triggered the modal (optional, for context).</param>
-    /// <param name="client">The Discord client.</param>
-    /// <param name="user">
-    /// The user whose submission to accept, or <see langword="null"/> to accept any user.
-    /// </param>
-    /// <param name="customId">
-    /// The <c>custom_id</c> of the specific modal to wait for, or <see langword="null"/>
-    /// to accept any modal submission.
-    /// </param>
-    /// <param name="timeout">
-    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
-    /// if not specified.
-    /// </param>
-    /// <returns>
-    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
-    /// (with <c>Data.Components</c> containing the submitted form data) when a matching
-    /// submission arrives, or a timed-out result after the deadline.
-    /// </returns>
-    public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForModalAsync(
-        this Message? message,
-        DiscordClient client,
-        User? user = null,
-        string? customId = null,
-        TimeSpan? timeout = null)
-    {
-        return await WaitForModalAsync(message, client, user, customId, timeout, CancellationToken.None);
-    }
-
-    /// <summary>
-    /// Waits for a modal submission interaction with cancellation support.
+    /// Waits for a modal submission interaction.
     /// </summary>
     /// <param name="message">The message that triggered the modal (optional, for context).</param>
     /// <param name="client">The Discord client.</param>
