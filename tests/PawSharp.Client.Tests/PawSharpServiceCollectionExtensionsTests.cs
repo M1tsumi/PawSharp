@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using PawSharp.Cache.Interfaces;
+using PawSharp.Cache.Providers;
 using PawSharp.Client;
 using PawSharp.Client.Extensions;
 using PawSharp.Core.Models;
@@ -46,7 +47,7 @@ public class PawSharpServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddPawSharp_WithoutCacheFactory_ThrowsWhenResolvingDiscordClient()
+    public void AddPawSharp_WithoutCacheFactory_RegistersDefaultMemoryCache()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -54,10 +55,11 @@ public class PawSharpServiceCollectionExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        Action act = () => provider.GetRequiredService<DiscordClient>();
+        var cache = provider.GetRequiredService<IEntityCache>();
+        var client = provider.GetRequiredService<DiscordClient>();
 
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*IEntityCache*");
+        cache.Should().BeOfType<MemoryCacheProvider>();
+        client.Should().NotBeNull();
     }
 
     [Fact]

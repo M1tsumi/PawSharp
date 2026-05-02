@@ -17,7 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PawSharp.Core\PawSharp.Core.csproj" />
-    <ProjectReference Include="..\PawSharp.API\PawSharp.API.csproj" />
   </ItemGroup>
 
   <ItemGroup>

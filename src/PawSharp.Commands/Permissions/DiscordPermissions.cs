@@ -142,4 +142,22 @@ public static class DiscordPermissions
 
     /// <summary>Allows for using activities, applications, or emojis as a soundboard sound.</summary>
     public const ulong UseExternalSounds = 0x0000200000000000;
+
+    /// <summary>Allows sending voice messages.</summary>
+    public const ulong SendVoiceMessages = 0x0000400000000000;
+
+    /// <summary>Allows setting voice channel status.</summary>
+    public const ulong SetVoiceChannelStatus = 0x0000800000000000;
+
+    /// <summary>Allows sending polls.</summary>
+    public const ulong SendPolls = 0x0001000000000000;
+
+    /// <summary>Allows using external apps.</summary>
+    public const ulong UseExternalApps = 0x0002000000000000;
+
+    /// <summary>Allows pinning messages in a channel.</summary>
+    public const ulong PinMessages = 0x0004000000000000;
+
+    /// <summary>Allows bypassing slowmode rate limits.</summary>
+    public const ulong BypassSlowmode = 0x0008000000000000;
 }

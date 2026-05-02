@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Serialization;
 using PawSharp.Core.Serialization;
 
@@ -41,6 +42,41 @@ public class Presence
     /// </summary>
     [JsonPropertyName("client_status")]
     public ClientStatus ClientStatus { get; set; } = null!;
+
+    /// <summary>
+    /// Gets whether the user is online.
+    /// </summary>
+    public bool IsOnline => Status == "online";
+
+    /// <summary>
+    /// Gets whether the user is idle.
+    /// </summary>
+    public bool IsIdle => Status == "idle";
+
+    /// <summary>
+    /// Gets whether the user is do not disturb.
+    /// </summary>
+    public bool IsDnd => Status == "dnd";
+
+    /// <summary>
+    /// Gets whether the user is offline or invisible.
+    /// </summary>
+    public bool IsOffline => Status == "offline" || Status == "invisible";
+
+    /// <summary>
+    /// Gets whether the user has any activities.
+    /// </summary>
+    public bool HasActivity => Activities?.Count > 0;
+
+    /// <summary>
+    /// Gets the first activity of a specific type, if present.
+    /// </summary>
+    /// <param name="type">The activity type to find.</param>
+    /// <returns>The activity if found, otherwise null.</returns>
+    public Activity? GetActivity(ActivityType type)
+    {
+        return Activities?.FirstOrDefault(a => a.Type == type);
+    }
 }
 
 /// <summary>

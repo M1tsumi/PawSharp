@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using InteractionOption = PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption;
+using PawSharp.Core.Enums;
 using PawSharp.Gateway.Events;
 
 namespace PawSharp.Interactions.Extensions;
@@ -69,6 +70,41 @@ public static class InteractionExtensions
         if (options is null) return null;
         return FindInList(options, name);
     }
+
+    // ── Interaction context ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Determines the interaction context type based on where the interaction was triggered.
+    /// </summary>
+    /// <returns>
+    /// <see cref="InteractionContextType.Guild"/> if triggered in a server,
+    /// <see cref="InteractionContextType.BotDm"/> if in a DM with the bot user,
+    /// <see cref="InteractionContextType.PrivateChannel"/> if in a group DM or other private channel.
+    /// </returns>
+    public static InteractionContextType GetInteractionContext(this InteractionCreateEvent interaction)
+    {
+        if (interaction.GuildId.HasValue)
+            return InteractionContextType.Guild;
+
+        // If there's no guild and the user is present but member is not,
+        // it's likely a DM with the bot (BotDm) vs another private channel
+        if (interaction.User is not null && interaction.Member is null)
+            return InteractionContextType.BotDm;
+
+        return InteractionContextType.PrivateChannel;
+    }
+
+    /// <summary>
+    /// Checks if the interaction was triggered in a guild/server context.
+    /// </summary>
+    public static bool IsGuildInteraction(this InteractionCreateEvent interaction)
+        => interaction.GuildId.HasValue;
+
+    /// <summary>
+    /// Checks if the interaction was triggered in a DM context (either Bot DM or private channel).
+    /// </summary>
+    public static bool IsDmInteraction(this InteractionCreateEvent interaction)
+        => !interaction.GuildId.HasValue;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

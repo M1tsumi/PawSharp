@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using PawSharp.Commands.Conversion;
 using PawSharp.Commands.Middleware;
@@ -95,9 +96,9 @@ public class CommandsBuilder
     /// <typeparam name="TConverter">The converter type.</typeparam>
     /// <returns>The builder for chaining.</returns>
     public CommandsBuilder WithTypeConverter<TConverter>()
-        where TConverter : class, ITypeConverterService
+        where TConverter : class, ITypeConverter
     {
-        _services.AddSingleton<ITypeConverterService, TConverter>();
+        _services.AddSingleton<ITypeConverter, TConverter>();
         return this;
     }
 
@@ -108,8 +109,23 @@ public class CommandsBuilder
     public IServiceCollection Build()
     {
         _services.AddSingleton(_options);
-        _services.AddSingleton<TypeConverterService>();
         _services.AddSingleton<MiddlewarePipeline>();
+
+        // Register TypeConverterService with DI-registered converters
+        _services.AddSingleton<TypeConverterService>(sp =>
+        {
+            var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<TypeConverterService>>();
+            var service = new TypeConverterService(logger);
+
+            // Get all DI-registered custom type converters
+            var customConverters = sp.GetServices<ITypeConverter>();
+            foreach (var converter in customConverters)
+            {
+                service.RegisterConverterFromInterface(converter);
+            }
+
+            return service;
+        });
 
         if (_options.EnableLoggingMiddleware)
         {
@@ -131,8 +147,3 @@ public class CommandsBuilder
         return _services;
     }
 }
-
-/// <summary>
-/// Interface for type converter service registration.
-/// </summary>
-public interface ITypeConverterService { }

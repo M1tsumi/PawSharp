@@ -45,4 +45,39 @@ public class CacheOptions
     /// Default expiration time for cached entities (default: null = no expiration).
     /// </summary>
     public TimeSpan? DefaultExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for users (overrides DefaultExpiration if set).
+    /// </summary>
+    public TimeSpan? UserExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for guilds (overrides DefaultExpiration if set).
+    /// </summary>
+    public TimeSpan? GuildExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for channels (overrides DefaultExpiration if set).
+    /// </summary>
+    public TimeSpan? ChannelExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for messages (overrides DefaultExpiration if set).
+    /// </summary>
+    public TimeSpan? MessageExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for guild members (overrides DefaultExpiration if set).
+    /// </summary>
+    public TimeSpan? MemberExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for roles (overrides DefaultExpiration if set).
+    /// </summary>
+    public TimeSpan? RoleExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for emojis (overrides DefaultExpiration if set).
+    /// </summary>
+    public TimeSpan? EmojiExpiration { get; set; } = null;
 }

@@ -2,9 +2,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PawSharp.Core.Metrics;
 using PawSharp.Core.Serialization;
 using PawSharp.Gateway.Serialization;
 
@@ -23,8 +25,10 @@ namespace PawSharp.Gateway.Events
         private readonly List<Func<string, object, Task>> _middleware = new();
         private readonly object _middlewareLock = new();
         private readonly ILogger? _logger;
+        private readonly IPerformanceMetrics? _metrics;
         private readonly EventDispatchQueue? _dispatchQueue;
         private readonly bool _useQueue;
+        private readonly int _handlerTimeoutMs;
 
         // Shared options instance – created once, reused for every deserialization call.
         private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -42,9 +46,11 @@ namespace PawSharp.Gateway.Events
             TypeInfoResolver = PawSharpGatewayJsonContext.Default
         };
 
-        public EventDispatcher(ILogger? logger = null, int maxQueueSize = 0, bool enableParallelDispatch = false, int maxDegreeOfParallelism = 4)
+        public EventDispatcher(ILogger? logger = null, int maxQueueSize = 0, bool enableParallelDispatch = false, int maxDegreeOfParallelism = 4, IPerformanceMetrics? metrics = null, int handlerTimeoutMs = 0)
         {
             _logger = logger;
+            _metrics = metrics;
+            _handlerTimeoutMs = handlerTimeoutMs;
             _useQueue = maxQueueSize > 0;
             
             if (_useQueue)
@@ -55,6 +61,17 @@ namespace PawSharp.Gateway.Events
                     enableParallelDispatch, 
                     maxDegreeOfParallelism, 
                     logger);
+            }
+        }
+
+        /// <summary>
+        /// Internal accessor for event handlers. Used by extension methods to avoid reflection.
+        /// </summary>
+        internal IEnumerable<KeyValuePair<string, List<Delegate>>> GetEventHandlers()
+        {
+            lock (_handlersLock)
+            {
+                return _eventHandlers.ToArray();
             }
         }
 
@@ -145,24 +162,60 @@ namespace PawSharp.Gateway.Events
         /// </summary>
         private async Task DispatchDirectAsync<TEvent>(string eventName, TEvent eventData, string? rawJson) where TEvent : GatewayEvent
         {
+            var sw = Stopwatch.StartNew();
+            
             // Run middleware
             List<Func<string, object, Task>> middlewareCopy;
             lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
             foreach (var mw in middlewareCopy)
             {
-                try { await mw(eventName, eventData); }
-                catch (Exception ex) { _logger?.LogError(ex, "Error in event middleware for {Event}", eventName); }
+                try 
+                { 
+                    await mw(eventName, eventData); 
+                }
+                catch (EventFilteredException)
+                {
+                    // Event was filtered out - stop processing silently
+                    sw.Stop();
+                    return;
+                }
+                catch (Exception ex) 
+                { 
+                    _logger?.LogError(ex, "Error in event middleware for {Event}", eventName); 
+                }
             }
 
             // Dispatch to handlers – snapshot copy ensures iteration is safe even if handlers mutate list
-            if (!_eventHandlers.TryGetValue(eventName, out var handlers)) return;
+            if (!_eventHandlers.TryGetValue(eventName, out var handlers))
+            {
+                sw.Stop();
+                _metrics?.RecordEventDispatch(eventName, sw.ElapsedMilliseconds);
+                return;
+            }
 
             foreach (var handler in handlers)
             {
                 try
                 {
                     if (handler is Func<TEvent, Task> asyncHandler)
-                        await asyncHandler(eventData);
+                    {
+                        if (_handlerTimeoutMs > 0)
+                        {
+                            using var cts = new System.Threading.CancellationTokenSource(_handlerTimeoutMs);
+                            try
+                            {
+                                await asyncHandler(eventData).WaitAsync(cts.Token);
+                            }
+                            catch (TimeoutException)
+                            {
+                                _logger?.LogWarning("Handler for event {EventName} timed out after {TimeoutMs}ms", eventName, _handlerTimeoutMs);
+                            }
+                        }
+                        else
+                        {
+                            await asyncHandler(eventData);
+                        }
+                    }
                     else if (handler is Action<TEvent> syncHandler)
                         syncHandler(eventData);
                     else if (handler is Action<string> rawHandler && rawJson != null)
@@ -173,6 +226,9 @@ namespace PawSharp.Gateway.Events
                     _logger?.LogError(ex, "Error in event handler for {Event}", eventName);
                 }
             }
+            
+            sw.Stop();
+            _metrics?.RecordEventDispatch(eventName, sw.ElapsedMilliseconds);
         }
 
         /// <summary>
@@ -235,6 +291,81 @@ namespace PawSharp.Gateway.Events
         }
 
         /// <summary>
+        /// Dispatches a typed event without requiring generic type parameter at call site.
+        /// Used internally by EventDispatchQueue for AOT-compatible event dispatching.
+        /// </summary>
+        internal async Task DispatchTypedAsync(string eventName, GatewayEvent eventData, string? rawJson = null)
+        {
+            var sw = Stopwatch.StartNew();
+            
+            if (rawJson != null) eventData.RawJson = rawJson;
+
+            // Run middleware
+            List<Func<string, object, Task>> middlewareCopy;
+            lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
+            foreach (var mw in middlewareCopy)
+            {
+                try 
+                { 
+                    await mw(eventName, eventData); 
+                }
+                catch (EventFilteredException)
+                {
+                    // Event was filtered out - stop processing silently
+                    sw.Stop();
+                    return;
+                }
+                catch (Exception ex) 
+                { 
+                    _logger?.LogError(ex, "Error in event middleware for {Event}", eventName); 
+                }
+            }
+
+            // Dispatch to handlers – snapshot copy ensures iteration is safe
+            if (!_eventHandlers.TryGetValue(eventName, out var handlers))
+            {
+                sw.Stop();
+                _metrics?.RecordEventDispatch(eventName, sw.ElapsedMilliseconds);
+                return;
+            }
+
+            foreach (var handler in handlers)
+            {
+                try
+                {
+                    // Try to invoke handler with the event data
+                    // Handlers are stored as typed delegates, so we need to invoke them dynamically
+                    switch (handler)
+                    {
+                        case Func<GatewayEvent, Task> asyncHandler:
+                            await asyncHandler(eventData);
+                            break;
+                        case Action<GatewayEvent> syncHandler:
+                            syncHandler(eventData);
+                            break;
+                        case Action<string> rawHandler when rawJson != null:
+                            rawHandler(rawJson);
+                            break;
+                        default:
+                            // Try to invoke via dynamic dispatch for typed handlers
+                            // This handles cases where handler is Func<SpecificEventType, Task>
+                            var result = handler.DynamicInvoke(eventData);
+                            if (result is Task task)
+                                await task;
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error in event handler for {Event}", eventName);
+                }
+            }
+            
+            sw.Stop();
+            _metrics?.RecordEventDispatch(eventName, sw.ElapsedMilliseconds);
+        }
+
+        /// <summary>
         /// Returns the number of handlers registered for the given event name.
         /// Useful for diagnostics.
         /// </summary>
@@ -244,7 +375,15 @@ namespace PawSharp.Gateway.Events
         /// <summary>
         /// Gets the current queue depth if backpressure is enabled.
         /// </summary>
-        public int QueueDepth => _dispatchQueue?.QueueDepth ?? 0;
+        public int QueueDepth
+        {
+            get
+            {
+                var depth = _dispatchQueue?.QueueDepth ?? 0;
+                _metrics?.RecordQueueDepth(depth);
+                return depth;
+            }
+        }
 
         public void Dispose()
         {

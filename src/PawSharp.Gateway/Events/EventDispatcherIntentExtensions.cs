@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging;
@@ -15,21 +14,7 @@ public static class EventDispatcherIntentExtensions
 {
     private static IEnumerable<KeyValuePair<string, List<Delegate>>> GetHandlers(EventDispatcher dispatcher)
     {
-        var handlersField = dispatcher.GetType().GetField(
-            "_eventHandlers",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        if (handlersField?.GetValue(dispatcher) is ConcurrentDictionary<string, List<Delegate>> concurrentHandlers)
-        {
-            return concurrentHandlers.ToArray();
-        }
-
-        if (handlersField?.GetValue(dispatcher) is Dictionary<string, List<Delegate>> dictionaryHandlers)
-        {
-            return dictionaryHandlers.ToArray();
-        }
-
-        return Array.Empty<KeyValuePair<string, List<Delegate>>>();
+        return dispatcher.GetEventHandlers();
     }
 
     private static void WriteWarning(ILogger? logger, string message)

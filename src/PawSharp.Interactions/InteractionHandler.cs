@@ -32,6 +32,7 @@ public class InteractionHandler
     private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task<List<AutocompleteChoice>>>> _autocompleteHandlers = new();
     private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _userContextMenuHandlers = new();
     private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _messageContextMenuHandlers = new();
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _entryPointHandlers = new();
 
     /// <summary>
     /// Optional warning callback invoked when a registration overwrites an existing handler.
@@ -57,6 +58,30 @@ public class InteractionHandler
     {
         RegisterWithDiagnostics(_commandHandlers, name, handler, "slash command");
     }
+
+    /// <summary>
+    /// Registers multiple slash command handlers at once.
+    /// </summary>
+    public void RegisterCommands(params (string name, Func<InteractionCreateEvent, Task> handler)[] commands)
+    {
+        foreach (var (name, handler) in commands)
+            RegisterCommand(name, handler);
+    }
+
+    /// <summary>
+    /// Checks if a slash command handler is registered for the given name.
+    /// </summary>
+    public bool HasCommandHandler(string name) => _commandHandlers.ContainsKey(name);
+
+    /// <summary>
+    /// Checks if a component handler is registered for the given custom ID.
+    /// </summary>
+    public bool HasComponentHandler(string customId) => _componentHandlers.ContainsKey(customId);
+
+    /// <summary>
+    /// Checks if a modal handler is registered for the given custom ID.
+    /// </summary>
+    public bool HasModalHandler(string customId) => _modalHandlers.ContainsKey(customId);
 
     /// <summary>
     /// Registers a component handler.
@@ -89,6 +114,15 @@ public class InteractionHandler
     public void RegisterMessageContextMenu(string name, Func<InteractionCreateEvent, Task> handler)
     {
         RegisterWithDiagnostics(_messageContextMenuHandlers, name, handler, "message context menu");
+    }
+
+    /// <summary>
+    /// Registers a PRIMARY_ENTRY_POINT command handler (Activity entry point).
+    /// These commands are used to launch embedded Activities associated with the app.
+    /// </summary>
+    public void RegisterEntryPoint(string name, Func<InteractionCreateEvent, Task> handler)
+    {
+        RegisterWithDiagnostics(_entryPointHandlers, name, handler, "entry point");
     }
 
     /// <summary>
@@ -190,7 +224,7 @@ public class InteractionHandler
             return;
         }
 
-        // Route by application command type: CHAT_INPUT=1, USER=2, MESSAGE=3
+        // Route by application command type: CHAT_INPUT=1, USER=2, MESSAGE=3, PRIMARY_ENTRY_POINT=4
         switch (interaction.Data.Type)
         {
             case (int)PawSharp.Interactions.Models.ApplicationCommandType.User:
@@ -212,6 +246,17 @@ public class InteractionHandler
                 else
                 {
                     _logger?.LogWarning("No message context menu handler registered for: {CommandName}", interaction.Data.Name);
+                }
+                break;
+
+            case 4: // PRIMARY_ENTRY_POINT - Activity entry point
+                if (_entryPointHandlers.TryGetValue(interaction.Data.Name, out var entryHandler))
+                {
+                    await InvokeHandlerSafelyAsync(entryHandler, interaction, "entry point", interaction.Data.Name);
+                }
+                else
+                {
+                    _logger?.LogWarning("No entry point handler registered for: {CommandName}", interaction.Data.Name);
                 }
                 break;
 
@@ -368,6 +413,20 @@ public class InteractionHandler
         return await _restClient.DeleteFollowupMessageAsync(applicationId, interactionToken, messageId);
     }
 
+    /// <summary>
+    /// Responds by launching the Activity associated with the app.
+    /// Only available for apps with Activities enabled.
+    /// </summary>
+    /// <param name="interactionId">The interaction ID from the event.</param>
+    /// <param name="interactionToken">The interaction token from the event.</param>
+    public Task<bool> RespondWithActivityAsync(ulong interactionId, string interactionToken)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.LaunchActivity
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
 
     /// <summary>
     /// Gets all application command permissions for a guild.
@@ -425,5 +484,7 @@ public enum InteractionResponseType
     DeferredUpdateMessage = 6,
     UpdateMessage = 7,
     ApplicationCommandAutocompleteResult = 8,
-    Modal = 9
+    Modal = 9,
+    /// <summary>Launch the Activity associated with the app. Only for apps with Activities enabled.</summary>
+    LaunchActivity = 12
 }

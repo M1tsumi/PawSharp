@@ -17,6 +17,12 @@ public abstract class GatewayEvent
     /// </summary>
     [JsonIgnore]
     public string? RawJson { get; set; }
+    
+    /// <summary>
+    /// The sequence number of the event, used for resuming sessions.
+    /// </summary>
+    [JsonIgnore]
+    public int? SequenceNumber { get; set; }
 }
 
 /// <summary>
@@ -272,6 +278,9 @@ public class GuildUpdateEvent : GatewayEvent
     
     [JsonPropertyName("owner_id")]
     public ulong OwnerId { get; set; }
+    
+    [JsonPropertyName("member_count")]
+    public int? MemberCount { get; set; }
 }
 
 /// <summary>

@@ -1737,6 +1737,19 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         return null;
     }
 
+    /// <inheritdoc />
+    public async Task<GatewayInfo?> GetGatewayAsync()
+    {
+        // GET /gateway does not require authentication
+        var response = await _httpClient.GetAsync("gateway");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<GatewayInfo>();
+        }
+
+        return null;
+    }
+
     // Voice Region operations
     public async Task<List<VoiceRegion>?> GetVoiceRegionsAsync()
     {

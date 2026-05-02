@@ -50,10 +50,13 @@ await Task.Delay(Timeout.Infinite);
 
 ### With Dependency Injection (ASP.NET Core)
 
+`SetupPawSharp` and `AddPawSharp` both use the in-memory cache by default; pass a custom `IEntityCache` factory only when you need a different cache backend.
+
 ```csharp
 using PawSharp.Client;
 using PawSharp.Client.Extensions;
 using PawSharp.Core.Enums;
+using PawSharp.Core.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,7 +70,7 @@ builder.Services.SetupPawSharp(new PawSharpOptions
 var app = builder.Build();
 
 // Get the client and connect
-var client = app.Services.GetRequiredService<DiscordClient();
+var client = app.Services.GetRequiredService<DiscordClient>();
 await client.ConnectAsync();
 
 await app.RunAsync();
@@ -78,6 +81,9 @@ await app.RunAsync();
 ### REST API Access
 
 ```csharp
+using PawSharp.Core.Entities;
+using PawSharp.Core.Models;
+
 // Send a message
 await client.SendMessageAsync(channelId, "Hello, world!");
 
@@ -151,17 +157,29 @@ var member = client.Cache.GetGuildMember(guildId, userId);
 
 ### Interaction Handling
 
-```csharp
-// Register slash commands (via PawSharp.Interactions package)
-await client.Interactions.RegisterGlobalCommandsAsync(commands);
+Requires `PawSharp.Interactions`.
 
-// Interactions are automatically routed to handlers
-// See PawSharp.Interactions package for details
+```csharp
+using PawSharp.Gateway.Events;
+
+client.Interactions.RegisterCommand("ping", async interaction =>
+{
+    await client.Interactions.RespondEphemeralAsync(interaction.Id, interaction.Token, "Pong!");
+});
+
+client.Interactions.RegisterComponent("confirm-button", async interaction =>
+{
+    await client.Interactions.RespondEphemeralAsync(interaction.Id, interaction.Token, "Confirmed.");
+});
 ```
 
 ### Intent Validation
 
 ```csharp
+using PawSharp.Client;
+using PawSharp.Core.Enums;
+using PawSharp.Core.Models;
+
 // Configure intent validation mode
 var options = new PawSharpOptions
 {
@@ -186,6 +204,8 @@ PawSharp.Client provides a solid foundation, and additional functionality is ava
 
 Add traditional prefix commands (e.g., `!ping`, `!help`) with attribute-based command definitions.
 
+Requires `PawSharp.Commands`.
+
 ```bash
 dotnet add package PawSharp.Commands
 ```
@@ -209,6 +229,8 @@ commands.RegisterModule(client, new GeneralCommands());
 ### PawSharp.Interactivity - User Interaction Helpers
 
 Add pagination, waiters, and multi-step user input flows.
+
+Requires `PawSharp.Interactivity`.
 
 ```bash
 dotnet add package PawSharp.Interactivity
@@ -238,6 +260,8 @@ await message.SendPaginatedMessageAsync(interactivity, pages);
 
 Add voice channel connections and audio streaming for music bots, voice alerts, etc.
 
+Requires `PawSharp.Voice`.
+
 ```bash
 dotnet add package PawSharp.Voice
 ```
@@ -260,6 +284,9 @@ await connection.DisconnectAsync();
 ### PawSharpOptions
 
 ```csharp
+using PawSharp.Core.Enums;
+using PawSharp.Core.Models;
+
 var options = new PawSharpOptions
 {
     Token = "Bot YOUR_TOKEN",
@@ -289,6 +316,11 @@ var options = new PawSharpOptions
 ### Builder Configuration
 
 ```csharp
+using Microsoft.Extensions.Logging;
+using PawSharp.Client;
+using PawSharp.Core.Enums;
+using PawSharp.Core.Models;
+
 var client = new PawSharpClientBuilder()
     .WithToken("Bot YOUR_TOKEN")
     .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)

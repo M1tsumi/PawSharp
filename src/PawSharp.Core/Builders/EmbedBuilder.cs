@@ -107,11 +107,95 @@ public sealed class EmbedBuilder
         return this;
     }
 
+    // ── Color presets ───────────────────────────────────────────────────────────
+
+    /// <summary>Sets the embed color to Discord's blurple (0x5865F2).</summary>
+    public EmbedBuilder WithBlurpleColor()
+    {
+        _color = 0x5865F2;
+        return this;
+    }
+
+    /// <summary>Sets the embed color to Discord's green (0x57F287).</summary>
+    public EmbedBuilder WithGreenColor()
+    {
+        _color = 0x57F287;
+        return this;
+    }
+
+    /// <summary>Sets the embed color to Discord's yellow (0xFEE75C).</summary>
+    public EmbedBuilder WithYellowColor()
+    {
+        _color = 0xFEE75C;
+        return this;
+    }
+
+    /// <summary>Sets the embed color to Discord's red (0xED4245).</summary>
+    public EmbedBuilder WithRedColor()
+    {
+        _color = 0xED4245;
+        return this;
+    }
+
+    /// <summary>Sets the embed color to white (0xFFFFFF).</summary>
+    public EmbedBuilder WithWhiteColor()
+    {
+        _color = 0xFFFFFF;
+        return this;
+    }
+
+    /// <summary>Sets the embed color to black (0x000000).</summary>
+    public EmbedBuilder WithBlackColor()
+    {
+        _color = 0x000000;
+        return this;
+    }
+
+    // ── Timestamp helpers ────────────────────────────────────────────────────────
+
     /// <summary>Sets the timestamp shown at the bottom of the embed.</summary>
     public EmbedBuilder WithTimestamp(DateTimeOffset? timestamp = null)
     {
         _timestamp = timestamp ?? DateTimeOffset.UtcNow;
         return this;
+    }
+
+    /// <summary>Sets the timestamp to the current UTC time.</summary>
+    public EmbedBuilder WithCurrentTimestamp()
+    {
+        _timestamp = DateTimeOffset.UtcNow;
+        return this;
+    }
+
+    // ── Quick field methods ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Appends a field to the embed (max 25 fields total).
+    /// </summary>
+    /// <param name="name">Field name (max 256 characters).</param>
+    /// <param name="value">Field value (max 1024 characters).</param>
+    /// <param name="inline">Whether this field is displayed side-by-side with adjacent inline fields.</param>
+    public EmbedBuilder AddField(string name, string value, bool inline = false)
+    {
+        if (_fields.Count >= MaxFields)
+            throw new InvalidOperationException($"An embed cannot contain more than {MaxFields} fields.");
+        if (name.Length > MaxFieldNameLength)
+            throw new ArgumentException($"Field name must not exceed {MaxFieldNameLength} characters.", nameof(name));
+        if (value.Length > MaxFieldValueLength)
+            throw new ArgumentException($"Field value must not exceed {MaxFieldValueLength} characters.", nameof(value));
+
+        _fields.Add(new EmbedField { Name = name, Value = value, Inline = inline });
+        return this;
+    }
+
+    /// <summary>
+    /// Appends an inline field to the embed (shortcut for AddField with inline: true).
+    /// </summary>
+    /// <param name="name">Field name (max 256 characters).</param>
+    /// <param name="value">Field value (max 1024 characters).</param>
+    public EmbedBuilder AddInlineField(string name, string value)
+    {
+        return AddField(name, value, inline: true);
     }
 
     /// <summary>Sets the embed footer.</summary>
@@ -162,25 +246,6 @@ public sealed class EmbedBuilder
     public EmbedBuilder WithAuthor(EmbedAuthor author)
     {
         _author = author;
-        return this;
-    }
-
-    /// <summary>
-    /// Appends a field to the embed (max 25 fields total).
-    /// </summary>
-    /// <param name="name">Field name (max 256 characters).</param>
-    /// <param name="value">Field value (max 1024 characters).</param>
-    /// <param name="inline">Whether this field is displayed side-by-side with adjacent inline fields.</param>
-    public EmbedBuilder AddField(string name, string value, bool inline = false)
-    {
-        if (_fields.Count >= MaxFields)
-            throw new InvalidOperationException($"An embed cannot contain more than {MaxFields} fields.");
-        if (name.Length > MaxFieldNameLength)
-            throw new ArgumentException($"Field name must not exceed {MaxFieldNameLength} characters.", nameof(name));
-        if (value.Length > MaxFieldValueLength)
-            throw new ArgumentException($"Field value must not exceed {MaxFieldValueLength} characters.", nameof(value));
-
-        _fields.Add(new EmbedField { Name = name, Value = value, Inline = inline });
         return this;
     }
 

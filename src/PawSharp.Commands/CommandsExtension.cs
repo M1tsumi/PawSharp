@@ -551,6 +551,21 @@ public class CommandsExtension
             .AsReadOnly();
     }
 
+    /// <summary>
+    /// Gets all registered commands that include the specified precondition.
+    /// </summary>
+    /// <typeparam name="T">The precondition type.</typeparam>
+    /// <returns>A list of registered commands that use the precondition.</returns>
+    public IReadOnlyList<CommandInfo> GetRegisteredCommandsWithPrecondition<T>() where T : IPrecondition
+    {
+        return _commands.Values
+            .Distinct()
+            .Where(c => c.Preconditions.Any(p => p is T))
+            .Select(c => new CommandInfo(c.Name, c.Aliases, c.Description))
+            .ToList()
+            .AsReadOnly();
+    }
+
     private async Task OnMessageCreate(MessageCreateEvent evt)
     {
         if (evt.Author?.Bot == true || string.IsNullOrEmpty(evt.Content))
@@ -736,197 +751,29 @@ public class CommandsExtension
         if (client == null) throw new ArgumentNullException(nameof(client));
         if (module == null) throw new ArgumentNullException(nameof(module));
 
-        var type = module.GetType();
-        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
-
-        foreach (var method in methods)
+        var registrations = BuildSlashRegistrations(client, module);
+        foreach (var registration in registrations)
         {
-            var slashAttr = method.GetCustomAttribute<SlashCommandAttribute>();
-            if (slashAttr == null) continue;
-
-            // Build the option list from every parameter that is NOT InteractionCreateEvent
-            var parameters = method.GetParameters();
-            var options = new List<ApplicationCommandOption>();
-
-            foreach (var param in parameters)
-            {
-                if (param.ParameterType == typeof(InteractionCreateEvent)) continue;
-
-                var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
-                var optName = optAttr?.Name ?? param.Name ?? "option";
-                var optDesc = optAttr?.Description ?? "No description provided.";
-                var required = optAttr?.Required ?? !IsOptionalType(param.ParameterType);
-
-                var option = new ApplicationCommandOption
-                {
-                    Name = optName,
-                    Description = optDesc,
-                    Required = required,
-                    Type = MapTypeToOptionType(param.ParameterType),
-                };
-
-                // Add choices if present
-                var choiceAttrs = param.GetCustomAttributes<SlashChoiceAttribute>();
-                if (choiceAttrs.Any())
-                {
-                    option.Choices = choiceAttrs.Select(c => new ApplicationCommandOptionChoice
-                    {
-                        Name = c.Name,
-                        Value = c.Value
-                    }).ToList();
-                }
-
-                // Add min/max value for numeric types
-                var minValAttr = param.GetCustomAttribute<SlashMinValueAttribute>();
-                if (minValAttr != null)
-                {
-                    option.MinValue = minValAttr.MinValue;
-                }
-
-                var maxValAttr = param.GetCustomAttribute<SlashMaxValueAttribute>();
-                if (maxValAttr != null)
-                {
-                    option.MaxValue = maxValAttr.MaxValue;
-                }
-
-                // Add min/max length for string types
-                var minLenAttr = param.GetCustomAttribute<SlashMinLengthAttribute>();
-                if (minLenAttr != null)
-                {
-                    option.MinLength = minLenAttr.MinLength;
-                }
-
-                var maxLenAttr = param.GetCustomAttribute<SlashMaxLengthAttribute>();
-                if (maxLenAttr != null)
-                {
-                    option.MaxLength = maxLenAttr.MaxLength;
-                }
-
-                // Add channel types for channel options
-                var channelTypesAttr = param.GetCustomAttribute<SlashChannelTypesAttribute>();
-                if (channelTypesAttr != null)
-                {
-                    option.ChannelTypes = channelTypesAttr.ChannelTypes.ToList();
-                }
-
-                // Add autocomplete flag
-                var autocompleteAttr = param.GetCustomAttribute<SlashAutocompleteAttribute>();
-                if (autocompleteAttr != null)
-                {
-                    option.Autocomplete = true;
-                }
-
-                options.Add(option);
-            }
-
-            var request = new CreateApplicationCommandRequest
-            {
-                Name        = slashAttr.Name,
-                Description = slashAttr.Description,
-                Type        = 1, // CHAT_INPUT
-                Options     = options.Count > 0 ? options : null,
-            };
-
-            // Add NSFW flag
-            var nsfwAttr = method.GetCustomAttribute<SlashNsfwAttribute>();
-            if (nsfwAttr != null)
-            {
-                request.Nsfw = true;
-            }
-
-            // Add DM permission
-            var dmPermAttr = method.GetCustomAttribute<SlashDmPermissionAttribute>();
-            if (dmPermAttr != null)
-            {
-                request.DmPermission = dmPermAttr.AllowDm;
-            }
-
-            // Add default member permissions
-            var defaultPermAttr = method.GetCustomAttribute<SlashDefaultPermissionAttribute>();
-            if (defaultPermAttr != null)
-            {
-                request.DefaultPermission = defaultPermAttr.Permission;
-            }
-
-            // Add localized names
-            var nameLocalizations = method.GetCustomAttributes<SlashLocalizedNameAttribute>();
-            if (nameLocalizations.Any())
-            {
-                request.NameLocalizations = nameLocalizations.ToDictionary(l => l.Locale, l => l.Name);
-            }
-
-            // Add localized descriptions
-            var descLocalizations = method.GetCustomAttributes<SlashLocalizedDescriptionAttribute>();
-            if (descLocalizations.Any())
-            {
-                request.DescriptionLocalizations = descLocalizations.ToDictionary(l => l.Locale, l => l.Description);
-            }
-
             // Register with Discord REST API
             try
             {
                 if (guildId.HasValue)
-                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, request);
+                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, registration.Request);
                 else
-                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, request);
+                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, registration.Request);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to register slash command /{Name} with Discord", slashAttr.Name);
+                _logger.LogError(ex, "Failed to register slash command /{Name} with Discord", registration.CommandName);
                 continue;
             }
 
-            // Capture loop variables for the async closure
-            var capturedMethod    = method;
-            var capturedModule    = module;
-            var capturedParams    = parameters;
-            var capturedSlashAttr = slashAttr;
-
-            // Wire the interaction handler
-            client.Interactions.RegisterCommand(slashAttr.Name, async interaction =>
-            {
-                var args = new object?[capturedParams.Length];
-                for (var i = 0; i < capturedParams.Length; i++)
-                {
-                    var param = capturedParams[i];
-                    if (param.ParameterType == typeof(InteractionCreateEvent))
-                    {
-                        args[i] = interaction;
-                        continue;
-                    }
-
-                    var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
-                    var optName = optAttr?.Name ?? param.Name ?? "option";
-                    args[i] = GetOptionValueForType(interaction, optName, param.ParameterType);
-                }
-
-                try
-                {
-                    var result = capturedMethod.Invoke(capturedModule, args);
-                    if (result is Task task) await task;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error executing slash command /{Name}", capturedSlashAttr.Name);
-
-                    if (CommandErrored != null)
-                    {
-                        // Build a minimal CommandContext for the error event (no message — slash context)
-                        try
-                        {
-                            await CommandErrored(new CommandErrorEventArgs(
-                                new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
-                        }
-                        catch (Exception handlerEx)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
-                        }
-                    }
-                }
-            });
-
-            _logger.LogDebug("Registered slash command /{Name} for application {AppId}", slashAttr.Name, applicationId);
+            client.Interactions.RegisterCommand(registration.CommandName, registration.Handler);
+            _logger.LogDebug("Registered slash command /{Name} for application {AppId}", registration.CommandName, applicationId);
         }
+
+        // Register autocomplete handlers
+        RegisterAutocompleteHandlers(client, module);
     }
 
     /// <summary>
@@ -957,86 +804,10 @@ public class CommandsExtension
         foreach (var module in modules)
         {
             if (module == null) continue;
-            var type = module.GetType();
-
-            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var registration in BuildSlashRegistrations(client, module))
             {
-                var slashAttr = method.GetCustomAttribute<SlashCommandAttribute>();
-                if (slashAttr == null) continue;
-
-                var parameters = method.GetParameters();
-                var options    = new List<ApplicationCommandOption>();
-
-                foreach (var param in parameters)
-                {
-                    if (param.ParameterType == typeof(InteractionCreateEvent)) continue;
-
-                    var optAttr  = param.GetCustomAttribute<SlashOptionAttribute>();
-                    var optName  = optAttr?.Name ?? param.Name ?? "option";
-                    var optDesc  = optAttr?.Description ?? "No description provided.";
-                    var required = optAttr?.Required ?? !IsOptionalType(param.ParameterType);
-
-                    options.Add(new ApplicationCommandOption
-                    {
-                        Name        = optName,
-                        Description = optDesc,
-                        Required    = required,
-                        Type        = MapTypeToOptionType(param.ParameterType),
-                    });
-                }
-
-                requests.Add(new CreateApplicationCommandRequest
-                {
-                    Name        = slashAttr.Name,
-                    Description = slashAttr.Description,
-                    Type        = 1, // CHAT_INPUT
-                    Options     = options.Count > 0 ? options : null,
-                });
-
-                // Capture loop variables for the async closure.
-                var capturedMethod    = method;
-                var capturedModule    = module;
-                var capturedParams    = parameters;
-                var capturedSlashAttr = slashAttr;
-
-                handlerBuilders.Add((slashAttr.Name, async interaction =>
-                {
-                    var args = new object?[capturedParams.Length];
-                    for (var i = 0; i < capturedParams.Length; i++)
-                    {
-                        var param = capturedParams[i];
-                        if (param.ParameterType == typeof(InteractionCreateEvent))
-                        {
-                            args[i] = interaction;
-                            continue;
-                        }
-                        var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
-                        var optName = optAttr?.Name ?? param.Name ?? "option";
-                        args[i] = GetOptionValueForType(interaction, optName, param.ParameterType);
-                    }
-
-                    try
-                    {
-                        var result = capturedMethod.Invoke(capturedModule, args);
-                        if (result is Task task) await task;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error executing slash command /{Name}", capturedSlashAttr.Name);
-                        if (CommandErrored != null)
-                        {
-                            try
-                            {
-                                await CommandErrored(new CommandErrorEventArgs(
-                                    new SlashCommandContext(client, interaction, capturedSlashAttr.Name), ex));
-                            }
-                            catch (Exception handlerEx)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
-                            }
-                        }
-                    }
-                }));
+                requests.Add(registration.Request);
+                handlerBuilders.Add((registration.CommandName, registration.Handler));
             }
         }
 
@@ -1065,6 +836,440 @@ public class CommandsExtension
 
         _logger.LogInformation("Bulk-registered {Count} slash command(s) for application {AppId}",
             requests.Count, applicationId);
+
+        // Register autocomplete handlers from all modules
+        foreach (var module in modules)
+        {
+            if (module == null) continue;
+            RegisterAutocompleteHandlers(client, module);
+        }
+    }
+
+    private sealed class SlashRegistration
+    {
+        public string CommandName { get; }
+        public CreateApplicationCommandRequest Request { get; }
+        public Func<InteractionCreateEvent, Task> Handler { get; }
+
+        public SlashRegistration(
+            string commandName,
+            CreateApplicationCommandRequest request,
+            Func<InteractionCreateEvent, Task> handler)
+        {
+            CommandName = commandName;
+            Request = request;
+            Handler = handler;
+        }
+    }
+
+    private static CreateApplicationCommandRequest BuildSlashCommandRequest(
+        MethodInfo method,
+        SlashCommandAttribute slashAttr)
+    {
+        var options = BuildSlashCommandOptions(method.GetParameters());
+        var request = new CreateApplicationCommandRequest
+        {
+            Name = slashAttr.Name,
+            Description = slashAttr.Description,
+            Type = 1, // CHAT_INPUT
+            Options = options.Count > 0 ? options : null,
+        };
+        ApplyCommandMetadata(request, method);
+
+        return request;
+    }
+
+    private List<SlashRegistration> BuildSlashRegistrations(DiscordClient client, BaseCommandModule module)
+    {
+        var registrations = new List<SlashRegistration>();
+        var moduleType = module.GetType();
+        var methods = moduleType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+
+        var groupAttr = moduleType.GetCustomAttribute<SlashGroupAttribute>();
+        var subcommandMethods = methods
+            .Select(m => new { Method = m, Sub = m.GetCustomAttribute<SlashSubCommandAttribute>() })
+            .Where(x => x.Sub != null)
+            .Select(x => (x.Method, Sub: x.Sub!))
+            .ToList();
+
+        if (groupAttr != null && subcommandMethods.Count > 0)
+        {
+            registrations.Add(BuildSlashGroupRegistration(client, module, groupAttr, subcommandMethods));
+        }
+        else if (groupAttr == null && subcommandMethods.Count > 0)
+        {
+            _logger.LogWarning(
+                "Module {Module} declares [SlashSubCommand] methods but has no [SlashGroup]; subcommands will not be registered.",
+                moduleType.Name);
+        }
+
+        foreach (var method in methods)
+        {
+            var slashAttr = method.GetCustomAttribute<SlashCommandAttribute>();
+            if (slashAttr == null)
+            {
+                continue;
+            }
+
+            registrations.Add(BuildSlashMethodRegistration(client, module, method, slashAttr));
+        }
+
+        return registrations;
+    }
+
+    private void RegisterAutocompleteHandlers(DiscordClient client, BaseCommandModule module)
+    {
+        var moduleType = module.GetType();
+        var methods = moduleType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var method in methods)
+        {
+            var handlerAttrs = method.GetCustomAttributes<AutocompleteHandlerAttribute>();
+            foreach (var attr in handlerAttrs)
+            {
+                var capturedMethod = method;
+                var capturedModule = module;
+                var commandName = attr.CommandName;
+                var optionName = attr.OptionName;
+
+                // Register with command name as key (matches how InteractionHandler routes autocomplete)
+                client.Interactions.RegisterAutocomplete(commandName, async interaction =>
+                {
+                    try
+                    {
+                        // Check if this autocomplete request is for the correct option
+                        var focusedOption = interaction.Data?.Options?.FirstOrDefault(o => o.Focused == true);
+                        if (focusedOption == null || !string.Equals(focusedOption.Name, optionName, StringComparison.OrdinalIgnoreCase))
+                            return new List<API.Models.AutocompleteChoice>();
+
+                        // Invoke the autocomplete handler method
+                        var result = capturedMethod.Invoke(capturedModule, new object[] { interaction, focusedOption });
+
+                        if (result is Task<List<API.Models.AutocompleteChoice>> task)
+                        {
+                            return await task;
+                        }
+
+                        if (result is List<API.Models.AutocompleteChoice> choices)
+                        {
+                            return choices;
+                        }
+
+                        return new List<API.Models.AutocompleteChoice>();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error executing autocomplete handler for /{CommandName} option '{OptionName}'", commandName, optionName);
+                        return new List<API.Models.AutocompleteChoice>();
+                    }
+                });
+
+                _logger.LogDebug("Registered autocomplete handler for /{CommandName} option '{OptionName}'", commandName, optionName);
+            }
+        }
+    }
+
+    private SlashRegistration BuildSlashMethodRegistration(
+        DiscordClient client,
+        BaseCommandModule module,
+        MethodInfo method,
+        SlashCommandAttribute slashAttr)
+    {
+        var parameters = method.GetParameters();
+        var request = BuildSlashCommandRequest(method, slashAttr);
+
+        return new SlashRegistration(
+            slashAttr.Name,
+            request,
+            async interaction =>
+            {
+                var args = BuildInvocationArguments(parameters, interaction, interaction.Data?.Options);
+                await InvokeSlashMethodWithErrorsAsync(client, module, method, args, slashAttr.Name, interaction);
+            });
+    }
+
+    private SlashRegistration BuildSlashGroupRegistration(
+        DiscordClient client,
+        BaseCommandModule module,
+        SlashGroupAttribute groupAttr,
+        IReadOnlyList<(MethodInfo Method, SlashSubCommandAttribute Sub)> subcommandMethods)
+    {
+        var subcommandsByName = subcommandMethods.ToDictionary(
+            x => x.Sub.Name,
+            x => x,
+            StringComparer.OrdinalIgnoreCase);
+
+        var request = new CreateApplicationCommandRequest
+        {
+            Name = groupAttr.Name,
+            Description = groupAttr.Description,
+            Type = 1, // CHAT_INPUT
+            Options = subcommandMethods
+                .Select(x => BuildSubCommandOption(x.Method, x.Sub))
+                .ToList()
+        };
+
+        ApplyCommandMetadata(request, module.GetType());
+
+        return new SlashRegistration(
+            groupAttr.Name,
+            request,
+            async interaction =>
+            {
+                var invokedSubcommand = FindInvokedSubCommand(interaction.Data?.Options);
+                if (invokedSubcommand == null || !subcommandsByName.TryGetValue(invokedSubcommand.Name, out var target))
+                {
+                    _logger.LogWarning(
+                        "Unable to resolve subcommand for /{Group} from interaction {InteractionId}",
+                        groupAttr.Name,
+                        interaction.Id);
+                    return;
+                }
+
+                var args = BuildInvocationArguments(target.Method.GetParameters(), interaction, invokedSubcommand.Options);
+                await InvokeSlashMethodWithErrorsAsync(client, module, target.Method, args, $"{groupAttr.Name} {target.Sub.Name}", interaction);
+            });
+    }
+
+    private async Task InvokeSlashMethodWithErrorsAsync(
+        DiscordClient client,
+        BaseCommandModule module,
+        MethodInfo method,
+        object?[] args,
+        string commandName,
+        InteractionCreateEvent interaction)
+    {
+        try
+        {
+            var result = method.Invoke(module, args);
+            if (result is Task task)
+            {
+                await task;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing slash command /{Name}", commandName);
+            if (CommandErrored != null)
+            {
+                try
+                {
+                    await CommandErrored(new CommandErrorEventArgs(
+                        new SlashCommandContext(client, interaction, commandName), ex));
+                }
+                catch (Exception handlerEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
+                }
+            }
+        }
+    }
+
+    private static object?[] BuildInvocationArguments(
+        ParameterInfo[] parameters,
+        InteractionCreateEvent interaction,
+        IEnumerable<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>? optionScope)
+    {
+        var args = new object?[parameters.Length];
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var param = parameters[i];
+            if (param.ParameterType == typeof(InteractionCreateEvent))
+            {
+                args[i] = interaction;
+                continue;
+            }
+
+            var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
+            var optName = optAttr?.Name ?? param.Name ?? "option";
+            args[i] = GetOptionValueForType(optionScope, interaction, optName, param.ParameterType);
+        }
+
+        return args;
+    }
+
+    private static ApplicationCommandOption BuildSubCommandOption(MethodInfo method, SlashSubCommandAttribute subcommand)
+    {
+        var parameters = method.GetParameters();
+        var options = BuildSlashCommandOptions(parameters);
+        return new ApplicationCommandOption
+        {
+            Type = ApplicationCommandOptionType.SubCommand,
+            Name = subcommand.Name,
+            Description = subcommand.Description,
+            Options = options.Count > 0 ? options : null
+        };
+    }
+
+    private static PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption? FindInvokedSubCommand(
+        IEnumerable<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>? options)
+    {
+        if (options == null)
+        {
+            return null;
+        }
+
+        foreach (var option in options)
+        {
+            if (option.Type == (int)ApplicationCommandOptionType.SubCommand)
+            {
+                return option;
+            }
+
+            if (option.Type == (int)ApplicationCommandOptionType.SubCommandGroup && option.Options != null)
+            {
+                var nested = option.Options.FirstOrDefault(o => o.Type == (int)ApplicationCommandOptionType.SubCommand);
+                if (nested != null)
+                {
+                    return nested;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static void ApplyCommandMetadata(CreateApplicationCommandRequest request, MemberInfo source)
+    {
+        if (source.GetCustomAttribute<SlashNsfwAttribute>() != null)
+        {
+            request.Nsfw = true;
+        }
+
+        var dmPermAttr = source.GetCustomAttribute<SlashDmPermissionAttribute>();
+        if (dmPermAttr != null)
+        {
+            request.DmPermission = dmPermAttr.AllowDm;
+            if (request.Contexts == null)
+            {
+                request.Contexts = dmPermAttr.AllowDm
+                    ? new List<int> { 0, 1, 2 }
+                    : new List<int> { 0 };
+            }
+        }
+
+        var defaultPermAttr = source.GetCustomAttribute<SlashDefaultPermissionAttribute>();
+        if (defaultPermAttr != null)
+        {
+            request.DefaultPermission = defaultPermAttr.Permission;
+            if (!defaultPermAttr.Permission && string.IsNullOrEmpty(request.DefaultMemberPermissions))
+            {
+                request.DefaultMemberPermissions = "0";
+            }
+        }
+
+        var defaultMemberPerms = source.GetCustomAttribute<SlashDefaultMemberPermissionsAttribute>();
+        if (defaultMemberPerms != null)
+        {
+            request.DefaultMemberPermissions = defaultMemberPerms.Permissions.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var integrationTypes = source.GetCustomAttribute<SlashIntegrationTypesAttribute>();
+        if (integrationTypes != null && integrationTypes.IntegrationTypes.Count > 0)
+        {
+            request.IntegrationTypes = integrationTypes.IntegrationTypes.Distinct().ToList();
+        }
+
+        var contexts = source.GetCustomAttribute<SlashContextsAttribute>();
+        if (contexts != null && contexts.Contexts.Count > 0)
+        {
+            request.Contexts = contexts.Contexts.Distinct().ToList();
+        }
+
+        var nameLocalizations = source.GetCustomAttributes<SlashLocalizedNameAttribute>();
+        if (nameLocalizations.Any())
+        {
+            request.NameLocalizations = nameLocalizations.ToDictionary(l => l.Locale, l => l.Name);
+        }
+
+        var descLocalizations = source.GetCustomAttributes<SlashLocalizedDescriptionAttribute>();
+        if (descLocalizations.Any())
+        {
+            request.DescriptionLocalizations = descLocalizations.ToDictionary(l => l.Locale, l => l.Description);
+        }
+    }
+
+    private static List<ApplicationCommandOption> BuildSlashCommandOptions(ParameterInfo[] parameters)
+    {
+        var options = new List<ApplicationCommandOption>();
+
+        foreach (var param in parameters)
+        {
+            if (param.ParameterType == typeof(InteractionCreateEvent))
+            {
+                continue;
+            }
+
+            var optAttr = param.GetCustomAttribute<SlashOptionAttribute>();
+            var option = new ApplicationCommandOption
+            {
+                Name = optAttr?.Name ?? param.Name ?? "option",
+                Description = optAttr?.Description ?? "No description provided.",
+                Required = optAttr?.Required ?? !IsOptionalType(param.ParameterType),
+                Type = MapTypeToOptionType(param.ParameterType),
+            };
+
+            var choiceAttrs = param.GetCustomAttributes<SlashChoiceAttribute>().ToList();
+            if (choiceAttrs.Count > 0)
+            {
+                option.Choices = choiceAttrs.Select(c => new ApplicationCommandOptionChoice
+                {
+                    Name = c.Name,
+                    Value = c.Value
+                }).ToList();
+            }
+
+            var minValAttr = param.GetCustomAttribute<SlashMinValueAttribute>();
+            if (minValAttr != null)
+            {
+                option.MinValue = minValAttr.MinValue;
+            }
+
+            var maxValAttr = param.GetCustomAttribute<SlashMaxValueAttribute>();
+            if (maxValAttr != null)
+            {
+                option.MaxValue = maxValAttr.MaxValue;
+            }
+
+            var minLenAttr = param.GetCustomAttribute<SlashMinLengthAttribute>();
+            if (minLenAttr != null)
+            {
+                option.MinLength = minLenAttr.MinLength;
+            }
+
+            var maxLenAttr = param.GetCustomAttribute<SlashMaxLengthAttribute>();
+            if (maxLenAttr != null)
+            {
+                option.MaxLength = maxLenAttr.MaxLength;
+            }
+
+            var channelTypesAttr = param.GetCustomAttribute<SlashChannelTypesAttribute>();
+            if (channelTypesAttr != null)
+            {
+                option.ChannelTypes = channelTypesAttr.ChannelTypes.ToList();
+            }
+
+            if (param.GetCustomAttribute<SlashAutocompleteAttribute>() != null && choiceAttrs.Count == 0)
+            {
+                option.Autocomplete = true;
+            }
+
+            var optionNameLocalizations = param.GetCustomAttributes<SlashLocalizedNameAttribute>();
+            if (optionNameLocalizations.Any())
+            {
+                option.NameLocalizations = optionNameLocalizations.ToDictionary(l => l.Locale, l => l.Name);
+            }
+
+            var optionDescLocalizations = param.GetCustomAttributes<SlashLocalizedDescriptionAttribute>();
+            if (optionDescLocalizations.Any())
+            {
+                option.DescriptionLocalizations = optionDescLocalizations.ToDictionary(l => l.Locale, l => l.Description);
+            }
+
+            options.Add(option);
+        }
+
+        return options;
     }
 
     // Maps a C# parameter type to the corresponding Discord ApplicationCommandOptionType.
@@ -1093,15 +1298,21 @@ public class CommandsExtension
         => !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
 
     // Extracts and converts one named option value from the interaction for the given target type.
-    private static object? GetOptionValueForType(InteractionCreateEvent interaction, string name, Type targetType)
+    private static object? GetOptionValueForType(
+        IEnumerable<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>? optionScope,
+        InteractionCreateEvent interaction,
+        string name,
+        Type targetType)
     {
-        var options = interaction.Data?.Options;
-        if (options == null) return GetDefault(targetType);
-
-        var option = options.FirstOrDefault(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase));
+        var option = FindOption(optionScope, name);
         if (option?.Value == null) return GetDefault(targetType);
 
         var inner = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        if (TryResolveEntityOption(interaction, option.Value, inner, out var resolved))
+        {
+            return resolved;
+        }
 
         if (option.Value is JsonElement element)
         {
@@ -1119,6 +1330,146 @@ public class CommandsExtension
             System.Diagnostics.Debug.WriteLine($"Type conversion failed for {targetType.Name}: {ex.Message}");
             return GetDefault(targetType);
         }
+    }
+
+    private static PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption? FindOption(
+        IEnumerable<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>? options,
+        string name)
+    {
+        if (options == null)
+            return null;
+
+        foreach (var option in options)
+        {
+            if (string.Equals(option.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return option;
+            }
+
+            if (option.Options != null)
+            {
+                var nested = FindOption(option.Options, name);
+                if (nested != null)
+                    return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryResolveEntityOption(
+        InteractionCreateEvent interaction,
+        object value,
+        Type targetType,
+        out object? resolved)
+    {
+        resolved = null;
+
+        if (!TryGetSnowflake(value, out var id))
+        {
+            return false;
+        }
+
+        var resolvedData = interaction.Data?.Resolved;
+        if (resolvedData == null)
+        {
+            return false;
+        }
+
+        if (targetType == typeof(User))
+        {
+            if (resolvedData.Users != null && resolvedData.Users.TryGetValue(id, out var user))
+            {
+                resolved = user;
+                return true;
+            }
+            return false;
+        }
+
+        if (targetType == typeof(Role))
+        {
+            if (resolvedData.Roles != null && resolvedData.Roles.TryGetValue(id, out var role))
+            {
+                resolved = role;
+                return true;
+            }
+            return false;
+        }
+
+        if (targetType == typeof(Channel))
+        {
+            if (resolvedData.Channels != null && resolvedData.Channels.TryGetValue(id, out var channel))
+            {
+                resolved = channel;
+                return true;
+            }
+            return false;
+        }
+
+        if (targetType == typeof(Attachment))
+        {
+            if (resolvedData.Attachments != null && resolvedData.Attachments.TryGetValue(id, out var attachment))
+            {
+                resolved = attachment;
+                return true;
+            }
+            return false;
+        }
+
+        if (targetType == typeof(GuildMember))
+        {
+            if (resolvedData.Members != null && resolvedData.Members.TryGetValue(id, out var member))
+            {
+                if (member.User == null && resolvedData.Users != null && resolvedData.Users.TryGetValue(id, out var memberUser))
+                {
+                    member.User = memberUser;
+                }
+                resolved = member;
+                return true;
+            }
+
+            if (resolvedData.Users != null && resolvedData.Users.TryGetValue(id, out var user))
+            {
+                resolved = new GuildMember { User = user };
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetSnowflake(object value, out ulong id)
+    {
+        switch (value)
+        {
+            case ulong ulongValue:
+                id = ulongValue;
+                return true;
+            case long longValue when longValue >= 0:
+                id = (ulong)longValue;
+                return true;
+            case int intValue when intValue >= 0:
+                id = (ulong)intValue;
+                return true;
+            case string stringValue:
+                return ulong.TryParse(stringValue, out id);
+            case JsonElement element:
+                if (element.ValueKind == JsonValueKind.String)
+                {
+                    return ulong.TryParse(element.GetString(), out id);
+                }
+                if (element.ValueKind == JsonValueKind.Number && element.TryGetUInt64(out var number))
+                {
+                    id = number;
+                    return true;
+                }
+                break;
+        }
+
+        id = 0;
+        return false;
     }
 
     // ── Context menu command auto-registration ─────────────────────────────────
