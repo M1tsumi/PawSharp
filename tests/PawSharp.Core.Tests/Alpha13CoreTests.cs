@@ -191,6 +191,23 @@ public class Alpha13CoreTests
         reference.FailIfNotExists.Should().BeTrue();
     }
 
+    [Fact]
+    public void MessageType_Values_MatchDiscordSpec()
+    {
+        ((int)MessageType.Default).Should().Be(0);
+        ((int)MessageType.Reply).Should().Be(19);
+        ((int)MessageType.ChatInputCommand).Should().Be(20);
+        ((int)MessageType.ContextMenuCommand).Should().Be(23);
+        ((int)MessageType.AutoModerationAction).Should().Be(24);
+        ((int)MessageType.GuildApplicationPremiumSubscription).Should().Be(32);
+        ((int)MessageType.GuildIncidentAlertModeEnabled).Should().Be(36);
+        ((int)MessageType.GuildIncidentAlertModeDisabled).Should().Be(37);
+        ((int)MessageType.GuildIncidentReportRaid).Should().Be(38);
+        ((int)MessageType.GuildIncidentReportFalseAlarm).Should().Be(39);
+        ((int)MessageType.PurchaseNotification).Should().Be(44);
+        ((int)MessageType.PollResult).Should().Be(46);
+    }
+
     // ─── MessageFlags ─────────────────────────────────────────────────────────
 
     [Fact]
@@ -408,6 +425,34 @@ public class Alpha13CoreTests
         ((int)ComponentType.RoleSelect).Should().Be(6);
         ((int)ComponentType.MentionableSelect).Should().Be(7);
         ((int)ComponentType.ChannelSelect).Should().Be(8);
+        ((int)ComponentType.Section).Should().Be(9);
+        ((int)ComponentType.TextDisplay).Should().Be(10);
+        ((int)ComponentType.Thumbnail).Should().Be(11);
+        ((int)ComponentType.MediaGallery).Should().Be(12);
+        ((int)ComponentType.File).Should().Be(13);
+        ((int)ComponentType.Separator).Should().Be(14);
+        ((int)ComponentType.Container).Should().Be(17);
+        ((int)ComponentType.Label).Should().Be(18);
+        ((int)ComponentType.FileUpload).Should().Be(19);
+        ((int)ComponentType.RadioGroup).Should().Be(21);
+        ((int)ComponentType.CheckboxGroup).Should().Be(22);
+        ((int)ComponentType.Checkbox).Should().Be(23);
+    }
+
+    [Fact]
+    public void MessageHelpers_Recognize_Command_And_System_Types()
+    {
+        var slashCommand = new Message { Type = MessageType.ChatInputCommand };
+        slashCommand.IsCommand.Should().BeTrue();
+        slashCommand.IsSystemMessage.Should().BeTrue();
+
+        var contextMenuCommand = new Message { Type = MessageType.ContextMenuCommand };
+        contextMenuCommand.IsCommand.Should().BeTrue();
+        contextMenuCommand.IsSystemMessage.Should().BeTrue();
+
+        var regularMessage = new Message { Type = MessageType.Default };
+        regularMessage.IsCommand.Should().BeFalse();
+        regularMessage.IsSystemMessage.Should().BeFalse();
     }
 
     [Fact]

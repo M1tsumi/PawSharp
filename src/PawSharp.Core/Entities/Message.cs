@@ -301,9 +301,9 @@ public class Message : DiscordEntity
     public bool IsReply => Type == MessageType.Reply;
 
     /// <summary>
-    /// Gets whether this message is a slash command.
+    /// Gets whether this message is a command message.
     /// </summary>
-    public bool IsCommand => Type == MessageType.ChatInputCommand;
+    public bool IsCommand => Type is MessageType.ChatInputCommand or MessageType.ContextMenuCommand;
 
     /// <summary>
     /// Gets whether this message is from an auto moderation action.
@@ -320,8 +320,12 @@ public class Message : DiscordEntity
         MessageType.ChannelFollowAdd or MessageType.GuildDiscoveryDisqualified or
         MessageType.GuildDiscoveryRequalified or MessageType.GuildDiscoveryGracePeriodInitialWarning or
         MessageType.GuildDiscoveryGracePeriodFinalWarning or MessageType.ThreadCreated or
-        MessageType.GuildInviteReminder or MessageType.StageStart or MessageType.StageEnd or
-        MessageType.StageSpeaker or MessageType.StageTopic;
+        MessageType.GuildInviteReminder or MessageType.ChatInputCommand or MessageType.ContextMenuCommand or
+        MessageType.AutoModerationAction or MessageType.RoleSubscriptionPurchase or MessageType.InteractionPremiumUpsell or
+        MessageType.GuildApplicationPremiumSubscription or MessageType.StageStart or MessageType.StageEnd or
+        MessageType.StageSpeaker or MessageType.StageTopic or MessageType.GuildIncidentAlertModeEnabled or
+        MessageType.GuildIncidentAlertModeDisabled or MessageType.GuildIncidentReportRaid or
+        MessageType.GuildIncidentReportFalseAlarm or MessageType.PurchaseNotification or MessageType.PollResult;
 
     /// <summary>
     /// Gets the jump URL for this message.
