@@ -8,6 +8,7 @@ using PawSharp.API.Models;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
+using PawSharp.Interactions;
 
 namespace PawSharp.Interactivity.Extensions;
 
