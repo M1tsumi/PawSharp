@@ -28191,6 +28191,18 @@ references:
   commentId: F:PawSharp.Core.Entities.ComponentType.ChannelSelect
   fullName: PawSharp.Core.Entities.ComponentType.ChannelSelect
   nameWithType: ComponentType.ChannelSelect
+- uid: PawSharp.Core.Entities.ComponentType.Checkbox
+  name: Checkbox
+  href: api/PawSharp.Core.Entities.ComponentType.yml
+  commentId: F:PawSharp.Core.Entities.ComponentType.Checkbox
+  fullName: PawSharp.Core.Entities.ComponentType.Checkbox
+  nameWithType: ComponentType.Checkbox
+- uid: PawSharp.Core.Entities.ComponentType.CheckboxGroup
+  name: CheckboxGroup
+  href: api/PawSharp.Core.Entities.ComponentType.yml
+  commentId: F:PawSharp.Core.Entities.ComponentType.CheckboxGroup
+  fullName: PawSharp.Core.Entities.ComponentType.CheckboxGroup
+  nameWithType: ComponentType.CheckboxGroup
 - uid: PawSharp.Core.Entities.ComponentType.Container
   name: Container
   href: api/PawSharp.Core.Entities.ComponentType.yml
@@ -28203,6 +28215,18 @@ references:
   commentId: F:PawSharp.Core.Entities.ComponentType.File
   fullName: PawSharp.Core.Entities.ComponentType.File
   nameWithType: ComponentType.File
+- uid: PawSharp.Core.Entities.ComponentType.FileUpload
+  name: FileUpload
+  href: api/PawSharp.Core.Entities.ComponentType.yml
+  commentId: F:PawSharp.Core.Entities.ComponentType.FileUpload
+  fullName: PawSharp.Core.Entities.ComponentType.FileUpload
+  nameWithType: ComponentType.FileUpload
+- uid: PawSharp.Core.Entities.ComponentType.Label
+  name: Label
+  href: api/PawSharp.Core.Entities.ComponentType.yml
+  commentId: F:PawSharp.Core.Entities.ComponentType.Label
+  fullName: PawSharp.Core.Entities.ComponentType.Label
+  nameWithType: ComponentType.Label
 - uid: PawSharp.Core.Entities.ComponentType.MediaGallery
   name: MediaGallery
   href: api/PawSharp.Core.Entities.ComponentType.yml
@@ -28215,6 +28239,12 @@ references:
   commentId: F:PawSharp.Core.Entities.ComponentType.MentionableSelect
   fullName: PawSharp.Core.Entities.ComponentType.MentionableSelect
   nameWithType: ComponentType.MentionableSelect
+- uid: PawSharp.Core.Entities.ComponentType.RadioGroup
+  name: RadioGroup
+  href: api/PawSharp.Core.Entities.ComponentType.yml
+  commentId: F:PawSharp.Core.Entities.ComponentType.RadioGroup
+  fullName: PawSharp.Core.Entities.ComponentType.RadioGroup
+  nameWithType: ComponentType.RadioGroup
 - uid: PawSharp.Core.Entities.ComponentType.RoleSelect
   name: RoleSelect
   href: api/PawSharp.Core.Entities.ComponentType.yml
@@ -38574,6 +38604,30 @@ references:
   commentId: F:PawSharp.Core.Enums.MessageType.GuildDiscoveryRequalified
   fullName: PawSharp.Core.Enums.MessageType.GuildDiscoveryRequalified
   nameWithType: MessageType.GuildDiscoveryRequalified
+- uid: PawSharp.Core.Enums.MessageType.GuildIncidentAlertModeDisabled
+  name: GuildIncidentAlertModeDisabled
+  href: api/PawSharp.Core.Enums.MessageType.yml
+  commentId: F:PawSharp.Core.Enums.MessageType.GuildIncidentAlertModeDisabled
+  fullName: PawSharp.Core.Enums.MessageType.GuildIncidentAlertModeDisabled
+  nameWithType: MessageType.GuildIncidentAlertModeDisabled
+- uid: PawSharp.Core.Enums.MessageType.GuildIncidentAlertModeEnabled
+  name: GuildIncidentAlertModeEnabled
+  href: api/PawSharp.Core.Enums.MessageType.yml
+  commentId: F:PawSharp.Core.Enums.MessageType.GuildIncidentAlertModeEnabled
+  fullName: PawSharp.Core.Enums.MessageType.GuildIncidentAlertModeEnabled
+  nameWithType: MessageType.GuildIncidentAlertModeEnabled
+- uid: PawSharp.Core.Enums.MessageType.GuildIncidentReportFalseAlarm
+  name: GuildIncidentReportFalseAlarm
+  href: api/PawSharp.Core.Enums.MessageType.yml
+  commentId: F:PawSharp.Core.Enums.MessageType.GuildIncidentReportFalseAlarm
+  fullName: PawSharp.Core.Enums.MessageType.GuildIncidentReportFalseAlarm
+  nameWithType: MessageType.GuildIncidentReportFalseAlarm
+- uid: PawSharp.Core.Enums.MessageType.GuildIncidentReportRaid
+  name: GuildIncidentReportRaid
+  href: api/PawSharp.Core.Enums.MessageType.yml
+  commentId: F:PawSharp.Core.Enums.MessageType.GuildIncidentReportRaid
+  fullName: PawSharp.Core.Enums.MessageType.GuildIncidentReportRaid
+  nameWithType: MessageType.GuildIncidentReportRaid
 - uid: PawSharp.Core.Enums.MessageType.GuildInviteReminder
   name: GuildInviteReminder
   href: api/PawSharp.Core.Enums.MessageType.yml
@@ -38586,6 +38640,18 @@ references:
   commentId: F:PawSharp.Core.Enums.MessageType.InteractionPremiumUpsell
   fullName: PawSharp.Core.Enums.MessageType.InteractionPremiumUpsell
   nameWithType: MessageType.InteractionPremiumUpsell
+- uid: PawSharp.Core.Enums.MessageType.PollResult
+  name: PollResult
+  href: api/PawSharp.Core.Enums.MessageType.yml
+  commentId: F:PawSharp.Core.Enums.MessageType.PollResult
+  fullName: PawSharp.Core.Enums.MessageType.PollResult
+  nameWithType: MessageType.PollResult
+- uid: PawSharp.Core.Enums.MessageType.PurchaseNotification
+  name: PurchaseNotification
+  href: api/PawSharp.Core.Enums.MessageType.yml
+  commentId: F:PawSharp.Core.Enums.MessageType.PurchaseNotification
+  fullName: PawSharp.Core.Enums.MessageType.PurchaseNotification
+  nameWithType: MessageType.PurchaseNotification
 - uid: PawSharp.Core.Enums.MessageType.RecipientAdd
   name: RecipientAdd
   href: api/PawSharp.Core.Enums.MessageType.yml
@@ -59814,30 +59880,102 @@ references:
   commentId: F:PawSharp.Interactions.Models.ComponentType.ChannelSelect
   fullName: PawSharp.Interactions.Models.ComponentType.ChannelSelect
   nameWithType: ComponentType.ChannelSelect
+- uid: PawSharp.Interactions.Models.ComponentType.Checkbox
+  name: Checkbox
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.Checkbox
+  fullName: PawSharp.Interactions.Models.ComponentType.Checkbox
+  nameWithType: ComponentType.Checkbox
+- uid: PawSharp.Interactions.Models.ComponentType.CheckboxGroup
+  name: CheckboxGroup
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.CheckboxGroup
+  fullName: PawSharp.Interactions.Models.ComponentType.CheckboxGroup
+  nameWithType: ComponentType.CheckboxGroup
+- uid: PawSharp.Interactions.Models.ComponentType.Container
+  name: Container
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.Container
+  fullName: PawSharp.Interactions.Models.ComponentType.Container
+  nameWithType: ComponentType.Container
+- uid: PawSharp.Interactions.Models.ComponentType.File
+  name: File
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.File
+  fullName: PawSharp.Interactions.Models.ComponentType.File
+  nameWithType: ComponentType.File
+- uid: PawSharp.Interactions.Models.ComponentType.FileUpload
+  name: FileUpload
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.FileUpload
+  fullName: PawSharp.Interactions.Models.ComponentType.FileUpload
+  nameWithType: ComponentType.FileUpload
+- uid: PawSharp.Interactions.Models.ComponentType.Label
+  name: Label
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.Label
+  fullName: PawSharp.Interactions.Models.ComponentType.Label
+  nameWithType: ComponentType.Label
+- uid: PawSharp.Interactions.Models.ComponentType.MediaGallery
+  name: MediaGallery
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.MediaGallery
+  fullName: PawSharp.Interactions.Models.ComponentType.MediaGallery
+  nameWithType: ComponentType.MediaGallery
 - uid: PawSharp.Interactions.Models.ComponentType.MentionableSelect
   name: MentionableSelect
   href: api/PawSharp.Interactions.Models.ComponentType.yml
   commentId: F:PawSharp.Interactions.Models.ComponentType.MentionableSelect
   fullName: PawSharp.Interactions.Models.ComponentType.MentionableSelect
   nameWithType: ComponentType.MentionableSelect
+- uid: PawSharp.Interactions.Models.ComponentType.RadioGroup
+  name: RadioGroup
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.RadioGroup
+  fullName: PawSharp.Interactions.Models.ComponentType.RadioGroup
+  nameWithType: ComponentType.RadioGroup
 - uid: PawSharp.Interactions.Models.ComponentType.RoleSelect
   name: RoleSelect
   href: api/PawSharp.Interactions.Models.ComponentType.yml
   commentId: F:PawSharp.Interactions.Models.ComponentType.RoleSelect
   fullName: PawSharp.Interactions.Models.ComponentType.RoleSelect
   nameWithType: ComponentType.RoleSelect
+- uid: PawSharp.Interactions.Models.ComponentType.Section
+  name: Section
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.Section
+  fullName: PawSharp.Interactions.Models.ComponentType.Section
+  nameWithType: ComponentType.Section
+- uid: PawSharp.Interactions.Models.ComponentType.Separator
+  name: Separator
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.Separator
+  fullName: PawSharp.Interactions.Models.ComponentType.Separator
+  nameWithType: ComponentType.Separator
 - uid: PawSharp.Interactions.Models.ComponentType.StringSelect
   name: StringSelect
   href: api/PawSharp.Interactions.Models.ComponentType.yml
   commentId: F:PawSharp.Interactions.Models.ComponentType.StringSelect
   fullName: PawSharp.Interactions.Models.ComponentType.StringSelect
   nameWithType: ComponentType.StringSelect
+- uid: PawSharp.Interactions.Models.ComponentType.TextDisplay
+  name: TextDisplay
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.TextDisplay
+  fullName: PawSharp.Interactions.Models.ComponentType.TextDisplay
+  nameWithType: ComponentType.TextDisplay
 - uid: PawSharp.Interactions.Models.ComponentType.TextInput
   name: TextInput
   href: api/PawSharp.Interactions.Models.ComponentType.yml
   commentId: F:PawSharp.Interactions.Models.ComponentType.TextInput
   fullName: PawSharp.Interactions.Models.ComponentType.TextInput
   nameWithType: ComponentType.TextInput
+- uid: PawSharp.Interactions.Models.ComponentType.Thumbnail
+  name: Thumbnail
+  href: api/PawSharp.Interactions.Models.ComponentType.yml
+  commentId: F:PawSharp.Interactions.Models.ComponentType.Thumbnail
+  fullName: PawSharp.Interactions.Models.ComponentType.Thumbnail
+  nameWithType: ComponentType.Thumbnail
 - uid: PawSharp.Interactions.Models.ComponentType.UserSelect
   name: UserSelect
   href: api/PawSharp.Interactions.Models.ComponentType.yml
