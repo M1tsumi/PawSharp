@@ -157,14 +157,16 @@ namespace PawSharp.Gateway.Events
         /// </summary>
         private async Task DispatchItemAsync(EventDispatchItem item)
         {
-            // For AOT compatibility, we need to avoid reflection.
-            // Since we can't use MakeGenericMethod, we'll use a different approach:
-            // Call DispatchRawAsync for all events when using the queue.
-            // This is a limitation of the current design - to support AOT with queuing,
-            // we would need to register all event types at compile time.
-            // For now, we'll use the raw JSON dispatch which works without reflection.
-            if (item.RawJson != null)
+            // For AOT compatibility, we avoid reflection by using the typed EventData directly.
+            // EventData is already deserialized to the correct type when enqueued.
+            if (item.EventData is GatewayEvent gatewayEvent)
             {
+                // Use the non-generic typed dispatch method for AOT compatibility
+                await _dispatcher.DispatchTypedAsync(item.EventName, gatewayEvent, item.RawJson);
+            }
+            else if (item.RawJson != null)
+            {
+                // Fallback to raw dispatch when typed data is not available
                 await _dispatcher.DispatchRawAsync(item.EventName, item.RawJson);
             }
         }

@@ -4,10 +4,16 @@ using System.Threading.Tasks;
 namespace PawSharp.Commands.Conversion;
 
 /// <summary>
+/// Marker interface for type converters. Used for DI registration.
+/// Implement <see cref="ITypeConverter{T}"/> for actual conversion logic.
+/// </summary>
+public interface ITypeConverter { }
+
+/// <summary>
 /// Defines a type converter for converting string arguments to specific types.
 /// </summary>
 /// <typeparam name="T">The target type to convert to.</typeparam>
-public interface ITypeConverter<T>
+public interface ITypeConverter<T> : ITypeConverter
 {
     /// <summary>
     /// Converts a string argument to the target type.

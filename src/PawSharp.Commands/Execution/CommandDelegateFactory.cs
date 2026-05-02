@@ -12,6 +12,10 @@ namespace PawSharp.Commands.Execution;
 /// </summary>
 public static class CommandDelegateFactory
 {
+    private static readonly PropertyInfo CompletedTaskProperty =
+        typeof(Task).GetProperty(nameof(Task.CompletedTask))
+        ?? throw new InvalidOperationException("Task.CompletedTask property not found.");
+
     /// <summary>
     /// Creates a compiled delegate for a command method.
     /// </summary>
@@ -57,7 +61,7 @@ public static class CommandDelegateFactory
             // Convert void to completed Task
             resultExpression = Expression.Block(
                 methodCall,
-                Expression.Call(typeof(Task).GetMethod(nameof(Task.CompletedTask))!));
+                Expression.Property(null, CompletedTaskProperty));
         }
         else
         {
@@ -69,7 +73,7 @@ public static class CommandDelegateFactory
             }
             else
             {
-                resultExpression = Expression.Call(typeof(Task).GetMethod(nameof(Task.CompletedTask))!);
+                resultExpression = Expression.Property(null, CompletedTaskProperty);
             }
         }
         
