@@ -22,8 +22,14 @@ public static class MessageTypeExtensions
                Enums.MessageType.GuildDiscoveryGracePeriodInitialWarning or
                Enums.MessageType.GuildDiscoveryGracePeriodFinalWarning or
                Enums.MessageType.ThreadCreated or Enums.MessageType.GuildInviteReminder or
-               Enums.MessageType.StageStart or Enums.MessageType.StageEnd or
-               Enums.MessageType.StageSpeaker or Enums.MessageType.StageTopic;
+               Enums.MessageType.ChatInputCommand or Enums.MessageType.ContextMenuCommand or
+               Enums.MessageType.AutoModerationAction or
+               Enums.MessageType.RoleSubscriptionPurchase or Enums.MessageType.InteractionPremiumUpsell or
+               Enums.MessageType.GuildApplicationPremiumSubscription or Enums.MessageType.StageStart or
+               Enums.MessageType.StageEnd or Enums.MessageType.StageSpeaker or Enums.MessageType.StageTopic or
+               Enums.MessageType.GuildIncidentAlertModeEnabled or Enums.MessageType.GuildIncidentAlertModeDisabled or
+               Enums.MessageType.GuildIncidentReportRaid or Enums.MessageType.GuildIncidentReportFalseAlarm or
+               Enums.MessageType.PurchaseNotification or Enums.MessageType.PollResult;
     }
 
     /// <summary>
