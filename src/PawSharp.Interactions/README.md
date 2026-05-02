@@ -19,7 +19,7 @@ Use it for slash commands, button/select interactions, and modal submissions wit
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Interactions --version 1.0.0-alpha.4
+dotnet add package PawSharp.Interactions --version 1.1.0-alpha.1
 ```
 
 ## Quick Start

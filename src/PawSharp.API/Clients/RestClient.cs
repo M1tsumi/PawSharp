@@ -70,7 +70,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.0.0-alpha.4)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.1.0-alpha.1)");
     }
 
     /// <summary>
