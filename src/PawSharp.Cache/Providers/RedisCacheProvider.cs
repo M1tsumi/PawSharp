@@ -963,12 +963,6 @@ namespace PawSharp.Cache.Providers
             }
         }
 
-        public async Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId)
-        {
-            var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}");
-            return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
-        }
-
         /// <summary>
         /// Disposes the Redis connection.
         /// </summary>
