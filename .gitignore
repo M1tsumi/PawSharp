@@ -144,3 +144,6 @@ PawSharp.Client.txt
 PawSharp.Commands.txt
 PawSharp.Interactions.txt
 PawSharp.Voice.txt
+
+# Arena folder (audit reports and temporary files)
+Arena/
