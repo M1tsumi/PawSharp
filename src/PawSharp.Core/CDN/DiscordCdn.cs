@@ -31,11 +31,11 @@ public static class DiscordCdn
     /// <code>
     /// ulong userId = 123456789012345678;
     /// string avatarHash = "a_bcdefghijklmnopqrstuvwxyz";
-    /// string url = DiscordCdn.GetUserAvatar(userId, avatarHash, 256, CdnImageFormat.Png);
+    /// string url = DiscordCdn.GetUserAvatar(userId, avatarHash, 256, Format.Png);
     /// // Returns: "https://cdn.discordapp.com/avatars/123456789012345678/a_bcdefghijklmnopqrstuvwxyz.png?size=256"
     /// </code>
     /// </example>
-    public static string GetUserAvatar(ulong userId, string avatarHash, int? size = null, CdnImageFormat? format = null)
+    public static string GetUserAvatar(ulong userId, string avatarHash, int? size = null, string? format = null)
     {
         if (avatarHash is null)
             return GetDefaultAvatar(userId);

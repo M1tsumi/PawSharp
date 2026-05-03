@@ -19,7 +19,10 @@ public static class InteractivityValidation
     public static void RequireNotNullOrEmpty(string value, string paramName)
     {
         if (string.IsNullOrEmpty(value))
-            throw new ArgumentException($"{paramName} cannot be null or empty.", paramName);
+            throw new ArgumentException(
+                $"{paramName} cannot be null or empty. " +
+                $"Ensure the value is provided and contains at least one character.",
+                paramName);
     }
 
     /// <summary>
@@ -32,7 +35,10 @@ public static class InteractivityValidation
     public static void RequireNotEmpty<T>(IEnumerable<T> collection, string paramName)
     {
         if (!collection.Any())
-            throw new ArgumentException($"{paramName} cannot be empty.", paramName);
+            throw new ArgumentException(
+                $"{paramName} cannot be empty. " +
+                $"The collection must contain at least one element.",
+                paramName);
     }
 
     /// <summary>
@@ -48,7 +54,10 @@ public static class InteractivityValidation
     {
         var count = collection.Count();
         if (count < min || count > max)
-            throw new ArgumentException($"{paramName} must have between {min} and {max} items. Provided: {count}.", paramName);
+            throw new ArgumentException(
+                $"{paramName} must have between {min} and {max} items. Provided: {count}. " +
+                $"Adjust the collection size to fall within the allowed range.",
+                paramName);
     }
 
     /// <summary>
@@ -60,7 +69,10 @@ public static class InteractivityValidation
     public static void RequirePositive(int value, string paramName)
     {
         if (value <= 0)
-            throw new ArgumentException($"{paramName} must be positive. Provided: {value}.", paramName);
+            throw new ArgumentException(
+                $"{paramName} must be positive. Provided: {value}. " +
+                $"Ensure the value is greater than zero.",
+                paramName);
     }
 
     /// <summary>
@@ -72,7 +84,10 @@ public static class InteractivityValidation
     public static void RequirePositive(TimeSpan value, string paramName)
     {
         if (value <= TimeSpan.Zero)
-            throw new ArgumentException($"{paramName} must be positive. Provided: {value}.", paramName);
+            throw new ArgumentException(
+                $"{paramName} must be positive. Provided: {value}. " +
+                $"Ensure the duration is greater than zero.",
+                paramName);
     }
 
     /// <summary>
@@ -85,6 +100,9 @@ public static class InteractivityValidation
     public static void RequireNotNull<T>(T? value, string paramName) where T : class
     {
         if (value == null)
-            throw new ArgumentNullException(paramName, $"{paramName} cannot be null.");
+            throw new ArgumentNullException(
+                paramName,
+                $"{paramName} cannot be null. " +
+                $"Ensure a valid object instance is provided.");
     }
 }

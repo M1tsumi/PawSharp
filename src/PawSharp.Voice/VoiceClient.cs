@@ -49,8 +49,9 @@ public class VoiceClient : IDisposable
     /// asynchronously when Discord sends VOICE_SERVER_UPDATE.
     /// </summary>
     /// <param name="channel">The voice channel to connect to.</param>
+    /// <param name="options">Configuration options for the voice connection.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task<VoiceConnection> ConnectAsync(Channel channel)
+    public async Task<VoiceConnection> ConnectAsync(Channel channel, VoiceConnectionOptions? options = null)
     {
         if (channel.Type != ChannelType.GuildVoice && channel.Type != ChannelType.GuildStageVoice)
             throw new ArgumentException("Channel must be a voice channel.", nameof(channel));
@@ -63,7 +64,8 @@ public class VoiceClient : IDisposable
             _discordClient,
             channel,
             channelId => _ = HandleConnectionFailureAsync(channelId),
-            _logger);
+            _logger,
+            options);
         _connections[channel.Id] = connection;
 
         // Send op4 — Discord will reply with VOICE_STATE_UPDATE then VOICE_SERVER_UPDATE

@@ -184,7 +184,11 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         // Validate input
         if (limit < 1 || limit > 200)
         {
-            throw new ValidationException("Limit must be between 1 and 200", nameof(limit), limit);
+            throw new ValidationException(
+                "Limit must be between 1 and 200. Discord API restricts guild list responses to 200 maximum per request. " +
+                "For larger servers, use pagination with 'before' or 'after' parameters to fetch additional pages.",
+                nameof(limit),
+                limit);
         }
         if (before.HasValue)
         {
@@ -565,7 +569,11 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         if (messageIds == null || messageIds.Count == 0 || messageIds.Count > 100)
         {
-            throw new ValidationException("Message IDs list must contain between 1 and 100 IDs", nameof(messageIds), messageIds?.Count ?? 0);
+            throw new ValidationException(
+                "Message IDs list must contain between 1 and 100 IDs. Discord's bulk delete endpoint accepts 1-100 messages at a time. " +
+                "For larger deletions, split into multiple calls with 100 IDs each.",
+                nameof(messageIds),
+                messageIds?.Count ?? 0);
         }
         foreach (var messageId in messageIds)
         {

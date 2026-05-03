@@ -147,7 +147,10 @@ public class ShardManager
         // Validate session start limits
         if (!ValidateSessionStartLimits(_options.Shards))
         {
-            throw new InvalidOperationException("Cannot connect: insufficient session start limits remaining.");
+            throw new InvalidOperationException(
+                "Cannot connect: insufficient session start limits remaining. " +
+                "Discord limits how many sessions can be started within a time window. " +
+                "Wait for the session start limit to reset (typically 5-10 seconds) or increase ShardConnectionDelayMs.");
         }
         
         // Validate shard concurrency configuration

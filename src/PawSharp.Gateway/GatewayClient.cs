@@ -230,7 +230,10 @@ namespace PawSharp.Gateway
                 }
                 else
                 {
-                    _logger.LogWarning("Failed to fetch gateway URL from API, falling back to default");
+                    _logger.LogWarning(
+                        "Failed to fetch gateway URL from API, falling back to default wss://gateway.discord.gg. " +
+                        "This may cause connection issues if Discord has changed their gateway URL. " +
+                        "Ensure your REST client is properly configured.");
                     gatewayHost = "wss://gateway.discord.gg";
                 }
             }
@@ -267,7 +270,8 @@ namespace PawSharp.Gateway
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to connect to Gateway");
+                _logger.LogError(ex, "Failed to connect to Gateway. Error: {MessageType} - {Message}. Check your network connection and Discord service status.", 
+                    ex.GetType().Name, ex.Message);
                 await SetStateAsync(GatewayState.Disconnected);
                 throw;
             }

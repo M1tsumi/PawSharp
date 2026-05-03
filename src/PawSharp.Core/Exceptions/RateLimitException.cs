@@ -5,6 +5,36 @@ namespace PawSharp.Core.Exceptions;
 
 /// <summary>
 /// Exception thrown when rate limiting occurs.
+/// <para>
+/// This exception is thrown when Discord's rate limits are exceeded. It includes information
+/// about how long to wait before retrying, whether the rate limit is global, and the rate limit bucket identifier.
+/// </para>
+/// <para>
+/// <example>
+/// <code>
+/// try
+/// {
+///     await client.Rest.CreateMessageAsync(channelId, request);
+/// }
+/// catch (RateLimitException ex)
+/// {
+///     Console.WriteLine($"Retry After: {ex.RetryAfter.TotalSeconds} seconds");
+///     Console.WriteLine($"Is Global: {ex.IsGlobal}");
+///     Console.WriteLine($"Bucket: {ex.Bucket}");
+///     
+///     // Automatic retry with backoff
+///     await Task.Delay(ex.RetryAfter);
+///     await client.Rest.CreateMessageAsync(channelId, request);
+/// }
+/// </code>
+/// </example>
+/// </para>
+/// <para>
+/// <remarks>
+/// PawSharp includes built-in rate limiting that handles most rate limit scenarios automatically.
+/// You typically won't see this exception unless you bypass the rate limiter or hit global rate limits.
+/// </remarks>
+/// </para>
 /// </summary>
 public class RateLimitException : DiscordException
 {
@@ -15,11 +45,13 @@ public class RateLimitException : DiscordException
 
     /// <summary>
     /// Gets whether this is a global rate limit.
+    /// <para>Global rate limits affect all requests to Discord, not just a specific endpoint.</para>
     /// </summary>
     public bool IsGlobal { get; }
 
     /// <summary>
     /// Gets the rate limit bucket identifier, if available.
+    /// <para>Buckets group similar endpoints together for rate limiting purposes.</para>
     /// </summary>
     public string? Bucket { get; }
 

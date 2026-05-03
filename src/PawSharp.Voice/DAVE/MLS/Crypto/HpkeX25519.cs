@@ -75,13 +75,15 @@ internal static class HpkeX25519
     {
         if (recipientPublicKey.Length != NEnc)
             throw new ArgumentException($"recipientPublicKey must be {NEnc} bytes.", nameof(recipientPublicKey));
-        
+
+        var provider = CryptoProviderFactory.Instance;
+
         // Generate ephemeral key pair
-        Curve25519.GenerateKeyPair(out var ephemeralPriv, out var ephemeralPub);
+        provider.GenerateX25519KeyPair(out var ephemeralPriv, out var ephemeralPub);
         enc = ephemeralPub;
 
         // KEM: DH(ephemeral, recipient)
-        var dh = Curve25519.SharedSecret(ephemeralPriv, recipientPublicKey);
+        var dh = provider.X25519SharedSecret(ephemeralPriv, recipientPublicKey);
 
         // KEM encapsulation — derive shared_secret
         var sharedSecret = ExtractAndExpand(dh, enc, recipientPublicKey);
@@ -116,20 +118,18 @@ internal static class HpkeX25519
         if (enc.Length != NEnc)
             throw new ArgumentException($"enc must be {NEnc} bytes.", nameof(enc));
 
-        // Derive recipient public key from private key
-        var clampedPriv = recipientPrivateKey.ToArray();
-        Curve25519.ClampScalar(clampedPriv);
+        var provider = CryptoProviderFactory.Instance;
 
-        // KEM: DH(recipient, ephemeral)
-        var dh = Curve25519.SharedSecret(clampedPriv, enc);
-
-        // Derive recipient public key from private key using the X25519 base point (with caching)
-        var privKeyHex = Convert.ToHexString(clampedPriv);
+        // Derive recipient public key from private key (with caching)
+        var privKeyHex = Convert.ToHexString(recipientPrivateKey);
         if (!_publicKeyCache.TryGetValue(privKeyHex, out var recipientPub))
         {
-            recipientPub = Curve25519.ScalarMult(clampedPriv, Curve25519.BasePoint);
+            recipientPub = provider.X25519GetPublicKey(recipientPrivateKey);
             _publicKeyCache[privKeyHex] = recipientPub;
         }
+
+        // KEM: DH(recipient, ephemeral)
+        var dh = provider.X25519SharedSecret(recipientPrivateKey, enc);
 
         var sharedSecret = ExtractAndExpand(dh, enc, recipientPub);
         var (key, baseNonce) = KeyScheduleBase(sharedSecret, info);

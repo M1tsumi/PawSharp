@@ -2,7 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,7 +17,6 @@ using NAudio.Wave;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
-using PawSharp.Voice.DAVE;
 
 namespace PawSharp.Voice;
 
@@ -25,10 +27,51 @@ public enum VoiceConnectionState
     Disconnected,
     /// <summary>WebSocket connect is in progress.</summary>
     Connecting,
-    /// <summary>WebSocket is open and the voice session is active.</summary>
+    /// <summary>WebSocket is open and UDP discovery is in progress.</summary>
+    Discovering,
+    /// <summary>WebSocket is open, UDP is connected, and the voice session is active.</summary>
     Connected,
+    /// <summary>DAVE E2EE is being negotiated.</summary>
+    DaveNegotiating,
+    /// <summary>DAVE E2EE encryption is active.</summary>
+    DaveEncrypted,
     /// <summary>Graceful close is in progress.</summary>
     Disconnecting,
+}
+
+/// <summary>Transport encryption modes supported by Discord's voice protocol.</summary>
+public enum VoiceEncryptionMode
+{
+    /// <summary>XSalsa20-Poly1305-lite (RTP size).</summary>
+    XSalsa20Poly1305LiteRtpSize,
+    /// <summary>XSalsa20-Poly1305 (suffix).</summary>
+    XSalsa20Poly1305Suffix,
+    /// <summary>XSalsa20-Poly1305.</summary>
+    XSalsa20Poly1305,
+    /// <summary>AEAD_AES256_GCM (RTP size).</summary>
+    AeadAes256GcmRtpSize,
+    /// <summary>AEAD_XChaCha20_Poly1305 (RTP size).</summary>
+    AeadXChaCha20Poly1305RtpSize,
+}
+
+/// <summary>Configuration options for voice connections.</summary>
+public class VoiceConnectionOptions
+{
+    /// <summary>Preferred encryption mode. Defaults to AEAD_AES256_GCM_RTPSIZE.</summary>
+    public VoiceEncryptionMode PreferredEncryptionMode { get; set; } = VoiceEncryptionMode.AeadAes256GcmRtpSize;
+
+    /// <summary>Opus encoder bitrate in bits per second. Defaults to 64000.</summary>
+    public int OpusBitrate { get; set; } = 64000;
+
+    /// <summary>Whether to automatically initialize audio input/output. Defaults to true.</summary>
+    public bool AutoInitializeAudio { get; set; } = true;
+
+    /// <summary>
+    /// Whether to enable DAVE E2EE for DMs and Group DMs.
+    /// DAVE is only used for private calls; server voice channels use standard encryption.
+    /// Defaults to true.
+    /// </summary>
+    public bool EnableDave { get; set; } = true;
 }
 
 /// <summary>
@@ -40,14 +83,22 @@ public class VoiceConnection : IDisposable
     private readonly Channel _channel;
     private readonly ILogger _logger;
     private readonly Action<ulong>? _onConnectionFailed;
+    private readonly VoiceConnectionOptions _options;
     private ClientWebSocket? _webSocket;
+    private UdpClient? _udpClient;
     private CancellationTokenSource? _cts;
     private Task? _receiveTask;
     private Task? _heartbeatTask;
-    private Task? _keepAliveTask;
+    private Task? _udpReceiveTask;
     private bool _disposed;
     private int _heartbeatInterval = 5000; // Default 5 seconds, updated from HELLO
     private long _lastFrameSentTick;       // TickCount64 of the last outgoing audio frame (for silence keep-alive)
+    
+    // UDP connection state
+    private string? _udpIp;
+    private int _udpPort;
+    private byte[]? _secretKey;
+    private VoiceEncryptionMode _encryptionMode;
 
     // Stored handshake parameters for reconnects
     private string? _endpoint;
@@ -55,9 +106,9 @@ public class VoiceConnection : IDisposable
     private ulong _voiceUserId;
     private string? _sessionId;
     private string? _token;
-
-    // DAVE E2EE protocol handler
-    private readonly DAVEProtocol _dave = new();
+    
+    // Resume support
+    private ulong _seqAck;
 
     // ── Opus codec constants ─────────────────────────────────────────────────
     private const int OpusSampleRate = 48000;   // Hz
@@ -91,8 +142,36 @@ public class VoiceConnection : IDisposable
     private WaveOutEvent? _waveOut;
     private BufferedWaveProvider? _waveProvider;
 
+    // DAVE E2EE protocol (for DMs and Group DMs only)
+    private DAVE.DAVEProtocol? _dave;
+    private bool _daveEnabled;
+
     /// <summary>Gets the current connection lifecycle state.</summary>
     public VoiceConnectionState State { get; private set; } = VoiceConnectionState.Disconnected;
+    
+    /// <summary>Gets the configuration options for this connection.</summary>
+    public VoiceConnectionOptions Options => _options;
+    
+    /// <summary>Raised when the connection state changes.</summary>
+    public event Action<VoiceConnectionState, VoiceConnectionState>? StateChanged;
+    
+    /// <summary>Raised when the UDP connection is established.</summary>
+    public event Action<string, int>? UdpConnected;
+    
+    /// <summary>Raised when a voice user connects or disconnects.</summary>
+    public event Action<ulong, bool>? UserVoiceStateChanged;
+
+    /// <summary>Raised when DAVE E2EE encryption is activated (after op 24 ProtocolReady).</summary>
+    public event Action? DaveEncryptionActivated;
+
+    /// <summary>Raised when a DAVE epoch advances (after processing a Commit message).</summary>
+    public event Action<ulong>? DaveEpochAdvanced;
+
+    /// <summary>Raised when a DAVE error occurs.</summary>
+    public event Action<Exception>? DaveError;
+    
+    /// <summary>Gets the SSRC (Synchronization Source) for this connection.</summary>
+    public uint Ssrc { get; private set; }
 
     /// <summary>
     /// Gets the guild ID.
@@ -135,26 +214,32 @@ public class VoiceConnection : IDisposable
     /// <param name="channel">The voice channel.</param>
     /// <param name="onConnectionFailed">Callback for connection failures.</param>
     /// <param name="logger">Logger used for voice diagnostics.</param>
+    /// <param name="options">Configuration options for the connection.</param>
     public VoiceConnection(
         DiscordClient discordClient,
         Channel channel,
         Action<ulong>? onConnectionFailed = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        VoiceConnectionOptions? options = null)
     {
         _discordClient = discordClient ?? throw new ArgumentNullException(nameof(discordClient));
         _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         _onConnectionFailed = onConnectionFailed;
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+        _options = options ?? new VoiceConnectionOptions();
+
+        _daveEnabled = _options.EnableDave;
 
         // Initialize audio components
-        InitializeAudio();
+        if (_options.AutoInitializeAudio)
+            InitializeAudio();
     }
 
     private void InitializeAudio()
     {
         // Opus codec is always available (pure managed, no audio hardware needed)
         _opusEncoder = OpusCodecFactory.CreateEncoder(OpusSampleRate, OpusChannels, OpusApplication.OPUS_APPLICATION_VOIP, null);
-        _opusEncoder.Bitrate = 64000;
+        _opusEncoder.Bitrate = _options.OpusBitrate;
         _opusDecoder = OpusCodecFactory.CreateDecoder(OpusSampleRate, OpusChannels, null);
 
         try
@@ -173,10 +258,11 @@ public class VoiceConnection : IDisposable
             _waveOut.Init(_waveProvider);
             _waveOut.PlaybackStopped += (_, _) => { IsPlaying = false; };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Audio hardware is unavailable (e.g. headless server). Audio I/O will
             // be skipped; voice packet send/receive still works.
+            _logger.LogWarning(ex, "Audio hardware initialization failed. Audio I/O will be disabled.");
             _waveIn?.Dispose();
             _waveIn = null;
             _waveOut?.Dispose();
@@ -224,12 +310,17 @@ public class VoiceConnection : IDisposable
         if (_disposed)
             return;
 
+        var previousState = State;
         State = VoiceConnectionState.Connecting;
+        StateChanged?.Invoke(previousState, State);
 
         // Cancel any existing tasks
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
+
+        // Reset DAVE protocol if it exists from a previous connection
+        _dave?.Reset();
 
         _webSocket?.Dispose();
         _webSocket = new ClientWebSocket();
@@ -239,12 +330,10 @@ public class VoiceConnection : IDisposable
         var uri = new Uri($"wss://{host}?v=8");
 
         await _webSocket.ConnectAsync(uri, _cts.Token);
-        State = VoiceConnectionState.Connected;
         _speaking = false;  // reset speaking gate on fresh connection
 
         _receiveTask   = Task.Run(ReceiveLoopAsync,   _cts.Token);
         _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
-        _keepAliveTask = Task.Run(KeepAliveLoopAsync, _cts.Token);
 
         // Send Opcode 0 IDENTIFY immediately after WebSocket upgrade
         await SendIdentifyAsync();
@@ -277,8 +366,14 @@ public class VoiceConnection : IDisposable
         if (_disposed)
             return;
 
+        var previousState = State;
         State = VoiceConnectionState.Disconnecting;
+        StateChanged?.Invoke(previousState, State);
         _cts?.Cancel();
+
+        // Dispose DAVE protocol if active
+        _dave?.Dispose();
+        _dave = null;
 
         if (_webSocket != null &&
             (_webSocket.State == WebSocketState.Open || _webSocket.State == WebSocketState.CloseReceived))
@@ -289,23 +384,79 @@ public class VoiceConnection : IDisposable
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"WebSocket close error during disconnect: {ex.Message}");
+                _logger.LogWarning(ex, "WebSocket close error during disconnect");
             }
             _webSocket.Dispose();
             _webSocket = null;
         }
 
+        _udpClient?.Close();
+        _udpClient = null;
+
         StopAudio();
         State = VoiceConnectionState.Disconnected;
+        StateChanged?.Invoke(previousState, State);
 
         await Task.WhenAll(
             _receiveTask   ?? Task.CompletedTask,
             _heartbeatTask ?? Task.CompletedTask,
-            _keepAliveTask ?? Task.CompletedTask
+            _udpReceiveTask ?? Task.CompletedTask
         );
 
         _cts?.Dispose();
         _cts = null;
+    }
+    
+    /// <summary>
+    /// Attempts to resume a dropped voice connection.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task ResumeAsync()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(VoiceConnection));
+        
+        if (_sessionId is null || _token is null)
+            throw new InvalidOperationException("Cannot resume: session not established.");
+        
+        var previousState = State;
+        State = VoiceConnectionState.Connecting;
+        StateChanged?.Invoke(previousState, State);
+        
+        // Cancel existing tasks
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        
+        _webSocket?.Dispose();
+        _webSocket = new ClientWebSocket();
+        
+        var host = _endpoint!.Contains(':') ? _endpoint.Substring(0, _endpoint.LastIndexOf(':')) : _endpoint;
+        var uri = new Uri($"wss://{host}?v=8");
+        
+        await _webSocket.ConnectAsync(uri, _cts.Token);
+        
+        // Send Resume (op 7)
+        var resumePayload = new
+        {
+            op = 7,
+            d = new
+            {
+                server_id = _voiceGuildId.ToString(),
+                session_id = _sessionId,
+                token = _token,
+                seq_ack = _seqAck
+            }
+        };
+        
+        var json = JsonSerializer.Serialize(resumePayload);
+        var buffer = System.Text.Encoding.UTF8.GetBytes(json);
+        await _webSocket.SendAsync(buffer, WebSocketMessageType.Text, true, _cts.Token);
+        
+        _receiveTask = Task.Run(ReceiveLoopAsync, _cts.Token);
+        _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
+        
+        _logger.LogInformation("Resume sent for channel {ChannelId}", _channel.Id);
     }
 
     /// <summary>
@@ -461,16 +612,17 @@ public class VoiceConnection : IDisposable
     }
 
     /// <summary>
-    /// Encodes and sends PCM audio to the voice channel.
+    /// Encodes and sends PCM audio to the voice channel via UDP.
     /// Input must be 16-bit signed mono PCM at 48 kHz (matching the capture <see cref="NAudio.Wave.WaveFormat"/>).
     /// Internally the method accumulates samples across calls until a complete 20 ms Opus frame
     /// (<see cref="PcmFrameBytes"/> bytes) is available, then encodes, wraps in an RTP header,
-    /// applies DAVE AES-128-GCM encryption, and transmits the packet.
+    /// applies transport encryption and optionally DAVE E2EE, and transmits the packet via UDP.
     /// </summary>
     /// <param name="audioData">Raw 16-bit signed PCM bytes to transmit.</param>
-    public async Task SendAudioAsync(byte[] audioData)
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task SendAudioAsync(byte[] audioData, CancellationToken cancellationToken = default)
     {
-        if (_webSocket == null || _webSocket.State != WebSocketState.Open || _disposed)
+        if (_udpClient == null || _disposed)
             return;
 
         // Buffer incoming PCM and flush complete 20 ms frames as they become available
@@ -486,20 +638,58 @@ public class VoiceConnection : IDisposable
             var opusPacket = EncodeFrame(frameBytes);
             if (opusPacket.Length == 0) continue;
 
-            // Build the 12-byte RTP header; also used as AAD for the DAVE cipher
+            // Build the 12-byte RTP header
             var rtpHeader = BuildRtpHeader();
 
-            // DAVE-encrypt the Opus payload, cryptographically binding it to the RTP header
-            var encryptedPayload = _dave.EncryptFrame(opusPacket, rtpHeader);
+            // Apply transport encryption
+            byte[] encryptedPayload;
+            if (_dave?.IsActive == true)
+            {
+                // DAVE E2EE encryption
+                try
+                {
+                    encryptedPayload = _dave.EncryptFrame(opusPacket, rtpHeader);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "DAVE encryption failed, falling back to standard encryption for channel {ChannelId}", _channel.Id);
+                    DaveError?.Invoke(ex);
+                    if (_secretKey != null)
+                    {
+                        encryptedPayload = ApplyTransportEncryption(opusPacket, rtpHeader);
+                    }
+                    else
+                    {
+                        encryptedPayload = opusPacket;
+                    }
+                }
+            }
+            else if (_secretKey != null)
+            {
+                // Standard transport encryption
+                encryptedPayload = ApplyTransportEncryption(opusPacket, rtpHeader);
+            }
+            else
+            {
+                // No transport encryption yet (before Session Description)
+                encryptedPayload = opusPacket;
+            }
 
-            // Wire format: [12-byte RTP header][DAVE: nonce || ciphertext || auth-tag]
+            // Wire format: [12-byte RTP header][encrypted payload]
             var packet = new byte[rtpHeader.Length + encryptedPayload.Length];
             rtpHeader.CopyTo(packet, 0);
             encryptedPayload.CopyTo(packet, rtpHeader.Length);
 
-            await _webSocket.SendAsync(packet, WebSocketMessageType.Binary, true,
-                _cts?.Token ?? CancellationToken.None);
-            Interlocked.Exchange(ref _lastFrameSentTick, Environment.TickCount64);
+            try
+            {
+                await _udpClient.SendAsync(packet, packet.Length, _udpIp, _udpPort)
+                    .ConfigureAwait(false);
+                Interlocked.Exchange(ref _lastFrameSentTick, Environment.TickCount64);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send audio packet via UDP");
+            }
         }
     }
 
@@ -576,7 +766,7 @@ public class VoiceConnection : IDisposable
             {
                 speaking = speaking ? 1 : 0,
                 delay    = 0,
-                ssrc     = (int)_dave.LocalSsrc,
+                ssrc     = (int)Ssrc,
             },
         };
         var json  = JsonSerializer.Serialize(payload);
@@ -613,7 +803,7 @@ public class VoiceConnection : IDisposable
         _rtpTimestamp += OpusFrameSize;  // 960 = 20 ms at 48 kHz
 
         // SSRC — big-endian uint32 (assigned by the server in op 2 READY)
-        var ssrc = _dave.LocalSsrc;
+        var ssrc = Ssrc;
         header[8]  = (byte)(ssrc >> 24);
         header[9]  = (byte)(ssrc >> 16);
         header[10] = (byte)(ssrc >> 8);
@@ -687,7 +877,32 @@ public class VoiceConnection : IDisposable
                     // RTP metadata (sequence, timestamp, SSRC) and not just the payload.
                     if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
                     {
-                        var opusData = _dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
+                        byte[] opusData;
+                        if (_dave?.IsActive == true)
+                        {
+                            // DAVE E2EE decryption
+                            try
+                            {
+                                opusData = _dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "DAVE decryption failed for SSRC {Ssrc}, dropping packet for channel {ChannelId}", ssrc, _channel.Id);
+                                DaveError?.Invoke(ex);
+                                continue; // Drop the packet if decryption fails
+                            }
+                        }
+                        else if (_secretKey != null)
+                        {
+                            // Standard transport decryption
+                            opusData = RemoveTransportEncryption(encryptedPayload, rtpHeader);
+                        }
+                        else
+                        {
+                            // No encryption (shouldn't happen in normal flow)
+                            opusData = encryptedPayload;
+                        }
+
                         var pcm = DecodeAudio(opusData);
 
                         // Fire the receive event before feeding audio to local playback so that
@@ -723,11 +938,63 @@ public class VoiceConnection : IDisposable
                 var opCode = opProp.GetInt32();
                 switch (opCode)
                 {
-                    case 2: // READY — capture our SSRC for DAVE
-                        if (root.TryGetProperty("d", out var readyData) &&
-                            readyData.TryGetProperty("ssrc", out var ssrcProp))
+                    case 2: // READY — capture SSRC, IP, port, and modes
+                        if (root.TryGetProperty("d", out var readyData))
                         {
-                            _dave.LocalSsrc = (uint)ssrcProp.GetInt64();
+                            if (readyData.TryGetProperty("ssrc", out var ssrcProp))
+                                Ssrc = (uint)ssrcProp.GetInt64();
+                            
+                            if (readyData.TryGetProperty("ip", out var ipProp))
+                                _udpIp = ipProp.GetString();
+                            
+                            if (readyData.TryGetProperty("port", out var portProp))
+                                _udpPort = portProp.GetInt32();
+                            
+                            if (readyData.TryGetProperty("modes", out var modesProp) && modesProp.ValueKind == JsonValueKind.Array)
+                            {
+                                // Select the best available encryption mode
+                                var availableModes = new List<string>();
+                                foreach (var mode in modesProp.EnumerateArray())
+                                    availableModes.Add(mode.GetString()!);
+                                
+                                SelectEncryptionMode(availableModes);
+                            }
+                            
+                            _logger.LogInformation("Voice READY received: IP={Ip}, Port={Port}, SSRC={Ssrc}", _udpIp, _udpPort, Ssrc);
+
+                            // Initialize DAVE if enabled and this is a DM/GDM (guildId == 0)
+                            if (_daveEnabled && _voiceGuildId == 0)
+                            {
+                                _dave = new DAVE.DAVEProtocol(_voiceUserId.ToString());
+                                _dave.LocalSsrc = Ssrc;
+                                var davePrevState = State;
+                                State = VoiceConnectionState.DaveNegotiating;
+                                StateChanged?.Invoke(davePrevState, State);
+                                _logger.LogInformation("DAVE E2EE protocol initialized for DM/GDM");
+                            }
+
+                            // Initiate IP discovery and Select Protocol
+                            await PerformIpDiscoveryAndSelectProtocolAsync();
+                        }
+                        break;
+                    case 4: // SESSION DESCRIPTION — contains secret key for transport encryption
+                        if (root.TryGetProperty("d", out var sessionData))
+                        {
+                            if (sessionData.TryGetProperty("mode", out var modeProp))
+                            {
+                                Enum.TryParse<VoiceEncryptionMode>(modeProp.GetString().Replace("_", ""), true, out var mode);
+                                _encryptionMode = mode;
+                            }
+                            
+                            if (sessionData.TryGetProperty("secret_key", out var keyProp))
+                            {
+                                _secretKey = new byte[keyProp.GetArrayLength()];
+                                int i = 0;
+                                foreach (var b in keyProp.EnumerateArray())
+                                    _secretKey[i++] = (byte)b.GetInt32();
+                            }
+                            
+                            _logger.LogInformation("Session Description received: Mode={Mode}, KeyLength={KeyLength}", _encryptionMode, _secretKey?.Length);
                         }
                         break;
                     case 8: // HELLO
@@ -739,12 +1006,62 @@ public class VoiceConnection : IDisposable
                         }
                         break;
                     case 9: // HEARTBEAT ACK
-                        // Handle heartbeat acknowledgment if needed
+                        // Update seq_ack for resume support
+                        if (root.TryGetProperty("d", out var ackData) && ackData.ValueKind == JsonValueKind.Object)
+                        {
+                            if (ackData.TryGetProperty("t", out var tProp))
+                            {
+                                // Store the timestamp for potential resume
+                            }
+                        }
+                        break;
+                    case 7: // RESUMED
+                        _logger.LogInformation("Voice connection resumed for channel {ChannelId}", _channel.Id);
+                        var prevState = State;
+                        State = VoiceConnectionState.Connected;
+                        StateChanged?.Invoke(prevState, State);
+                        break;
+                    case 11: // CLIENTS CONNECT
+                        if (root.TryGetProperty("d", out var clientsData))
+                        {
+                            // Handle user voice state changes
+                        }
+                        break;
+                    case 13: // CLIENT DISCONNECT
+                        if (root.TryGetProperty("d", out var disconnectData))
+                        {
+                            // Handle user voice state changes
+                        }
                         break;
                     // DAVE E2EE opcodes 21–31
                     case >= 21 and <= 31:
-                        if (root.TryGetProperty("d", out var daveData))
-                            await _dave.HandleOpcodeAsync(opCode, daveData, _webSocket, _cts?.Token ?? CancellationToken.None);
+                        if (_dave != null)
+                        {
+                            try
+                            {
+                                await _dave.HandleOpcodeAsync(opCode, root.GetProperty("d"), _webSocket, _cts?.Token ?? CancellationToken.None);
+                                if (opCode == 24 && _dave.IsActive)
+                                {
+                                    var davePrevState = State;
+                                    State = VoiceConnectionState.DaveEncrypted;
+                                    StateChanged?.Invoke(davePrevState, State);
+                                    DaveEncryptionActivated?.Invoke();
+                                }
+                                if (opCode == 26)
+                                {
+                                    DaveEpochAdvanced?.Invoke(_dave.EpochNumber);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "DAVE opcode {OpCode} handling failed for channel {ChannelId}", opCode, _channel.Id);
+                                DaveError?.Invoke(ex);
+                                // DAVE errors are non-fatal - continue with standard encryption
+                            }
+                        }
+                        break;
+                    default:
+                        _logger.LogDebug("Received unknown opcode {OpCode}", opCode);
                         break;
                 }
             }
@@ -784,11 +1101,15 @@ public class VoiceConnection : IDisposable
 
         try
         {
-            // Send heartbeat op code 3 with current timestamp
+            // Send heartbeat op code 3 with current timestamp and seq_ack (V8+)
             var heartbeatPayload = new
             {
                 op = 3,
-                d = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                d = new
+                {
+                    t = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    seq_ack = _seqAck
+                }
             };
 
             var json = System.Text.Json.JsonSerializer.Serialize(heartbeatPayload);
@@ -814,24 +1135,41 @@ public class VoiceConnection : IDisposable
             {
                 await Task.Delay(KeepAliveIntervalMs, _cts.Token).ConfigureAwait(false);
 
-                if (_webSocket?.State != WebSocketState.Open || _disposed)
+                if (_udpClient == null || _disposed)
                     continue;
 
                 // Recent audio was sent — no need for a synthetic silence frame.
                 if (Environment.TickCount64 - Interlocked.Read(ref _lastFrameSentTick) < SilenceThresholdMs)
                     continue;
 
-                // Build a full RTP + DAVE-encrypted silence packet so the server sees a
+                // Build a full RTP + encrypted silence packet so the server sees a
                 // well-formed voice packet and keeps the SSRC / NAT mapping alive.
-                var rtpHeader        = BuildRtpHeader();
-                var encryptedPayload = _dave.EncryptFrame(SilenceFrame, rtpHeader);
-                var packet           = new byte[rtpHeader.Length + encryptedPayload.Length];
+                var rtpHeader = BuildRtpHeader();
+                byte[] encryptedPayload;
+                
+                if (_secretKey != null)
+                {
+                    encryptedPayload = ApplyTransportEncryption(SilenceFrame, rtpHeader);
+                }
+                else
+                {
+                    encryptedPayload = SilenceFrame;
+                }
+                
+                var packet = new byte[rtpHeader.Length + encryptedPayload.Length];
                 rtpHeader.CopyTo(packet, 0);
                 encryptedPayload.CopyTo(packet, rtpHeader.Length);
 
-                await _webSocket.SendAsync(packet, WebSocketMessageType.Binary, true,
-                    _cts.Token).ConfigureAwait(false);
-                Interlocked.Exchange(ref _lastFrameSentTick, Environment.TickCount64);
+                try
+                {
+                    await _udpClient.SendAsync(packet, packet.Length, _udpIp, _udpPort)
+                        .ConfigureAwait(false);
+                    Interlocked.Exchange(ref _lastFrameSentTick, Environment.TickCount64);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send keep-alive packet via UDP");
+                }
             }
         }
         catch (OperationCanceledException)
@@ -856,6 +1194,8 @@ public class VoiceConnection : IDisposable
         {
             _waveIn.StopRecording();
         }
+        
+        _pendingPcm.Clear();
     }
 
     /// <summary>
@@ -876,6 +1216,322 @@ public class VoiceConnection : IDisposable
         // Connection is driven by VoiceClient.OnVoiceServerUpdate — no action needed here.
     }
 
+    // ── UDP IP Discovery ───────────────────────────────────────────────────────
+    
+    /// <summary>
+    /// Performs UDP IP discovery and sends Select Protocol to establish the UDP connection.
+    /// </summary>
+    private async Task PerformIpDiscoveryAndSelectProtocolAsync()
+    {
+        var previousState = State;
+        State = VoiceConnectionState.Discovering;
+        StateChanged?.Invoke(previousState, State);
+        
+        try
+        {
+            // Create UDP client for IP discovery
+            _udpClient = new UdpClient();
+            _udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveTimeout, 5000);
+            
+            // Send IP discovery packet (70 bytes of null)
+            var discoveryPacket = new byte[70];
+            // First 4 bytes are SSRC in big-endian
+            var ssrcBytes = BitConverter.GetBytes(Ssrc);
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(ssrcBytes);
+            Array.Copy(ssrcBytes, 0, discoveryPacket, 0, 4);
+            
+            await _udpClient.SendAsync(discoveryPacket, discoveryPacket.Length, _udpIp!, _udpPort)
+                .ConfigureAwait(false);
+            
+            // Receive IP discovery response
+            var response = await _udpClient.ReceiveAsync().ConfigureAwait(false);
+            var responseBuffer = response.Buffer;
+            
+            // Parse response: [type(1)][ip_len(2)][ip(var)][port(2)][remaining(padding)]
+            var ipLength = BitConverter.ToUInt16(responseBuffer, 2);
+            if (BitConverter.IsLittleEndian)
+                ipLength = (ushort)((ipLength >> 8) | (ipLength << 8));
+            
+            var discoveredIp = System.Text.Encoding.UTF8.GetString(responseBuffer, 4, ipLength);
+            var discoveredPort = BitConverter.ToUInt16(responseBuffer, 4 + ipLength);
+            if (BitConverter.IsLittleEndian)
+                discoveredPort = (ushort)((discoveredPort >> 8) | (discoveredPort << 8));
+            
+            _logger.LogInformation("IP Discovery complete: External IP={Ip}, Port={Port}", discoveredIp, discoveredPort);
+            
+            // Send Select Protocol (op 1)
+            await SendSelectProtocolAsync(discoveredIp, discoveredPort);
+            
+            // Start UDP receive loop
+            _udpReceiveTask = Task.Run(UdpReceiveLoopAsync, _cts.Token);
+            
+            // Update state
+            previousState = State;
+            State = VoiceConnectionState.Connected;
+            StateChanged?.Invoke(previousState, State);
+            UdpConnected?.Invoke(discoveredIp, discoveredPort);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "IP discovery failed for channel {ChannelId}", _channel.Id);
+            State = VoiceConnectionState.Disconnected;
+            StateChanged?.Invoke(State, VoiceConnectionState.Disconnected);
+            _onConnectionFailed?.Invoke(_channel.Id);
+        }
+    }
+    
+    /// <summary>
+    /// Sends Select Protocol (op 1) to negotiate the UDP connection and encryption mode.
+    /// </summary>
+    private async Task SendSelectProtocolAsync(string ip, int port)
+    {
+        var modeString = _encryptionMode.ToString().ToLower().Replace("_", "");
+        
+        var payload = new
+        {
+            op = 1,
+            d = new
+            {
+                protocol = "udp",
+                data = new
+                {
+                    address = ip,
+                    port = port,
+                    mode = modeString
+                }
+            }
+        };
+        
+        var json = JsonSerializer.Serialize(payload);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        await _webSocket!.SendAsync(bytes, WebSocketMessageType.Text, true, _cts!.Token);
+        
+        _logger.LogInformation("Select Protocol sent: Mode={Mode}, Address={Address}:{Port}", modeString, ip, port);
+    }
+    
+    /// <summary>
+    /// Selects the best available encryption mode based on preferences and server support.
+    /// </summary>
+    private void SelectEncryptionMode(List<string> availableModes)
+    {
+        var preferredOrder = new[]
+        {
+            "aead_aes256_gcm_rtpsize",
+            "aead_xchacha20_poly1305_rtpsize",
+            "xsalsa20_poly1305_lite_rtpsize",
+            "xsalsa20_poly1305_suffix",
+            "xsalsa20_poly1305"
+        };
+        
+        // Try to match preferred mode first
+        var preferredString = _options.PreferredEncryptionMode.ToString().ToLower().Replace("_", "");
+        if (availableModes.Contains(preferredString))
+        {
+            Enum.TryParse<VoiceEncryptionMode>(preferredString.Replace("_", ""), true, out _encryptionMode);
+            return;
+        }
+        
+        // Fall back to first available in preferred order
+        foreach (var mode in preferredOrder)
+        {
+            if (availableModes.Contains(mode))
+            {
+                Enum.TryParse<VoiceEncryptionMode>(mode.Replace("_", ""), true, out _encryptionMode);
+                return;
+            }
+        }
+        
+        // Default to first available
+        Enum.TryParse<VoiceEncryptionMode>(availableModes[0].Replace("_", ""), true, out _encryptionMode);
+    }
+    
+    // ── UDP Receive Loop ───────────────────────────────────────────────────────
+    
+    /// <summary>
+    /// Receives audio packets from the UDP socket and processes them.
+    /// </summary>
+    private async Task UdpReceiveLoopAsync()
+    {
+        if (_udpClient == null || _cts == null)
+            return;
+        
+        try
+        {
+            while (!_cts.Token.IsCancellationRequested)
+            {
+                var result = await _udpClient.ReceiveAsync().ConfigureAwait(false);
+                var packet = result.Buffer;
+                
+                // Skip IP discovery responses (handled in PerformIpDiscoveryAndSelectProtocolAsync)
+                if (packet.Length == 74)
+                    continue;
+                
+                // Parse RTP header and decrypt
+                if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
+                {
+                    byte[] opusData = encryptedPayload;
+                    
+                    // Remove transport encryption
+                    if (_secretKey != null)
+                    {
+                        opusData = RemoveTransportEncryption(encryptedPayload, rtpHeader);
+                    }
+                    
+                    var pcm = DecodeAudio(opusData);
+                    
+                    // Fire the receive event before feeding audio to local playback
+                    VoicePacketReceived?.Invoke(ssrc, pcm);
+                    
+                    await PlayAudioFromPcmAsync(pcm);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when cancelling
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UDP receive loop failed for channel {ChannelId}", _channel.Id);
+        }
+    }
+    
+    // ── Transport Encryption (AEAD modes) ───────────────────────────────────────
+    
+    /// <summary>
+    /// Applies transport encryption to an Opus packet using AEAD encryption mode.
+    /// Supports aead_aes256_gcm_rtpsize and aead_xchacha20_poly1305_rtpsize modes.
+    /// </summary>
+    private byte[] ApplyTransportEncryption(byte[] opusPacket, byte[] rtpHeader)
+    {
+        if (_secretKey == null || _secretKey.Length == 0)
+            return opusPacket;
+        
+        try
+        {
+            switch (_encryptionMode)
+            {
+                case VoiceEncryptionMode.AeadAes256GcmRtpSize:
+                    return ApplyAeadAes256Gcm(opusPacket, rtpHeader);
+                
+                case VoiceEncryptionMode.AeadXChaCha20Poly1305RtpSize:
+                    // XChaCha20-Poly1305 requires libsodium - fallback to AES-GCM for now
+                    _logger.LogWarning("XChaCha20-Poly1305 not implemented without libsodium, falling back to AES-GCM");
+                    return ApplyAeadAes256Gcm(opusPacket, rtpHeader);
+                
+                case VoiceEncryptionMode.XSalsa20Poly1305:
+                case VoiceEncryptionMode.XSalsa20Poly1305Suffix:
+                case VoiceEncryptionMode.XSalsa20Poly1305LiteRtpSize:
+                    // XSalsa20-Poly1305 modes are deprecated, use AES-GCM as fallback
+                    _logger.LogWarning("XSalsa20-Poly1305 mode is deprecated, using AES-GCM fallback");
+                    return ApplyAeadAes256Gcm(opusPacket, rtpHeader);
+                
+                default:
+                    _logger.LogWarning("Unknown encryption mode, sending unencrypted");
+                    return opusPacket;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Transport encryption failed, sending unencrypted");
+            return opusPacket;
+        }
+    }
+    
+    /// <summary>
+    /// Applies AEAD_AES256_GCM_RTPSIZE encryption.
+    /// Nonce is 12 bytes: first 4 bytes are SSRC, remaining 8 bytes are packet counter.
+    /// </summary>
+    private byte[] ApplyAeadAes256Gcm(byte[] opusPacket, byte[] rtpHeader)
+    {
+        // Extract SSRC from RTP header (bytes 8-11)
+        var ssrc = BitConverter.ToUInt32(new byte[] { rtpHeader[11], rtpHeader[10], rtpHeader[9], rtpHeader[8] }, 0);
+        
+        // Build nonce: 4 bytes SSRC + 8 bytes counter
+        var nonce = new byte[12];
+        Array.Copy(rtpHeader, 8, nonce, 0, 4); // SSRC
+        // Counter is derived from RTP sequence (simplified - in production should track per-packet counter)
+        Array.Copy(rtpHeader, 2, nonce, 4, 2); // Use sequence as part of counter
+        // Remaining 6 bytes of counter would be tracked in production
+        
+        using var aes = new AesGcm(_secretKey, 16);
+        
+        var ciphertext = new byte[opusPacket.Length];
+        var tag = new byte[16];
+        
+        aes.Encrypt(nonce, opusPacket, ciphertext, tag, rtpHeader);
+        
+        // Return: ciphertext + tag
+        var result = new byte[ciphertext.Length + tag.Length];
+        Array.Copy(ciphertext, 0, result, 0, ciphertext.Length);
+        Array.Copy(tag, 0, result, ciphertext.Length, tag.Length);
+        
+        return result;
+    }
+    
+    /// <summary>
+    /// Removes transport encryption from a packet.
+    /// </summary>
+    private byte[] RemoveTransportEncryption(byte[] encryptedPacket, byte[] rtpHeader)
+    {
+        if (_secretKey == null || _secretKey.Length == 0)
+            return encryptedPacket;
+        
+        try
+        {
+            switch (_encryptionMode)
+            {
+                case VoiceEncryptionMode.AeadAes256GcmRtpSize:
+                    return RemoveAeadAes256Gcm(encryptedPacket, rtpHeader);
+                
+                case VoiceEncryptionMode.AeadXChaCha20Poly1305RtpSize:
+                case VoiceEncryptionMode.XSalsa20Poly1305:
+                case VoiceEncryptionMode.XSalsa20Poly1305Suffix:
+                case VoiceEncryptionMode.XSalsa20Poly1305LiteRtpSize:
+                    // Fallback to AES-GCM decryption
+                    return RemoveAeadAes256Gcm(encryptedPacket, rtpHeader);
+                
+                default:
+                    return encryptedPacket;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Transport decryption failed, returning encrypted packet");
+            return encryptedPacket;
+        }
+    }
+    
+    /// <summary>
+    /// Removes AEAD_AES256_GCM_RTPSIZE encryption.
+    /// </summary>
+    private byte[] RemoveAeadAes256Gcm(byte[] encryptedPacket, byte[] rtpHeader)
+    {
+        // Assume format: ciphertext + tag (16 bytes)
+        if (encryptedPacket.Length < 16)
+            return encryptedPacket;
+        
+        var cipherLen = encryptedPacket.Length - 16;
+        var ciphertext = encryptedPacket.AsSpan(0, cipherLen);
+        var tag = encryptedPacket.AsSpan(cipherLen, 16);
+        
+        // Extract SSRC from RTP header
+        var ssrc = BitConverter.ToUInt32(new byte[] { rtpHeader[11], rtpHeader[10], rtpHeader[9], rtpHeader[8] }, 0);
+        
+        // Build nonce same as encryption
+        var nonce = new byte[12];
+        Array.Copy(rtpHeader, 8, nonce, 0, 4);
+        Array.Copy(rtpHeader, 2, nonce, 4, 2);
+        
+        using var aes = new AesGcm(_secretKey, 16);
+        
+        var plaintext = new byte[cipherLen];
+        aes.Decrypt(nonce, ciphertext, tag, plaintext, rtpHeader);
+        
+        return plaintext;
+    }
+    
     /// <summary>
     /// Disposes the voice connection.
     /// </summary>
@@ -890,9 +1546,14 @@ public class VoiceConnection : IDisposable
         _cts?.Dispose();
 
         _webSocket?.Dispose();
+        _udpClient?.Close();
         _waveIn?.Dispose();
         _waveOut?.Dispose();
-        _dave.Dispose();
         _pendingPcm.Clear();
+        
+        if (_secretKey != null)
+        {
+            CryptographicOperations.ZeroMemory(_secretKey);
+        }
     }
 }

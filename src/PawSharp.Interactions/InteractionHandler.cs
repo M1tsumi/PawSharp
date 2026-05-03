@@ -287,7 +287,8 @@ public class InteractionHandler
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Unhandled exception in HandleInteractionAsync for interaction ID: {Id}", interaction.Id);
+            _logger?.LogError(ex, "Unhandled exception in HandleInteractionAsync for interaction ID: {Id}, Type: {Type}. Error: {MessageType}", 
+                interaction.Id, interaction.Type, ex.GetType().Name);
             throw;
         }
     }
@@ -361,9 +362,34 @@ public class InteractionHandler
             };
             await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
         }
+        catch (DiscordApiException ex)
+        {
+            _logger?.LogError(ex, "Autocomplete handler failed for command '{CommandName}'. API Error: {StatusCode} - {DiscordMessage}", 
+                interaction.Data?.Name, ex.StatusCode, ex.DiscordErrorMessage);
+            // Send empty choices to prevent timeout
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
+            };
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+        }
+        catch (ValidationException ex)
+        {
+            _logger?.LogError(ex, "Autocomplete handler failed for command '{CommandName}'. Validation Error: {Parameter} = {Value}", 
+                interaction.Data?.Name, ex.ParameterName, ex.InvalidValue);
+            // Send empty choices to prevent timeout
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
+            };
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+        }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Autocomplete handler failed for command: {CommandName}", interaction.Data?.Name);
+            _logger?.LogError(ex, "Autocomplete handler failed for command '{CommandName}'. Unexpected error: {MessageType}", 
+                interaction.Data?.Name, ex.GetType().Name);
             // Send empty choices to prevent timeout
             var response = new InteractionResponse
             {
@@ -378,7 +404,7 @@ public class InteractionHandler
     {
         if (handler == null)
         {
-            _logger?.LogWarning("Handler is null for {HandlerType} with key '{Key}'", handlerType, key);
+            _logger?.LogWarning("Handler is null for {HandlerType} with key '{Key}' - this may indicate a registration issue", handlerType, key);
             return;
         }
 
@@ -386,9 +412,10 @@ public class InteractionHandler
         {
             await handler(interaction);
         }
-        catch (Exception ex)
+        catch (DiscordApiException ex)
         {
-            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'", handlerType, key);
+            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. API Error: {StatusCode} - {DiscordMessage}", 
+                handlerType, key, ex.StatusCode, ex.DiscordErrorMessage);
             // Optionally send error response to user
             try
             {
@@ -400,7 +427,42 @@ public class InteractionHandler
             }
             catch (Exception responseEx)
             {
-                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler", handlerType);
+                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler with key '{Key}'", handlerType, key);
+            }
+        }
+        catch (ValidationException ex)
+        {
+            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. Validation Error: {Parameter} = {Value}", 
+                handlerType, key, ex.ParameterName, ex.InvalidValue);
+            try
+            {
+                await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
+                {
+                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Data = new InteractionCallbackData { Content = $"Invalid input: {ex.Message}", Flags = 64 }
+                });
+            }
+            catch (Exception responseEx)
+            {
+                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler with key '{Key}'", handlerType, key);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. Unexpected error: {MessageType}", 
+                handlerType, key, ex.GetType().Name);
+            // Optionally send error response to user
+            try
+            {
+                await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
+                {
+                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
+                });
+            }
+            catch (Exception responseEx)
+            {
+                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler with key '{Key}'", handlerType, key);
             }
         }
     }
