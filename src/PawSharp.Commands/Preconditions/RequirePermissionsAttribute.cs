@@ -1,6 +1,9 @@
 #nullable enable
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using PawSharp.Core.Entities;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Commands.Preconditions;
 
@@ -38,22 +41,164 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
     }
 
     /// <inheritdoc/>
-    public Task<PreconditionResult> CheckAsync(CommandContext ctx)
+    public async Task<PreconditionResult> CheckAsync(CommandContext ctx)
     {
         // Must be in a guild
         if (!ctx.GuildId.HasValue)
-            return Task.FromResult(PreconditionResult.FromError(
-                "This command can only be used inside a server."));
+            return PreconditionResult.FromError(
+                "This command can only be used inside a server.");
 
-        // Member object is populated from the gateway MESSAGE_CREATE event
-        var member = ctx.Member;
+        var guildId = ctx.GuildId.Value;
+
+        var guild = ctx.Client.Cache.GetGuild(guildId)
+            ?? await ctx.Client.Rest.GetGuildAsync(guildId);
+
+        if (guild == null)
+        {
+            return PreconditionResult.FromError("Unable to resolve guild data for permission checks.");
+        }
+
+        var member = ctx.Member
+            ?? ctx.Client.Cache.GetGuildMember(guildId, ctx.User.Id)
+            ?? await ctx.Client.Rest.GetGuildMemberAsync(guildId, ctx.User.Id);
+
         if (member is null)
-            return Task.FromResult(PreconditionResult.FromError(
-                "Unable to resolve guild member permissions."));
+        {
+            return PreconditionResult.FromError("Unable to resolve guild member permissions.");
+        }
 
-        // Permissions are not directly on GuildMember - need to get from guild cache or calculate
-        // For now, return error as this requires more complex permission calculation
-        return Task.FromResult(PreconditionResult.FromError(
-                "Permission checking not yet implemented for this context."));
+        var permissionsResult = await ResolveMemberPermissionsAsync(ctx, guild, member);
+        if (permissionsResult == null)
+        {
+            return PreconditionResult.FromError("Unable to resolve guild member permissions.");
+        }
+
+        var effectivePermissions = permissionsResult.Value;
+        var adminBit = (ulong)PawSharp.Core.Enums.Permissions.Administrator;
+
+        if (IgnoreAdmins)
+        {
+            if (guild.OwnerId == ctx.User.Id || (effectivePermissions & adminBit) == adminBit)
+                return PreconditionResult.FromSuccess();
+        }
+
+        return (effectivePermissions & RequiredPermissions) == RequiredPermissions
+            ? PreconditionResult.FromSuccess()
+            : PreconditionResult.FromError("You do not have the required permissions to run this command.");
+    }
+
+    private static async Task<ulong?> ResolveMemberPermissionsAsync(CommandContext ctx, Guild guild, GuildMember member)
+    {
+        if (member.Permissions.HasValue)
+        {
+            return (ulong)member.Permissions.Value;
+        }
+
+        var channel = ctx.Client.Cache.GetChannel(ctx.ChannelId)
+            ?? await ctx.Client.Rest.GetChannelAsync(ctx.ChannelId);
+
+        if (channel?.Permissions.HasValue == true)
+        {
+            return (ulong)channel.Permissions.Value;
+        }
+
+        var basePermissions = ComputeBasePermissions(guild, member, ctx.User.Id);
+        if (basePermissions == null)
+        {
+            return null;
+        }
+
+        if (channel == null)
+        {
+            return basePermissions;
+        }
+
+        return ApplyChannelOverwrites(basePermissions.Value, channel, member, ctx.User.Id, guild.Id);
+    }
+
+    private static ulong? ComputeBasePermissions(Guild guild, GuildMember member, ulong userId)
+    {
+        if (guild.Roles == null || guild.Roles.Count == 0)
+        {
+            return null;
+        }
+
+        var everyoneRole = guild.Roles.FirstOrDefault(r => r.Id == guild.Id);
+        var permissions = ParsePermissions(everyoneRole?.Permissions);
+
+        foreach (var roleId in member.Roles)
+        {
+            var role = guild.Roles.FirstOrDefault(r => r.Id == roleId);
+            permissions |= ParsePermissions(role?.Permissions);
+        }
+
+        return permissions;
+    }
+
+    private static ulong ApplyChannelOverwrites(
+        ulong permissions,
+        Channel channel,
+        GuildMember member,
+        ulong userId,
+        ulong guildId)
+    {
+        var adminBit = (ulong)PawSharp.Core.Enums.Permissions.Administrator;
+        if ((permissions & adminBit) == adminBit)
+        {
+            return permissions;
+        }
+
+        var overwrites = channel.PermissionOverwrites;
+        if (overwrites == null || overwrites.Count == 0)
+        {
+            return permissions;
+        }
+
+        var everyoneOverwrite = overwrites.FirstOrDefault(o => o.Type == OverwriteType.Role && o.Id == guildId);
+        if (everyoneOverwrite != null)
+        {
+            ApplyOverwrite(ref permissions, everyoneOverwrite);
+        }
+
+        ulong roleAllow = 0;
+        ulong roleDeny = 0;
+        foreach (var roleId in member.Roles)
+        {
+            var overwrite = overwrites.FirstOrDefault(o => o.Type == OverwriteType.Role && o.Id == roleId);
+            if (overwrite == null)
+                continue;
+
+            roleAllow |= ParsePermissions(overwrite.Allow);
+            roleDeny |= ParsePermissions(overwrite.Deny);
+        }
+
+        permissions &= ~roleDeny;
+        permissions |= roleAllow;
+
+        var memberOverwrite = overwrites.FirstOrDefault(o => o.Type == OverwriteType.Member && o.Id == userId);
+        if (memberOverwrite != null)
+        {
+            ApplyOverwrite(ref permissions, memberOverwrite);
+        }
+
+        return permissions;
+    }
+
+    private static void ApplyOverwrite(ref ulong permissions, Overwrite overwrite)
+    {
+        var allow = ParsePermissions(overwrite.Allow);
+        var deny = ParsePermissions(overwrite.Deny);
+        permissions &= ~deny;
+        permissions |= allow;
+    }
+
+    private static ulong ParsePermissions(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 0;
+        }
+
+        return ulong.TryParse(value, out var permissions) ? permissions : 0;
     }
 }

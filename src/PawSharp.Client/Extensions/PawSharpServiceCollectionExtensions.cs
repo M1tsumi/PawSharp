@@ -40,8 +40,7 @@ public static class PawSharpServiceCollectionExtensions
     /// <param name="options">Bot configuration (token, intents, etc.).</param>
     /// <param name="cacheFactory">
     /// Optional factory for supplying a custom <see cref="IEntityCache"/> implementation.
-    /// When <c>null</c>, the in-memory provider from <c>PawSharp.Cache</c> is expected to be
-    /// registered separately (e.g. via <c>services.AddMemoryCache()</c>).
+    /// When <c>null</c>, an in-memory <see cref="MemoryCacheProvider"/> is registered automatically.
     /// </param>
     /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
     public static IServiceCollection AddPawSharp(
@@ -78,11 +77,8 @@ public static class PawSharpServiceCollectionExtensions
                 sp.GetRequiredService<PawSharpOptions>(),
                 sp.GetRequiredService<ILogger<GatewayClient>>()));
 
-        // Cache — use factory if provided, otherwise expect the consumer to register IEntityCache themselves
-        if (cacheFactory != null)
-        {
-            services.AddSingleton<IEntityCache>(cacheFactory);
-        }
+        // Cache defaults to the in-memory provider unless a custom cache is supplied.
+        services.AddSingleton<IEntityCache>(sp => cacheFactory?.Invoke(sp) ?? new MemoryCacheProvider());
 
         // Interaction handler
         services.AddSingleton<InteractionHandler>(sp =>

@@ -22,7 +22,7 @@ PawSharp is a Discord library for C# developers who want clean building blocks i
 If you want a high-level client, use `PawSharp.Client`.
 If you only need specific pieces (REST, Gateway, Interactions, Voice), install just those packages.
 
-Current release status: `1.0.0-alpha.4`.
+Current release status: `1.1.0-alpha.1`.
 
 This is a public alpha. The library is already usable, but some APIs can still evolve. See [versioning policy][versioning].
 
@@ -41,16 +41,16 @@ This is a public alpha. The library is already usable, but some APIs can still e
 Most bots should start with the full client package:
 
 ```bash
-dotnet add package PawSharp.Client --version 1.0.0-alpha.4
+dotnet add package PawSharp.Client --version 1.1.0-alpha.1
 ```
 
 Add optional modules only when you need them:
 
 ```bash
-dotnet add package PawSharp.Commands --version 1.0.0-alpha.4
-dotnet add package PawSharp.Interactions --version 1.0.0-alpha.4
-dotnet add package PawSharp.Interactivity --version 1.0.0-alpha.4
-dotnet add package PawSharp.Voice --version 1.0.0-alpha.4
+dotnet add package PawSharp.Commands --version 1.1.0-alpha.1
+dotnet add package PawSharp.Interactions --version 1.1.0-alpha.1
+dotnet add package PawSharp.Interactivity --version 1.1.0-alpha.1
+dotnet add package PawSharp.Voice --version 1.1.0-alpha.1
 ```
 
 ## Quick Start

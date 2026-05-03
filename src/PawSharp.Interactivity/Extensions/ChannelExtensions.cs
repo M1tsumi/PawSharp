@@ -8,6 +8,7 @@ using PawSharp.API.Models;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
+using PawSharp.Interactions;
 
 namespace PawSharp.Interactivity.Extensions;
 
@@ -149,13 +150,35 @@ public static class ChannelExtensions
         Func<MessageCreateEvent, bool>? predicate = null,
         TimeSpan? timeout = null)
     {
+        return await GetNextMessageAsync(channel, client, predicate, timeout, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Waits for the next message in the channel with cancellation support.
+    /// </summary>
+    /// <param name="channel">The channel to wait in.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="predicate">The predicate to match messages.</param>
+    /// <param name="timeout">The timeout for waiting.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The interactivity result.</returns>
+    public static async Task<InteractivityResult<MessageCreateEvent>> GetNextMessageAsync(
+        this Channel channel,
+        DiscordClient client,
+        Func<MessageCreateEvent, bool>? predicate = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
-        var tcs = new TaskCompletionSource<MessageCreateEvent>();
-        var cts = new CancellationTokenSource(timeout.Value);
+        var tcs = new TaskCompletionSource<MessageCreateEvent>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
-        cts.Token.Register(() => tcs.TrySetCanceled());
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
 
         void OnMessageCreate(MessageCreateEvent evt)
         {
@@ -172,14 +195,271 @@ public static class ChannelExtensions
             var message = await tcs.Task;
             return new InteractivityResult<MessageCreateEvent> { Result = message };
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             return new InteractivityResult<MessageCreateEvent> { TimedOut = true };
         }
         finally
         {
             subscription.Dispose();
-            cts.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Sends a confirmation dialog with Yes/No buttons and waits for the user's choice.
+    /// </summary>
+    /// <param name="channel">The channel to send the confirmation to.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="question">The question or prompt to display.</param>
+    /// <param name="user">The user who can respond.</param>
+    /// <param name="yesLabel">Label for the Yes button (default: "Yes").</param>
+    /// <param name="noLabel">Label for the No button (default: "No").</param>
+    /// <param name="timeout">Maximum time to wait for a response.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if Yes was clicked, False if No was clicked, or TimedOut if deadline exceeded.</returns>
+    public static async Task<InteractivityResult<bool>> ConfirmAsync(
+        this Channel channel,
+        DiscordClient client,
+        string question,
+        User user,
+        string yesLabel = "Yes",
+        string noLabel = "No",
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        // Build Yes/No buttons
+        var yesButton = new Button
+        {
+            CustomId = "confirm_yes",
+            Label = yesLabel,
+            Style = ButtonStyle.Success
+        };
+
+        var noButton = new Button
+        {
+            CustomId = "confirm_no",
+            Label = noLabel,
+            Style = ButtonStyle.Danger
+        };
+
+        var actionRow = new ActionRow
+        {
+            Components = new List<MessageComponent> { yesButton, noButton }
+        };
+
+        // Send confirmation message
+        var request = new CreateMessageRequest
+        {
+            Content = question,
+            Components = new List<MessageComponent> { actionRow }
+        };
+
+        var message = await client.Rest.CreateMessageAsync(channel.Id, request);
+        if (message == null)
+            return new InteractivityResult<bool> { TimedOut = true };
+
+        // Wait for button click
+        var result = await message.WaitForButtonAsync(client, user, timeout: timeout, cancellationToken: cancellationToken);
+
+        if (result.TimedOut || result.Result == null)
+        {
+            // Clean up the buttons
+            try
+            {
+                await client.Rest.EditMessageAsync(channel.Id, message.Id, new EditMessageRequest
+                {
+                    Content = $"{question}\n\n*(timed out)*",
+                    Components = new List<MessageComponent>()
+                });
+            }
+            catch { /* Best effort cleanup */ }
+
+            return new InteractivityResult<bool> { TimedOut = true };
+        }
+
+        var confirmed = result.Result.Data?.CustomId == "confirm_yes";
+
+        // Acknowledge the interaction to remove loading state
+        await client.Rest.CreateInteractionResponseAsync(
+            result.Result.Id,
+            result.Result.Token,
+            new InteractionResponse { Type = (int)InteractionResponseType.DeferredUpdateMessage });
+
+        // Update message to show result and remove buttons
+        try
+        {
+            await client.Rest.EditMessageAsync(channel.Id, message.Id, new EditMessageRequest
+            {
+                Content = $"{question}\n\n**{(confirmed ? "✅ Yes" : "❌ No")}**",
+                Components = new List<MessageComponent>()
+            });
+        }
+        catch { /* Best effort */ }
+
+        return new InteractivityResult<bool> { Result = confirmed };
+    }
+
+    /// <summary>
+    /// Sends a paginated message using buttons instead of reactions (modern Discord UX).
+    /// This provides a cleaner experience with disabled states for boundary pages.
+    /// </summary>
+    /// <param name="channel">The channel to send to.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user who can control the pagination.</param>
+    /// <param name="pages">The pages to paginate.</param>
+    /// <param name="timeout">The timeout for the pagination.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public static async Task SendButtonPaginatedMessageAsync(
+        this Channel channel,
+        DiscordClient client,
+        User user,
+        IEnumerable<Page> pages,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var pageList = pages.ToList();
+        if (!pageList.Any())
+            return;
+
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        var currentPage = 0;
+        var totalPages = pageList.Count;
+
+        // Send initial message with buttons
+        var initialRequest = new CreateMessageRequest
+        {
+            Content = pageList[currentPage].Content,
+            Embeds = pageList[currentPage].Embed != null
+                ? new List<Embed> { pageList[currentPage].Embed! }
+                : null,
+            Components = BuildPaginationButtons(currentPage, totalPages)
+        };
+
+        var message = await client.Rest.CreateMessageAsync(channel.Id, initialRequest);
+        if (message == null) return;
+
+        // Pagination loop
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var result = await message.WaitForButtonAsync(
+                client,
+                user,
+                timeout: timeout,
+                cancellationToken: cancellationToken);
+
+            if (result.TimedOut || result.Result == null)
+                break;
+
+            var customId = result.Result.Data?.CustomId;
+            if (customId == null) continue;
+
+            // Handle button clicks
+            switch (customId)
+            {
+                case "page_first":
+                    currentPage = 0;
+                    break;
+                case "page_prev":
+                    if (currentPage > 0) currentPage--;
+                    break;
+                case "page_next":
+                    if (currentPage < totalPages - 1) currentPage++;
+                    break;
+                case "page_last":
+                    currentPage = totalPages - 1;
+                    break;
+                case "page_stop":
+                    // Acknowledge and stop
+                    await client.Rest.CreateInteractionResponseAsync(
+                        result.Result.Id,
+                        result.Result.Token,
+                        new InteractionResponse { Type = (int)InteractionResponseType.DeferredUpdateMessage });
+
+                    // Remove buttons
+                    await client.Rest.EditMessageAsync(channel.Id, message.Id, new EditMessageRequest
+                    {
+                        Content = pageList[currentPage].Content,
+                        Embeds = pageList[currentPage].Embed != null
+                            ? new List<Embed> { pageList[currentPage].Embed! }
+                            : null,
+                        Components = new List<MessageComponent>()
+                    });
+                    return;
+            }
+
+            // Update message with new page and button states
+            var updateResponse = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.UpdateMessage,
+                Data = new InteractionCallbackData
+                {
+                    Content = pageList[currentPage].Content,
+                    Embeds = pageList[currentPage].Embed != null
+                        ? new List<Embed> { pageList[currentPage].Embed! }
+                        : null,
+                    Components = BuildPaginationButtons(currentPage, totalPages)
+                }
+            };
+
+            await client.Rest.CreateInteractionResponseAsync(
+                result.Result.Id,
+                result.Result.Token,
+                updateResponse);
+        }
+    }
+
+    /// <summary>
+    /// Builds pagination buttons with appropriate disabled states.
+    /// </summary>
+    private static List<MessageComponent> BuildPaginationButtons(int currentPage, int totalPages)
+    {
+        var buttons = new List<Button>
+        {
+            new()
+            {
+                CustomId = "page_first",
+                Label = "⏮ First",
+                Style = ButtonStyle.Secondary,
+                Disabled = currentPage == 0
+            },
+            new()
+            {
+                CustomId = "page_prev",
+                Label = "◀ Previous",
+                Style = ButtonStyle.Secondary,
+                Disabled = currentPage == 0
+            },
+            new()
+            {
+                CustomId = "page_stop",
+                Label = "⏹ Stop",
+                Style = ButtonStyle.Danger
+            },
+            new()
+            {
+                CustomId = "page_next",
+                Label = "▶ Next",
+                Style = ButtonStyle.Secondary,
+                Disabled = currentPage >= totalPages - 1
+            },
+            new()
+            {
+                CustomId = "page_last",
+                Label = "⏭ Last",
+                Style = ButtonStyle.Secondary,
+                Disabled = currentPage >= totalPages - 1
+            }
+        };
+
+        return new List<MessageComponent>
+        {
+            new ActionRow { Components = buttons.Cast<MessageComponent>().ToList() }
+        };
     }
 }

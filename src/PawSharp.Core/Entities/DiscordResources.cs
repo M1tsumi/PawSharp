@@ -4,6 +4,16 @@ using System.Text.Json.Serialization;
 namespace PawSharp.Core.Entities;
 
 /// <summary>
+/// Represents basic gateway connection information returned by GET /gateway.
+/// </summary>
+public class GatewayInfo
+{
+    /// <summary>The WSS URL to connect to.</summary>
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Represents gateway connection information returned by GET /gateway/bot.
 /// </summary>
 public class GatewayBotInfo

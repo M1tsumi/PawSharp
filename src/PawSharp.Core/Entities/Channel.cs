@@ -219,4 +219,61 @@ public class Channel : DiscordEntity
     /// </summary>
     [JsonPropertyName("status")]
     public string? Status { get; set; }
+
+    /// <summary>
+    /// Gets whether this is a guild text channel.
+    /// </summary>
+    public bool IsText => Type == ChannelType.GuildText;
+
+    /// <summary>
+    /// Gets whether this is a voice channel.
+    /// </summary>
+    public bool IsVoice => Type == ChannelType.GuildVoice;
+
+    /// <summary>
+    /// Gets whether this is a category channel.
+    /// </summary>
+    public bool IsCategory => Type == ChannelType.GuildCategory;
+
+    /// <summary>
+    /// Gets whether this is a forum channel.
+    /// </summary>
+    public bool IsForum => Type == ChannelType.GuildForum;
+
+    /// <summary>
+    /// Gets whether this is a media channel.
+    /// </summary>
+    public bool IsMedia => Type == ChannelType.GuildMedia;
+
+    /// <summary>
+    /// Gets whether this is a thread channel.
+    /// </summary>
+    public bool IsThread => Type is ChannelType.PublicThread or ChannelType.PrivateThread or ChannelType.AnnouncementThread;
+
+    /// <summary>
+    /// Gets whether this is a direct message channel.
+    /// </summary>
+    public bool IsDm => Type is ChannelType.DM or ChannelType.GroupDM;
+
+    /// <summary>
+    /// Gets whether this is an announcement channel.
+    /// </summary>
+    public bool IsAnnouncement => Type == ChannelType.GuildAnnouncement;
+
+    /// <summary>
+    /// Gets whether this is a stage voice channel.
+    /// </summary>
+    public bool IsStage => Type == ChannelType.GuildStageVoice;
+
+    /// <summary>
+    /// Gets whether this is a guild channel (not a DM).
+    /// </summary>
+    public bool IsGuildChannel => Type is ChannelType.GuildText or ChannelType.GuildVoice or
+        ChannelType.GuildCategory or ChannelType.GuildAnnouncement or
+        ChannelType.GuildStageVoice or ChannelType.GuildForum or ChannelType.GuildMedia;
+
+    /// <summary>
+    /// Gets whether this channel is NSFW.
+    /// </summary>
+    public bool IsNsfw => Nsfw == true;
 }

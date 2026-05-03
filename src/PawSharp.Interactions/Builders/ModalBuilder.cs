@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using PawSharp.API.Models;
 using PawSharp.Core.Entities;
+using static PawSharp.Interactions.InteractionResponseType;
 
 namespace PawSharp.Interactions.Builders;
 
@@ -88,7 +89,7 @@ public class ModalBuilder
     {
         return new InteractionResponse
         {
-            Type = 9, // Modal
+            Type = (int)Modal,
             Data = Build()
         };
     }

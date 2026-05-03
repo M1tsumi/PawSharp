@@ -24,21 +24,26 @@ public static class MessageExtensions
     /// <param name="user">The user whose reaction to wait for.</param>
     /// <param name="emoji">The specific emoji to wait for, or null for any emoji.</param>
     /// <param name="timeout">The timeout for waiting.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>The interactivity result.</returns>
     public static async Task<InteractivityResult<Reaction>> WaitForReactionAsync(
         this Message message,
         DiscordClient client,
         User user,
         string? emoji = null,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
-        var tcs = new TaskCompletionSource<Reaction>();
-        var cts = new CancellationTokenSource(timeout.Value);
+        var tcs = new TaskCompletionSource<Reaction>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
-        cts.Token.Register(() => tcs.TrySetCanceled());
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
 
         void OnReactionAdd(MessageReactionAddEvent evt)
         {
@@ -63,14 +68,13 @@ public static class MessageExtensions
             var reaction = await tcs.Task;
             return new InteractivityResult<Reaction> { Result = reaction };
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             return new InteractivityResult<Reaction> { TimedOut = true };
         }
         finally
         {
-            subscription.Dispose(); // Unregister handler to prevent unbounded list growth
-            cts.Dispose();
+            subscription.Dispose();
         }
     }
 
@@ -133,21 +137,26 @@ public static class MessageExtensions
     /// <param name="user">The user whose reaction removal to wait for.</param>
     /// <param name="emoji">The specific emoji to wait for removal of, or null for any emoji.</param>
     /// <param name="timeout">The timeout for waiting.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>The interactivity result.</returns>
     public static async Task<InteractivityResult<Reaction>> WaitForReactionRemoveAsync(
         this Message message,
         DiscordClient client,
         User user,
         string? emoji = null,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
-        var tcs = new TaskCompletionSource<Reaction>();
-        var cts = new CancellationTokenSource(timeout.Value);
+        var tcs = new TaskCompletionSource<Reaction>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
-        cts.Token.Register(() => tcs.TrySetCanceled());
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
 
         void OnReactionRemove(MessageReactionRemoveEvent evt)
         {
@@ -172,14 +181,13 @@ public static class MessageExtensions
             var reaction = await tcs.Task;
             return new InteractivityResult<Reaction> { Result = reaction };
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             return new InteractivityResult<Reaction> { TimedOut = true };
         }
         finally
         {
             subscription.Dispose();
-            cts.Dispose();
         }
     }
 
@@ -292,35 +300,29 @@ public static class MessageExtensions
     /// </summary>
     /// <param name="message">The message whose buttons to listen on.</param>
     /// <param name="client">The Discord client.</param>
-    /// <param name="user">
-    /// The user whose interaction to accept, or <see langword="null"/> to accept any user.
-    /// </param>
-    /// <param name="customId">
-    /// The <c>custom_id</c> of the specific button to wait for, or <see langword="null"/>
-    /// to accept any button on the message.
-    /// </param>
-    /// <param name="timeout">
-    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
-    /// if not specified.
-    /// </param>
-    /// <returns>
-    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
-    /// when a matching click arrives, or a timed-out result after the deadline.
-    /// </returns>
+    /// <param name="user">The user whose interaction to accept, or null to accept any user.</param>
+    /// <param name="customId">The custom_id of the specific button to wait for, or null for any button.</param>
+    /// <param name="timeout">The maximum time to wait.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The interactivity result.</returns>
     public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForButtonAsync(
         this Message message,
         DiscordClient client,
         User? user = null,
         string? customId = null,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
         var tcs = new TaskCompletionSource<InteractionCreateEvent>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        using var cts = new CancellationTokenSource(timeout.Value);
-        cts.Token.Register(() => tcs.TrySetCanceled());
+
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
 
         // Interaction type 3 = MessageComponent; component_type 2 = Button
         const int messageComponentType = 3;
@@ -344,47 +346,40 @@ public static class MessageExtensions
             var evt = await tcs.Task;
             return new InteractivityResult<InteractionCreateEvent> { Result = evt };
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             return new InteractivityResult<InteractionCreateEvent> { TimedOut = true };
         }
     }
 
     /// <summary>
-    /// Waits for a select menu interaction on this message and returns the resulting interaction.
+    /// Waits for a select menu interaction on this message.
     /// </summary>
     /// <param name="message">The message whose select menus to listen on.</param>
     /// <param name="client">The Discord client.</param>
-    /// <param name="user">
-    /// The user whose interaction to accept, or <see langword="null"/> to accept any user.
-    /// </param>
-    /// <param name="customId">
-    /// The <c>custom_id</c> of the specific select menu to wait for, or <see langword="null"/>
-    /// to accept any select menu on the message.
-    /// </param>
-    /// <param name="timeout">
-    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
-    /// if not specified.
-    /// </param>
-    /// <returns>
-    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
-    /// (with <c>Data.Values</c> containing the selected values) when a matching submission
-    /// arrives, or a timed-out result after the deadline.
-    /// </returns>
+    /// <param name="user">The user whose interaction to accept, or null to accept any user.</param>
+    /// <param name="customId">The custom_id of the specific select menu to wait for, or null for any.</param>
+    /// <param name="timeout">The maximum time to wait.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The interactivity result.</returns>
     public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForSelectAsync(
         this Message message,
         DiscordClient client,
         User? user = null,
         string? customId = null,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
         var tcs = new TaskCompletionSource<InteractionCreateEvent>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        using var cts = new CancellationTokenSource(timeout.Value);
-        cts.Token.Register(() => tcs.TrySetCanceled());
+
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
 
         // Interaction type 3 = MessageComponent
         // component_type: 3 = StringSelect, 5 = UserSelect, 6 = RoleSelect,
@@ -411,7 +406,61 @@ public static class MessageExtensions
             var evt = await tcs.Task;
             return new InteractivityResult<InteractionCreateEvent> { Result = evt };
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
+        {
+            return new InteractivityResult<InteractionCreateEvent> { TimedOut = true };
+        }
+    }
+
+    /// <summary>
+    /// Waits for a modal submission interaction.
+    /// </summary>
+    /// <param name="message">The message that triggered the modal (optional, for context).</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user whose submission to accept, or null to accept any user.</param>
+    /// <param name="customId">The custom_id of the specific modal to wait for, or null for any.</param>
+    /// <param name="timeout">The maximum time to wait.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The interactivity result.</returns>
+    public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForModalAsync(
+        this Message? message,
+        DiscordClient client,
+        User? user = null,
+        string? customId = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        var tcs = new TaskCompletionSource<InteractionCreateEvent>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
+
+        // Interaction type 5 = ModalSubmit
+        const int modalSubmitType = 5;
+
+        void OnInteraction(InteractionCreateEvent evt)
+        {
+            if (evt.Type != modalSubmitType)                                  return;
+            if (user is not null && GetUserId(evt) != user.Id)                return;
+            if (customId is not null && evt.Data?.CustomId != customId)        return;
+
+            tcs.TrySetResult(evt);
+        }
+
+        using var sub = client.Gateway.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", OnInteraction);
+
+        try
+        {
+            var evt = await tcs.Task;
+            return new InteractivityResult<InteractionCreateEvent> { Result = evt };
+        }
+        catch (OperationCanceledException)
         {
             return new InteractivityResult<InteractionCreateEvent> { TimedOut = true };
         }

@@ -38,6 +38,31 @@ public class TypeConverterService
     }
 
     /// <summary>
+    /// Registers a type converter from an ITypeConverter interface (used for DI).
+    /// Uses reflection to determine the target type from the implemented generic interface.
+    /// </summary>
+    /// <param name="converter">The converter instance implementing ITypeConverter{T}.</param>
+    public void RegisterConverterFromInterface(ITypeConverter converter)
+    {
+        if (converter == null) throw new ArgumentNullException(nameof(converter));
+
+        // Find the ITypeConverter<T> interface to determine the target type
+        var converterType = converter.GetType();
+        var genericInterface = converterType.GetInterface("ITypeConverter`1");
+
+        if (genericInterface != null)
+        {
+            var targetType = genericInterface.GetGenericArguments()[0];
+            _converters[targetType] = converter;
+            _logger?.LogDebug("Registered DI type converter for {Type}", targetType.Name);
+        }
+        else
+        {
+            _logger?.LogWarning("Converter type {ConverterType} does not implement ITypeConverter<T>", converterType.Name);
+        }
+    }
+
+    /// <summary>
     /// Attempts to convert a string value to the specified type.
     /// </summary>
     /// <typeparam name="T">The target type.</typeparam>

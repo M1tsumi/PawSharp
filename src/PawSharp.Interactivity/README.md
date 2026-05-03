@@ -20,7 +20,7 @@ It is especially useful for bots that need pagination, wait-for-input patterns, 
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Interactivity --version 1.0.0-alpha.4
+dotnet add package PawSharp.Interactivity --version 1.1.0-alpha.1
 ```
 
 ## Quick Start

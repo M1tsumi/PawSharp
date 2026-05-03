@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PawSharp.API.Exceptions;
 using PawSharp.API.Interfaces;
 using PawSharp.API.Models;
 using PawSharp.API.RateLimit;
@@ -63,14 +64,20 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         _options = options;
         _logger = logger;
         _rateLimiter = rateLimiter;
-        
+
         // Set base address and user-agent.
         // Authorization is NOT set on DefaultRequestHeaders; it is added per-request
         // in SendRequestAsync to scope credentials tightly and prevent accidental exposure.
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.0.0-alpha.4)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.1.0-alpha.1)");
+
+        // Apply timeout configuration if specified
+        if (_options.RestApi.TimeoutSeconds > 0)
+        {
+            _httpClient.Timeout = TimeSpan.FromSeconds(_options.RestApi.TimeoutSeconds);
+        }
     }
 
     /// <summary>
@@ -137,17 +144,25 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         return await GetAsync("users/@me");
     }
+
+    public async Task<HttpResponseMessage> GetCurrentUserAsync(CancellationToken cancellationToken)
+    {
+        return await GetAsync("users/@me", null, cancellationToken);
+    }
     
     // User operations
     public async Task<User?> GetUserAsync(ulong userId)
     {
-        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
+        ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"users/{userId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<User>();
-        }
-        return null;
+        return await HandleApiResponseAsync<User>("GetUserAsync", response);
+    }
+
+    public async Task<User?> GetUserAsync(ulong userId, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(userId, nameof(userId));
+        var response = await GetAsync($"users/{userId}", null, cancellationToken);
+        return await HandleApiResponseAsync<User>("GetUserAsync", response);
     }
     
     public async Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null, string? banner = null, string? avatarDecorationData = null)
@@ -213,7 +228,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> LeaveGuildAsync(ulong guildId)
     {
-        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(guildId, nameof(guildId));
         var response = await DeleteAsync($"users/@me/guilds/{guildId}");
         return response.IsSuccessStatusCode;
     }
@@ -227,8 +242,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     /// <returns>The created message, or null if the request fails.</returns>
     public async Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request)
     {
-        // Validate input
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(channelId, nameof(channelId));
 
         // Content is optional when embeds, components, or a poll are present.
         // Only validate the text when it is explicitly supplied.
@@ -251,6 +265,38 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/messages", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Message>();
+        }
+        return null;
+    }
+
+    public async Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+
+        // Content is optional when embeds, components, or a poll are present.
+        // Only validate the text when it is explicitly supplied.
+        if (request.Content != null)
+        {
+            ContentValidator.ValidateMessageContent(request.Content);
+        }
+
+        // Validate embeds if present
+        if (request.Embeds != null)
+        {
+            foreach (var embed in request.Embeds)
+            {
+                ContentValidator.ValidateEmbedTitle(embed.Title);
+                ContentValidator.ValidateEmbedDescription(embed.Description);
+                EmbedValidator.ValidateEmbedFieldCount(embed.Fields?.Count ?? 0);
+                EmbedValidator.ValidateEmbedHasContent(embed.Title, embed.Description, embed.Fields);
+            }
+        }
+
+        var content = JsonContent(request);
+        var response = await PostAsync($"channels/{channelId}/messages", content, null, cancellationToken);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<Message>();
@@ -384,8 +430,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request)
     {
         // Validate input
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
-        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
         if (request.Content != null)
         {
             ContentValidator.ValidateMessageContent(request.Content);
@@ -405,18 +451,49 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
         var content = JsonContent(request);
         var response = await PatchAsync($"channels/{channelId}/messages/{messageId}", content);
-        if (response.IsSuccessStatusCode)
+        return await HandleApiResponseAsync<Message>("EditMessageAsync", response);
+    }
+
+    public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request, CancellationToken cancellationToken)
+    {
+        // Validate input
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
+        if (request.Content != null)
         {
-            return await response.Content.ReadFromJsonAsync<Message>();
+            ContentValidator.ValidateMessageContent(request.Content);
         }
-        return null;
+
+        // Validate embeds if present
+        if (request.Embeds != null)
+        {
+            foreach (var embed in request.Embeds)
+            {
+                ContentValidator.ValidateEmbedTitle(embed.Title);
+                ContentValidator.ValidateEmbedDescription(embed.Description);
+                EmbedValidator.ValidateEmbedFieldCount(embed.Fields?.Count ?? 0);
+                EmbedValidator.ValidateEmbedHasContent(embed.Title, embed.Description, embed.Fields);
+            }
+        }
+
+        var content = JsonContent(request);
+        var response = await PatchAsync($"channels/{channelId}/messages/{messageId}", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Message>("EditMessageAsync", response);
     }
     
     public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId)
     {
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
-        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
         var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
+        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
     
@@ -426,43 +503,60 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         if (limit < 1 || limit > 100)
         {
-            throw new ValidationException("Limit must be between 1 and 100", nameof(limit), limit);
+            throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100");
         }
+
+        var queryParams = new List<string>();
+        queryParams.Add($"limit={limit}");
         if (around.HasValue)
         {
             SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+            queryParams.Add($"around={around.Value}");
         }
-
         if (before.HasValue)
         {
             SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+            queryParams.Add($"before={before.Value}");
         }
-
         if (after.HasValue)
         {
             SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
-        }
-
-        var queryParams = new List<string> { $"limit={Math.Min(limit, 100)}" };
-        if (around.HasValue)
-        {
-            queryParams.Add($"around={around.Value}");
-        }
-        else if (before.HasValue)
-        {
-            queryParams.Add($"before={before.Value}");
-        }
-        else if (after.HasValue)
-        {
             queryParams.Add($"after={after.Value}");
         }
 
         var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}");
-        if (response.IsSuccessStatusCode)
+        return await HandleApiResponseAsync<List<Message>>("GetChannelMessagesAsync", response);
+    }
+
+    public async Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit, ulong? around, ulong? before, ulong? after, CancellationToken cancellationToken)
+    {
+        // Validate input
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        if (limit < 1 || limit > 100)
         {
-            return await response.Content.ReadFromJsonAsync<List<Message>>();
+            throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100");
         }
-        return null;
+
+        var queryParams = new List<string>();
+        queryParams.Add($"limit={limit}");
+        if (around.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+            queryParams.Add($"around={around.Value}");
+        }
+        if (before.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+            queryParams.Add($"before={before.Value}");
+        }
+        if (after.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+            queryParams.Add($"after={after.Value}");
+        }
+
+        var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}", null, cancellationToken);
+        return await HandleApiResponseAsync<List<Message>>("GetChannelMessagesAsync", response);
     }
     
     public async Task<bool> BulkDeleteMessagesAsync(ulong channelId, List<ulong> messageIds)
@@ -504,11 +598,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}/pins");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Message>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Message>>("GetPinnedMessagesAsync", response);
     }
     
     public async Task<bool> TriggerTypingIndicatorAsync(ulong channelId)
@@ -523,22 +613,30 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Channel>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Channel>("GetChannelAsync", response);
+    }
+
+    public async Task<Channel?> GetChannelAsync(ulong channelId, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        var response = await GetAsync($"channels/{channelId}", null, cancellationToken);
+        return await HandleApiResponseAsync<Channel>("GetChannelAsync", response);
     }
     
     public async Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
         var content = JsonContent(request);
         var response = await PatchAsync($"channels/{channelId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Channel>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Channel>("ModifyChannelAsync", response);
+    }
+
+    public async Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        var content = JsonContent(request);
+        var response = await PatchAsync($"channels/{channelId}", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Channel>("ModifyChannelAsync", response);
     }
     
     public async Task<bool> DeleteChannelAsync(ulong channelId)
@@ -550,38 +648,39 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<Channel?> CreateGuildChannelAsync(ulong guildId, CreateChannelRequest request)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/channels", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Channel>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Channel>("CreateGuildChannelAsync", response);
+    }
+
+    public async Task<Channel?> CreateGuildChannelAsync(ulong guildId, CreateChannelRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        var content = JsonContent(request);
+        var response = await PostAsync($"guilds/{guildId}/channels", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Channel>("CreateGuildChannelAsync", response);
     }
     
     public async Task<List<Invite>?> GetChannelInvitesAsync(ulong channelId)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}/invites");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Invite>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Invite>>("GetChannelInvitesAsync", response);
     }
     
     public async Task<Invite?> CreateChannelInviteAsync(ulong channelId, CreateInviteRequest request)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/invites", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Invite>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Invite>("CreateChannelInviteAsync", response);
     }
     
     public async Task<bool> DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(overwriteId, nameof(overwriteId));
         var response = await DeleteAsync($"channels/{channelId}/permissions/{overwriteId}");
         return response.IsSuccessStatusCode;
     }
@@ -595,39 +694,55 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         {
             endpoint += "?with_counts=true";
         }
-
         var response = await GetAsync(endpoint);
-        if (response.IsSuccessStatusCode)
+        return await HandleApiResponseAsync<Guild>("GetGuildAsync", response);
+    }
+
+    public async Task<Guild?> GetGuildAsync(ulong guildId, bool withCounts, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        var endpoint = $"guilds/{guildId}";
+        if (withCounts)
         {
-            return await response.Content.ReadFromJsonAsync<Guild>();
+            endpoint += "?with_counts=true";
         }
-        return null;
+        var response = await GetAsync(endpoint, null, cancellationToken);
+        return await HandleApiResponseAsync<Guild>("GetGuildAsync", response);
     }
     
     public async Task<Guild?> CreateGuildAsync(CreateGuildRequest request)
     {
         var content = JsonContent(request);
         var response = await PostAsync("guilds", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Guild>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Guild>("CreateGuildAsync", response);
+    }
+
+    public async Task<Guild?> CreateGuildAsync(CreateGuildRequest request, CancellationToken cancellationToken)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync("guilds", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Guild>("CreateGuildAsync", response);
     }
     
     public async Task<Guild?> ModifyGuildAsync(ulong guildId, ModifyGuildRequest request)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Guild>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Guild>("ModifyGuildAsync", response);
+    }
+
+    public async Task<Guild?> ModifyGuildAsync(ulong guildId, ModifyGuildRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Guild>("ModifyGuildAsync", response);
     }
     
     public async Task<bool> DeleteGuildAsync(ulong guildId)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
         var response = await DeleteAsync($"guilds/{guildId}");
         return response.IsSuccessStatusCode;
     }
@@ -638,6 +753,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     /// </summary>
     public async Task<int?> ModifyGuildMfaLevelAsync(ulong guildId, int level)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(new ModifyGuildMfaLevelRequest { Level = level });
         var response = await PostAsync($"guilds/{guildId}/mfa", content);
         if (response.IsSuccessStatusCode)
@@ -655,27 +771,22 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var response = await GetAsync($"guilds/{guildId}/channels");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Channel>>("GetGuildChannelsAsync", response);
     }
     
-    public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000, ulong? after = null)
+    public async Task<List<GuildMember>?> ListGuildMembersAsync(ulong guildId, int limit = 1, ulong? after = null)
     {
-        var qs = $"limit={limit}";
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        var queryParams = new List<string>();
+        queryParams.Add($"limit={limit}");
         if (after.HasValue)
         {
-            qs += $"&after={after}";
+            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+            queryParams.Add($"after={after.Value}");
         }
-
+        var qs = string.Join("&", queryParams);
         var response = await GetAsync($"guilds/{guildId}/members?{qs}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<GuildMember>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<GuildMember>>("ListGuildMembersAsync", response);
     }
     
     public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
@@ -683,11 +794,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"guilds/{guildId}/members/{userId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<GuildMember>();
-        }
-        return null;
+        return await HandleApiResponseAsync<GuildMember>("GetGuildMemberAsync", response);
     }
     
     public async Task<GuildMember?> AddGuildMemberAsync(ulong guildId, ulong userId, AddGuildMemberRequest request)
@@ -783,49 +890,72 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var response = await GetAsync($"guilds/{guildId}/roles");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Role>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Role>>("GetGuildRolesAsync", response);
+    }
+
+    public async Task<List<Role>?> GetGuildRolesAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        var response = await GetAsync($"guilds/{guildId}/roles", null, cancellationToken);
+        return await HandleApiResponseAsync<List<Role>>("GetGuildRolesAsync", response);
     }
     
     public async Task<Role?> CreateGuildRoleAsync(ulong guildId, CreateRoleRequest request)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/roles", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Role>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Role>("CreateGuildRoleAsync", response);
+    }
+
+    public async Task<Role?> CreateGuildRoleAsync(ulong guildId, CreateRoleRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        var content = JsonContent(request);
+        var response = await PostAsync($"guilds/{guildId}/roles", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Role>("CreateGuildRoleAsync", response);
     }
     
     public async Task<Role?> ModifyGuildRoleAsync(ulong guildId, ulong roleId, ModifyRoleRequest request)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(roleId, nameof(roleId));
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/roles/{roleId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Role>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Role>("ModifyGuildRoleAsync", response);
+    }
+
+    public async Task<Role?> ModifyGuildRoleAsync(ulong guildId, ulong roleId, ModifyRoleRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(roleId, nameof(roleId));
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}/roles/{roleId}", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Role>("ModifyGuildRoleAsync", response);
     }
     
     public async Task<bool> DeleteGuildRoleAsync(ulong guildId, ulong roleId)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(roleId, nameof(roleId));
         var response = await DeleteAsync($"guilds/{guildId}/roles/{roleId}");
         return response.IsSuccessStatusCode;
     }
     
     public async Task<bool> AddGuildMemberRoleAsync(ulong guildId, ulong userId, ulong roleId)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(userId, nameof(userId));
+        ValidateSnowflake(roleId, nameof(roleId));
         var response = await PutAsync($"guilds/{guildId}/members/{userId}/roles/{roleId}", null);
         return response.IsSuccessStatusCode;
     }
     
     public async Task<bool> RemoveGuildMemberRoleAsync(ulong guildId, ulong userId, ulong roleId)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(userId, nameof(userId));
+        ValidateSnowflake(roleId, nameof(roleId));
         var response = await DeleteAsync($"guilds/{guildId}/members/{userId}/roles/{roleId}");
         return response.IsSuccessStatusCode;
     }
@@ -864,6 +994,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // Reaction operations
     public async Task<bool> CreateReactionAsync(ulong channelId, ulong messageId, string emoji)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
         var response = await PutAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/@me", null);
         return response.IsSuccessStatusCode;
     }
@@ -1047,6 +1179,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // Thread operations
     public async Task<Channel?> CreateThreadAsync(ulong channelId, CreateThreadRequest request)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/threads", content);
         if (response.IsSuccessStatusCode)
@@ -1071,11 +1204,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/threads", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Channel>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Channel>("CreateThreadInForumAsync", response);
     }
     
     public async Task<bool> JoinThreadAsync(ulong channelId)
@@ -1105,11 +1234,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId)
     {
         var response = await GetAsync($"channels/{channelId}/thread-members/{userId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<ThreadMember>();
-        }
-        return null;
+        return await HandleApiResponseAsync<ThreadMember>("GetThreadMemberAsync", response);
     }
     
     public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId, bool withMember = false, ulong? after = null, int? limit = null)
@@ -1227,21 +1352,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/webhooks", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Webhook>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Webhook>("CreateWebhookAsync", response);
     }
     
     public async Task<List<Webhook>?> GetChannelWebhooksAsync(ulong channelId)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}/webhooks");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Webhook>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Webhook>>("GetChannelWebhooksAsync", response);
     }
     
     public async Task<List<Webhook>?> GetGuildWebhooksAsync(ulong guildId)
@@ -1256,12 +1374,9 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<Webhook?> GetWebhookAsync(ulong webhookId)
     {
+        ValidateSnowflake(webhookId, nameof(webhookId));
         var response = await GetAsync($"webhooks/{webhookId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Webhook>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Webhook>("GetWebhookAsync", response);
     }
     
     public async Task<Webhook?> GetWebhookWithTokenAsync(ulong webhookId, string token)
@@ -1276,13 +1391,10 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<Webhook?> ModifyWebhookAsync(ulong webhookId, ModifyWebhookRequest request)
     {
+        ValidateSnowflake(webhookId, nameof(webhookId));
         var content = JsonContent(request);
         var response = await PatchAsync($"webhooks/{webhookId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Webhook>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Webhook>("ModifyWebhookAsync", response);
     }
     
     public async Task<Webhook?> ModifyWebhookWithTokenAsync(ulong webhookId, string token, ModifyWebhookRequest request)
@@ -1298,6 +1410,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> DeleteWebhookAsync(ulong webhookId)
     {
+        ValidateSnowflake(webhookId, nameof(webhookId));
         var response = await DeleteAsync($"webhooks/{webhookId}");
         return response.IsSuccessStatusCode;
     }
@@ -1599,24 +1712,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<StageInstance?> GetStageInstanceAsync(ulong channelId)
     {
         var response = await GetAsync($"stage-instances/{channelId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<StageInstance>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<StageInstance>("GetStageInstanceAsync", response);
     }
 
     public async Task<StageInstance?> ModifyStageInstanceAsync(ulong channelId, ModifyStageInstanceRequest request)
     {
         var content = JsonContent(request);
         var response = await PatchAsync($"stage-instances/{channelId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<StageInstance>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<StageInstance>("ModifyStageInstanceAsync", response);
     }
 
     public async Task<bool> DeleteStageInstanceAsync(ulong channelId)
@@ -1628,13 +1731,9 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // Sticker operations
     public async Task<Sticker?> GetStickerAsync(ulong stickerId)
     {
+        ValidateSnowflake(stickerId, nameof(stickerId));
         var response = await GetAsync($"stickers/{stickerId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Sticker>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<Sticker>("GetStickerAsync", response);
     }
 
     public async Task<List<StickerPack>?> GetNitroStickerPacksAsync()
@@ -1737,6 +1836,19 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         return null;
     }
 
+    /// <inheritdoc />
+    public async Task<GatewayInfo?> GetGatewayAsync()
+    {
+        // GET /gateway does not require authentication
+        var response = await _httpClient.GetAsync("gateway");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<GatewayInfo>();
+        }
+
+        return null;
+    }
+
     // Voice Region operations
     public async Task<List<VoiceRegion>?> GetVoiceRegionsAsync()
     {
@@ -1761,6 +1873,22 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     }
 
     // Message crosspost
+    public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
+        var response = await GetAsync($"channels/{channelId}/messages/{messageId}");
+        return await HandleApiResponseAsync<Message>("GetMessageAsync", response);
+    }
+
+    public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
+        var response = await GetAsync($"channels/{channelId}/messages/{messageId}", null, cancellationToken);
+        return await HandleApiResponseAsync<Message>("GetMessageAsync", response);
+    }
+
     public async Task<Message?> CrosspostMessageAsync(ulong channelId, ulong messageId)
     {
         var response = await PostAsync($"channels/{channelId}/messages/{messageId}/crosspost", null);
@@ -2273,14 +2401,10 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<List<Role>?> ModifyGuildRolePositionsAsync(ulong guildId, IEnumerable<ModifyRolePositionRequest> positions)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(positions);
         var response = await PatchAsync($"guilds/{guildId}/roles", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Role>>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<List<Role>>("ModifyGuildRolePositionsAsync", response);
     }
 
     // Invite lookup and deletion
@@ -2696,24 +2820,17 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<Role?> GetGuildRoleAsync(ulong guildId, ulong roleId)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(roleId, nameof(roleId));
         var response = await GetAsync($"guilds/{guildId}/roles/{roleId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Role>(_jsonOptions);
-        }
-
-        return null;
+        return await HandleApiResponseAsync<Role>("GetGuildRoleAsync", response);
     }
 
     public async Task<Dictionary<string, int>?> GetGuildRoleMemberCountsAsync(ulong guildId)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
         var response = await GetAsync($"guilds/{guildId}/roles/member-counts");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(_jsonOptions);
-        }
-
-        return null;
+        return await HandleApiResponseAsync<Dictionary<string, int>>("GetGuildRoleMemberCountsAsync", response);
     }
 
     // -- Guild Incident Actions ------------------------------------------------
@@ -2918,10 +3035,80 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             return await response.Content.ReadFromJsonAsync<ActivityInstance>(_jsonOptions);
         }
 
+        await LogSanitizedApiErrorAsync("GetActivityInstanceAsync failed", response);
         return null;
     }
 
-    private const int MaxRateLimitRetries = 5;
+    private int MaxRateLimitRetries => _options.RestApi.MaxRateLimitRetries;
+
+    /// <summary>
+    /// Validates a snowflake ID parameter and throws if invalid.
+    /// </summary>
+    private void ValidateSnowflake(ulong id, string paramName)
+    {
+        SnowflakeValidator.ValidateSnowflake(id, paramName);
+    }
+
+    /// <summary>
+    /// Helper method for consistent error handling across all API methods.
+    /// Logs the error and optionally throws an exception based on configuration.
+    /// </summary>
+    private async Task<T?> HandleApiResponseAsync<T>(string operation, HttpResponseMessage response) where T : class
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
+        }
+
+        await LogSanitizedApiErrorAsync($"{operation} failed", response);
+
+        if (_options.RestApi.ThrowOnApiError)
+        {
+            var statusCode = (System.Net.HttpStatusCode)response.StatusCode;
+            var errorBody = await response.Content.ReadAsStringAsync();
+            string? discordErrorCode = null;
+            string? discordErrorMessage = null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(errorBody);
+                if (doc.RootElement.TryGetProperty("code", out var codeElement))
+                {
+                    discordErrorCode = codeElement.GetInt32().ToString();
+                }
+                if (doc.RootElement.TryGetProperty("message", out var messageElement))
+                {
+                    discordErrorMessage = messageElement.GetString();
+                }
+            }
+            catch { /* Ignore parse errors */ }
+
+            throw DiscordApiException.FromResponse(statusCode, operation, discordErrorCode, discordErrorMessage);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Helper method for consistent error handling for operations returning HttpResponseMessage.
+    /// </summary>
+    private async Task<HttpResponseMessage> HandleApiResponseAsync(string operation, HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return response;
+        }
+
+        await LogSanitizedApiErrorAsync($"{operation} failed", response);
+
+        if (_options.RestApi.ThrowOnApiError)
+        {
+            var statusCode = (System.Net.HttpStatusCode)response.StatusCode;
+            throw DiscordApiException.FromResponse(statusCode, operation);
+        }
+
+        return response;
+    }
 
     private async Task<HttpResponseMessage> SendRequestAsync(
         HttpMethod method,

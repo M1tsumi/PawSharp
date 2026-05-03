@@ -21,7 +21,7 @@ Use it when you need faster reads, fewer REST calls, and a cleaner way to keep f
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Cache --version 1.0.0-alpha.4
+dotnet add package PawSharp.Cache --version 1.1.0-alpha.1
 ```
 
 For Redis support, also add:
@@ -164,7 +164,15 @@ var options = new CacheOptions
     MaxMembers = 50000,      // Maximum guild members to cache
     MaxRoles = 10000,        // Maximum roles to cache
     MaxEmojis = 5000,        // Maximum emojis to cache
-    DefaultExpiration = TimeSpan.FromHours(1) // Default TTL for cached entities
+    DefaultExpiration = TimeSpan.FromHours(1), // Default TTL for cached entities
+    // Per-entity TTL (overrides DefaultExpiration if set)
+    UserExpiration = TimeSpan.FromHours(2),
+    GuildExpiration = TimeSpan.FromHours(3),
+    ChannelExpiration = TimeSpan.FromHours(2),
+    MessageExpiration = TimeSpan.FromMinutes(30),
+    MemberExpiration = TimeSpan.FromHours(1),
+    RoleExpiration = TimeSpan.FromHours(6),
+    EmojiExpiration = TimeSpan.FromHours(6)
 };
 ```
 
@@ -179,7 +187,15 @@ var options = new RedisCacheOptions
     ConnectTimeout = 5000,             // Connection timeout (ms)
     SyncTimeout = 5000,                // Sync operation timeout (ms)
     ConnectRetry = 3,                  // Number of retry attempts
-    DefaultExpiry = TimeSpan.FromHours(1) // Default TTL
+    DefaultExpiry = TimeSpan.FromHours(1), // Default TTL
+    // Per-entity TTL (overrides DefaultExpiry if set)
+    UserExpiry = TimeSpan.FromHours(2),
+    GuildExpiry = TimeSpan.FromHours(3),
+    ChannelExpiry = TimeSpan.FromHours(2),
+    MessageExpiry = TimeSpan.FromMinutes(30),
+    MemberExpiry = TimeSpan.FromHours(1),
+    RoleExpiry = TimeSpan.FromHours(6),
+    EmojiExpiry = TimeSpan.FromHours(6)
 };
 ```
 
@@ -217,7 +233,7 @@ var options = new RedisCacheOptions
 
 ## Cache Statistics
 
-Both providers expose cache statistics:
+Both providers expose cache statistics including hit/miss metrics:
 
 ```csharp
 var stats = cache.GetCacheStats();
@@ -229,9 +245,43 @@ Console.WriteLine($"Members: {stats.MemberCount}");
 Console.WriteLine($"Roles: {stats.RoleCount}");
 Console.WriteLine($"Emojis: {stats.EmojiCount}");
 Console.WriteLine($"Memory: {stats.MemoryUsage} bytes");
+Console.WriteLine($"Hits: {stats.Hits}");
+Console.WriteLine($"Misses: {stats.Misses}");
+Console.WriteLine($"Hit Ratio: {stats.HitRatio:P2}");
 
 var totalEntities = cache.GetEntityCount();
 Console.WriteLine($"Total entities: {totalEntities}");
+```
+
+## Cache Invalidation Events
+
+Both providers support cache invalidation events to monitor when entities are evicted or the cache is cleared:
+
+```csharp
+cache.EntityEvicted += (sender, args) =>
+{
+    Console.WriteLine($"Entity evicted: {args.EntityType} ID: {args.EntityId} Guild: {args.GuildId}");
+};
+
+cache.CacheCleared += (sender, args) =>
+{
+    Console.WriteLine("Cache was cleared");
+};
+```
+
+## Health Checks
+
+Both providers support health checks to verify cache availability:
+
+```csharp
+if (cache.IsHealthy())
+{
+    Console.WriteLine("Cache is healthy and operational");
+}
+else
+{
+    Console.WriteLine("Cache is unhealthy - check Redis connection");
+}
 ```
 
 ## Related Packages

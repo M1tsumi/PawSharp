@@ -12,6 +12,7 @@ using PawSharp.Core.Entities;
 using PawSharp.Gateway;
 using PawSharp.Gateway.Events;
 using PawSharp.Core.Models;
+using PawSharp.Core.Events;
 using PawSharp.Interactions;
 
 namespace PawSharp.Client
@@ -168,6 +169,16 @@ namespace PawSharp.Client
             return await _restClient.CreateMessageAsync(channelId, new CreateMessageRequest { Content = content });
         }
 
+        /// <summary>Sends a message with an embed to a channel.</summary>
+        public async Task<Message?> SendMessageAsync(ulong channelId, string content, Embed embed)
+        {
+            return await _restClient.CreateMessageAsync(channelId, new CreateMessageRequest
+            {
+                Content = content,
+                Embeds = new[] { embed }
+            });
+        }
+
         /// <summary>Sends a fully specified message to a channel.</summary>
         public async Task<Message?> SendMessageAsync(ulong channelId, CreateMessageRequest request)
         {
@@ -223,27 +234,140 @@ namespace PawSharp.Client
             return null;
         }
 
+        /// <summary>Edits a message in a channel.</summary>
+        public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, string content)
+        {
+            return await _restClient.EditMessageAsync(channelId, messageId, new EditMessageRequest { Content = content });
+        }
+
+        /// <summary>Edits a message in a channel with full options.</summary>
+        public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request)
+        {
+            return await _restClient.EditMessageAsync(channelId, messageId, request);
+        }
+
+        /// <summary>Deletes a message from a channel.</summary>
+        public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId)
+        {
+            return await _restClient.DeleteMessageAsync(channelId, messageId);
+        }
+
+        /// <summary>Gets a message from a channel.</summary>
+        public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
+        {
+            return await _restClient.GetMessageAsync(channelId, messageId);
+        }
+
+        /// <summary>Triggers the typing indicator in a channel.</summary>
+        public async Task<bool> TriggerTypingAsync(ulong channelId)
+        {
+            return await _restClient.TriggerTypingIndicatorAsync(channelId);
+        }
+
+        /// <summary>Gets a channel by ID.</summary>
+        public async Task<Channel?> GetChannelAsync(ulong channelId)
+        {
+            return await _restClient.GetChannelAsync(channelId);
+        }
+
+        /// <summary>Modifies a channel.</summary>
+        public async Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request)
+        {
+            return await _restClient.ModifyChannelAsync(channelId, request);
+        }
+
+        /// <summary>Gets a guild by ID.</summary>
+        public async Task<Guild?> GetGuildAsync(ulong guildId)
+        {
+            return await _restClient.GetGuildAsync(guildId);
+        }
+
+        /// <summary>Gets a guild member by ID.</summary>
+        public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
+        {
+            return await _restClient.GetGuildMemberAsync(guildId, userId);
+        }
+
+        /// <summary>Removes a member from a guild.</summary>
+        public async Task<bool> RemoveGuildMemberAsync(ulong guildId, ulong userId)
+        {
+            return await _restClient.RemoveGuildMemberAsync(guildId, userId);
+        }
+
+        /// <summary>Gets roles for a guild.</summary>
+        public async Task<List<Role>?> GetGuildRolesAsync(ulong guildId)
+        {
+            return await _restClient.GetGuildRolesAsync(guildId);
+        }
+
+        /// <summary>Creates a role in a guild.</summary>
+        public async Task<Role?> CreateGuildRoleAsync(ulong guildId, CreateRoleRequest request)
+        {
+            return await _restClient.CreateGuildRoleAsync(guildId, request);
+        }
+
+        /// <summary>Adds a reaction to a message.</summary>
+        public async Task<bool> AddReactionAsync(ulong channelId, ulong messageId, string emoji)
+        {
+            return await _restClient.CreateReactionAsync(channelId, messageId, emoji);
+        }
+
+        /// <summary>Removes a reaction from a message.</summary>
+        public async Task<bool> RemoveReactionAsync(ulong channelId, ulong messageId, string emoji)
+        {
+            return await _restClient.DeleteOwnReactionAsync(channelId, messageId, emoji);
+        }
+
+        /// <summary>Removes a user's reaction from a message.</summary>
+        public async Task<bool> RemoveUserReactionAsync(ulong channelId, ulong messageId, string emoji, ulong userId)
+        {
+            return await _restClient.DeleteUserReactionAsync(channelId, messageId, emoji, userId);
+        }
+
+        /// <summary>Replies to a message with plain text.</summary>
+        public async Task<Message?> ReplyAsync(MessageCreateEvent message, string content)
+        {
+            return await SendMessageAsync(message.ChannelId, content);
+        }
+
+        /// <summary>Replies to a message with an embed.</summary>
+        public async Task<Message?> ReplyAsync(MessageCreateEvent message, string content, Embed embed)
+        {
+            return await SendMessageAsync(message.ChannelId, content, embed);
+        }
+
+        /// <summary>Replies to a message with a full request.</summary>
+        public async Task<Message?> ReplyAsync(MessageCreateEvent message, CreateMessageRequest request)
+        {
+            return await SendMessageAsync(message.ChannelId, request);
+        }
+
         // ── Convenience event subscriptions ───────────────────────────────────────
 
         // Messages ──────────────────────────────────────────────────────────────
 
         /// <summary>Subscribes to the READY gateway event.</summary>
+        [EventInterest("READY")]
         public IDisposable OnReady(Func<ReadyEvent, Task> handler)
             => _gatewayClient.Events.On<ReadyEvent>("READY", handler);
 
         /// <summary>Subscribes to the MESSAGE_CREATE gateway event.</summary>
+        [EventInterest("MESSAGE_CREATE")]
         public IDisposable OnMessageCreated(Func<MessageCreateEvent, Task> handler)
             => _gatewayClient.Events.On<MessageCreateEvent>("MESSAGE_CREATE", handler);
 
         /// <summary>Subscribes to the MESSAGE_UPDATE gateway event.</summary>
+        [EventInterest("MESSAGE_UPDATE")]
         public IDisposable OnMessageUpdated(Func<MessageUpdateEvent, Task> handler)
             => _gatewayClient.Events.On<MessageUpdateEvent>("MESSAGE_UPDATE", handler);
 
         /// <summary>Subscribes to the MESSAGE_DELETE gateway event.</summary>
+        [EventInterest("MESSAGE_DELETE")]
         public IDisposable OnMessageDeleted(Func<MessageDeleteEvent, Task> handler)
             => _gatewayClient.Events.On<MessageDeleteEvent>("MESSAGE_DELETE", handler);
 
         /// <summary>Subscribes to the MESSAGE_DELETE_BULK gateway event.</summary>
+        [EventInterest("MESSAGE_BULK_DELETE")]
         public IDisposable OnMessagesBulkDeleted(Func<MessageDeleteBulkEvent, Task> handler)
             => _gatewayClient.Events.On<MessageDeleteBulkEvent>("MESSAGE_DELETE_BULK", handler);
 
@@ -268,28 +392,34 @@ namespace PawSharp.Client
         // Guilds ────────────────────────────────────────────────────────────────
 
         /// <summary>Subscribes to the GUILD_CREATE gateway event.</summary>
+        [EventInterest("GUILD_CREATE")]
         public IDisposable OnGuildAvailable(Func<GuildCreateEvent, Task> handler)
             => _gatewayClient.Events.On<GuildCreateEvent>("GUILD_CREATE", handler);
 
         /// <summary>Subscribes to the GUILD_UPDATE gateway event.</summary>
+        [EventInterest("GUILD_UPDATE")]
         public IDisposable OnGuildUpdated(Func<GuildUpdateEvent, Task> handler)
             => _gatewayClient.Events.On<GuildUpdateEvent>("GUILD_UPDATE", handler);
 
         /// <summary>Subscribes to the GUILD_DELETE gateway event.</summary>
+        [EventInterest("GUILD_DELETE")]
         public IDisposable OnGuildUnavailable(Func<GuildDeleteEvent, Task> handler)
             => _gatewayClient.Events.On<GuildDeleteEvent>("GUILD_DELETE", handler);
 
         // Members ───────────────────────────────────────────────────────────────
 
         /// <summary>Subscribes to the GUILD_MEMBER_ADD gateway event.</summary>
+        [EventInterest("GUILD_MEMBER_ADD")]
         public IDisposable OnGuildMemberJoined(Func<GuildMemberAddEvent, Task> handler)
             => _gatewayClient.Events.On<GuildMemberAddEvent>("GUILD_MEMBER_ADD", handler);
 
         /// <summary>Subscribes to the GUILD_MEMBER_UPDATE gateway event.</summary>
+        [EventInterest("GUILD_MEMBER_UPDATE")]
         public IDisposable OnGuildMemberUpdated(Func<GuildMemberUpdateEvent, Task> handler)
             => _gatewayClient.Events.On<GuildMemberUpdateEvent>("GUILD_MEMBER_UPDATE", handler);
 
         /// <summary>Subscribes to the GUILD_MEMBER_REMOVE gateway event.</summary>
+        [EventInterest("GUILD_MEMBER_REMOVE")]
         public IDisposable OnGuildMemberLeft(Func<GuildMemberRemoveEvent, Task> handler)
             => _gatewayClient.Events.On<GuildMemberRemoveEvent>("GUILD_MEMBER_REMOVE", handler);
 

@@ -199,7 +199,7 @@ public class CacheManager
         try
         {
             _logger?.LogDebug("Removing channel from cache: {Id}", e.Id);
-            _cache.Remove($"channel:{e.Id}");
+            _cache.RemoveChannel(e.Id);
         }
         catch (Exception ex)
         {
@@ -261,7 +261,7 @@ public class CacheManager
         try
         {
             _logger?.LogDebug("Removing message from cache: {Id}", e.Id);
-            _cache.Remove($"message:{e.Id}");
+            _cache.RemoveMessage(e.Id);
         }
         catch (Exception ex)
         {
@@ -319,7 +319,7 @@ public class CacheManager
         try
         {
             _logger?.LogDebug("Removing guild member from cache: {UserId} from guild {GuildId}", e.User.Id, e.GuildId);
-            _cache.Remove($"member:{e.GuildId}:{e.User.Id}");
+            _cache.RemoveGuildMember(e.GuildId, e.User.Id);
         }
         catch (Exception ex)
         {
@@ -381,7 +381,7 @@ public class CacheManager
         try
         {
             _logger?.LogDebug("Removing role from cache: {RoleId} from guild {GuildId}", e.RoleId, e.GuildId);
-            _cache.Remove($"role:{e.RoleId}");
+            _cache.RemoveRole(e.GuildId, e.RoleId);
 
             var guild = _cache.GetGuild(e.GuildId);
             if (guild != null)
@@ -470,7 +470,7 @@ public class CacheManager
         try
         {
             _logger?.LogDebug("Removing thread from cache: {Id}", e.Id);
-            _cache.Remove($"channel:{e.Id}");
+            _cache.RemoveChannel(e.Id);
         }
         catch (Exception ex)
         {
