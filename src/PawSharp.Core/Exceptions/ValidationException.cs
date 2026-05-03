@@ -5,6 +5,26 @@ namespace PawSharp.Core.Exceptions;
 
 /// <summary>
 /// Exception thrown when input validation fails.
+/// <para>
+/// This exception is thrown when user input or parameters fail validation before being sent to Discord's API.
+/// It includes detailed information about which parameter failed validation and what value was provided.
+/// </para>
+/// <para>
+/// <example>
+/// <code>
+/// try
+/// {
+///     await client.Rest.GetChannelMessagesAsync(channelId, limit: 500); // Max is 100
+/// }
+/// catch (ValidationException ex)
+/// {
+///     Console.WriteLine($"Parameter: {ex.ParameterName}");
+///     Console.WriteLine($"Invalid Value: {ex.InvalidValue}");
+///     Console.WriteLine($"Error: {ex.Message}");
+/// }
+/// </code>
+/// </example>
+/// </para>
 /// </summary>
 public class ValidationException : DiscordException
 {

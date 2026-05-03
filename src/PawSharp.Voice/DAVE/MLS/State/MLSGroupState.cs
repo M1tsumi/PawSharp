@@ -96,7 +96,7 @@ internal sealed class MLSGroupState : IDisposable
     // ── Welcome processing ────────────────────────────────────────────────────
 
     /// <summary>
-    /// Processes an MLS Welcome message (opcode 25) per RFC 9420 §12.4.3.1.
+    /// Processes a Welcome message and initializes the group state.
     ///
     /// Full path:
     ///   1. Decode the TLS-encoded WelcomeMessage.
@@ -107,37 +107,14 @@ internal sealed class MLSGroupState : IDisposable
     ///   5. Run <see cref="MLSKeySchedule.FromJoinerSecret"/> and store the key schedule
     ///      for subsequent <see cref="ProcessCommit"/> epoch advances.
     ///   6. Derive the DAVE epoch secret via ExpandWithLabel("DAVE sender").
-    ///
-    /// Falls back to a domain-separated HKDF shortcut if the full parse fails (e.g.
-    /// a non-standard Discord framing edge case), so the session still produces a usable
-    /// epoch secret.
     /// </summary>
     public void ProcessWelcome(byte[] welcomeBytes, byte[]? groupId = null)
     {
-        try
-        {
-            if (_localInitPrivKey == null)
-                throw new InvalidOperationException(
-                    "No key package has been generated yet. Call GetOrGenerateKeyPackage before joining a group.");
+        if (_localInitPrivKey == null)
+            throw new InvalidOperationException(
+                "No key package has been generated yet. Call GetOrGenerateKeyPackage before joining a group.");
 
-            ProcessWelcomeFull(welcomeBytes, groupId);
-        }
-        catch (Exception ex)
-        {
-            // Fallback: domain-separated HKDF derivation.
-            // Ensures the session produces a usable epoch secret even when the
-            // server sends a non-standard Welcome wire format.
-            // Log the error for debugging MLS protocol issues.
-            System.Diagnostics.Debug.WriteLine($"DAVE MLS Welcome processing failed, using fallback: {ex.Message}");
-            var salt         = System.Text.Encoding.ASCII.GetBytes("DAVE v1 welcome");
-            _daveEpochSecret = MlsHkdf.Extract(salt, welcomeBytes);
-            _groupId                 = groupId ?? _daveEpochSecret[..16];
-            _epochNumber             = 1;
-            _tree                    = new RatchetTree();
-            _treeHash                = new byte[MlsHkdf.HashLen];
-            _confirmedTranscriptHash = new byte[MlsHkdf.HashLen];
-            _keySchedule             = null;
-        }
+        ProcessWelcomeFull(welcomeBytes, groupId);
     }
 
     private void ProcessWelcomeFull(byte[] welcomeBytes, byte[]? groupId)
@@ -175,12 +152,7 @@ internal sealed class MLSGroupState : IDisposable
         }
         else
         {
-            // GroupInfo decrypt failed (e.g. Discord uses a non-standard encrypted format).
-            // Synthesise a minimal GroupContext so the key schedule still proceeds.
-            _groupId                 = groupId ?? secrets.JoinerSecret[..16];
-            _epochNumber             = 1;
-            _treeHash                = new byte[MlsHkdf.HashLen];
-            _confirmedTranscriptHash = new byte[MlsHkdf.HashLen];
+            throw new Exception("Failed to decrypt GroupInfo");
             groupContextBytes        = BuildGroupContext().Encode();
         }
 

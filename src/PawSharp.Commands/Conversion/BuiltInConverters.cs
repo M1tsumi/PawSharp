@@ -33,7 +33,8 @@ internal static class BuiltInConverters
             {
                 return TypeConverterResult<int>.FromSuccess(result);
             }
-            return TypeConverterResult<int>.FromError($"Unable to parse '{value}' as an integer.");
+            // Developer note: Provide context about valid range and format
+            return TypeConverterResult<int>.FromError($"Unable to parse '{value}' as an integer. Valid range: -2,147,483,648 to 2,147,483,647. Ensure the input contains only digits and an optional leading minus sign.");
         }
     }
 
@@ -48,7 +49,8 @@ internal static class BuiltInConverters
             {
                 return TypeConverterResult<long>.FromSuccess(result);
             }
-            return TypeConverterResult<long>.FromError($"Unable to parse '{value}' as a long integer.");
+            // Developer note: Provide context about valid range for Discord IDs
+            return TypeConverterResult<long>.FromError($"Unable to parse '{value}' as a long integer. Valid range: -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807. For Discord IDs, use ulong instead.");
         }
     }
 
@@ -63,7 +65,8 @@ internal static class BuiltInConverters
             {
                 return TypeConverterResult<ulong>.FromSuccess(result);
             }
-            return TypeConverterResult<ulong>.FromError($"Unable to parse '{value}' as a snowflake ID.");
+            // Developer note: Discord snowflake IDs are always positive 64-bit integers
+            return TypeConverterResult<ulong>.FromError($"Unable to parse '{value}' as a snowflake ID. Discord IDs are positive 64-bit integers (0 to 18,446,744,073,709,551,615). Ensure the input contains only digits, no minus sign or decimal point.");
         }
     }
 
@@ -83,7 +86,8 @@ internal static class BuiltInConverters
             {
                 return TypeConverterResult<bool>.FromSuccess(false);
             }
-            return TypeConverterResult<bool>.FromError($"Unable to parse '{value}' as a boolean. Use true/false, yes/no, or 1/0.");
+            // Developer note: List all accepted values for clarity
+            return TypeConverterResult<bool>.FromError($"Unable to parse '{value}' as a boolean. Accepted values (case-insensitive): true/yes/1/y for true, false/no/0/n for false.");
         }
     }
 
@@ -98,7 +102,8 @@ internal static class BuiltInConverters
             {
                 return TypeConverterResult<double>.FromSuccess(result);
             }
-            return TypeConverterResult<double>.FromError($"Unable to parse '{value}' as a number.");
+            // Developer note: Specify format requirements
+            return TypeConverterResult<double>.FromError($"Unable to parse '{value}' as a number. Use invariant culture format (dot as decimal separator, no thousands separators). Example: 3.14 or -0.5.");
         }
     }
 
@@ -113,7 +118,8 @@ internal static class BuiltInConverters
             {
                 return TypeConverterResult<float>.FromSuccess(result);
             }
-            return TypeConverterResult<float>.FromError($"Unable to parse '{value}' as a number.");
+            // Developer note: Specify format and precision requirements
+            return TypeConverterResult<float>.FromError($"Unable to parse '{value}' as a number. Use invariant culture format (dot as decimal separator). Single precision range: ±1.5e-45 to ±3.4e38.");
         }
     }
 
@@ -218,7 +224,8 @@ internal static class BuiltInConverters
             {
                 return TypeConverterResult<TimeSpan>.FromSuccess(result);
             }
-            return TypeConverterResult<TimeSpan>.FromError($"Unable to parse '{value}' as a time span. Try formats like '1:30:00' or '2.5:30:00'.");
+            // Developer note: Provide comprehensive format examples
+            return TypeConverterResult<TimeSpan>.FromError($"Unable to parse '{value}' as a time span. Accepted formats: '1:30:00' (hours:minutes:seconds), '2.5:30:00' (days.hours:minutes:seconds), '1.5h' (ISO 8601 duration), or '00:30:00' (standard time format).");
         }
     }
 
@@ -238,10 +245,11 @@ internal static class BuiltInConverters
                     return TypeConverterResult<User>.FromSuccess(user);
                 }
                 
-                // Return failure instead of creating a fake user
-                return TypeConverterResult<User>.FromError($"User with ID '{value}' not found in cache. Try mentioning the user instead.");
+                // Developer note: Explain why user not found and suggest alternatives
+                return TypeConverterResult<User>.FromError($"User with ID '{value}' not found in cache. Ensure the user is in a shared guild or has been cached. Try mentioning the user (@username) instead of providing the ID directly.");
             }
-            return TypeConverterResult<User>.FromError($"Unable to parse '{value}' as a user ID.");
+            // Developer note: Suggest mention format
+            return TypeConverterResult<User>.FromError($"Unable to parse '{value}' as a user ID. Provide a valid snowflake ID (numeric string) or mention the user with @username.");
         }
     }
 
@@ -340,7 +348,8 @@ internal static class BuiltInConverters
             }
 
             var validValues = string.Join(", ", Enum.GetNames<T>());
-            return TypeConverterResult<T>.FromError($"Unable to parse '{value}' as {typeof(T).Name}. Valid values: {validValues}");
+            // Developer note: Provide both name and numeric value options
+            return TypeConverterResult<T>.FromError($"Unable to parse '{value}' as {typeof(T).Name}. Valid values (case-insensitive): {validValues}. You can also use the numeric value of the enum member.");
         }
     }
 
@@ -360,10 +369,11 @@ internal static class BuiltInConverters
                     return TypeConverterResult<Channel>.FromSuccess(channel);
                 }
                 
-                // Create a minimal channel object with the ID
+                // Note: Channel not in cache, returning minimal object with ID only
                 return TypeConverterResult<Channel>.FromSuccess(new Channel { Id = channelId, Name = value });
             }
-            return TypeConverterResult<Channel>.FromError($"Unable to parse '{value}' as a channel ID.");
+            // Developer note: Suggest channel mention format
+            return TypeConverterResult<Channel>.FromError($"Unable to parse '{value}' as a channel ID. Provide a valid snowflake ID or mention the channel with #channel-name.");
         }
     }
 
@@ -390,10 +400,11 @@ internal static class BuiltInConverters
                     }
                 }
                 
-                // Create a minimal role object with the ID
+                // Note: Role not found in cache or missing guild context
                 return TypeConverterResult<Role>.FromSuccess(new Role { Id = roleId, Name = value });
             }
-            return TypeConverterResult<Role>.FromError($"Unable to parse '{value}' as a role ID.");
+            // Developer note: Suggest role mention format
+            return TypeConverterResult<Role>.FromError($"Unable to parse '{value}' as a role ID. Provide a valid snowflake ID or mention the role with @role-name. Note: Role conversion requires guild context.");
         }
     }
 
@@ -414,18 +425,19 @@ internal static class BuiltInConverters
                     {
                         return TypeConverterResult<GuildMember>.FromSuccess(member);
                     }
-                }
+                    
+                    // Note: Guild member not in cache, falling back to user lookup
+                    var user = context.Client.Cache.GetUser(userId);
+                    if (user != null)
+                    {
+                        return TypeConverterResult<GuildMember>.FromSuccess(new GuildMember { User = user });
+                    }
                 
-                // Try to get user and create a minimal member
-                var user = context.Client.Cache.GetUser(userId);
-                if (user != null)
-                {
-                    return TypeConverterResult<GuildMember>.FromSuccess(new GuildMember { User = user });
-                }
-                
-                return TypeConverterResult<GuildMember>.FromError($"Unable to resolve guild member for user ID '{value}'.");
+                // Developer note: Provide detailed failure explanation
+                return TypeConverterResult<GuildMember>.FromError($"Unable to resolve guild member for user ID '{value}'. Ensure the user is in the guild and the guild member list is cached. Try mentioning the user (@username) instead.");
             }
-            return TypeConverterResult<GuildMember>.FromError($"Unable to parse '{value}' as a user ID.");
+            // Developer note: Suggest user mention format
+            return TypeConverterResult<GuildMember>.FromError($"Unable to parse '{value}' as a user ID. Provide a valid snowflake ID or mention the user with @username. Note: Guild member conversion requires guild context.");
         }
     }
 }

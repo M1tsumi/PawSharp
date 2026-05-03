@@ -28,6 +28,10 @@
     <PackageVersion Include="NAudio"                                   Version="2.2.1" />
   </ItemGroup>
 
+  <ItemGroup Label="Cryptography">
+    <PackageVersion Include="BouncyCastle.Cryptography"               Version="2.4.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Source Link">
     <PackageVersion Include="Microsoft.SourceLink.GitHub"              Version="8.0.0" />
   </ItemGroup>

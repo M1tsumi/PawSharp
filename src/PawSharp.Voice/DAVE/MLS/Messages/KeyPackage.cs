@@ -70,14 +70,16 @@ internal sealed class KeyPackage
     /// <param name="identity">The caller's identity bytes (Discord user ID as UTF-8).</param>
     public static KeyPackage Generate(byte[] identity)
     {
+        var provider = CryptoProviderFactory.Instance;
+
         // Generate init key pair (separate from the leaf HPKE key per RFC 9420 §10)
-        Curve25519.GenerateKeyPair(out var initPriv, out var initPub);
+        provider.GenerateX25519KeyPair(out var initPriv, out var initPub);
 
         // Generate the leaf node (has its own HPKE + signing key pair)
         var leaf = LeafNode.Generate(identity, out var leafHpkePriv, out var leafSigPriv);
 
         var kp = new KeyPackage(initPub, leaf, Array.Empty<byte>(), initPriv, leafHpkePriv, leafSigPriv);
-        kp.Signature = Ed25519.Sign(kp.ToBeSigned(), leafSigPriv);
+        kp.Signature = provider.Ed25519Sign(kp.ToBeSigned(), leafSigPriv);
         return kp;
     }
 
@@ -133,7 +135,7 @@ internal sealed class KeyPackage
 
     /// <summary>Verifies the KeyPackage self-signature.</summary>
     public bool VerifySignature()
-        => Ed25519.Verify(ToBeSigned(), Signature, Leaf.SignatureKey);
+        => CryptoProviderFactory.Instance.Ed25519Verify(ToBeSigned(), Signature, Leaf.SignatureKey);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

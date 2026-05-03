@@ -1,5 +1,6 @@
 #nullable enable
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using PawSharp.Client;
 using PawSharp.Voice;
 
@@ -18,7 +19,8 @@ public static class VoiceExtensions
     /// Returns the same <see cref="VoiceClient"/> on repeated calls for the same client instance.
     /// </summary>
     /// <param name="client">The Discord client.</param>
+    /// <param name="logger">Optional logger for voice diagnostics.</param>
     /// <returns>The voice client.</returns>
-    public static VoiceClient UseVoice(this DiscordClient client)
-        => _instances.GetValue(client, c => new VoiceClient(c));
+    public static VoiceClient UseVoice(this DiscordClient client, ILogger? logger = null)
+        => _instances.GetValue(client, c => new VoiceClient(c, logger));
 }

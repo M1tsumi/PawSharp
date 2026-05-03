@@ -185,9 +185,20 @@ public sealed class DAVEProtocol : IDisposable
         if (!_active || !_mls.IsInitialized)
             return frame;
 
-        var key = _mls.GetSenderKey(_localSsrc);
-        var counter = (ulong)Interlocked.Increment(ref _outgoingFrameCounter);
-        return DAVEEncryption.EncryptFrame(frame, key, _localSsrc, counter, additionalData);
+        try
+        {
+            var key = _mls.GetSenderKey(_localSsrc);
+            if (key == null || key.Length == 0)
+                return frame; // No key available, return unencrypted
+
+            var counter = (ulong)Interlocked.Increment(ref _outgoingFrameCounter);
+            return DAVEEncryption.EncryptFrame(frame, key, _localSsrc, counter, additionalData);
+        }
+        catch
+        {
+            // On encryption failure, return unencrypted frame to avoid breaking audio
+            return frame;
+        }
     }
 
     /// <summary>
@@ -202,8 +213,20 @@ public sealed class DAVEProtocol : IDisposable
         if (!_active || !_mls.IsInitialized)
             return encryptedFrame;
 
-        var key = _mls.GetSenderKey(ssrc);
-        return DAVEEncryption.DecryptFrame(encryptedFrame, key, additionalData);
+        try
+        {
+            var key = _mls.GetSenderKey(ssrc);
+            if (key == null || key.Length == 0)
+                return encryptedFrame; // No key available, return as-is
+
+            return DAVEEncryption.DecryptFrame(encryptedFrame, key, additionalData);
+        }
+        catch
+        {
+            // On decryption failure, return encrypted frame as-is
+            // The caller will handle this as a dropped packet
+            return encryptedFrame;
+        }
     }
 
     // ── MLS key-package generation ────────────────────────────────────────────

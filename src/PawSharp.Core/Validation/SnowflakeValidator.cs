@@ -19,7 +19,11 @@ public static class SnowflakeValidator
     {
         if (snowflake == 0)
         {
-            throw new ValidationException($"Snowflake ID must be a valid Snowflake (non-zero).", parameterName, snowflake);
+            throw new ValidationException(
+                $"Snowflake ID must be a valid Discord ID (non-zero). Discord IDs are 64-bit unsigned integers. " +
+                $"Ensure you're using a valid ID from Discord (e.g., from message mentions, user profiles, or API responses).",
+                parameterName,
+                snowflake);
         }
     }
 
