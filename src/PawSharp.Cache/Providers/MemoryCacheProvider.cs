@@ -19,6 +19,7 @@ namespace PawSharp.Cache.Providers
         private readonly ConcurrentDictionary<string, GuildMember> _members; // Key: guildId:userId
         private readonly ConcurrentDictionary<string, Role> _roles; // Key: guildId:roleId
         private readonly ConcurrentDictionary<string, Emoji> _emojis; // Key: guildId:emojiId
+        private readonly ConcurrentDictionary<string, (object entity, DateTime timestamp)> _genericCache; // Generic cache with expiration
 
         // Bounded caching configuration
         private readonly int _maxGuilds;
@@ -42,6 +43,10 @@ namespace PawSharp.Cache.Providers
         // Metrics tracking
         private long _hits;
         private long _misses;
+
+        // Access tracking for LRU eviction
+        private readonly ConcurrentDictionary<ulong, DateTime> _lastAccess;
+        private readonly Timer? _expirationTimer;
 
         // Cache invalidation events
         public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
@@ -83,28 +88,109 @@ namespace PawSharp.Cache.Providers
             _members = new ConcurrentDictionary<string, GuildMember>();
             _roles = new ConcurrentDictionary<string, Role>();
             _emojis = new ConcurrentDictionary<string, Emoji>();
+            _genericCache = new ConcurrentDictionary<string, (object entity, DateTime timestamp)>();
+            _lastAccess = new ConcurrentDictionary<ulong, DateTime>();
+
+            // Start expiration cleanup timer if any expiration is configured
+            if (_userExpiration.HasValue || _guildExpiration.HasValue || _channelExpiration.HasValue ||
+                _messageExpiration.HasValue || _memberExpiration.HasValue || _roleExpiration.HasValue || _emojiExpiration.HasValue)
+            {
+                _expirationTimer = new Timer(CleanupExpiredEntries, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+            }
+        }
+
+        private void CleanupExpiredEntries(object? state)
+        {
+            var now = DateTime.UtcNow;
+
+            // Clean users
+            if (_userExpiration.HasValue)
+            {
+                var expiredUsers = _users.Where(kvp => _lastAccess.TryGetValue(kvp.Key, out var access) && (now - access) > _userExpiration.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var userId in expiredUsers)
+                {
+                    if (_users.TryRemove(userId, out _))
+                    {
+                        _lastAccess.TryRemove(userId, out _);
+                        EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs { EntityType = "User", EntityId = userId });
+                    }
+                }
+            }
+
+            // Clean guilds
+            if (_guildExpiration.HasValue)
+            {
+                var expiredGuilds = _guilds.Where(kvp => _lastAccess.TryGetValue(kvp.Key, out var access) && (now - access) > _guildExpiration.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var guildId in expiredGuilds)
+                {
+                    if (_guilds.TryRemove(guildId, out _))
+                    {
+                        _lastAccess.TryRemove(guildId, out _);
+                        EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs { EntityType = "Guild", EntityId = guildId });
+                    }
+                }
+            }
+
+            // Clean channels
+            if (_channelExpiration.HasValue)
+            {
+                var expiredChannels = _channels.Where(kvp => _lastAccess.TryGetValue(kvp.Key, out var access) && (now - access) > _channelExpiration.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var channelId in expiredChannels)
+                {
+                    if (_channels.TryRemove(channelId, out _))
+                    {
+                        _lastAccess.TryRemove(channelId, out _);
+                        EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs { EntityType = "Channel", EntityId = channelId });
+                    }
+                }
+            }
+
+            // Clean messages
+            if (_messageExpiration.HasValue)
+            {
+                var expiredMessages = _messages.Where(kvp => _lastAccess.TryGetValue(kvp.Key, out var access) && (now - access) > _messageExpiration.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var messageId in expiredMessages)
+                {
+                    if (_messages.TryRemove(messageId, out _))
+                    {
+                        _lastAccess.TryRemove(messageId, out _);
+                        EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs { EntityType = "Message", EntityId = messageId });
+                    }
+                }
+            }
+
+            // Clean generic cache entries
+            var expiredGeneric = _genericCache.Where(kvp => (now - kvp.Value.timestamp) > TimeSpan.FromHours(1)).Select(kvp => kvp.Key).ToList();
+            foreach (var key in expiredGeneric)
+            {
+                _genericCache.TryRemove(key, out _);
+            }
+        }
+
+        public void Dispose()
+        {
+            _expirationTimer?.Dispose();
         }
 
         public void Add(string key, object entity)
         {
-            // Generic cache operations are not used by typed entity operations
-            // This method is kept for interface compatibility but does nothing
-            // Use typed operations (CacheUser, CacheGuild, etc.) instead
+            _genericCache[key] = (entity, DateTime.UtcNow);
         }
 
         public object? Get(string key)
         {
-            // Generic cache operations are not used by typed entity operations
-            // This method is kept for interface compatibility but returns null
-            // Use typed operations (GetUser, GetGuild, etc.) instead
+            if (_genericCache.TryGetValue(key, out var entry))
+            {
+                Interlocked.Increment(ref _hits);
+                return entry.entity;
+            }
+            Interlocked.Increment(ref _misses);
             return null;
         }
 
         public void Remove(string key)
         {
-            // Generic cache operations are not used by typed entity operations
-            // This method is kept for interface compatibility but does nothing
-            // Use typed operations or RemoveGuild for entity removal
+            _genericCache.TryRemove(key, out _);
         }
 
         private void EnforceEntityCacheBounds<TKey, TValue>(ConcurrentDictionary<TKey, TValue> cache, int maxSize, string entityType)
@@ -117,8 +203,26 @@ namespace PawSharp.Cache.Providers
             {
                 if (cache.Count <= maxSize) return;
 
-                // Remove oldest entries (simple FIFO eviction)
-                var keysToRemove = cache.Keys.Take(cache.Count - maxSize).ToList();
+                // LRU eviction: remove least recently accessed entries
+                var keysWithAccess = new List<(TKey key, DateTime access)>();
+                foreach (var kvp in cache)
+                {
+                    if (kvp.Key is ulong entityId && _lastAccess.TryGetValue(entityId, out var access))
+                    {
+                        keysWithAccess.Add((kvp.Key, access));
+                    }
+                    else
+                    {
+                        keysWithAccess.Add((kvp.Key, DateTime.MinValue));
+                    }
+                }
+
+                var keysToRemove = keysWithAccess
+                    .OrderBy(k => k.access)
+                    .Take(cache.Count - maxSize)
+                    .Select(k => k.key)
+                    .ToList();
+
                 foreach (var key in keysToRemove)
                 {
                     if (cache.TryRemove(key, out _))
@@ -126,6 +230,7 @@ namespace PawSharp.Cache.Providers
                         // Trigger eviction event for entity keys that are ulong IDs
                         if (key is ulong entityId)
                         {
+                            _lastAccess.TryRemove(entityId, out _);
                             EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs
                             {
                                 EntityType = entityType,
@@ -139,9 +244,7 @@ namespace PawSharp.Cache.Providers
 
         public bool Exists(string key)
         {
-            // Generic cache operations are not used by typed entity operations
-            // This method is kept for interface compatibility but returns false
-            return false;
+            return _genericCache.ContainsKey(key);
         }
 
         public void Clear()
@@ -167,6 +270,7 @@ namespace PawSharp.Cache.Providers
         {
             if (_users.TryGetValue(userId, out var user))
             {
+                _lastAccess[userId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 return user;
             }
@@ -184,6 +288,7 @@ namespace PawSharp.Cache.Providers
         {
             if (_guilds.TryGetValue(guildId, out var guild))
             {
+                _lastAccess[guildId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 return guild;
             }
@@ -206,6 +311,7 @@ namespace PawSharp.Cache.Providers
         {
             if (_channels.TryGetValue(channelId, out var channel))
             {
+                _lastAccess[channelId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 return channel;
             }
@@ -228,6 +334,7 @@ namespace PawSharp.Cache.Providers
         {
             if (_messages.TryGetValue(messageId, out var message))
             {
+                _lastAccess[messageId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 return message;
             }
@@ -261,6 +368,7 @@ namespace PawSharp.Cache.Providers
             var key = $"{guildId}:{userId}";
             if (_members.TryGetValue(key, out var member))
             {
+                _lastAccess[userId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 return member;
             }
@@ -285,6 +393,7 @@ namespace PawSharp.Cache.Providers
             var key = $"{guildId}:{roleId}";
             if (_roles.TryGetValue(key, out var role))
             {
+                _lastAccess[roleId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 return role;
             }
@@ -312,6 +421,10 @@ namespace PawSharp.Cache.Providers
             var key = $"{guildId}:{emojiId}";
             if (_emojis.TryGetValue(key, out var emoji))
             {
+                if (emoji.Id.HasValue)
+                {
+                    _lastAccess[emoji.Id.Value] = DateTime.UtcNow;
+                }
                 Interlocked.Increment(ref _hits);
                 return emoji;
             }
@@ -369,34 +482,56 @@ namespace PawSharp.Cache.Providers
         public void RemoveGuild(ulong guildId)
         {
             _guilds.TryRemove(guildId, out _);
-            
+
             // Remove channels
             var channelKeys = _channels.Where(kvp => kvp.Value.GuildId == guildId).Select(kvp => kvp.Key).ToList();
             foreach (var key in channelKeys)
             {
                 _channels.TryRemove(key, out _);
             }
-            
+
             // Remove members
             var memberKeys = _members.Where(kvp => kvp.Key.StartsWith($"{guildId}:")).Select(kvp => kvp.Key).ToList();
             foreach (var key in memberKeys)
             {
                 _members.TryRemove(key, out _);
             }
-            
+
             // Remove roles
             var roleKeys = _roles.Where(kvp => kvp.Key.StartsWith($"{guildId}:")).Select(kvp => kvp.Key).ToList();
             foreach (var key in roleKeys)
             {
                 _roles.TryRemove(key, out _);
             }
-            
+
             // Remove emojis
             var emojiKeys = _emojis.Where(kvp => kvp.Key.StartsWith($"{guildId}:")).Select(kvp => kvp.Key).ToList();
             foreach (var key in emojiKeys)
             {
                 _emojis.TryRemove(key, out _);
             }
+        }
+
+        public void RemoveChannel(ulong channelId)
+        {
+            _channels.TryRemove(channelId, out _);
+        }
+
+        public void RemoveMessage(ulong messageId)
+        {
+            _messages.TryRemove(messageId, out _);
+        }
+
+        public void RemoveGuildMember(ulong guildId, ulong userId)
+        {
+            var key = $"{guildId}:{userId}";
+            _members.TryRemove(key, out _);
+        }
+
+        public void RemoveRole(ulong guildId, ulong roleId)
+        {
+            var key = $"{guildId}:{roleId}";
+            _roles.TryRemove(key, out _);
         }
 
         public CacheStats GetCacheStats()
@@ -442,6 +577,91 @@ namespace PawSharp.Cache.Providers
         public Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId) => Task.FromResult(GetGuildMember(guildId, userId));
         public Task<Role?> GetRoleAsync(ulong guildId, ulong roleId) => Task.FromResult(GetRole(guildId, roleId));
         public Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId) => Task.FromResult(GetEmoji(guildId, emojiId));
+
+        // Async write operations
+        public Task CacheUserAsync(User user)
+        {
+            CacheUser(user);
+            return Task.CompletedTask;
+        }
+
+        public Task CacheGuildAsync(Guild guild)
+        {
+            CacheGuild(guild);
+            return Task.CompletedTask;
+        }
+
+        public Task CacheChannelAsync(Channel channel)
+        {
+            CacheChannel(channel);
+            return Task.CompletedTask;
+        }
+
+        public Task CacheMessageAsync(Message message)
+        {
+            CacheMessage(message);
+            return Task.CompletedTask;
+        }
+
+        public Task CacheGuildMemberAsync(ulong guildId, GuildMember member)
+        {
+            CacheGuildMember(guildId, member);
+            return Task.CompletedTask;
+        }
+
+        public Task CacheRoleAsync(ulong guildId, Role role)
+        {
+            CacheRole(guildId, role);
+            return Task.CompletedTask;
+        }
+
+        public Task CacheEmojiAsync(ulong guildId, Emoji emoji)
+        {
+            CacheEmoji(guildId, emoji);
+            return Task.CompletedTask;
+        }
+
+        public Task CacheGuildDataAsync(Guild guild)
+        {
+            CacheGuildData(guild);
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveGuildAsync(ulong guildId)
+        {
+            RemoveGuild(guildId);
+            return Task.CompletedTask;
+        }
+
+        public Task ClearAsync()
+        {
+            Clear();
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveChannelAsync(ulong channelId)
+        {
+            RemoveChannel(channelId);
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveMessageAsync(ulong messageId)
+        {
+            RemoveMessage(messageId);
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveGuildMemberAsync(ulong guildId, ulong userId)
+        {
+            RemoveGuildMember(guildId, userId);
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveRoleAsync(ulong guildId, ulong roleId)
+        {
+            RemoveRole(guildId, roleId);
+            return Task.CompletedTask;
+        }
 
         public bool IsHealthy()
         {
