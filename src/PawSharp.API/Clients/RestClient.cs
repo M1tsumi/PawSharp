@@ -155,22 +155,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"users/{userId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<User>();
-        }
-        return null;
+        return await HandleApiResponseAsync<User>("GetUserAsync", response);
     }
 
     public async Task<User?> GetUserAsync(ulong userId, CancellationToken cancellationToken)
     {
         SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"users/{userId}", null, cancellationToken);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<User>();
-        }
-        return null;
+        return await HandleApiResponseAsync<User>("GetUserAsync", response);
     }
     
     public async Task<HttpResponseMessage> ModifyCurrentUserAsync(string? username = null, string? avatar = null, string? banner = null, string? avatarDecorationData = null)
@@ -577,22 +569,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Channel>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Channel>("GetChannelAsync", response);
     }
 
     public async Task<Channel?> GetChannelAsync(ulong channelId, CancellationToken cancellationToken)
     {
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}", null, cancellationToken);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Channel>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Channel>("GetChannelAsync", response);
     }
     
     public async Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request)
@@ -667,11 +651,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             endpoint += "?with_counts=true";
         }
         var response = await GetAsync(endpoint);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Guild>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Guild>("GetGuildAsync", response);
     }
 
     public async Task<Guild?> GetGuildAsync(ulong guildId, bool withCounts, CancellationToken cancellationToken)
@@ -683,11 +663,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             endpoint += "?with_counts=true";
         }
         var response = await GetAsync(endpoint, null, cancellationToken);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Guild>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Guild>("GetGuildAsync", response);
     }
     
     public async Task<Guild?> CreateGuildAsync(CreateGuildRequest request)
@@ -1877,6 +1853,22 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     }
 
     // Message crosspost
+    public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
+        var response = await GetAsync($"channels/{channelId}/messages/{messageId}");
+        return await HandleApiResponseAsync<Message>("GetMessageAsync", response);
+    }
+
+    public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
+        var response = await GetAsync($"channels/{channelId}/messages/{messageId}", null, cancellationToken);
+        return await HandleApiResponseAsync<Message>("GetMessageAsync", response);
+    }
+
     public async Task<Message?> CrosspostMessageAsync(ulong channelId, ulong messageId)
     {
         var response = await PostAsync($"channels/{channelId}/messages/{messageId}/crosspost", null);
