@@ -26,6 +26,16 @@ public class InteractivityConfiguration
     /// Gets or sets the pagination emojis.
     /// </summary>
     public PaginationEmojis PaginationEmojis { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the pagination button labels.
+    /// </summary>
+    public PaginationButtonLabels PaginationButtonLabels { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the pagination callbacks.
+    /// </summary>
+    public PaginationCallbacks? PaginationCallbacks { get; set; }
 }
 
 /// <summary>
@@ -57,6 +67,58 @@ public class PaginationEmojis
     /// Gets or sets the stop emoji.
     /// </summary>
     public string Stop { get; set; } = "⏹";
+}
+
+/// <summary>
+/// Pagination button labels for button-based pagination.
+/// </summary>
+public class PaginationButtonLabels
+{
+    /// <summary>
+    /// Gets or sets the first page button label.
+    /// </summary>
+    public string First { get; set; } = "⏮ First";
+
+    /// <summary>
+    /// Gets or sets the previous page button label.
+    /// </summary>
+    public string Previous { get; set; } = "◀ Previous";
+
+    /// <summary>
+    /// Gets or sets the stop button label.
+    /// </summary>
+    public string Stop { get; set; } = "⏹ Stop";
+
+    /// <summary>
+    /// Gets or sets the next page button label.
+    /// </summary>
+    public string Next { get; set; } = "▶ Next";
+
+    /// <summary>
+    /// Gets or sets the last page button label.
+    /// </summary>
+    public string Last { get; set; } = "⏭ Last";
+}
+
+/// <summary>
+/// Callbacks for pagination events.
+/// </summary>
+public class PaginationCallbacks
+{
+    /// <summary>
+    /// Called when the page changes.
+    /// </summary>
+    public Func<int, Page, Task>? OnPageChanged { get; set; }
+
+    /// <summary>
+    /// Called when pagination times out.
+    /// </summary>
+    public Func<Task>? OnTimeout { get; set; }
+
+    /// <summary>
+    /// Called when pagination is stopped by the user.
+    /// </summary>
+    public Func<Task>? OnStopped { get; set; }
 }
 
 /// <summary>
@@ -137,6 +199,16 @@ public class InteractivityExtension
     /// Gets the pagination emojis used by <c>SendPaginatedMessageAsync</c>.
     /// </summary>
     public PaginationEmojis PaginationEmojis => _config.PaginationEmojis;
+
+    /// <summary>
+    /// Gets the pagination button labels used by <c>SendButtonPaginatedMessageAsync</c>.
+    /// </summary>
+    public PaginationButtonLabels PaginationButtonLabels => _config.PaginationButtonLabels;
+
+    /// <summary>
+    /// Gets the pagination callbacks.
+    /// </summary>
+    public PaginationCallbacks? PaginationCallbacks => _config.PaginationCallbacks;
 
     /// <summary>
     /// Gets the poll behaviour (reaction cleanup) used by <c>SendPaginatedMessageAsync</c>.

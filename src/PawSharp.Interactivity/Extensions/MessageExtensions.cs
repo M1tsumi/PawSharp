@@ -8,6 +8,7 @@ using PawSharp.API.Models;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
+using PawSharp.Interactivity.Validation;
 
 namespace PawSharp.Interactivity.Extensions;
 
@@ -79,38 +80,42 @@ public static class MessageExtensions
     }
 
     /// <summary>
-    /// Collects reactions on the message.
+    /// Collects reactions on the message and returns a dictionary of emoji to reaction count.
     /// </summary>
     /// <param name="message">The message to collect reactions from.</param>
     /// <param name="client">The Discord client.</param>
     /// <param name="timeout">The timeout for collecting.</param>
-    /// <returns>The collected reactions.</returns>
-    public static async Task<IEnumerable<Reaction>> CollectReactionsAsync(
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>A dictionary mapping emoji names to their reaction counts.</returns>
+    public static async Task<Dictionary<string, int>> CollectReactionsAsync(
         this Message message,
         DiscordClient client,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
-        var reactions = new List<Reaction>();
+        var reactionCounts = new Dictionary<string, int>();
 
-        var tcs = new TaskCompletionSource<bool>();
-        var cts = new CancellationTokenSource(timeout.Value);
+        var tcs = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
-        cts.Token.Register(() => tcs.TrySetResult(true));
+        using var cts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetResult(true));
 
         void OnReactionAdd(MessageReactionAddEvent evt)
         {
             if (evt.MessageId == message.Id)
             {
-                var reaction = new Reaction
+                var emojiName = evt.Emoji.Name ?? string.Empty;
+                if (!string.IsNullOrEmpty(emojiName))
                 {
-                    Count = 1,
-                    Me = evt.UserId == client.CurrentUser?.Id,
-                    Emoji = evt.Emoji
-                };
-                reactions.Add(reaction);
+                    reactionCounts.TryGetValue(emojiName, out var count);
+                    reactionCounts[emojiName] = count + 1;
+                }
             }
         }
 
@@ -123,10 +128,153 @@ public static class MessageExtensions
         finally
         {
             subscription.Dispose(); // Unregister handler to prevent unbounded list growth
-            cts.Dispose();
         }
 
-        return reactions;
+        return reactionCounts;
+    }
+
+    /// <summary>
+    /// Waits for any of the specified reactions on the message.
+    /// </summary>
+    /// <param name="message">The message to wait for reactions on.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user whose reaction to wait for.</param>
+    /// <param name="emojis">The list of emojis to wait for (any match will trigger).</param>
+    /// <param name="timeout">The timeout for waiting.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The interactivity result.</returns>
+    public static async Task<InteractivityResult<Reaction>> WaitForAnyReactionAsync(
+        this Message message,
+        DiscordClient client,
+        User user,
+        IEnumerable<string> emojis,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        InteractivityValidation.RequireNotNull(message, nameof(message));
+        InteractivityValidation.RequireNotNull(client, nameof(client));
+        InteractivityValidation.RequireNotNull(user, nameof(user));
+        InteractivityValidation.RequireNotEmpty(emojis, nameof(emojis));
+
+        var emojiList = emojis.ToList();
+
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        var tcs = new TaskCompletionSource<Reaction>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
+
+        void OnReactionAdd(MessageReactionAddEvent evt)
+        {
+            if (evt.MessageId == message.Id &&
+                evt.UserId == user.Id &&
+                emojiList.Contains(evt.Emoji.Name ?? string.Empty))
+            {
+                var reaction = new Reaction
+                {
+                    Count = 1,
+                    Me = evt.UserId == client.CurrentUser?.Id,
+                    Emoji = evt.Emoji
+                };
+                tcs.TrySetResult(reaction);
+            }
+        }
+
+        var subscription = client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
+
+        try
+        {
+            var reaction = await tcs.Task;
+            return new InteractivityResult<Reaction> { Result = reaction };
+        }
+        catch (OperationCanceledException)
+        {
+            return new InteractivityResult<Reaction> { TimedOut = true };
+        }
+        finally
+        {
+            subscription.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Waits for all specified users to react with a specific emoji.
+    /// </summary>
+    /// <param name="message">The message to wait for reactions on.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="users">The users who must react.</param>
+    /// <param name="emoji">The emoji to wait for.</param>
+    /// <param name="timeout">The timeout for waiting.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The interactivity result containing the list of users who reacted.</returns>
+    public static async Task<InteractivityResult<List<User>>> WaitForAllReactionsAsync(
+        this Message message,
+        DiscordClient client,
+        IEnumerable<User> users,
+        string emoji,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        InteractivityValidation.RequireNotNull(message, nameof(message));
+        InteractivityValidation.RequireNotNull(client, nameof(client));
+        InteractivityValidation.RequireNotNullOrEmpty(emoji, nameof(emoji));
+        InteractivityValidation.RequireNotEmpty(users, nameof(users));
+
+        var userList = users.ToList();
+
+        var userIds = userList.Select(u => u.Id).ToHashSet();
+        var reactedUsers = new List<User>();
+
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        var tcs = new TaskCompletionSource<List<User>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
+
+        void OnReactionAdd(MessageReactionAddEvent evt)
+        {
+            if (evt.MessageId == message.Id &&
+                userIds.Contains(evt.UserId) &&
+                evt.Emoji.Name == emoji)
+            {
+                var user = userList.FirstOrDefault(u => u.Id == evt.UserId);
+                if (user != null && !reactedUsers.Contains(user))
+                {
+                    reactedUsers.Add(user);
+
+                    if (reactedUsers.Count == userList.Count)
+                    {
+                        tcs.TrySetResult(reactedUsers);
+                    }
+                }
+            }
+        }
+
+        var subscription = client.Gateway.Events.On<MessageReactionAddEvent>("MESSAGE_REACTION_ADD", OnReactionAdd);
+
+        try
+        {
+            var result = await tcs.Task;
+            return new InteractivityResult<List<User>> { Result = result };
+        }
+        catch (OperationCanceledException)
+        {
+            return new InteractivityResult<List<User>> { TimedOut = true };
+        }
+        finally
+        {
+            subscription.Dispose();
+        }
     }
 
     /// <summary>
@@ -199,17 +347,22 @@ public static class MessageExtensions
     /// <param name="question">The poll question.</param>
     /// <param name="options">The poll options.</param>
     /// <param name="timeout">The timeout for the poll.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     public static async Task CreatePollAsync(
         this Message message,
         DiscordClient client,
         string question,
         IEnumerable<string> options,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
+        InteractivityValidation.RequireNotNull(message, nameof(message));
+        InteractivityValidation.RequireNotNull(client, nameof(client));
+        InteractivityValidation.RequireNotNullOrEmpty(question, nameof(question));
+        InteractivityValidation.RequireCountBetween(options, 2, 10, nameof(options));
+
         var optionList = options.ToList();
-        if (optionList.Count < 2 || optionList.Count > 10)
-            throw new ArgumentException("Poll must have between 2 and 10 options.", nameof(options));
 
         var pollEmojis = new[] { "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟" };
 
@@ -238,16 +391,124 @@ public static class MessageExtensions
             {
                 try
                 {
-                    await Task.Delay(timeout.Value);
+                    await Task.Delay(timeout.Value, cancellationToken);
                     // Clean up all reactions from this message
                     await client.Rest.DeleteAllReactionsAsync(message.ChannelId, message.Id);
+                }
+                catch (TaskCanceledException)
+                {
+                    // Cancellation is expected
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Poll cleanup failed: {ex.Message}");
                 }
-            });
+            }, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Gets the results of a custom reaction poll created by CreatePollAsync.
+    /// </summary>
+    /// <param name="message">The message containing the poll.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="options">The poll options (must match the order used in CreatePollAsync).</param>
+    /// <returns>A dictionary mapping each option to its vote count.</returns>
+    public static async Task<Dictionary<string, int>> GetPollResultsAsync(
+        this Message message,
+        DiscordClient client,
+        IEnumerable<string> options)
+    {
+        var optionList = options.ToList();
+        var pollEmojis = new[] { "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟" };
+        var results = new Dictionary<string, int>();
+
+        try
+        {
+            // Get the message with reactions
+            var updatedMessage = await client.Rest.GetMessageAsync(message.ChannelId, message.Id);
+            if (updatedMessage?.Reactions == null)
+            {
+                // Initialize all options with 0 votes if no reactions
+                foreach (var option in optionList)
+                {
+                    results[option] = 0;
+                }
+                return results;
+            }
+
+            // Map emojis to vote counts
+            for (int i = 0; i < optionList.Count && i < pollEmojis.Length; i++)
+            {
+                var emoji = pollEmojis[i];
+                var reaction = updatedMessage.Reactions.FirstOrDefault(r => r.Emoji?.Name == emoji);
+                results[optionList[i]] = reaction?.Count ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to get poll results: {ex.Message}");
+            // Return empty results on error
+            foreach (var option in optionList)
+            {
+                results[option] = 0;
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Gets the results of a custom reaction poll with voter information.
+    /// </summary>
+    /// <param name="message">The message containing the poll.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="options">The poll options (must match the order used in CreatePollAsync).</param>
+    /// <returns>A dictionary mapping each option to the list of users who voted for it.</returns>
+    public static async Task<Dictionary<string, List<User>>> GetPollVotersAsync(
+        this Message message,
+        DiscordClient client,
+        IEnumerable<string> options)
+    {
+        var optionList = options.ToList();
+        var pollEmojis = new[] { "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟" };
+        var results = new Dictionary<string, List<User>>();
+
+        try
+        {
+            for (int i = 0; i < optionList.Count && i < pollEmojis.Length; i++)
+            {
+                var emoji = pollEmojis[i];
+                var voters = new List<User>();
+
+                try
+                {
+                    // Get users who reacted with this emoji
+                    var reactionUsers = await client.Rest.GetReactionsAsync(message.ChannelId, message.Id, emoji);
+                    if (reactionUsers != null)
+                    {
+                        voters.AddRange(reactionUsers);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to get voters for option {optionList[i]}: {ex.Message}");
+                }
+
+                results[optionList[i]] = voters;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to get poll voters: {ex.Message}");
+            // Return empty results on error
+            foreach (var option in optionList)
+            {
+                results[option] = new List<User>();
+            }
+        }
+
+        return results;
     }
 
     /// <summary>
@@ -467,63 +728,54 @@ public static class MessageExtensions
     }
 
     /// <summary>
-    /// Waits for a modal submission interaction and returns the resulting interaction.
+    /// Waits for the next message in the same channel as this message.
     /// </summary>
-    /// <param name="message">The message that triggered the modal (optional, for context).</param>
+    /// <param name="message">The message to get the channel from.</param>
     /// <param name="client">The Discord client.</param>
-    /// <param name="user">
-    /// The user whose submission to accept, or <see langword="null"/> to accept any user.
-    /// </param>
-    /// <param name="customId">
-    /// The <c>custom_id</c> of the specific modal to wait for, or <see langword="null"/>
-    /// to accept any modal submission.
-    /// </param>
-    /// <param name="timeout">
-    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
-    /// if not specified.
-    /// </param>
-    /// <returns>
-    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
-    /// (with <c>Data.Components</c> containing the submitted form data) when a matching
-    /// submission arrives, or a timed-out result after the deadline.
-    /// </returns>
-    public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForModalAsync(
-        this Message? message,
+    /// <param name="predicate">The predicate to match messages.</param>
+    /// <param name="timeout">The timeout for waiting.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The interactivity result.</returns>
+    public static async Task<InteractivityResult<MessageCreateEvent>> WaitForMessageAsync(
+        this Message message,
         DiscordClient client,
-        User? user = null,
-        string? customId = null,
-        TimeSpan? timeout = null)
+        Func<MessageCreateEvent, bool>? predicate = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
-        var tcs = new TaskCompletionSource<InteractionCreateEvent>(
+        var tcs = new TaskCompletionSource<MessageCreateEvent>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        using var cts = new CancellationTokenSource(timeout.Value);
-        cts.Token.Register(() => tcs.TrySetCanceled());
 
-        // Interaction type 5 = ModalSubmit
-        const int modalSubmitType = 5;
+        using var timeoutCts = new CancellationTokenSource(timeout.Value);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
-        void OnInteraction(InteractionCreateEvent evt)
+        linkedCts.Token.Register(() => tcs.TrySetCanceled());
+
+        void OnMessageCreate(MessageCreateEvent evt)
         {
-            if (evt.Type != modalSubmitType)                                  return;
-            if (user is not null && GetUserId(evt) != user.Id)                return;
-            if (customId is not null && evt.Data?.CustomId != customId)        return;
-
-            tcs.TrySetResult(evt);
+            if (evt.ChannelId == message.ChannelId && (predicate == null || predicate(evt)))
+            {
+                tcs.TrySetResult(evt);
+            }
         }
 
-        using var sub = client.Gateway.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", OnInteraction);
+        var subscription = client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
 
         try
         {
-            var evt = await tcs.Task;
-            return new InteractivityResult<InteractionCreateEvent> { Result = evt };
+            var msg = await tcs.Task;
+            return new InteractivityResult<MessageCreateEvent> { Result = msg };
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
-            return new InteractivityResult<InteractionCreateEvent> { TimedOut = true };
+            return new InteractivityResult<MessageCreateEvent> { TimedOut = true };
+        }
+        finally
+        {
+            subscription.Dispose();
         }
     }
 
@@ -531,4 +783,207 @@ public static class MessageExtensions
     // inside the member object; DM interactions have the user directly.
     private static ulong GetUserId(InteractionCreateEvent evt)
         => evt.User?.Id ?? evt.Member?.User?.Id ?? 0;
+
+    // ── Components V2 Modal Component Waiters ─────────────────────────────────
+
+    /// <summary>
+    /// Waits for a RadioGroup component submission from a modal.
+    /// Note: This is handled by WaitForModalAsync, but this method provides a more ergonomic interface.
+    /// </summary>
+    /// <param name="message">The message that triggered the modal (optional, for context).</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user whose submission to accept, or null to accept any user.</param>
+    /// <param name="customId">The custom_id of the specific RadioGroup to wait for, or null to accept any RadioGroup.</param>
+    /// <param name="timeout">The maximum time to wait. Falls back to InteractivityExtension.Timeout if not specified.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>An InteractivityResult wrapping the selected RadioGroup value, or a timed-out result after the deadline.</returns>
+    public static async Task<InteractivityResult<string?>> WaitForRadioGroupAsync(
+        this Message? message,
+        DiscordClient client,
+        User? user = null,
+        string? customId = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        // RadioGroup is a modal component, so we use WaitForModalAsync and extract the value
+        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken);
+
+        if (result.TimedOut || result.Result == null)
+            return new InteractivityResult<string?> { TimedOut = true };
+
+        // Extract RadioGroup value from modal submission
+        // Component type 21 = RadioGroup
+        var value = ExtractComponentValue(result.Result.Data?.Components, 21, customId);
+        return new InteractivityResult<string?> { Result = value };
+    }
+
+    /// <summary>
+    /// Waits for a CheckboxGroup component submission from a modal.
+    /// Note: This is handled by WaitForModalAsync, but this method provides a more ergonomic interface.
+    /// </summary>
+    /// <param name="message">The message that triggered the modal (optional, for context).</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user whose submission to accept, or null to accept any user.</param>
+    /// <param name="customId">The custom_id of the specific CheckboxGroup to wait for, or null to accept any CheckboxGroup.</param>
+    /// <param name="timeout">The maximum time to wait. Falls back to InteractivityExtension.Timeout if not specified.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>An InteractivityResult wrapping the list of selected CheckboxGroup values, or a timed-out result after the deadline.</returns>
+    public static async Task<InteractivityResult<List<string>>> WaitForCheckboxGroupAsync(
+        this Message? message,
+        DiscordClient client,
+        User? user = null,
+        string? customId = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        // CheckboxGroup is a modal component, so we use WaitForModalAsync and extract the values
+        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken);
+
+        if (result.TimedOut || result.Result == null)
+            return new InteractivityResult<List<string>> { TimedOut = true };
+
+        // Extract CheckboxGroup values from modal submission
+        // Component type 22 = CheckboxGroup
+        var values = ExtractComponentValues(result.Result.Data?.Components, 22, customId) ?? new List<string>();
+        return new InteractivityResult<List<string>> { Result = values };
+    }
+
+    /// <summary>
+    /// Waits for a Checkbox component submission from a modal.
+    /// Note: This is handled by WaitForModalAsync, but this method provides a more ergonomic interface.
+    /// </summary>
+    /// <param name="message">The message that triggered the modal (optional, for context).</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user whose submission to accept, or null to accept any user.</param>
+    /// <param name="customId">The custom_id of the specific Checkbox to wait for, or null to accept any Checkbox.</param>
+    /// <param name="timeout">The maximum time to wait. Falls back to InteractivityExtension.Timeout if not specified.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>An InteractivityResult wrapping the Checkbox value, or a timed-out result after the deadline.</returns>
+    public static async Task<InteractivityResult<bool?>> WaitForCheckboxAsync(
+        this Message? message,
+        DiscordClient client,
+        User? user = null,
+        string? customId = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Checkbox is a modal component, so we use WaitForModalAsync and extract the value
+        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken);
+
+        if (result.TimedOut || result.Result == null)
+            return new InteractivityResult<bool?> { TimedOut = true };
+
+        // Extract Checkbox value from modal submission
+        // Component type 23 = Checkbox
+        var value = ExtractCheckboxValue(result.Result.Data?.Components, 23, customId);
+        return new InteractivityResult<bool?> { Result = value };
+    }
+
+    // Helper methods for extracting component values from modal submissions
+    private static string? ExtractComponentValue(List<object>? components, int componentType, string? customId)
+    {
+        if (components == null) return null;
+
+        foreach (var component in components)
+        {
+            if (component is System.Text.Json.JsonElement jsonElement)
+            {
+                // Navigate through Label wrapper (type 18) to find the actual component
+                var actualComponent = jsonElement;
+                if (jsonElement.TryGetProperty("type", out var type) && type.GetInt32() == 18)
+                {
+                    // This is a Label, get the inner component
+                    if (jsonElement.TryGetProperty("component", out var inner))
+                    {
+                        actualComponent = inner;
+                    }
+                }
+
+                if (actualComponent.TryGetProperty("type", out var compType) && compType.GetInt32() == componentType)
+                {
+                    if (customId == null || (actualComponent.TryGetProperty("custom_id", out var compCustomId) && compCustomId.GetString() == customId))
+                    {
+                        if (actualComponent.TryGetProperty("value", out var value))
+                        {
+                            return value.GetString();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static List<string>? ExtractComponentValues(List<object>? components, int componentType, string? customId)
+    {
+        if (components == null) return null;
+
+        foreach (var component in components)
+        {
+            if (component is System.Text.Json.JsonElement jsonElement)
+            {
+                // Navigate through Label wrapper (type 18) to find the actual component
+                var actualComponent = jsonElement;
+                if (jsonElement.TryGetProperty("type", out var type) && type.GetInt32() == 18)
+                {
+                    // This is a Label, get the inner component
+                    if (jsonElement.TryGetProperty("component", out var inner))
+                    {
+                        actualComponent = inner;
+                    }
+                }
+
+                if (actualComponent.TryGetProperty("type", out var compType) && compType.GetInt32() == componentType)
+                {
+                    if (customId == null || (actualComponent.TryGetProperty("custom_id", out var compCustomId) && compCustomId.GetString() == customId))
+                    {
+                        if (actualComponent.TryGetProperty("values", out var values))
+                        {
+                            var result = new List<string>();
+                            foreach (var value in values.EnumerateArray())
+                            {
+                                result.Add(value.GetString());
+                            }
+                            return result;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static bool? ExtractCheckboxValue(List<object>? components, int componentType, string? customId)
+    {
+        if (components == null) return null;
+
+        foreach (var component in components)
+        {
+            if (component is System.Text.Json.JsonElement jsonElement)
+            {
+                // Navigate through Label wrapper (type 18) to find the actual component
+                var actualComponent = jsonElement;
+                if (jsonElement.TryGetProperty("type", out var type) && type.GetInt32() == 18)
+                {
+                    // This is a Label, get the inner component
+                    if (jsonElement.TryGetProperty("component", out var inner))
+                    {
+                        actualComponent = inner;
+                    }
+                }
+
+                if (actualComponent.TryGetProperty("type", out var compType) && compType.GetInt32() == componentType)
+                {
+                    if (customId == null || (actualComponent.TryGetProperty("custom_id", out var compCustomId) && compCustomId.GetString() == customId))
+                    {
+                        if (actualComponent.TryGetProperty("value", out var value))
+                        {
+                            return value.GetBoolean();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
 }
