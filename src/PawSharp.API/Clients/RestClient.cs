@@ -653,6 +653,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/{guildId}/channels", content);
         return await HandleApiResponseAsync<Channel>("CreateGuildChannelAsync", response);
     }
+
+    public async Task<Channel?> CreateGuildChannelAsync(ulong guildId, CreateChannelRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        var content = JsonContent(request);
+        var response = await PostAsync($"guilds/{guildId}/channels", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Channel>("CreateGuildChannelAsync", response);
+    }
     
     public async Task<List<Invite>?> GetChannelInvitesAsync(ulong channelId)
     {
@@ -708,12 +716,27 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync("guilds", content);
         return await HandleApiResponseAsync<Guild>("CreateGuildAsync", response);
     }
+
+    public async Task<Guild?> CreateGuildAsync(CreateGuildRequest request, CancellationToken cancellationToken)
+    {
+        var content = JsonContent(request);
+        var response = await PostAsync("guilds", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Guild>("CreateGuildAsync", response);
+    }
     
     public async Task<Guild?> ModifyGuildAsync(ulong guildId, ModifyGuildRequest request)
     {
         ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}", content);
+        return await HandleApiResponseAsync<Guild>("ModifyGuildAsync", response);
+    }
+
+    public async Task<Guild?> ModifyGuildAsync(ulong guildId, ModifyGuildRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}", content, null, cancellationToken);
         return await HandleApiResponseAsync<Guild>("ModifyGuildAsync", response);
     }
     
@@ -869,12 +892,27 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/roles");
         return await HandleApiResponseAsync<List<Role>>("GetGuildRolesAsync", response);
     }
+
+    public async Task<List<Role>?> GetGuildRolesAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        var response = await GetAsync($"guilds/{guildId}/roles", null, cancellationToken);
+        return await HandleApiResponseAsync<List<Role>>("GetGuildRolesAsync", response);
+    }
     
     public async Task<Role?> CreateGuildRoleAsync(ulong guildId, CreateRoleRequest request)
     {
         ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(request);
         var response = await PostAsync($"guilds/{guildId}/roles", content);
+        return await HandleApiResponseAsync<Role>("CreateGuildRoleAsync", response);
+    }
+
+    public async Task<Role?> CreateGuildRoleAsync(ulong guildId, CreateRoleRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        var content = JsonContent(request);
+        var response = await PostAsync($"guilds/{guildId}/roles", content, null, cancellationToken);
         return await HandleApiResponseAsync<Role>("CreateGuildRoleAsync", response);
     }
     
