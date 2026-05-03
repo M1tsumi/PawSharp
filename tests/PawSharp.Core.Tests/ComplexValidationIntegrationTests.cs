@@ -94,7 +94,7 @@ public class ComplexValidationIntegrationTests
     {
         // Arrange & Act
         var components = new ComponentBuilder()
-            .WithActionRow(row => row
+            .AddActionRow(row => row
                 .AddButton(button => button
                     .WithStyle(ButtonStyle.Primary)
                     .WithLabel("Button 1")
@@ -103,16 +103,14 @@ public class ComplexValidationIntegrationTests
                     .WithStyle(ButtonStyle.Secondary)
                     .WithLabel("Button 2")
                     .WithCustomId("btn_2"))
-                .AddSelectMenu(menu => menu
-                    .WithPlaceholder("Choose an option")
-                    .WithCustomId("select_1")
-                    .AddOption(opt => opt
-                        .WithLabel("Option 1")
-                        .WithValue("val_1"))
-                    .AddOption(opt => opt
-                        .WithLabel("Option 2")
-                        .WithValue("val_2"))))
-            .WithActionRow(row => row
+                .AddStringSelect(menu =>
+                {
+                    menu.WithPlaceholder("Choose an option");
+                    menu.WithCustomId("select_1");
+                    menu.AddOption(opt => opt.WithLabel("Option 1").WithValue("val_1"));
+                    menu.AddOption(opt => opt.WithLabel("Option 2").WithValue("val_2"));
+                }))
+            .AddActionRow(row => row
                 .AddTextInput(input => input
                     .WithLabel("Enter text")
                     .WithCustomId("text_1")
@@ -133,7 +131,7 @@ public class ComplexValidationIntegrationTests
         Action action = () =>
         {
             var builder = new ComponentBuilder()
-                .WithActionRow(row => row
+                .AddActionRow(row => row
                     .AddButton(btn => btn.WithLabel("1").WithCustomId("1").WithStyle(ButtonStyle.Primary))
                     .AddButton(btn => btn.WithLabel("2").WithCustomId("2").WithStyle(ButtonStyle.Primary))
                     .AddButton(btn => btn.WithLabel("3").WithCustomId("3").WithStyle(ButtonStyle.Primary))

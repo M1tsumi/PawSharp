@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using PawSharp.Commands.Conversion;
 using PawSharp.Commands.Middleware;
 using PawSharp.Client;
@@ -119,7 +120,7 @@ public class CommandsBuilder
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> is null.</exception>
     public void Build(IServiceCollection services)
     {
-        services.AddSingleton(new TypeConverterService(_logger));
+        services.AddSingleton<TypeConverterService>(sp => new TypeConverterService(sp.GetService<ILogger<TypeConverterService>>()));
         services.AddSingleton(new MiddlewarePipeline());
 
         foreach (var converter in _customConverters)
@@ -151,11 +152,11 @@ public class CommandsBuilder
             pipeline.Use(middleware);
         }
 
-        services.AddSingleton(new CommandsConfiguration
+        services.AddSingleton(new CommandsOptions
         {
             Prefix = _prefix,
             CaseSensitive = _caseSensitive,
-            ExecutionTimeout = _executionTimeout
+            ExecutionTimeout = _executionTimeout ?? TimeSpan.FromMinutes(5)
         });
     }
 }

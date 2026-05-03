@@ -26,7 +26,7 @@ public static class EventFilteringExtensions
         Func<TEvent, bool> predicate,
         Func<TEvent, Task> handler) where TEvent : GatewayEvent
     {
-        return dispatcher.On(eventName, async evt =>
+        return dispatcher.On<TEvent>(eventName, async evt =>
         {
             if (predicate(evt))
             {
@@ -50,7 +50,7 @@ public static class EventFilteringExtensions
         Func<TEvent, bool> predicate,
         Action<TEvent> handler) where TEvent : GatewayEvent
     {
-        return dispatcher.On(eventName, evt =>
+        return dispatcher.On<TEvent>(eventName, evt =>
         {
             if (predicate(evt))
             {

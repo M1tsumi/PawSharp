@@ -37,7 +37,7 @@ public static class BuiltInAutocompleteProviders
             var choices = new List<ApplicationCommandOptionChoice>();
             
             // Try to get members from cache
-            var members = guild.Members?.Values.Where(m => 
+            var members = guild.Members?.Where(m => 
                 string.IsNullOrEmpty(input) || 
                 m.User?.Username?.Contains(input, StringComparison.OrdinalIgnoreCase) == true ||
                 (m.User?.GlobalName?.Contains(input, StringComparison.OrdinalIgnoreCase) == true)
@@ -124,12 +124,12 @@ public static class BuiltInAutocompleteProviders
             if (guild?.Channels == null)
                 return Array.Empty<ApplicationCommandOptionChoice>();
 
-            var channels = guild.Channels.Values;
+            var channels = guild.Channels;
 
             // Filter by channel type if specified
             if (channelType.HasValue)
             {
-                channels = channels.Where(c => c.Type == channelType.Value);
+                channels = channels.Where(c => c.Type == channelType.Value).ToList();
             }
 
             var choices = channels

@@ -5,6 +5,7 @@ using System.Text.Json;
 using InteractionOption = PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption;
 using PawSharp.Core.Enums;
 using PawSharp.Gateway.Events;
+using PawSharp.Core.Entities;
 
 namespace PawSharp.Interactions.Extensions;
 
@@ -120,14 +121,15 @@ public static class InteractionExtensions
 
         foreach (var actionRow in interaction.Data.Components)
         {
-            if (actionRow.Components is null) continue;
-
-            foreach (var component in actionRow.Components)
+            if (actionRow is ActionRow row && row.Components is not null)
             {
-                if (component is PawSharp.Core.Entities.TextInput textInput &&
-                    textInput.CustomId == customId)
+                foreach (var component in row.Components)
                 {
-                    return textInput.Value;
+                    if (component is PawSharp.Core.Entities.TextInput textInput &&
+                        textInput.CustomId == customId)
+                    {
+                        return textInput.Value;
+                    }
                 }
             }
         }
@@ -148,13 +150,14 @@ public static class InteractionExtensions
 
         foreach (var actionRow in interaction.Data.Components)
         {
-            if (actionRow.Components is null) continue;
-
-            foreach (var component in actionRow.Components)
+            if (actionRow is ActionRow row && row.Components is not null)
             {
-                if (component is PawSharp.Core.Entities.TextInput textInput)
+                foreach (var component in row.Components)
                 {
-                    values[textInput.CustomId] = textInput.Value ?? string.Empty;
+                    if (component is PawSharp.Core.Entities.TextInput textInput)
+                    {
+                        values[textInput.CustomId] = textInput.Value ?? string.Empty;
+                    }
                 }
             }
         }

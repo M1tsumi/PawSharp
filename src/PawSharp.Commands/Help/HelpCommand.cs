@@ -134,9 +134,7 @@ public class HelpModule : BaseCommandModule
     public async Task HelpAsync(CommandContext ctx, [Optional] string? commandName = null, [Optional] int? page = null)
     {
         var commands = _commandsExtension.GetRegisteredCommands();
-        var stringComparison = _commandsExtension.CaseSensitive 
-            ? StringComparison.Ordinal 
-            : StringComparison.OrdinalIgnoreCase;
+        var stringComparison = StringComparison.OrdinalIgnoreCase;
         
         if (string.IsNullOrEmpty(commandName))
         {

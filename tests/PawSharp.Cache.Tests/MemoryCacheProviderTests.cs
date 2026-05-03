@@ -5,6 +5,7 @@ using FluentAssertions;
 using PawSharp.Cache;
 using PawSharp.Cache.Providers;
 using PawSharp.Core.Entities;
+using PawSharp.Core.Enums;
 
 namespace PawSharp.Cache.Tests
 {
@@ -263,19 +264,19 @@ namespace PawSharp.Cache.Tests
             {
                 Id = 987654321UL,
                 Name = "Test Guild",
-                Channels = new[]
+                Channels = new List<Channel>
                 {
                     new Channel { Id = 111222333UL, Name = "channel1", Type = ChannelType.GuildText, GuildId = 987654321UL }
                 },
-                Members = new[]
+                Members = new List<GuildMember>
                 {
                     new GuildMember { User = new User { Id = 123456789UL, Username = "user1" } }
                 },
-                Roles = new[]
+                Roles = new List<Role>
                 {
                     new Role { Id = 777888999UL, Name = "role1" }
                 },
-                Emojis = new[]
+                Emojis = new List<Emoji>
                 {
                     new Emoji { Id = 999888777UL, Name = "emoji1" }
                 }
@@ -297,19 +298,19 @@ namespace PawSharp.Cache.Tests
             {
                 Id = 987654321UL,
                 Name = "Test Guild",
-                Channels = new[]
+                Channels = new List<Channel>
                 {
                     new Channel { Id = 111222333UL, Name = "channel1", Type = ChannelType.GuildText, GuildId = 987654321UL }
                 },
-                Members = new[]
+                Members = new List<GuildMember>
                 {
                     new GuildMember { User = new User { Id = 123456789UL, Username = "user1" } }
                 },
-                Roles = new[]
+                Roles = new List<Role>
                 {
                     new Role { Id = 777888999UL, Name = "role1" }
                 },
-                Emojis = new[]
+                Emojis = new List<Emoji>
                 {
                     new Emoji { Id = 999888777UL, Name = "emoji1" }
                 }

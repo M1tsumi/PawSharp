@@ -432,7 +432,8 @@ internal static class BuiltInConverters
                     {
                         return TypeConverterResult<GuildMember>.FromSuccess(new GuildMember { User = user });
                     }
-                
+                }
+
                 // Developer note: Provide detailed failure explanation
                 return TypeConverterResult<GuildMember>.FromError($"Unable to resolve guild member for user ID '{value}'. Ensure the user is in the guild and the guild member list is cached. Try mentioning the user (@username) instead.");
             }

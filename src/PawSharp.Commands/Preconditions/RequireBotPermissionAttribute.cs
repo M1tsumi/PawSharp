@@ -123,14 +123,14 @@ public sealed class RequireBotPermissionAttribute : Attribute, IPrecondition
         }
 
         var everyoneRole = guild.Roles.FirstOrDefault(r => r.Id == guild.Id);
-        var permissions = ParsePermissions(everyoneRole?.Permissions);
+        var permissions = ParsePermissions(everyoneRole?.Permissions) ?? 0;
 
-        foreach (var roleId in member.Roles ?? Array.Empty<ulong>())
+        foreach (var roleId in member.Roles ?? new List<ulong>())
         {
             var role = guild.Roles.FirstOrDefault(r => r.Id == roleId);
             if (role != null)
             {
-                permissions |= ParsePermissions(role.Permissions);
+                permissions |= ParsePermissions(role.Permissions) ?? 0;
             }
         }
 
@@ -145,8 +145,10 @@ public sealed class RequireBotPermissionAttribute : Attribute, IPrecondition
         var everyoneOverwrite = channel.PermissionOverwrites?.FirstOrDefault(o => o.Id == guildId);
         if (everyoneOverwrite != null)
         {
-            permissions &= ~everyoneOverwrite.Deny;
-            permissions |= everyoneOverwrite.Allow;
+            var deny = ParsePermissions(everyoneOverwrite.Deny) ?? 0;
+            var allow = ParsePermissions(everyoneOverwrite.Allow) ?? 0;
+            permissions &= ~deny;
+            permissions |= allow;
         }
 
         // Apply role overwrites
@@ -157,8 +159,10 @@ public sealed class RequireBotPermissionAttribute : Attribute, IPrecondition
                 var roleOverwrite = channel.PermissionOverwrites?.FirstOrDefault(o => o.Id == roleId);
                 if (roleOverwrite != null)
                 {
-                    permissions &= ~roleOverwrite.Deny;
-                    permissions |= roleOverwrite.Allow;
+                    var deny = ParsePermissions(roleOverwrite.Deny) ?? 0;
+                    var allow = ParsePermissions(roleOverwrite.Allow) ?? 0;
+                    permissions &= ~deny;
+                    permissions |= allow;
                 }
             }
         }
@@ -167,8 +171,10 @@ public sealed class RequireBotPermissionAttribute : Attribute, IPrecondition
         var memberOverwrite = channel.PermissionOverwrites?.FirstOrDefault(o => o.Id == botId);
         if (memberOverwrite != null)
         {
-            permissions &= ~memberOverwrite.Deny;
-            permissions |= memberOverwrite.Allow;
+            var deny = ParsePermissions(memberOverwrite.Deny) ?? 0;
+            var allow = ParsePermissions(memberOverwrite.Allow) ?? 0;
+            permissions &= ~deny;
+            permissions |= allow;
         }
 
         return permissions;
@@ -177,5 +183,16 @@ public sealed class RequireBotPermissionAttribute : Attribute, IPrecondition
     private static ulong ParsePermissions(ulong? permissions)
     {
         return permissions ?? 0;
+    }
+
+    private static ulong? ParsePermissions(string? permissions)
+    {
+        if (string.IsNullOrEmpty(permissions))
+            return null;
+
+        if (ulong.TryParse(permissions, out var result))
+            return result;
+
+        return null;
     }
 }

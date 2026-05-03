@@ -34,7 +34,7 @@ public sealed class CooldownAttribute : Attribute, IPrecondition
     private readonly ConcurrentDictionary<string, BucketState> _buckets = new();
     private readonly object _cleanupLock = new();
     private DateTimeOffset _lastCleanup = DateTimeOffset.UtcNow;
-    private const CleanupIntervalSeconds = 300; // Clean up every 5 minutes
+    private const int CleanupIntervalSeconds = 300; // Clean up every 5 minutes
 
     /// <summary>
     /// Initialises the attribute.
@@ -59,24 +59,27 @@ public sealed class CooldownAttribute : Attribute, IPrecondition
         var now    = DateTimeOffset.UtcNow;
         var bucket = _buckets.GetOrAdd(key, _ => new BucketState(now));
 
-        lock (bucket)
+        try
         {
-            // Reset the bucket if the window has expired
-            if (now - bucket.WindowStart >= Per)
+            lock (bucket)
             {
-                bucket.WindowStart     = now;
-                bucket.InvocationCount = 0;
-            }
+                // Reset the bucket if the window has expired
+                if (now - bucket.WindowStart >= Per)
+                {
+                    bucket.WindowStart     = now;
+                    bucket.InvocationCount = 0;
+                }
 
-            if (bucket.InvocationCount < MaxUses)
-            {
-                bucket.InvocationCount++;
-                return Task.FromResult(PreconditionResult.FromSuccess());
-            }
+                if (bucket.InvocationCount < MaxUses)
+                {
+                    bucket.InvocationCount++;
+                    return Task.FromResult(PreconditionResult.FromSuccess());
+                }
 
-            var remaining = Per - (now - bucket.WindowStart);
-            return Task.FromResult(PreconditionResult.FromError(
-                $"You are on cooldown. Try again in {remaining.TotalSeconds:F1} second(s)."));
+                var remaining = Per - (now - bucket.WindowStart);
+                return Task.FromResult(PreconditionResult.FromError(
+                    $"You are on cooldown. Try again in {remaining.TotalSeconds:F1} second(s)."));
+            }
         }
         finally
         {
