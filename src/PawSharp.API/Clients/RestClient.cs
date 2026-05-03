@@ -1083,11 +1083,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/threads", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Channel>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Channel>("CreateThreadInForumAsync", response);
     }
     
     public async Task<bool> JoinThreadAsync(ulong channelId)
@@ -1117,11 +1113,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<ThreadMember?> GetThreadMemberAsync(ulong channelId, ulong userId)
     {
         var response = await GetAsync($"channels/{channelId}/thread-members/{userId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<ThreadMember>();
-        }
-        return null;
+        return await HandleApiResponseAsync<ThreadMember>("GetThreadMemberAsync", response);
     }
     
     public async Task<List<ThreadMember>?> GetThreadMembersAsync(ulong channelId, bool withMember = false, ulong? after = null, int? limit = null)
@@ -1603,24 +1595,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<StageInstance?> GetStageInstanceAsync(ulong channelId)
     {
         var response = await GetAsync($"stage-instances/{channelId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<StageInstance>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<StageInstance>("GetStageInstanceAsync", response);
     }
 
     public async Task<StageInstance?> ModifyStageInstanceAsync(ulong channelId, ModifyStageInstanceRequest request)
     {
         var content = JsonContent(request);
         var response = await PatchAsync($"stage-instances/{channelId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<StageInstance>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<StageInstance>("ModifyStageInstanceAsync", response);
     }
 
     public async Task<bool> DeleteStageInstanceAsync(ulong channelId)
@@ -2735,12 +2717,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         ValidateSnowflake(guildId, nameof(guildId));
         var response = await GetAsync($"guilds/{guildId}/roles/member-counts");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(_jsonOptions);
-        }
-
-        return null;
+        return await HandleApiResponseAsync<Dictionary<string, int>>("GetGuildRoleMemberCountsAsync", response);
     }
 
     // -- Guild Incident Actions ------------------------------------------------
