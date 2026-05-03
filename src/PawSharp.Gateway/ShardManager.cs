@@ -306,6 +306,22 @@ public class ShardManager
     }
 
     /// <summary>
+    /// Automatically configures sharding based on guild count.
+    /// This is a convenience method that updates the ShardCount property
+    /// based on the calculated recommended shard count.
+    /// </summary>
+    /// <param name="guildCount">The number of guilds the bot is in</param>
+    public void AutoConfigureSharding(int guildCount)
+    {
+        var recommendedShardCount = CalculateRecommendedShardCount(guildCount);
+        _options.ShardCount = recommendedShardCount;
+        _logger.LogInformation(
+            "Auto-configured sharding: {GuildCount} guilds -> {ShardCount} shards",
+            guildCount,
+            recommendedShardCount);
+    }
+
+    /// <summary>
     /// Gets the current session start limits, if fetched from Discord API.
     /// </summary>
     public SessionStartLimits? SessionStartLimits => _sessionStartLimits;
