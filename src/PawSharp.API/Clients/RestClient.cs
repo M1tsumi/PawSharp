@@ -144,12 +144,28 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         return await GetAsync("users/@me");
     }
+
+    public async Task<HttpResponseMessage> GetCurrentUserAsync(CancellationToken cancellationToken)
+    {
+        return await GetAsync("users/@me", null, cancellationToken);
+    }
     
     // User operations
     public async Task<User?> GetUserAsync(ulong userId)
     {
         SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"users/{userId}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<User>();
+        }
+        return null;
+    }
+
+    public async Task<User?> GetUserAsync(ulong userId, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
+        var response = await GetAsync($"users/{userId}", null, cancellationToken);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<User>();
@@ -234,8 +250,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     /// <returns>The created message, or null if the request fails.</returns>
     public async Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request)
     {
-        // Validate input
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(channelId, nameof(channelId));
 
         // Content is optional when embeds, components, or a poll are present.
         // Only validate the text when it is explicitly supplied.
@@ -258,6 +273,38 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/messages", content);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Message>();
+        }
+        return null;
+    }
+
+    public async Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+
+        // Content is optional when embeds, components, or a poll are present.
+        // Only validate the text when it is explicitly supplied.
+        if (request.Content != null)
+        {
+            ContentValidator.ValidateMessageContent(request.Content);
+        }
+
+        // Validate embeds if present
+        if (request.Embeds != null)
+        {
+            foreach (var embed in request.Embeds)
+            {
+                ContentValidator.ValidateEmbedTitle(embed.Title);
+                ContentValidator.ValidateEmbedDescription(embed.Description);
+                EmbedValidator.ValidateEmbedFieldCount(embed.Fields?.Count ?? 0);
+                EmbedValidator.ValidateEmbedHasContent(embed.Title, embed.Description, embed.Fields);
+            }
+        }
+
+        var content = JsonContent(request);
+        var response = await PostAsync($"channels/{channelId}/messages", content, null, cancellationToken);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<Message>();
@@ -536,6 +583,17 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         }
         return null;
     }
+
+    public async Task<Channel?> GetChannelAsync(ulong channelId, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        var response = await GetAsync($"channels/{channelId}", null, cancellationToken);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Channel>();
+        }
+        return null;
+    }
     
     public async Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request)
     {
@@ -608,8 +666,23 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         {
             endpoint += "?with_counts=true";
         }
-
         var response = await GetAsync(endpoint);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Guild>();
+        }
+        return null;
+    }
+
+    public async Task<Guild?> GetGuildAsync(ulong guildId, bool withCounts, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        var endpoint = $"guilds/{guildId}";
+        if (withCounts)
+        {
+            endpoint += "?with_counts=true";
+        }
+        var response = await GetAsync(endpoint, null, cancellationToken);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<Guild>();
