@@ -12,10 +12,15 @@ using PawSharp.API;
 using PawSharp.API.Clients;
 using PawSharp.API.Interfaces;
 using PawSharp.API.Models;
+using AutocompleteChoice = PawSharp.API.Models.AutocompleteChoice;
+using InteractionResponse = PawSharp.API.Models.InteractionResponse;
+using EditMessageRequest = PawSharp.API.Models.EditMessageRequest;
+using CreateMessageRequest = PawSharp.API.Models.CreateMessageRequest;
 using PawSharp.Gateway;
 using PawSharp.Gateway.Events;
-using PawSharp.Interactions.Models;
 using PawSharp.Core.Entities;
+using DiscordApiException = PawSharp.API.Exceptions.DiscordApiException;
+using ValidationException = PawSharp.Core.Exceptions.ValidationException;
 
 namespace PawSharp.Interactions;
 
@@ -304,7 +309,7 @@ public class InteractionHandler
         // Route by application command type: CHAT_INPUT=1, USER=2, MESSAGE=3, PRIMARY_ENTRY_POINT=4
         switch (interaction.Data.Type)
         {
-            case (int)PawSharp.Interactions.Models.ApplicationCommandType.User:
+            case (int)ApplicationCommandType.User:
                 if (_userContextMenuHandlers.TryGetValue(interaction.Data.Name, out var userHandler))
                 {
                     await InvokeHandlerSafelyAsync(userHandler, interaction, "user context menu", interaction.Data.Name);

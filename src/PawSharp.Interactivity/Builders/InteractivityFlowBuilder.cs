@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
+using PawSharp.Interactivity.Extensions;
 
 namespace PawSharp.Interactivity.Builders;
 

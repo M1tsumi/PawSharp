@@ -813,7 +813,7 @@ public static class MessageExtensions
 
         // Extract RadioGroup value from modal submission
         // Component type 21 = RadioGroup
-        var value = ExtractComponentValue(result.Result.Data?.Components, 21, customId);
+        var value = ExtractComponentValue(result.Result.Data?.Components?.Cast<object>().ToList(), 21, customId);
         return new InteractivityResult<string?> { Result = value };
     }
 
@@ -844,7 +844,7 @@ public static class MessageExtensions
 
         // Extract CheckboxGroup values from modal submission
         // Component type 22 = CheckboxGroup
-        var values = ExtractComponentValues(result.Result.Data?.Components, 22, customId) ?? new List<string>();
+        var values = ExtractComponentValues(result.Result.Data?.Components?.Cast<object>().ToList(), 22, customId) ?? new List<string>();
         return new InteractivityResult<List<string>> { Result = values };
     }
 
@@ -875,7 +875,7 @@ public static class MessageExtensions
 
         // Extract Checkbox value from modal submission
         // Component type 23 = Checkbox
-        var value = ExtractCheckboxValue(result.Result.Data?.Components, 23, customId);
+        var value = ExtractCheckboxValue(result.Result.Data?.Components?.Cast<object>().ToList(), 23, customId);
         return new InteractivityResult<bool?> { Result = value };
     }
 

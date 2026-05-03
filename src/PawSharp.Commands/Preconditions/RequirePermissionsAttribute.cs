@@ -57,17 +57,17 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
         {
             if (_permissionCache.TryGetValue(cacheKey, out var cached) && cached.expiry > now)
             {
-                var effectivePermissions = cached.permissions;
-                var adminBit = (ulong)PawSharp.Core.Enums.Permissions.Administrator;
+                var cachedPermissions = cached.permissions;
+                var cachedAdminBit = (ulong)PawSharp.Core.Enums.Permissions.Administrator;
 
                 if (IgnoreAdmins)
                 {
-                    var guild = ctx.Client.Cache.GetGuild(guildId);
-                    if (guild != null && (guild.OwnerId == ctx.User.Id || (effectivePermissions & adminBit) == adminBit))
+                    var cachedGuild = ctx.Client.Cache.GetGuild(guildId);
+                    if (cachedGuild != null && (cachedGuild.OwnerId == ctx.User.Id || (cachedPermissions & cachedAdminBit) == cachedAdminBit))
                         return PreconditionResult.FromSuccess();
                 }
 
-                return (effectivePermissions & RequiredPermissions) == RequiredPermissions
+                return (cachedPermissions & RequiredPermissions) == RequiredPermissions
                     ? PreconditionResult.FromSuccess()
                     : PreconditionResult.FromError("You do not have the required permissions to run this command.");
             }
