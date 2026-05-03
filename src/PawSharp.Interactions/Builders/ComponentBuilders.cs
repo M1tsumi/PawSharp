@@ -463,3 +463,201 @@ public class FileBuilder
 
     public CoreComponents.FileComponent Build() => _component;
 }
+
+/// <summary>
+/// Builder for <see cref="CoreComponents.Label"/> (component type 18).
+/// A Label displays text with optional emoji in a Components v2 layout.
+/// </summary>
+public class LabelBuilder
+{
+    private readonly CoreComponents.Label _component = new();
+
+    public LabelBuilder(string text)
+    {
+        _component.Text = text;
+    }
+
+    public LabelBuilder SetText(string text)
+    {
+        _component.Text = text;
+        return this;
+    }
+
+    public LabelBuilder SetEmoji(string unicodeEmoji)
+    {
+        _component.Emoji = new CoreComponents.Emoji { Name = unicodeEmoji };
+        return this;
+    }
+
+    public LabelBuilder SetCustomEmoji(string name, ulong id, bool animated = false)
+    {
+        _component.Emoji = new CoreComponents.Emoji { Name = name, Id = id, Animated = animated };
+        return this;
+    }
+
+    public CoreComponents.Label Build() => _component;
+}
+
+/// <summary>
+/// Builder for <see cref="CoreComponents.FileUpload"/> (component type 19).
+/// A FileUpload allows users to upload files in a modal or message.
+/// </summary>
+public class FileUploadBuilder
+{
+    private readonly CoreComponents.FileUpload _component = new();
+
+    public FileUploadBuilder(string customId, string label)
+    {
+        _component.CustomId = customId;
+        _component.Label = label;
+    }
+
+    public FileUploadBuilder SetRequired(bool required)
+    {
+        _component.Required = required;
+        return this;
+    }
+
+    public FileUploadBuilder SetPlaceholder(string placeholder)
+    {
+        _component.Placeholder = placeholder;
+        return this;
+    }
+
+    public FileUploadBuilder SetMinLength(int min)
+    {
+        _component.MinLength = min;
+        return this;
+    }
+
+    public FileUploadBuilder SetMaxLength(int max)
+    {
+        _component.MaxLength = max;
+        return this;
+    }
+
+    public FileUploadBuilder SetFileTypes(params string[] fileTypes)
+    {
+        _component.FileTypes = new List<string>(fileTypes);
+        return this;
+    }
+
+    public CoreComponents.FileUpload Build() => _component;
+}
+
+/// <summary>
+/// Builder for <see cref="CoreComponents.RadioGroup"/> (component type 21).
+/// A RadioGroup allows selecting one option from a list in a Components v2 layout.
+/// </summary>
+public class RadioGroupBuilder
+{
+    private readonly CoreComponents.RadioGroup _component = new();
+
+    public RadioGroupBuilder(string customId, string label)
+    {
+        _component.CustomId = customId;
+        _component.Label = label;
+    }
+
+    public RadioGroupBuilder AddOption(string label, string value, string? description = null, bool isDefault = false)
+    {
+        _component.Options.Add(new CoreComponents.RadioOption
+        {
+            Label = label,
+            Value = value,
+            Description = description,
+            Default = isDefault
+        });
+        return this;
+    }
+
+    public RadioGroupBuilder SetRequired(bool required)
+    {
+        _component.Required = required;
+        return this;
+    }
+
+    public RadioGroupBuilder SetDefaultValue(int index)
+    {
+        _component.DefaultValue = index;
+        return this;
+    }
+
+    public CoreComponents.RadioGroup Build() => _component;
+}
+
+/// <summary>
+/// Builder for <see cref="CoreComponents.CheckboxGroup"/> (component type 22).
+/// A CheckboxGroup allows selecting multiple options from a list in a Components v2 layout.
+/// </summary>
+public class CheckboxGroupBuilder
+{
+    private readonly CoreComponents.CheckboxGroup _component = new();
+
+    public CheckboxGroupBuilder(string customId, string label)
+    {
+        _component.CustomId = customId;
+        _component.Label = label;
+    }
+
+    public CheckboxGroupBuilder AddOption(string label, string value, string? description = null, bool isDefault = false)
+    {
+        _component.Options.Add(new CoreComponents.CheckboxOption
+        {
+            Label = label,
+            Value = value,
+            Description = description,
+            Default = isDefault
+        });
+        return this;
+    }
+
+    public CheckboxGroupBuilder SetMinValues(int min)
+    {
+        _component.MinValues = min;
+        return this;
+    }
+
+    public CheckboxGroupBuilder SetMaxValues(int max)
+    {
+        _component.MaxValues = max;
+        return this;
+    }
+
+    public CheckboxGroupBuilder SetRequired(bool required)
+    {
+        _component.Required = required;
+        return this;
+    }
+
+    public CoreComponents.CheckboxGroup Build() => _component;
+}
+
+/// <summary>
+/// Builder for <see cref="CoreComponents.Checkbox"/> (component type 23).
+/// A Checkbox is a single toggleable checkbox in a Components v2 layout.
+/// </summary>
+public class CheckboxBuilder
+{
+    private readonly CoreComponents.Checkbox _component = new();
+
+    public CheckboxBuilder(string customId, string label)
+    {
+        _component.CustomId = customId;
+        _component.Label = label;
+    }
+
+    public CheckboxBuilder SetDefaultValue(bool defaultValue)
+    {
+        _component.DefaultValue = defaultValue;
+        return this;
+    }
+
+    public CheckboxBuilder SetRequired(bool required)
+    {
+        _component.Required = required;
+        return this;
+    }
+
+    public CoreComponents.Checkbox Build() => _component;
+}
