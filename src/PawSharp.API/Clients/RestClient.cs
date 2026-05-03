@@ -453,12 +453,47 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"channels/{channelId}/messages/{messageId}", content);
         return await HandleApiResponseAsync<Message>("EditMessageAsync", response);
     }
+
+    public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request, CancellationToken cancellationToken)
+    {
+        // Validate input
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        if (request.Content != null)
+        {
+            ContentValidator.ValidateMessageContent(request.Content);
+        }
+
+        // Validate embeds if present
+        if (request.Embeds != null)
+        {
+            foreach (var embed in request.Embeds)
+            {
+                ContentValidator.ValidateEmbedTitle(embed.Title);
+                ContentValidator.ValidateEmbedDescription(embed.Description);
+                EmbedValidator.ValidateEmbedFieldCount(embed.Fields?.Count ?? 0);
+                EmbedValidator.ValidateEmbedHasContent(embed.Title, embed.Description, embed.Fields);
+            }
+        }
+
+        var content = JsonContent(request);
+        var response = await PatchAsync($"channels/{channelId}/messages/{messageId}", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Message>("EditMessageAsync", response);
+    }
     
     public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId)
     {
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
         var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken)
+    {
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
     
@@ -490,6 +525,37 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         }
 
         var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}");
+        return await HandleApiResponseAsync<List<Message>>("GetChannelMessagesAsync", response);
+    }
+
+    public async Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit, ulong? around, ulong? before, ulong? after, CancellationToken cancellationToken)
+    {
+        // Validate input
+        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        if (limit < 1 || limit > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100");
+        }
+
+        var queryParams = new List<string>();
+        queryParams.Add($"limit={limit}");
+        if (around.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+            queryParams.Add($"around={around.Value}");
+        }
+        if (before.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+            queryParams.Add($"before={before.Value}");
+        }
+        if (after.HasValue)
+        {
+            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+            queryParams.Add($"after={after.Value}");
+        }
+
+        var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}", null, cancellationToken);
         return await HandleApiResponseAsync<List<Message>>("GetChannelMessagesAsync", response);
     }
     
@@ -562,6 +628,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         ValidateSnowflake(channelId, nameof(channelId));
         var content = JsonContent(request);
         var response = await PatchAsync($"channels/{channelId}", content);
+        return await HandleApiResponseAsync<Channel>("ModifyChannelAsync", response);
+    }
+
+    public async Task<Channel?> ModifyChannelAsync(ulong channelId, ModifyChannelRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        var content = JsonContent(request);
+        var response = await PatchAsync($"channels/{channelId}", content, null, cancellationToken);
         return await HandleApiResponseAsync<Channel>("ModifyChannelAsync", response);
     }
     
@@ -1615,12 +1689,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<Sticker?> GetStickerAsync(ulong stickerId)
     {
         var response = await GetAsync($"stickers/{stickerId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Sticker>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<Sticker>("GetStickerAsync", response);
     }
 
     public async Task<List<StickerPack>?> GetNitroStickerPacksAsync()
