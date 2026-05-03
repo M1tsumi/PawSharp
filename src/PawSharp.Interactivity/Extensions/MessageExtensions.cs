@@ -466,6 +466,67 @@ public static class MessageExtensions
         }
     }
 
+    /// <summary>
+    /// Waits for a modal submission interaction and returns the resulting interaction.
+    /// </summary>
+    /// <param name="message">The message that triggered the modal (optional, for context).</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">
+    /// The user whose submission to accept, or <see langword="null"/> to accept any user.
+    /// </param>
+    /// <param name="customId">
+    /// The <c>custom_id</c> of the specific modal to wait for, or <see langword="null"/>
+    /// to accept any modal submission.
+    /// </param>
+    /// <param name="timeout">
+    /// The maximum time to wait.  Falls back to <see cref="InteractivityExtension.Timeout"/>
+    /// if not specified.
+    /// </param>
+    /// <returns>
+    /// An <see cref="InteractivityResult{T}"/> wrapping the <see cref="InteractionCreateEvent"/>
+    /// (with <c>Data.Components</c> containing the submitted form data) when a matching
+    /// submission arrives, or a timed-out result after the deadline.
+    /// </returns>
+    public static async Task<InteractivityResult<InteractionCreateEvent>> WaitForModalAsync(
+        this Message? message,
+        DiscordClient client,
+        User? user = null,
+        string? customId = null,
+        TimeSpan? timeout = null)
+    {
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        var tcs = new TaskCompletionSource<InteractionCreateEvent>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cts = new CancellationTokenSource(timeout.Value);
+        cts.Token.Register(() => tcs.TrySetCanceled());
+
+        // Interaction type 5 = ModalSubmit
+        const int modalSubmitType = 5;
+
+        void OnInteraction(InteractionCreateEvent evt)
+        {
+            if (evt.Type != modalSubmitType)                                  return;
+            if (user is not null && GetUserId(evt) != user.Id)                return;
+            if (customId is not null && evt.Data?.CustomId != customId)        return;
+
+            tcs.TrySetResult(evt);
+        }
+
+        using var sub = client.Gateway.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", OnInteraction);
+
+        try
+        {
+            var evt = await tcs.Task;
+            return new InteractivityResult<InteractionCreateEvent> { Result = evt };
+        }
+        catch (TaskCanceledException)
+        {
+            return new InteractivityResult<InteractionCreateEvent> { TimedOut = true };
+        }
+    }
+
     // Resolves the user ID from an interaction: guild interactions carry the user
     // inside the member object; DM interactions have the user directly.
     private static ulong GetUserId(InteractionCreateEvent evt)
