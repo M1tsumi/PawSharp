@@ -924,6 +924,15 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/roles/{roleId}", content);
         return await HandleApiResponseAsync<Role>("ModifyGuildRoleAsync", response);
     }
+
+    public async Task<Role?> ModifyGuildRoleAsync(ulong guildId, ulong roleId, ModifyRoleRequest request, CancellationToken cancellationToken)
+    {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(roleId, nameof(roleId));
+        var content = JsonContent(request);
+        var response = await PatchAsync($"guilds/{guildId}/roles/{roleId}", content, null, cancellationToken);
+        return await HandleApiResponseAsync<Role>("ModifyGuildRoleAsync", response);
+    }
     
     public async Task<bool> DeleteGuildRoleAsync(ulong guildId, ulong roleId)
     {
@@ -1348,6 +1357,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<List<Webhook>?> GetChannelWebhooksAsync(ulong channelId)
     {
+        ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}/webhooks");
         return await HandleApiResponseAsync<List<Webhook>>("GetChannelWebhooksAsync", response);
     }
@@ -1364,12 +1374,9 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<Webhook?> GetWebhookAsync(ulong webhookId)
     {
+        ValidateSnowflake(webhookId, nameof(webhookId));
         var response = await GetAsync($"webhooks/{webhookId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Webhook>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Webhook>("GetWebhookAsync", response);
     }
     
     public async Task<Webhook?> GetWebhookWithTokenAsync(ulong webhookId, string token)
@@ -1384,28 +1391,23 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<Webhook?> ModifyWebhookAsync(ulong webhookId, ModifyWebhookRequest request)
     {
+        ValidateSnowflake(webhookId, nameof(webhookId));
         var content = JsonContent(request);
         var response = await PatchAsync($"webhooks/{webhookId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Webhook>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Webhook>("ModifyWebhookAsync", response);
     }
     
     public async Task<Webhook?> ModifyWebhookWithTokenAsync(ulong webhookId, string token, ModifyWebhookRequest request)
     {
+        ValidateSnowflake(webhookId, nameof(webhookId));
         var content = JsonContent(request);
         var response = await PatchAsync($"webhooks/{webhookId}/{token}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Webhook>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Webhook>("ModifyWebhookWithTokenAsync", response);
     }
     
     public async Task<bool> DeleteWebhookAsync(ulong webhookId)
     {
+        ValidateSnowflake(webhookId, nameof(webhookId));
         var response = await DeleteAsync($"webhooks/{webhookId}");
         return response.IsSuccessStatusCode;
     }
