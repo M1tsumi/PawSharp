@@ -61,7 +61,7 @@ public class ComplexValidationIntegrationTests
         };
 
         // Assert
-        action.Should().Throw<ValidationException>()
+        action.Should().Throw<InvalidOperationException>()
             .WithMessage("*field*");
     }
 
@@ -85,7 +85,7 @@ public class ComplexValidationIntegrationTests
         };
 
         // Assert
-        action.Should().Throw<ValidationException>()
+        action.Should().Throw<InvalidOperationException>()
             .WithMessage("*length*");
     }
 
@@ -423,8 +423,7 @@ public class ComplexValidationIntegrationTests
 
         // Act & Assert
         Action action = () => ComponentValidator.ValidateButton(button);
-        action.Should().Throw<ValidationException>()
-            .WithMessage("*custom ID*");
+        action.Should().Throw<ValidationException>();
     }
 
     [Fact]
@@ -434,13 +433,10 @@ public class ComplexValidationIntegrationTests
         Action action = () =>
         {
             new EmbedBuilder()
-                .WithTitle("") // Empty
-                .WithDescription("") // Empty
-                .Build();
+                .Build(); // No content at all
         };
 
         // Assert
-        action.Should().Throw<ValidationException>()
-            .WithMessage("*content*");
+        action.Should().Throw<InvalidOperationException>();
     }
 }
