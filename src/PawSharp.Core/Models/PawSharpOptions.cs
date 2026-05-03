@@ -128,6 +128,11 @@ public class PawSharpOptions
     public CacheOptions Cache { get; set; } = new CacheOptions();
 
     /// <summary>
+    /// REST API configuration options.
+    /// </summary>
+    public RestApiOptions RestApi { get; set; } = new RestApiOptions();
+
+    /// <summary>
     /// Reconnection backoff configuration options.
     /// </summary>
     public class ReconnectionOptions
@@ -238,5 +243,39 @@ public class PawSharpOptions
         /// Set to 0 to disable timeout (not recommended for production).
         /// </summary>
         public int HandlerTimeoutMs { get; set; } = 0;
+    }
+
+    /// <summary>
+    /// REST API configuration options for rate limiting and retry behavior.
+    /// </summary>
+    public class RestApiOptions
+    {
+        /// <summary>
+        /// Maximum number of retry attempts for rate-limited requests (default: 5).
+        /// Set to 0 to disable automatic retries.
+        /// </summary>
+        public int MaxRateLimitRetries { get; set; } = 5;
+
+        /// <summary>
+        /// HTTP request timeout in seconds (default: 30).
+        /// Set to 0 to use HttpClient's default timeout (100 seconds).
+        /// </summary>
+        public int TimeoutSeconds { get; set; } = 30;
+
+        /// <summary>
+        /// Whether to throw exceptions on API errors instead of returning null (default: false).
+        /// When enabled, methods will throw DiscordApiException on non-success responses.
+        /// </summary>
+        public bool ThrowOnApiError { get; set; } = false;
+
+        /// <summary>
+        /// Whether to retry on transient HTTP errors (500, 502, 503, 504) (default: true).
+        /// </summary>
+        public bool RetryOnTransientErrors { get; set; } = true;
+
+        /// <summary>
+        /// Maximum number of retry attempts for transient errors (default: 3).
+        /// </summary>
+        public int MaxTransientErrorRetries { get; set; } = 3;
     }
 }

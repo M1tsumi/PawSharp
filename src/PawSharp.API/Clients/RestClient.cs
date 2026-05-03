@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PawSharp.API.Exceptions;
 using PawSharp.API.Interfaces;
 using PawSharp.API.Models;
 using PawSharp.API.RateLimit;
@@ -63,7 +64,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         _options = options;
         _logger = logger;
         _rateLimiter = rateLimiter;
-        
+
         // Set base address and user-agent.
         // Authorization is NOT set on DefaultRequestHeaders; it is added per-request
         // in SendRequestAsync to scope credentials tightly and prevent accidental exposure.
@@ -71,6 +72,12 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.1.0-alpha.1)");
+
+        // Apply timeout configuration if specified
+        if (_options.RestApi.TimeoutSeconds > 0)
+        {
+            _httpClient.Timeout = TimeSpan.FromSeconds(_options.RestApi.TimeoutSeconds);
+        }
     }
 
     /// <summary>
@@ -2931,10 +2938,72 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             return await response.Content.ReadFromJsonAsync<ActivityInstance>(_jsonOptions);
         }
 
+        await LogSanitizedApiErrorAsync("GetActivityInstanceAsync failed", response);
         return null;
     }
 
-    private const int MaxRateLimitRetries = 5;
+    private int MaxRateLimitRetries => _options.RestApi.MaxRateLimitRetries;
+
+    /// <summary>
+    /// Helper method for consistent error handling across all API methods.
+    /// Logs the error and optionally throws an exception based on configuration.
+    /// </summary>
+    private async Task<T?> HandleApiResponseAsync<T>(string operation, HttpResponseMessage response) where T : class
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
+        }
+
+        await LogSanitizedApiErrorAsync($"{operation} failed", response);
+
+        if (_options.RestApi.ThrowOnApiError)
+        {
+            var statusCode = (System.Net.HttpStatusCode)response.StatusCode;
+            var errorBody = await response.Content.ReadAsStringAsync();
+            string? discordErrorCode = null;
+            string? discordErrorMessage = null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(errorBody);
+                if (doc.RootElement.TryGetProperty("code", out var codeElement))
+                {
+                    discordErrorCode = codeElement.GetInt32().ToString();
+                }
+                if (doc.RootElement.TryGetProperty("message", out var messageElement))
+                {
+                    discordErrorMessage = messageElement.GetString();
+                }
+            }
+            catch { /* Ignore parse errors */ }
+
+            throw DiscordApiException.FromResponse(statusCode, operation, discordErrorCode, discordErrorMessage);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Helper method for consistent error handling for operations returning HttpResponseMessage.
+    /// </summary>
+    private async Task<HttpResponseMessage> HandleApiResponseAsync(string operation, HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return response;
+        }
+
+        await LogSanitizedApiErrorAsync($"{operation} failed", response);
+
+        if (_options.RestApi.ThrowOnApiError)
+        {
+            var statusCode = (System.Net.HttpStatusCode)response.StatusCode;
+            throw DiscordApiException.FromResponse(statusCode, operation);
+        }
+
+        return response;
+    }
 
     private async Task<HttpResponseMessage> SendRequestAsync(
         HttpMethod method,
