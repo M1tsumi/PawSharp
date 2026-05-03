@@ -74,6 +74,12 @@ namespace PawSharp.Cache.Interfaces
         void CacheGuildData(Guild guild);
         void RemoveGuild(ulong guildId);
 
+        // Typed remove operations
+        void RemoveChannel(ulong channelId);
+        void RemoveMessage(ulong messageId);
+        void RemoveGuildMember(ulong guildId, ulong userId);
+        void RemoveRole(ulong guildId, ulong roleId);
+
         // Cache statistics
         int GetEntityCount();
         long GetMemoryUsage();
@@ -91,6 +97,24 @@ namespace PawSharp.Cache.Interfaces
         Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId);
         Task<Role?> GetRoleAsync(ulong guildId, ulong roleId);
         Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId);
+
+        // Async write operations
+        Task CacheUserAsync(User user);
+        Task CacheGuildAsync(Guild guild);
+        Task CacheChannelAsync(Channel channel);
+        Task CacheMessageAsync(Message message);
+        Task CacheGuildMemberAsync(ulong guildId, GuildMember member);
+        Task CacheRoleAsync(ulong guildId, Role role);
+        Task CacheEmojiAsync(ulong guildId, Emoji emoji);
+        Task CacheGuildDataAsync(Guild guild);
+        Task RemoveGuildAsync(ulong guildId);
+        Task ClearAsync();
+
+        // Async remove operations
+        Task RemoveChannelAsync(ulong channelId);
+        Task RemoveMessageAsync(ulong messageId);
+        Task RemoveGuildMemberAsync(ulong guildId, ulong userId);
+        Task RemoveRoleAsync(ulong guildId, ulong roleId);
 
         /// <summary>
         /// Performs a health check on the cache provider.
