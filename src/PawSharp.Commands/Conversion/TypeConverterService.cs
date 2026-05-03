@@ -72,6 +72,17 @@ public class TypeConverterService
     }
 
     /// <summary>
+    /// Registers a converter for a specific enum type.
+    /// </summary>
+    /// <typeparam name="T">The enum type to register a converter for.</typeparam>
+    public void RegisterEnumConverter<T>() where T : struct, Enum
+    {
+        var converter = new BuiltInConverters.GenericEnumConverter<T>();
+        _converters[typeof(T)] = converter;
+        _logger?.LogDebug("Registered enum converter for {Type}", typeof(T).Name);
+    }
+
+    /// <summary>
     /// Attempts to convert a string value to the specified type.
     /// </summary>
     /// <typeparam name="T">The target type.</typeparam>
@@ -173,6 +184,11 @@ public class TypeConverterService
         RegisterConverter<TimeSpan>(new BuiltInConverters.TimeSpanConverter());
         RegisterConverter<Guid>(new BuiltInConverters.GuidConverter());
         RegisterConverter<Uri>(new BuiltInConverters.UriConverter());
+        RegisterConverter<sbyte>(new BuiltInConverters.SByteConverter());
+        RegisterConverter<byte>(new BuiltInConverters.ByteConverter());
+        RegisterConverter<short>(new BuiltInConverters.Int16Converter());
+        RegisterConverter<ushort>(new BuiltInConverters.UInt16Converter());
+        RegisterConverter<uint>(new BuiltInConverters.UInt32Converter());
         RegisterConverter<PawSharp.Core.Entities.User>(new BuiltInConverters.UserConverter());
         RegisterConverter<PawSharp.Core.Entities.Channel>(new BuiltInConverters.ChannelConverter());
         RegisterConverter<PawSharp.Core.Entities.Role>(new BuiltInConverters.RoleConverter());

@@ -19,15 +19,26 @@ public static class HelpCommand
     /// </summary>
     /// <param name="commands">The registered commands.</param>
     /// <param name="prefix">The command prefix.</param>
-    /// <returns>A formatted help message.</returns>
-    public static string GenerateHelp(IReadOnlyList<CommandInfo> commands, string prefix = "!")
+    /// <param name="page">The page number (1-indexed).</param>
+    /// <param name="pageSize">The number of commands per page.</param>
+    /// <returns>A formatted help message with pagination info.</returns>
+    public static string GenerateHelp(IReadOnlyList<CommandInfo> commands, string prefix = "!", int page = 1, int pageSize = 10)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("📚 **Available Commands**\n");
         
-        var grouped = commands.GroupBy(c => c.Name.Split(' ')[0]); // Group by base command name
+        var grouped = commands.GroupBy(c => c.Name.Split(' ')[0]).OrderBy(g => g.Key).ToList();
+        var totalPages = (int)Math.Ceiling((double)grouped.Count / pageSize);
         
-        foreach (var group in grouped.OrderBy(g => g.Key))
+        if (page < 1 || page > totalPages)
+        {
+            page = 1;
+        }
+        
+        var pageCommands = grouped.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        
+        sb.AppendLine($"📚 **Available Commands** (Page {page}/{totalPages})\n");
+        
+        foreach (var group in pageCommands)
         {
             var command = group.First();
             sb.AppendLine($"**{prefix}{command.Name}**");
@@ -43,6 +54,11 @@ public static class HelpCommand
             }
             
             sb.AppendLine();
+        }
+        
+        if (totalPages > 1)
+        {
+            sb.AppendLine($"*Use `{prefix}help {page + 1}` for the next page or `{prefix}help {page - 1}` for the previous page.*");
         }
         
         return sb.ToString();
@@ -67,6 +83,27 @@ public static class HelpCommand
         if (command.Aliases.Any())
         {
             sb.AppendLine($"**Aliases:** {string.Join(", ", command.Aliases.Select(a => $"{prefix}{a}"))}\n");
+        }
+
+        if (command.Parameters != null && command.Parameters.Any())
+        {
+            sb.AppendLine("**Parameters:**");
+            foreach (var param in command.Parameters)
+            {
+                var required = param.IsRequired ? "(required)" : "(optional)";
+                sb.AppendLine($"  • `{param.Name}` {required}: {param.Description ?? "No description"}");
+            }
+            sb.AppendLine();
+        }
+
+        if (command.Preconditions != null && command.Preconditions.Any())
+        {
+            sb.AppendLine("**Requirements:**");
+            foreach (var precondition in command.Preconditions)
+            {
+                sb.AppendLine($"  • {precondition}");
+            }
+            sb.AppendLine();
         }
         
         return sb.ToString();
@@ -94,20 +131,23 @@ public class HelpModule : BaseCommandModule
     /// </summary>
     [Command("help")]
     [Description("Shows help for commands")]
-    public async Task HelpAsync(CommandContext ctx, [Optional] string? commandName = null)
+    public async Task HelpAsync(CommandContext ctx, [Optional] string? commandName = null, [Optional] int? page = null)
     {
         var commands = _commandsExtension.GetRegisteredCommands();
+        var stringComparison = _commandsExtension.CaseSensitive 
+            ? StringComparison.Ordinal 
+            : StringComparison.OrdinalIgnoreCase;
         
         if (string.IsNullOrEmpty(commandName))
         {
-            var helpMessage = HelpCommand.GenerateHelp(commands, ctx.Prefix);
+            var helpMessage = HelpCommand.GenerateHelp(commands, ctx.Prefix, page ?? 1);
             await ctx.RespondAsync(helpMessage);
         }
         else
         {
             var command = commands.FirstOrDefault(c => 
-                c.Name.Equals(commandName, StringComparison.OrdinalIgnoreCase) ||
-                c.Aliases.Any(a => a.Equals(commandName, StringComparison.OrdinalIgnoreCase)));
+                c.Name.Equals(commandName, stringComparison) ||
+                c.Aliases.Any(a => a.Equals(commandName, stringComparison)));
             
             if (command == null)
             {
