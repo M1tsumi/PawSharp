@@ -674,11 +674,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
         var response = await GetAsync($"guilds/{guildId}/channels");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Channel>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Channel>>("GetGuildChannelsAsync", response);
     }
     
     public async Task<List<GuildMember>?> ListGuildMembersAsync(ulong guildId, int limit = 1, ulong? after = null)
@@ -1243,21 +1239,13 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         var content = JsonContent(request);
         var response = await PostAsync($"channels/{channelId}/webhooks", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Webhook>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Webhook>("CreateWebhookAsync", response);
     }
     
     public async Task<List<Webhook>?> GetChannelWebhooksAsync(ulong channelId)
     {
         var response = await GetAsync($"channels/{channelId}/webhooks");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Webhook>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Webhook>>("GetChannelWebhooksAsync", response);
     }
     
     public async Task<List<Webhook>?> GetGuildWebhooksAsync(ulong guildId)
@@ -2321,12 +2309,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         ValidateSnowflake(guildId, nameof(guildId));
         var content = JsonContent(positions);
         var response = await PatchAsync($"guilds/{guildId}/roles", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Role>>();
-        }
-
-        return null;
+        return await HandleApiResponseAsync<List<Role>>("ModifyGuildRolePositionsAsync", response);
     }
 
     // Invite lookup and deletion
@@ -2745,12 +2728,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         ValidateSnowflake(guildId, nameof(guildId));
         ValidateSnowflake(roleId, nameof(roleId));
         var response = await GetAsync($"guilds/{guildId}/roles/{roleId}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Role>(_jsonOptions);
-        }
-
-        return null;
+        return await HandleApiResponseAsync<Role>("GetGuildRoleAsync", response);
     }
 
     public async Task<Dictionary<string, int>?> GetGuildRoleMemberCountsAsync(ulong guildId)
