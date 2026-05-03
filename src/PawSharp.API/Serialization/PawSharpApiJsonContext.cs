@@ -1,6 +1,7 @@
 #nullable enable
 using System.Text.Json.Serialization;
 using PawSharp.API.Models;
+using PawSharp.Core.Entities;
 
 namespace PawSharp.API.Serialization;
 
@@ -29,6 +30,8 @@ namespace PawSharp.API.Serialization;
 [JsonSerializable(typeof(CreateWebhookRequest))]
 [JsonSerializable(typeof(ModifyWebhookRequest))]
 [JsonSerializable(typeof(ExecuteWebhookRequest))]
+[JsonSerializable(typeof(PawSharp.Core.Entities.Webhook))]
+[JsonSerializable(typeof(List<PawSharp.Core.Entities.Webhook>))]
 [JsonSerializable(typeof(CreateGuildScheduledEventRequest))]
 [JsonSerializable(typeof(ModifyGuildScheduledEventRequest))]
 [JsonSerializable(typeof(CreateAutoModerationRuleRequest))]

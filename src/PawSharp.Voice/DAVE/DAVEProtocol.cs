@@ -253,7 +253,7 @@ public sealed class DAVEProtocol : IDisposable
     /// Welcome message can be decrypted using the correct init private key.
     /// Returns TLS-encoded KeyPackage bytes per RFC 9420 §10.
     /// </summary>
-    private byte[] GenerateKeyPackage()
+    public byte[] GenerateKeyPackage()
         => _mls.GenerateKeyPackage(_localIdentity);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
