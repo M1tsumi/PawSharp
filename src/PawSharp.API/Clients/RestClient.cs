@@ -500,7 +500,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit = 50, ulong? around = null, ulong? before = null, ulong? after = null)
     {
         // Validate input
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(channelId, nameof(channelId));
         if (limit < 1 || limit > 100)
         {
             throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100");
@@ -510,17 +510,17 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         queryParams.Add($"limit={limit}");
         if (around.HasValue)
         {
-            SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+            ValidateSnowflake(around.Value, nameof(around));
             queryParams.Add($"around={around.Value}");
         }
         if (before.HasValue)
         {
-            SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+            ValidateSnowflake(before.Value, nameof(before));
             queryParams.Add($"before={before.Value}");
         }
         if (after.HasValue)
         {
-            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+            ValidateSnowflake(after.Value, nameof(after));
             queryParams.Add($"after={after.Value}");
         }
 
@@ -531,7 +531,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<List<Message>?> GetChannelMessagesAsync(ulong channelId, int limit, ulong? around, ulong? before, ulong? after, CancellationToken cancellationToken)
     {
         // Validate input
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(channelId, nameof(channelId));
         if (limit < 1 || limit > 100)
         {
             throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100");
@@ -541,17 +541,17 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         queryParams.Add($"limit={limit}");
         if (around.HasValue)
         {
-            SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+            ValidateSnowflake(around.Value, nameof(around));
             queryParams.Add($"around={around.Value}");
         }
         if (before.HasValue)
         {
-            SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+            ValidateSnowflake(before.Value, nameof(before));
             queryParams.Add($"before={before.Value}");
         }
         if (after.HasValue)
         {
-            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+            ValidateSnowflake(after.Value, nameof(after));
             queryParams.Add($"after={after.Value}");
         }
 
@@ -796,7 +796,22 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/members/{userId}");
         return await HandleApiResponseAsync<GuildMember>("GetGuildMemberAsync", response);
     }
-    
+
+    public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000, ulong? after = null)
+    {
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        var queryParams = new List<string>();
+        if (limit != 1000) queryParams.Add($"limit={limit}");
+        if (after.HasValue) queryParams.Add($"after={after.Value}");
+        var queryString = queryParams.Count > 0 ? $"?{string.Join("&", queryParams)}" : "";
+        var response = await GetAsync($"guilds/{guildId}/members{queryString}");
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<List<GuildMember>>();
+        }
+        return null;
+    }
+
     public async Task<GuildMember?> AddGuildMemberAsync(ulong guildId, ulong userId, AddGuildMemberRequest request)
     {
         var content = JsonContent(request);
@@ -1873,14 +1888,6 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     }
 
     // Message crosspost
-    public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId)
-    {
-        ValidateSnowflake(channelId, nameof(channelId));
-        ValidateSnowflake(messageId, nameof(messageId));
-        var response = await GetAsync($"channels/{channelId}/messages/{messageId}");
-        return await HandleApiResponseAsync<Message>("GetMessageAsync", response);
-    }
-
     public async Task<Message?> GetMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken)
     {
         ValidateSnowflake(channelId, nameof(channelId));
@@ -3083,7 +3090,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             }
             catch { /* Ignore parse errors */ }
 
-            throw DiscordApiException.FromResponse(statusCode, operation, discordErrorCode, discordErrorMessage);
+            throw PawSharp.API.Exceptions.DiscordApiException.FromResponse(statusCode, operation, "", discordErrorCode, discordErrorMessage);
         }
 
         return null;
@@ -3104,7 +3111,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         if (_options.RestApi.ThrowOnApiError)
         {
             var statusCode = (System.Net.HttpStatusCode)response.StatusCode;
-            throw DiscordApiException.FromResponse(statusCode, operation);
+            throw PawSharp.API.Exceptions.DiscordApiException.FromResponse(statusCode, operation, "");
         }
 
         return response;
