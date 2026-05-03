@@ -59,6 +59,19 @@ namespace PawSharp.Gateway.Heartbeat
         }
 
         /// <summary>
+        /// Starts the heartbeat manager with initial jitter to avoid thundering herd.
+        /// Discord recommends adding random jitter (0.8-1.0x) to the first heartbeat after HELLO.
+        /// </summary>
+        public void StartWithJitter()
+        {
+            _ackReceived = true;
+            _missedAcks = 0;
+            _cts = new CancellationTokenSource();
+            // Fire-and-store: exceptions are caught inside the loop, not propagated as async void.
+            _heartbeatTask = RunHeartbeatLoopWithJitterAsync(_cts.Token);
+        }
+
+        /// <summary>
         /// Stops the heartbeat manager and waits for the heartbeat task to complete.
         /// Use this overload during graceful shutdown to ensure proper cleanup.
         /// </summary>
@@ -156,6 +169,43 @@ namespace PawSharp.Gateway.Heartbeat
             {
                 // Normal shutdown via Stop() — not an error.
             }
+        }
+
+        private async Task RunHeartbeatLoopWithJitterAsync(CancellationToken cancellationToken)
+        {
+            // Discord recommends adding random jitter (0.8-1.0x) to the first heartbeat after HELLO
+            // to avoid thundering herd when many clients connect simultaneously
+            var random = new Random();
+            var jitter = random.NextDouble() * 0.2 + 0.8; // 0.8 to 1.0
+            var initialDelayMs = (int)(_heartbeatInterval * jitter);
+
+            _logger?.LogDebug("Applying initial heartbeat jitter: {DelayMs}ms ({Jitter:P1} of interval)", initialDelayMs, jitter);
+
+            try
+            {
+                // Apply initial jitter delay
+                await Task.Delay(initialDelayMs, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            // Send first heartbeat after jitter
+            try
+            {
+                await _sendHeartbeat();
+                _ackReceived = false;
+                if (OnHeartbeatSent is { } sentHandler)
+                    await sentHandler();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Initial heartbeat after jitter threw unexpectedly");
+            }
+
+            // Continue with regular heartbeat loop
+            await RunHeartbeatLoopAsync(cancellationToken);
         }
     }
 }
