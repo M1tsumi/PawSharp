@@ -1,4 +1,5 @@
 #nullable enable
+using System.Runtime.CompilerServices;
 using PawSharp.Client;
 using PawSharp.Interactivity;
 
@@ -9,7 +10,9 @@ namespace PawSharp.Interactivity.Extensions;
 /// </summary>
 public static class InteractivityExtensions
 {
-    internal static readonly System.Collections.Concurrent.ConcurrentDictionary<DiscordClient, InteractivityExtension> _extensions = new();
+    // ConditionalWeakTable allows the DiscordClient key to be GC'd when no longer referenced,
+    // preventing the singleton-per-client pattern from accidentally extending client lifetime.
+    private static readonly ConditionalWeakTable<DiscordClient, InteractivityExtension> _extensions = new();
 
     /// <summary>
     /// Enables interactivity for the Discord client.
@@ -21,7 +24,7 @@ public static class InteractivityExtensions
         this DiscordClient client,
         InteractivityConfiguration? config = null)
     {
-        return _extensions.GetOrAdd(client, c => new InteractivityExtension(config));
+        return _extensions.GetValue(client, c => new InteractivityExtension(config));
     }
 
     /// <summary>
