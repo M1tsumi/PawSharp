@@ -6,6 +6,8 @@ namespace PawSharp.Commands.Preconditions;
 
 /// <summary>
 /// Restricts a command so it can only be executed inside a guild (server), not in DMs.
+/// Apply this attribute to a command method or class to ensure the command
+/// can only be used within Discord servers.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
 public sealed class RequireGuildAttribute : Attribute, IPrecondition

@@ -6,6 +6,8 @@ namespace PawSharp.Commands.Preconditions;
 
 /// <summary>
 /// Restricts a command so it can only be executed by the bot owner.
+/// Apply this attribute to a command method or class to ensure only the specified
+/// bot owner can execute the command.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
 public sealed class RequireOwnerAttribute : Attribute, IPrecondition
@@ -15,7 +17,7 @@ public sealed class RequireOwnerAttribute : Attribute, IPrecondition
     /// <summary>
     /// Initializes a new instance of the <see cref="RequireOwnerAttribute"/> class.
     /// </summary>
-    /// <param name="ownerId">The owner's user ID.</param>
+    /// <param name="ownerId">The owner's Discord user ID.</param>
     public RequireOwnerAttribute(ulong ownerId)
     {
         _ownerId = ownerId;

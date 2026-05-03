@@ -4,14 +4,14 @@ using System.Threading.Tasks;
 namespace PawSharp.Commands.Preconditions;
 
 /// <summary>
-/// Defines a check that must pass before a command is executed.
-/// Apply derived attributes to command methods; <see cref="CommandsExtension"/> evaluates
-/// every <see cref="IPrecondition"/> attribute present before invoking the handler.
+/// Interface for command precondition checks.
+/// Preconditions are evaluated before command execution and can block execution
+/// based on custom logic such as permissions, cooldowns, or user state.
 /// </summary>
 public interface IPrecondition
 {
     /// <summary>
-    /// Evaluates the precondition for the given command context.
+    /// Checks whether the command can be executed in the given context.
     /// </summary>
     /// <param name="ctx">The context of the command being invoked.</param>
     /// <returns>
