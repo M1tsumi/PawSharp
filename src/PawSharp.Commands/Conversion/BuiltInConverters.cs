@@ -118,6 +118,81 @@ internal static class BuiltInConverters
     }
 
     /// <summary>
+    /// SByte converter.
+    /// </summary>
+    internal sealed class SByteConverter : SyncTypeConverter<sbyte>
+    {
+        protected override TypeConverterResult<sbyte> ConvertSync(string value, CommandContext context)
+        {
+            if (sbyte.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            {
+                return TypeConverterResult<sbyte>.FromSuccess(result);
+            }
+            return TypeConverterResult<sbyte>.FromError($"Unable to parse '{value}' as an sbyte.");
+        }
+    }
+
+    /// <summary>
+    /// Byte converter.
+    /// </summary>
+    internal sealed class ByteConverter : SyncTypeConverter<byte>
+    {
+        protected override TypeConverterResult<byte> ConvertSync(string value, CommandContext context)
+        {
+            if (byte.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            {
+                return TypeConverterResult<byte>.FromSuccess(result);
+            }
+            return TypeConverterResult<byte>.FromError($"Unable to parse '{value}' as a byte.");
+        }
+    }
+
+    /// <summary>
+    /// Int16 converter.
+    /// </summary>
+    internal sealed class Int16Converter : SyncTypeConverter<short>
+    {
+        protected override TypeConverterResult<short> ConvertSync(string value, CommandContext context)
+        {
+            if (short.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            {
+                return TypeConverterResult<short>.FromSuccess(result);
+            }
+            return TypeConverterResult<short>.FromError($"Unable to parse '{value}' as a short.");
+        }
+    }
+
+    /// <summary>
+    /// UInt16 converter.
+    /// </summary>
+    internal sealed class UInt16Converter : SyncTypeConverter<ushort>
+    {
+        protected override TypeConverterResult<ushort> ConvertSync(string value, CommandContext context)
+        {
+            if (ushort.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            {
+                return TypeConverterResult<ushort>.FromSuccess(result);
+            }
+            return TypeConverterResult<ushort>.FromError($"Unable to parse '{value}' as a ushort.");
+        }
+    }
+
+    /// <summary>
+    /// UInt32 converter.
+    /// </summary>
+    internal sealed class UInt32Converter : SyncTypeConverter<uint>
+    {
+        protected override TypeConverterResult<uint> ConvertSync(string value, CommandContext context)
+        {
+            if (uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            {
+                return TypeConverterResult<uint>.FromSuccess(result);
+            }
+            return TypeConverterResult<uint>.FromError($"Unable to parse '{value}' as a uint.");
+        }
+    }
+
+    /// <summary>
     /// DateTime converter.
     /// </summary>
     internal sealed class DateTimeConverter : SyncTypeConverter<DateTime>
@@ -163,8 +238,8 @@ internal static class BuiltInConverters
                     return TypeConverterResult<User>.FromSuccess(user);
                 }
                 
-                // Create a minimal user object with the ID
-                return TypeConverterResult<User>.FromSuccess(new User { Id = userId, Username = value, Discriminator = "0000" });
+                // Return failure instead of creating a fake user
+                return TypeConverterResult<User>.FromError($"User with ID '{value}' not found in cache. Try mentioning the user instead.");
             }
             return TypeConverterResult<User>.FromError($"Unable to parse '{value}' as a user ID.");
         }
