@@ -451,11 +451,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
         var content = JsonContent(request);
         var response = await PatchAsync($"channels/{channelId}/messages/{messageId}", content);
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<Message>();
-        }
-        return null;
+        return await HandleApiResponseAsync<Message>("EditMessageAsync", response);
     }
     
     public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId)
@@ -472,43 +468,29 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         if (limit < 1 || limit > 100)
         {
-            throw new ValidationException("Limit must be between 1 and 100", nameof(limit), limit);
+            throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100");
         }
+
+        var queryParams = new List<string>();
+        queryParams.Add($"limit={limit}");
         if (around.HasValue)
         {
             SnowflakeValidator.ValidateSnowflake(around.Value, nameof(around));
+            queryParams.Add($"around={around.Value}");
         }
-
         if (before.HasValue)
         {
             SnowflakeValidator.ValidateSnowflake(before.Value, nameof(before));
+            queryParams.Add($"before={before.Value}");
         }
-
         if (after.HasValue)
         {
             SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
-        }
-
-        var queryParams = new List<string> { $"limit={Math.Min(limit, 100)}" };
-        if (around.HasValue)
-        {
-            queryParams.Add($"around={around.Value}");
-        }
-        else if (before.HasValue)
-        {
-            queryParams.Add($"before={before.Value}");
-        }
-        else if (after.HasValue)
-        {
             queryParams.Add($"after={after.Value}");
         }
 
         var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Message>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Message>>("GetChannelMessagesAsync", response);
     }
     
     public async Task<bool> BulkDeleteMessagesAsync(ulong channelId, List<ulong> messageIds)
@@ -550,11 +532,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
         var response = await GetAsync($"channels/{channelId}/pins");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<Message>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<Message>>("GetPinnedMessagesAsync", response);
     }
     
     public async Task<bool> TriggerTypingIndicatorAsync(ulong channelId)
@@ -703,20 +681,19 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         return null;
     }
     
-    public async Task<List<GuildMember>?> GetGuildMembersAsync(ulong guildId, int limit = 1000, ulong? after = null)
+    public async Task<List<GuildMember>?> ListGuildMembersAsync(ulong guildId, int limit = 1, ulong? after = null)
     {
-        var qs = $"limit={limit}";
+        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        var queryParams = new List<string>();
+        queryParams.Add($"limit={limit}");
         if (after.HasValue)
         {
-            qs += $"&after={after}";
+            SnowflakeValidator.ValidateSnowflake(after.Value, nameof(after));
+            queryParams.Add($"after={after.Value}");
         }
-
+        var qs = string.Join("&", queryParams);
         var response = await GetAsync($"guilds/{guildId}/members?{qs}");
-        if (response.IsSuccessStatusCode)
-        {
-            return await response.Content.ReadFromJsonAsync<List<GuildMember>>();
-        }
-        return null;
+        return await HandleApiResponseAsync<List<GuildMember>>("ListGuildMembersAsync", response);
     }
     
     public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
