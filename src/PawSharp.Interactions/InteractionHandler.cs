@@ -84,6 +84,82 @@ public class InteractionHandler
     public bool HasModalHandler(string customId) => _modalHandlers.ContainsKey(customId);
 
     /// <summary>
+    /// Checks if an autocomplete handler is registered for the given command name.
+    /// </summary>
+    public bool HasAutocompleteHandler(string commandName) => _autocompleteHandlers.ContainsKey(commandName);
+
+    /// <summary>
+    /// Checks if a user context menu handler is registered for the given name.
+    /// </summary>
+    public bool HasUserContextMenuHandler(string name) => _userContextMenuHandlers.ContainsKey(name);
+
+    /// <summary>
+    /// Checks if a message context menu handler is registered for the given name.
+    /// </summary>
+    public bool HasMessageContextMenuHandler(string name) => _messageContextMenuHandlers.ContainsKey(name);
+
+    /// <summary>
+    /// Checks if an entry point handler is registered for the given name.
+    /// </summary>
+    public bool HasEntryPointHandler(string name) => _entryPointHandlers.ContainsKey(name);
+
+    /// <summary>
+    /// Unregisters a slash command handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterCommand(string name) => _commandHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Unregisters a component handler by custom ID.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterComponent(string customId) => _componentHandlers.TryRemove(customId, out _);
+
+    /// <summary>
+    /// Unregisters a modal handler by custom ID.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterModal(string customId) => _modalHandlers.TryRemove(customId, out _);
+
+    /// <summary>
+    /// Unregisters an autocomplete handler by command name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterAutocomplete(string commandName) => _autocompleteHandlers.TryRemove(commandName, out _);
+
+    /// <summary>
+    /// Unregisters a user context menu handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterUserContextMenu(string name) => _userContextMenuHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Unregisters a message context menu handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterMessageContextMenu(string name) => _messageContextMenuHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Unregisters an entry point handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterEntryPoint(string name) => _entryPointHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Clears all registered handlers.
+    /// </summary>
+    public void ClearAllHandlers()
+    {
+        _commandHandlers.Clear();
+        _componentHandlers.Clear();
+        _modalHandlers.Clear();
+        _autocompleteHandlers.Clear();
+        _userContextMenuHandlers.Clear();
+        _messageContextMenuHandlers.Clear();
+        _entryPointHandlers.Clear();
+    }
+
+    /// <summary>
     /// Registers a component handler.
     /// </summary>
     public void RegisterComponent(string customId, Func<InteractionCreateEvent, Task> handler)
@@ -351,6 +427,58 @@ public class InteractionHandler
     }
 
     /// <summary>
+    /// Responds to a slash command interaction with an ephemeral message and embeds.
+    /// </summary>
+    public Task<bool> RespondEphemeralAsync(ulong interactionId, string interactionToken, string content, List<Embed> embeds)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.ChannelMessageWithSource,
+            Data = new InteractionCallbackData { Content = content, Embeds = embeds, Flags = 64 }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to an interaction with a message and embeds.
+    /// </summary>
+    public Task<bool> RespondWithEmbedsAsync(ulong interactionId, string interactionToken, string content, List<Embed> embeds, bool ephemeral = false)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.ChannelMessageWithSource,
+            Data = new InteractionCallbackData { Content = content, Embeds = embeds, Flags = ephemeral ? 64 : null }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to an interaction by updating the component's message.
+    /// </summary>
+    public Task<bool> RespondUpdateAsync(ulong interactionId, string interactionToken, string content)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.UpdateMessage,
+            Data = new InteractionCallbackData { Content = content }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to an interaction by updating the component's message with embeds.
+    /// </summary>
+    public Task<bool> RespondUpdateAsync(ulong interactionId, string interactionToken, string content, List<Embed>? embeds, List<MessageComponent>? components = null)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.UpdateMessage,
+            Data = new InteractionCallbackData { Content = content, Embeds = embeds, Components = components }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
     /// Defers a slash command interaction, showing a "Bot is thinking…" state.
     /// Use <see cref="EditResponseAsync"/> or <see cref="CreateFollowupAsync"/> to follow up.
     /// </summary>
@@ -390,11 +518,35 @@ public class InteractionHandler
     }
 
     /// <summary>
+    /// Gets the original interaction response.
+    /// </summary>
+    public async Task<Message?> GetOriginalResponseAsync(string applicationId, string interactionToken)
+    {
+        return await _restClient.GetOriginalInteractionResponseAsync(applicationId, interactionToken);
+    }
+
+    /// <summary>
+    /// Deletes the original interaction response.
+    /// </summary>
+    public async Task<bool> DeleteOriginalResponseAsync(string applicationId, string interactionToken)
+    {
+        return await _restClient.DeleteOriginalInteractionResponseAsync(applicationId, interactionToken);
+    }
+
+    /// <summary>
     /// Follows up with an additional message. Returns the created Message.
     /// </summary>
     public async Task<Message?> CreateFollowupAsync(string applicationId, string interactionToken, CreateMessageRequest request)
     {
         return await _restClient.CreateFollowupMessageAsync(applicationId, interactionToken, request);
+    }
+
+    /// <summary>
+    /// Gets a follow-up message.
+    /// </summary>
+    public async Task<Message?> GetFollowupAsync(string applicationId, string interactionToken, ulong messageId)
+    {
+        return await _restClient.GetFollowupMessageAsync(applicationId, interactionToken, messageId);
     }
 
     /// <summary>
@@ -424,6 +576,20 @@ public class InteractionHandler
         var response = new InteractionResponse
         {
             Type = (int)InteractionResponseType.LaunchActivity
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds with a premium required response (deprecated).
+    /// </summary>
+    /// <param name="interactionId">The interaction ID from the event.</param>
+    /// <param name="interactionToken">The interaction token from the event.</param>
+    public Task<bool> RespondPremiumRequiredAsync(ulong interactionId, string interactionToken)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.PremiumRequired
         };
         return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
     }
@@ -485,6 +651,8 @@ public enum InteractionResponseType
     UpdateMessage = 7,
     ApplicationCommandAutocompleteResult = 8,
     Modal = 9,
+    /// <summary>Deprecated. Respond to an interaction with an upgrade button.</summary>
+    PremiumRequired = 10,
     /// <summary>Launch the Activity associated with the app. Only for apps with Activities enabled.</summary>
     LaunchActivity = 12
 }
