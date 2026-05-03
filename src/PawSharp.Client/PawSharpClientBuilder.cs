@@ -114,8 +114,9 @@ public sealed class PawSharpClientBuilder
     /// <summary>Sets the Discord API version to use (default: 10).</summary>
     public PawSharpClientBuilder WithApiVersion(int version)
     {
-        if (version < 6)
-            throw new ArgumentOutOfRangeException(nameof(version), "API version must be 6 or higher.");
+        if (version < PawSharpOptions.MinSupportedApiVersion || version > PawSharpOptions.MaxSupportedApiVersion)
+            throw new ArgumentOutOfRangeException(nameof(version),
+                $"API version must be between {PawSharpOptions.MinSupportedApiVersion} and {PawSharpOptions.MaxSupportedApiVersion}.");
         _apiVersion = version;
         return this;
     }
