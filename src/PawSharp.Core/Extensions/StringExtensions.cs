@@ -10,6 +10,11 @@ public static class StringExtensions
     /// </summary>
     /// <param name="text">The text to format.</param>
     /// <returns>The formatted text.</returns>
+    /// <example>
+    /// <code>
+    /// string formatted = "Hello".ToBold(); // Returns "**Hello**"
+    /// </code>
+    /// </example>
     public static string ToBold(this string text)
     {
         return $"**{text}**";
@@ -83,6 +88,12 @@ public static class StringExtensions
     /// </summary>
     /// <param name="userId">The user ID.</param>
     /// <returns>The mention string.</returns>
+    /// <example>
+    /// <code>
+    /// ulong userId = 123456789012345678;
+    /// string mention = userId.ToUserMention(); // Returns "&lt;@123456789012345678&gt;"
+    /// </code>
+    /// </example>
     public static string ToUserMention(this ulong userId)
     {
         return $"<@{userId}>";

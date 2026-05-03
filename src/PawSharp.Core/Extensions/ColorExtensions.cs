@@ -28,6 +28,12 @@ public static class ColorExtensions
     /// </summary>
     /// <param name="color">The color integer.</param>
     /// <returns>The hexadecimal string (e.g., "5865F2").</returns>
+    /// <example>
+    /// <code>
+    /// int blurple = 0x5865F2;
+    /// string hex = blurple.ToHex(); // Returns "5865F2"
+    /// </code>
+    /// </example>
     public static string ToHex(this int color)
     {
         return color.ToString("X6").PadLeft(6, '0');
