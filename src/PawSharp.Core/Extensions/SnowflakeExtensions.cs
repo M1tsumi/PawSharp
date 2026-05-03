@@ -14,6 +14,13 @@ public static class SnowflakeExtensions
     /// </summary>
     /// <param name="snowflake">The snowflake ID.</param>
     /// <returns>The DateTimeOffset when the snowflake was created.</returns>
+    /// <example>
+    /// <code>
+    /// ulong userId = 123456789012345678;
+    /// DateTimeOffset createdAt = userId.GetCreatedAt();
+    /// Console.WriteLine($"User created at: {createdAt}");
+    /// </code>
+    /// </example>
     public static DateTimeOffset GetCreatedAt(this ulong snowflake)
     {
         return DateTimeOffset.FromUnixTimeMilliseconds((long)((snowflake >> 22) + 1420070400000UL));

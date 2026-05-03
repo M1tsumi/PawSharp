@@ -20,17 +20,28 @@ public static class DiscordCdn
     // ── Users ──────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// URL for a user's avatar. Returns the default avatar URL when <paramref name="avatarHash"/> is null.
-    /// Animated avatars (hash starts with "a_") are returned as GIF when <paramref name="format"/> is
-    /// <see cref="Format.Gif"/> or when format is not explicitly specified.
+    /// Gets the URL for a user's avatar.
     /// </summary>
-    public static string GetUserAvatar(ulong userId, string? avatarHash, int size = 256, string? format = null)
+    /// <param name="userId">The user ID.</param>
+    /// <param name="avatarHash">The avatar hash.</param>
+    /// <param name="size">Optional size in pixels (16, 32, 64, 128, 256, 512, 1024, 2048, 4096).</param>
+    /// <param name="format">Optional image format.</param>
+    /// <returns>The avatar URL.</returns>
+    /// <example>
+    /// <code>
+    /// ulong userId = 123456789012345678;
+    /// string avatarHash = "a_bcdefghijklmnopqrstuvwxyz";
+    /// string url = DiscordCdn.GetUserAvatar(userId, avatarHash, 256, CdnImageFormat.Png);
+    /// // Returns: "https://cdn.discordapp.com/avatars/123456789012345678/a_bcdefghijklmnopqrstuvwxyz.png?size=256"
+    /// </code>
+    /// </example>
+    public static string GetUserAvatar(ulong userId, string avatarHash, int? size = null, CdnImageFormat? format = null)
     {
         if (avatarHash is null)
             return GetDefaultAvatar(userId);
 
         var ext = format ?? (avatarHash.StartsWith("a_") ? Format.Gif : Format.WebP);
-        return $"{BaseUrl}/avatars/{userId}/{avatarHash}.{ext}?size={size}";
+        return $"{BaseUrl}/avatars/{userId}/{avatarHash}.{ext}?size={size ?? 256}";
     }
 
     /// <summary>

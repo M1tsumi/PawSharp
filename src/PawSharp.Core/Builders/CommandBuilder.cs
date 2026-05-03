@@ -11,6 +11,20 @@ namespace PawSharp.Core.Builders;
 /// <summary>
 /// Fluent builder for constructing Discord application commands with validation.
 /// </summary>
+/// <example>
+/// <code>
+/// var command = new CommandBuilder()
+///     .WithType(ApplicationCommandType.ChatInput)
+///     .WithName("greet")
+///     .WithDescription("Greets a user")
+///     .AddOption(opt => opt
+///         .WithType(ApplicationCommandOptionType.String)
+///         .WithName("message")
+///         .WithDescription("The message to send")
+///         .WithRequired(true))
+///     .Build();
+/// </code>
+/// </example>
 public class CommandBuilder
 {
     private ApplicationCommandType _type = ApplicationCommandType.ChatInput;
