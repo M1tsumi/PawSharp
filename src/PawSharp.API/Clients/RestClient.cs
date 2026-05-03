@@ -153,14 +153,14 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // User operations
     public async Task<User?> GetUserAsync(ulong userId)
     {
-        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
+        ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"users/{userId}");
         return await HandleApiResponseAsync<User>("GetUserAsync", response);
     }
 
     public async Task<User?> GetUserAsync(ulong userId, CancellationToken cancellationToken)
     {
-        SnowflakeValidator.ValidateSnowflake(userId, nameof(userId));
+        ValidateSnowflake(userId, nameof(userId));
         var response = await GetAsync($"users/{userId}", null, cancellationToken);
         return await HandleApiResponseAsync<User>("GetUserAsync", response);
     }
@@ -228,7 +228,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> LeaveGuildAsync(ulong guildId)
     {
-        SnowflakeValidator.ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(guildId, nameof(guildId));
         var response = await DeleteAsync($"users/@me/guilds/{guildId}");
         return response.IsSuccessStatusCode;
     }
@@ -430,8 +430,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request)
     {
         // Validate input
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
-        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
         if (request.Content != null)
         {
             ContentValidator.ValidateMessageContent(request.Content);
@@ -457,8 +457,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, EditMessageRequest request, CancellationToken cancellationToken)
     {
         // Validate input
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
-        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
         if (request.Content != null)
         {
             ContentValidator.ValidateMessageContent(request.Content);
@@ -483,16 +483,16 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId)
     {
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
-        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
         var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}");
         return response.IsSuccessStatusCode;
     }
 
     public async Task<bool> DeleteMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken)
     {
-        SnowflakeValidator.ValidateSnowflake(channelId, nameof(channelId));
-        SnowflakeValidator.ValidateSnowflake(messageId, nameof(messageId));
+        ValidateSnowflake(channelId, nameof(channelId));
+        ValidateSnowflake(messageId, nameof(messageId));
         var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}", null, cancellationToken);
         return response.IsSuccessStatusCode;
     }
@@ -1399,10 +1399,13 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<Webhook?> ModifyWebhookWithTokenAsync(ulong webhookId, string token, ModifyWebhookRequest request)
     {
-        ValidateSnowflake(webhookId, nameof(webhookId));
         var content = JsonContent(request);
         var response = await PatchAsync($"webhooks/{webhookId}/{token}", content);
-        return await HandleApiResponseAsync<Webhook>("ModifyWebhookWithTokenAsync", response);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Webhook>();
+        }
+        return null;
     }
     
     public async Task<bool> DeleteWebhookAsync(ulong webhookId)
@@ -1728,6 +1731,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     // Sticker operations
     public async Task<Sticker?> GetStickerAsync(ulong stickerId)
     {
+        ValidateSnowflake(stickerId, nameof(stickerId));
         var response = await GetAsync($"stickers/{stickerId}");
         return await HandleApiResponseAsync<Sticker>("GetStickerAsync", response);
     }
