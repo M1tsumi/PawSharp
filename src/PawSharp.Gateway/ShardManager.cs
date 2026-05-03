@@ -219,9 +219,32 @@ public class ShardManager
             return;
         }
 
+        // Check session start limits before attempting reconnection
+        if (_sessionStartLimits != null)
+        {
+            if (_sessionStartLimits.Remaining <= 0)
+            {
+                var resetTime = DateTimeOffset.UtcNow.AddMilliseconds(_sessionStartLimits.ResetAfter);
+                _logger.LogError(
+                    "Cannot reconnect shard {ShardId}: Session start limit exhausted. " +
+                    "Resets at {ResetTime} (in {RemainingMs}ms).",
+                    shardId,
+                    resetTime,
+                    _sessionStartLimits.ResetAfter);
+                _shardStatuses[shardId] = ShardStatus.Failed;
+                return;
+            }
+
+            _logger.LogDebug(
+                "Session start limits check passed for shard {ShardId}: {Remaining}/{Total} remaining",
+                shardId,
+                _sessionStartLimits.Remaining,
+                _sessionStartLimits.Total);
+        }
+
         _shardStatuses[shardId] = ShardStatus.Reconnecting;
         _logger.LogInformation("Reconnecting shard {ShardId}...", shardId);
-        
+
         try
         {
             await shard.DisconnectAsync();

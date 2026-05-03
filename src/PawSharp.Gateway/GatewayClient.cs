@@ -726,7 +726,7 @@ namespace PawSharp.Gateway
                         _logger.LogError("Zombie connection detected - reconnecting...");
                         await ReconnectAsync();
                     };
-                    _heartbeatManager.Start();
+                    _heartbeatManager.StartWithJitter();
                 }
             }
             catch (Exception ex)
@@ -821,6 +821,7 @@ namespace PawSharp.Gateway
                     case "RESUMED":
                         _logger.LogInformation("Session resumed successfully");
                         await SetStateAsync(GatewayState.Ready);
+                        await _eventDispatcher.DispatchFromJsonAsync<ResumedEvent>(eventType, eventData);
                         break;
                     case "MESSAGE_CREATE":
                         await _eventDispatcher.DispatchFromJsonAsync<MessageCreateEvent>(eventType, eventData);
@@ -839,6 +840,12 @@ namespace PawSharp.Gateway
                         break;
                     case "GUILD_DELETE":
                         await _eventDispatcher.DispatchFromJsonAsync<GuildDeleteEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_AVAILABLE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAvailableEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_UNAVAILABLE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildUnavailableEvent>(eventType, eventData);
                         break;
                     case "GUILD_EMOJIS_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<GuildEmojisUpdateEvent>(eventType, eventData);
@@ -1048,6 +1055,15 @@ namespace PawSharp.Gateway
                         break;
                     case "APPLICATION_COMMAND_PERMISSIONS_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<ApplicationCommandPermissionsUpdateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_APP_COMMAND_CREATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandCreateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_APP_COMMAND_UPDATE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandUpdateEvent>(eventType, eventData);
+                        break;
+                    case "GUILD_APP_COMMAND_DELETE":
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandDeleteEvent>(eventType, eventData);
                         break;
                     case "INTEGRATION_CREATE":
                         await _eventDispatcher.DispatchFromJsonAsync<IntegrationCreateEvent>(eventType, eventData);

@@ -32,24 +32,33 @@ public class ReadyEvent : GatewayEvent
 {
     [JsonPropertyName("v")]
     public int Version { get; set; }
-    
+
     [JsonPropertyName("user")]
     public User User { get; set; } = null!;
-    
+
     [JsonPropertyName("guilds")]
     public List<Guild> Guilds { get; set; } = new();
-    
+
     [JsonPropertyName("session_id")]
     public string SessionId { get; set; } = string.Empty;
-    
+
     [JsonPropertyName("resume_gateway_url")]
     public string ResumeGatewayUrl { get; set; } = string.Empty;
-    
+
     [JsonPropertyName("shard")]
     public int[]? Shard { get; set; }
-    
+
     [JsonPropertyName("application")]
     public PartialApplication? Application { get; set; }
+}
+
+/// <summary>
+/// RESUMED event - fired when a session has been successfully resumed.
+/// </summary>
+public class ResumedEvent : GatewayEvent
+{
+    // The RESUMED event has no additional data field according to Discord docs
+    // It only confirms the session was successfully resumed
 }
 
 /// <summary>
@@ -291,9 +300,29 @@ public class GuildDeleteEvent : GatewayEvent
     [JsonPropertyName("id")]
     [JsonConverter(typeof(SnowflakeJsonConverter))]
     public ulong Id { get; set; }
-    
+
     [JsonPropertyName("unavailable")]
     public bool? Unavailable { get; set; }
+}
+
+/// <summary>
+/// GUILD_AVAILABLE event - fired when a guild becomes available.
+/// </summary>
+public class GuildAvailableEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+}
+
+/// <summary>
+/// GUILD_UNAVAILABLE event - fired when a guild becomes unavailable.
+/// </summary>
+public class GuildUnavailableEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
 }
 
 /// <summary>
@@ -2155,6 +2184,78 @@ public class ApplicationCommandPermissionsUpdateEvent : GatewayEvent
 
     [JsonPropertyName("permissions")]
     public List<ApplicationCommandPermission>? Permissions { get; set; }
+}
+
+/// <summary>
+/// GUILD_APP_COMMAND_CREATE event — fired when a guild application command is created.
+/// </summary>
+public class GuildAppCommandCreateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+}
+
+/// <summary>
+/// GUILD_APP_COMMAND_UPDATE event — fired when a guild application command is updated.
+/// </summary>
+public class GuildAppCommandUpdateEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+}
+
+/// <summary>
+/// GUILD_APP_COMMAND_DELETE event — fired when a guild application command is deleted.
+/// </summary>
+public class GuildAppCommandDeleteEvent : GatewayEvent
+{
+    [JsonPropertyName("id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong Id { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong ApplicationId { get; set; }
+
+    [JsonPropertyName("guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong GuildId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
 }
 
 /// <summary>
