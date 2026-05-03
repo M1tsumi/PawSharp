@@ -169,4 +169,188 @@ internal static class BuiltInConverters
             return TypeConverterResult<User>.FromError($"Unable to parse '{value}' as a user ID.");
         }
     }
+
+    /// <summary>
+    /// Decimal converter.
+    /// </summary>
+    internal sealed class DecimalConverter : SyncTypeConverter<decimal>
+    {
+        protected override TypeConverterResult<decimal> ConvertSync(string value, CommandContext context)
+        {
+            if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result))
+            {
+                return TypeConverterResult<decimal>.FromSuccess(result);
+            }
+            return TypeConverterResult<decimal>.FromError($"Unable to parse '{value}' as a decimal.");
+        }
+    }
+
+    /// <summary>
+    /// Guid converter.
+    /// </summary>
+    internal sealed class GuidConverter : SyncTypeConverter<Guid>
+    {
+        protected override TypeConverterResult<Guid> ConvertSync(string value, CommandContext context)
+        {
+            if (Guid.TryParse(value, out var result))
+            {
+                return TypeConverterResult<Guid>.FromSuccess(result);
+            }
+            return TypeConverterResult<Guid>.FromError($"Unable to parse '{value}' as a GUID.");
+        }
+    }
+
+    /// <summary>
+    /// Uri converter.
+    /// </summary>
+    internal sealed class UriConverter : SyncTypeConverter<Uri>
+    {
+        protected override TypeConverterResult<Uri> ConvertSync(string value, CommandContext context)
+        {
+            if (Uri.TryCreate(value, UriKind.Absolute, out var result))
+            {
+                return TypeConverterResult<Uri>.FromSuccess(result);
+            }
+            return TypeConverterResult<Uri>.FromError($"Unable to parse '{value}' as a URL.");
+        }
+    }
+
+    /// <summary>
+    /// DateTimeOffset converter.
+    /// </summary>
+    internal sealed class DateTimeOffsetConverter : SyncTypeConverter<DateTimeOffset>
+    {
+        protected override TypeConverterResult<DateTimeOffset> ConvertSync(string value, CommandContext context)
+        {
+            if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var result))
+            {
+                return TypeConverterResult<DateTimeOffset>.FromSuccess(result);
+            }
+            return TypeConverterResult<DateTimeOffset>.FromError($"Unable to parse '{value}' as a date/time offset.");
+        }
+    }
+
+    /// <summary>
+    /// Enum converter (generic base for enum types).
+    /// </summary>
+    internal sealed class EnumConverter : SyncTypeConverter<Enum>
+    {
+        protected override TypeConverterResult<Enum> ConvertSync(string value, CommandContext context)
+        {
+            // This is a fallback converter - specific enum types should be handled by the generic enum converter below
+            return TypeConverterResult<Enum>.FromError($"Enum conversion requires specific enum type. Use the generic enum converter for your specific enum type.");
+        }
+    }
+
+    /// <summary>
+    /// Generic enum converter for specific enum types.
+    /// </summary>
+    internal sealed class GenericEnumConverter<T> : SyncTypeConverter<T> where T : struct, Enum
+    {
+        protected override TypeConverterResult<T> ConvertSync(string value, CommandContext context)
+        {
+            // Try to parse by name (case-insensitive)
+            if (Enum.TryParse<T>(value, true, out var result))
+            {
+                return TypeConverterResult<T>.FromSuccess(result);
+            }
+
+            // Try to parse by numeric value
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+            {
+                if (Enum.IsDefined(typeof(T), intValue))
+                {
+                    return TypeConverterResult<T>.FromSuccess((T)Enum.ToObject(typeof(T), intValue));
+                }
+            }
+
+            var validValues = string.Join(", ", Enum.GetNames<T>());
+            return TypeConverterResult<T>.FromError($"Unable to parse '{value}' as {typeof(T).Name}. Valid values: {validValues}");
+        }
+    }
+
+    /// <summary>
+    /// Channel converter (converts snowflake ID to Channel entity).
+    /// </summary>
+    internal sealed class ChannelConverter : SyncTypeConverter<Channel>
+    {
+        protected override TypeConverterResult<Channel> ConvertSync(string value, CommandContext context)
+        {
+            if (ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var channelId))
+            {
+                // Try to get channel from cache
+                var channel = context.Client.Cache.GetChannel(channelId);
+                if (channel != null)
+                {
+                    return TypeConverterResult<Channel>.FromSuccess(channel);
+                }
+                
+                // Create a minimal channel object with the ID
+                return TypeConverterResult<Channel>.FromSuccess(new Channel { Id = channelId, Name = value });
+            }
+            return TypeConverterResult<Channel>.FromError($"Unable to parse '{value}' as a channel ID.");
+        }
+    }
+
+    /// <summary>
+    /// Role converter (converts snowflake ID to Role entity).
+    /// </summary>
+    internal sealed class RoleConverter : SyncTypeConverter<Role>
+    {
+        protected override TypeConverterResult<Role> ConvertSync(string value, CommandContext context)
+        {
+            if (ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var roleId))
+            {
+                // Try to get role from cache
+                if (context.GuildId.HasValue)
+                {
+                    var guild = context.Client.Cache.GetGuild(context.GuildId.Value);
+                    if (guild != null && guild.Roles != null)
+                    {
+                        var role = guild.Roles.FirstOrDefault(r => r.Id == roleId);
+                        if (role != null)
+                        {
+                            return TypeConverterResult<Role>.FromSuccess(role);
+                        }
+                    }
+                }
+                
+                // Create a minimal role object with the ID
+                return TypeConverterResult<Role>.FromSuccess(new Role { Id = roleId, Name = value });
+            }
+            return TypeConverterResult<Role>.FromError($"Unable to parse '{value}' as a role ID.");
+        }
+    }
+
+    /// <summary>
+    /// GuildMember converter (converts snowflake ID to GuildMember entity).
+    /// </summary>
+    internal sealed class GuildMemberConverter : SyncTypeConverter<GuildMember>
+    {
+        protected override TypeConverterResult<GuildMember> ConvertSync(string value, CommandContext context)
+        {
+            if (ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId))
+            {
+                // Try to get member from cache
+                if (context.GuildId.HasValue)
+                {
+                    var member = context.Client.Cache.GetGuildMember(context.GuildId.Value, userId);
+                    if (member != null)
+                    {
+                        return TypeConverterResult<GuildMember>.FromSuccess(member);
+                    }
+                }
+                
+                // Try to get user and create a minimal member
+                var user = context.Client.Cache.GetUser(userId);
+                if (user != null)
+                {
+                    return TypeConverterResult<GuildMember>.FromSuccess(new GuildMember { User = user });
+                }
+                
+                return TypeConverterResult<GuildMember>.FromError($"Unable to resolve guild member for user ID '{value}'.");
+            }
+            return TypeConverterResult<GuildMember>.FromError($"Unable to parse '{value}' as a user ID.");
+        }
+    }
 }

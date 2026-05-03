@@ -6,6 +6,8 @@ namespace PawSharp.Commands.Preconditions;
 
 /// <summary>
 /// Restricts a command so it can only be executed in NSFW channels.
+/// Apply this attribute to a command method or class to ensure the command
+/// can only be used in channels marked as NSFW (age-restricted).
 /// </summary>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
 public sealed class RequireNsfwAttribute : Attribute, IPrecondition

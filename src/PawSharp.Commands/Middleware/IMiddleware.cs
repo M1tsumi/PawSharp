@@ -4,15 +4,22 @@ using System.Threading.Tasks;
 namespace PawSharp.Commands.Middleware;
 
 /// <summary>
-/// Defines middleware that can intercept and modify command execution.
+/// Interface for command middleware.
+/// Middleware can be used to add cross-cutting concerns such as logging,
+/// authentication, rate limiting, or performance monitoring to command execution.
 /// </summary>
 public interface IMiddleware
 {
     /// <summary>
-    /// Executes the middleware logic before the command.
+    /// Invokes the middleware, potentially wrapping the next middleware in the pipeline.
     /// </summary>
-    /// <param name="context">The command context.</param>
-    /// <param name="next">The next middleware or command in the pipeline.</param>
+    /// <param name="context">The command context containing information about the command being executed.</param>
+    /// <param name="next">A delegate representing the next middleware or the command itself.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Call <paramref name="next"/> to continue execution to the next middleware or command.
+    /// You can add logic before and after calling <paramref name="next"/> to implement
+    /// pre- and post-processing behavior.
+    /// </remarks>
     Task InvokeAsync(CommandContext context, Func<Task> next);
 }

@@ -8,6 +8,8 @@ namespace PawSharp.Commands.Preconditions;
 
 /// <summary>
 /// Restricts a command to users who have at least one of the specified roles.
+/// Apply this attribute to a command method or class to ensure only users with
+/// the specified role(s) can execute the command.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
 public sealed class RequireRoleAttribute : Attribute, IPrecondition
@@ -20,7 +22,9 @@ public sealed class RequireRoleAttribute : Attribute, IPrecondition
     /// <summary>
     /// Initializes a new instance of the <see cref="RequireRoleAttribute"/> class.
     /// </summary>
-    /// <param name="roleIds">The role IDs that are required.</param>
+    /// <param name="roleIds">The role IDs that are required. The user must have at least one of these roles.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="roleIds"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="roleIds"/> is empty.</exception>
     public RequireRoleAttribute(params ulong[] roleIds)
     {
         RoleIds = roleIds ?? throw new ArgumentNullException(nameof(roleIds));
