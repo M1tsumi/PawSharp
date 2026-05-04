@@ -147,7 +147,10 @@ public class ShardManager
         // Validate session start limits
         if (!ValidateSessionStartLimits(_options.Shards))
         {
-            throw new InvalidOperationException("Cannot connect: insufficient session start limits remaining.");
+            throw new InvalidOperationException(
+                "Cannot connect: insufficient session start limits remaining. " +
+                "Discord limits how many sessions can be started within a time window. " +
+                "Wait for the session start limit to reset (typically 5-10 seconds) or increase ShardConnectionDelayMs.");
         }
         
         // Validate shard concurrency configuration
@@ -219,9 +222,32 @@ public class ShardManager
             return;
         }
 
+        // Check session start limits before attempting reconnection
+        if (_sessionStartLimits != null)
+        {
+            if (_sessionStartLimits.Remaining <= 0)
+            {
+                var resetTime = DateTimeOffset.UtcNow.AddMilliseconds(_sessionStartLimits.ResetAfter);
+                _logger.LogError(
+                    "Cannot reconnect shard {ShardId}: Session start limit exhausted. " +
+                    "Resets at {ResetTime} (in {RemainingMs}ms).",
+                    shardId,
+                    resetTime,
+                    _sessionStartLimits.ResetAfter);
+                _shardStatuses[shardId] = ShardStatus.Failed;
+                return;
+            }
+
+            _logger.LogDebug(
+                "Session start limits check passed for shard {ShardId}: {Remaining}/{Total} remaining",
+                shardId,
+                _sessionStartLimits.Remaining,
+                _sessionStartLimits.Total);
+        }
+
         _shardStatuses[shardId] = ShardStatus.Reconnecting;
         _logger.LogInformation("Reconnecting shard {ShardId}...", shardId);
-        
+
         try
         {
             await shard.DisconnectAsync();
@@ -280,6 +306,22 @@ public class ShardManager
     public static int CalculateRecommendedShardCount(int guildCount)
     {
         return Math.Max(1, (int)Math.Ceiling(guildCount / 1000.0));
+    }
+
+    /// <summary>
+    /// Automatically configures sharding based on guild count.
+    /// This is a convenience method that updates the ShardCount property
+    /// based on the calculated recommended shard count.
+    /// </summary>
+    /// <param name="guildCount">The number of guilds the bot is in</param>
+    public void AutoConfigureSharding(int guildCount)
+    {
+        var recommendedShardCount = CalculateRecommendedShardCount(guildCount);
+        _options.ShardCount = recommendedShardCount;
+        _logger.LogInformation(
+            "Auto-configured sharding: {GuildCount} guilds -> {ShardCount} shards",
+            guildCount,
+            recommendedShardCount);
     }
 
     /// <summary>

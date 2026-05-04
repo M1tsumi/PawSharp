@@ -55,6 +55,10 @@ public class Role : DiscordEntity
     [JsonPropertyName("flags")]
     public RoleFlags Flags { get; set; }
 
+    /// <summary>Enhanced role style colors (gradient/holographic).</summary>
+    [JsonPropertyName("colors")]
+    public RoleColors? Colors { get; set; }
+
     /// <summary>
     /// Gets whether this role is managed by an integration.
     /// </summary>
@@ -165,4 +169,63 @@ public enum RoleFlags
     None     = 0,
     /// <summary>Role can be selected by members in an onboarding prompt.</summary>
     InPrompt = 1 << 0,
+}
+
+/// <summary>
+/// Enhanced role style colors for gradient and holographic effects.
+/// </summary>
+public class RoleColors
+{
+    /// <summary>The primary color of the role (hex color code as integer).</summary>
+    [JsonPropertyName("primaryColor")]
+    public int PrimaryColor { get; set; }
+
+    /// <summary>
+    /// The secondary color of the role (hex color code as integer).
+    /// When set, this creates a gradient between primary and secondary colors.
+    /// </summary>
+    [JsonPropertyName("secondaryColor")]
+    public int? SecondaryColor { get; set; }
+
+    /// <summary>
+    /// The tertiary color of the role (hex color code as integer).
+    /// When set, this creates a holographic style with specific enforced values:
+    /// primaryColor = 11127295, secondaryColor = 16759788, tertiaryColor = 16761760.
+    /// </summary>
+    [JsonPropertyName("tertiaryColor")]
+    public int? TertiaryColor { get; set; }
+
+    /// <summary>
+    /// Gets whether this role has a gradient color style.
+    /// </summary>
+    public bool IsGradient => SecondaryColor.HasValue;
+
+    /// <summary>
+    /// Gets whether this role has a holographic color style.
+    /// </summary>
+    public bool IsHolographic => TertiaryColor.HasValue;
+
+    /// <summary>
+    /// Gets the primary color as a hexadecimal string.
+    /// </summary>
+    public string GetPrimaryColorHex()
+    {
+        return PrimaryColor.ToString("X6").PadLeft(6, '0');
+    }
+
+    /// <summary>
+    /// Gets the secondary color as a hexadecimal string, if set.
+    /// </summary>
+    public string? GetSecondaryColorHex()
+    {
+        return SecondaryColor?.ToString("X6").PadLeft(6, '0');
+    }
+
+    /// <summary>
+    /// Gets the tertiary color as a hexadecimal string, if set.
+    /// </summary>
+    public string? GetTertiaryColorHex()
+    {
+        return TertiaryColor?.ToString("X6").PadLeft(6, '0');
+    }
 }

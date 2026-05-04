@@ -25,6 +25,7 @@
   <ItemGroup>
     <PackageReference Include="Concentus" />
     <PackageReference Include="NAudio" />
+    <PackageReference Include="BouncyCastle.Cryptography" />
   </ItemGroup>
 
   <ItemGroup>

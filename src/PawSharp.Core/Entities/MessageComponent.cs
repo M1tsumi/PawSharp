@@ -101,6 +101,11 @@ public sealed class MessageComponentJsonConverter : JsonConverter<MessageCompone
             ComponentType.File              => JsonSerializer.Deserialize(raw, _context.FileComponent),
             ComponentType.Separator         => JsonSerializer.Deserialize(raw, _context.Separator),
             ComponentType.Container         => JsonSerializer.Deserialize(raw, _context.Container),
+            ComponentType.Label             => JsonSerializer.Deserialize(raw, _context.Label),
+            ComponentType.FileUpload        => JsonSerializer.Deserialize(raw, _context.FileUpload),
+            ComponentType.RadioGroup        => JsonSerializer.Deserialize(raw, _context.RadioGroup),
+            ComponentType.CheckboxGroup     => JsonSerializer.Deserialize(raw, _context.CheckboxGroup),
+            ComponentType.Checkbox          => JsonSerializer.Deserialize(raw, _context.Checkbox),
             _                               => JsonSerializer.Deserialize(raw, _context.UnknownComponent),
         };
     }
@@ -124,6 +129,11 @@ public sealed class MessageComponentJsonConverter : JsonConverter<MessageCompone
             var t when t == typeof(FileComponent) => _context.FileComponent,
             var t when t == typeof(Separator) => _context.Separator,
             var t when t == typeof(Container) => _context.Container,
+            var t when t == typeof(Label) => _context.Label,
+            var t when t == typeof(FileUpload) => _context.FileUpload,
+            var t when t == typeof(RadioGroup) => _context.RadioGroup,
+            var t when t == typeof(CheckboxGroup) => _context.CheckboxGroup,
+            var t when t == typeof(Checkbox) => _context.Checkbox,
             _ => _context.UnknownComponent
         };
 
@@ -542,4 +552,202 @@ public class Container : MessageComponent
     /// <summary>Whether the entire container is a spoiler.</summary>
     [JsonPropertyName("spoiler")]
     public bool? Spoiler { get; set; }
+}
+
+// ── Label (type 18) ─────────────────────────────────────────────────────────────
+
+/// <summary>
+/// A Label component (type 18) displays text with optional emoji.
+/// Only valid as a top-level component inside a Container.
+/// </summary>
+public class Label : MessageComponent
+{
+    public Label() => Type = ComponentType.Label;
+
+    /// <summary>The text content of the label (max 80 characters).</summary>
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = string.Empty;
+
+    /// <summary>Optional emoji to display next to the label text.</summary>
+    [JsonPropertyName("emoji")]
+    public Emoji? Emoji { get; set; }
+}
+
+// ── FileUpload (type 19) ─────────────────────────────────────────────────────────
+
+/// <summary>
+/// A FileUpload component (type 19) allows users to upload files in a modal or message.
+/// </summary>
+public class FileUpload : MessageComponent
+{
+    public FileUpload() => Type = ComponentType.FileUpload;
+
+    /// <summary>Developer-defined identifier (max 100 characters).</summary>
+    [JsonPropertyName("custom_id")]
+    public string CustomId { get; set; } = string.Empty;
+
+    /// <summary>Label shown above the file input (max 45 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Whether this component is required. Defaults to true.</summary>
+    [JsonPropertyName("required")]
+    public bool? Required { get; set; }
+
+    /// <summary>Placeholder text when no file is selected (max 100 characters).</summary>
+    [JsonPropertyName("placeholder")]
+    public string? Placeholder { get; set; }
+
+    /// <summary>Minimum number of files that must be uploaded (0–10). Default 0.</summary>
+    [JsonPropertyName("min_length")]
+    public int? MinLength { get; set; }
+
+    /// <summary>Maximum number of files that can be uploaded (1–10). Default 1.</summary>
+    [JsonPropertyName("max_length")]
+    public int? MaxLength { get; set; }
+
+    /// <summary>File types that can be uploaded (MIME types, e.g., "image/*").</summary>
+    [JsonPropertyName("file_types")]
+    public List<string>? FileTypes { get; set; }
+}
+
+// ── RadioGroup (type 21) ────────────────────────────────────────────────────────
+
+/// <summary>
+/// A RadioGroup component (type 21) allows selecting one option from a list.
+/// Only valid as a top-level component inside a Container.
+/// </summary>
+public class RadioGroup : MessageComponent
+{
+    public RadioGroup() => Type = ComponentType.RadioGroup;
+
+    /// <summary>Developer-defined identifier (max 100 characters).</summary>
+    [JsonPropertyName("custom_id")]
+    public string CustomId { get; set; } = string.Empty;
+
+    /// <summary>Options available in this radio group (max 25).</summary>
+    [JsonPropertyName("options")]
+    public List<RadioOption> Options { get; set; } = new();
+
+    /// <summary>Label shown above the radio group (max 45 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Whether this component is required. Defaults to true.</summary>
+    [JsonPropertyName("required")]
+    public bool? Required { get; set; }
+
+    /// <summary>Index of the default selected option (0-based).</summary>
+    [JsonPropertyName("default_value")]
+    public int? DefaultValue { get; set; }
+}
+
+/// <summary>One option shown inside a RadioGroup.</summary>
+public class RadioOption
+{
+    /// <summary>User-facing name (max 100 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Developer-defined value returned in the interaction payload (max 100 characters).</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Optional description shown beneath the label (max 100 characters).</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Partial emoji rendered alongside the label.</summary>
+    [JsonPropertyName("emoji")]
+    public Emoji? Emoji { get; set; }
+
+    /// <summary>Whether this option is pre-selected by default.</summary>
+    [JsonPropertyName("default")]
+    public bool? Default { get; set; }
+}
+
+// ── CheckboxGroup (type 22) ──────────────────────────────────────────────────────
+
+/// <summary>
+/// A CheckboxGroup component (type 22) allows selecting multiple options from a list.
+/// Only valid as a top-level component inside a Container.
+/// </summary>
+public class CheckboxGroup : MessageComponent
+{
+    public CheckboxGroup() => Type = ComponentType.CheckboxGroup;
+
+    /// <summary>Developer-defined identifier (max 100 characters).</summary>
+    [JsonPropertyName("custom_id")]
+    public string CustomId { get; set; } = string.Empty;
+
+    /// <summary>Options available in this checkbox group (max 25).</summary>
+    [JsonPropertyName("options")]
+    public List<CheckboxOption> Options { get; set; } = new();
+
+    /// <summary>Label shown above the checkbox group (max 45 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Minimum number of items that must be chosen (0–25). Default 1.</summary>
+    [JsonPropertyName("min_values")]
+    public int? MinValues { get; set; }
+
+    /// <summary>Maximum number of items that can be chosen (1–25). Default 1.</summary>
+    [JsonPropertyName("max_values")]
+    public int? MaxValues { get; set; }
+
+    /// <summary>Whether this component is required. Defaults to true.</summary>
+    [JsonPropertyName("required")]
+    public bool? Required { get; set; }
+}
+
+/// <summary>One option shown inside a CheckboxGroup.</summary>
+public class CheckboxOption
+{
+    /// <summary>User-facing name (max 100 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Developer-defined value returned in the interaction payload (max 100 characters).</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Optional description shown beneath the label (max 100 characters).</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Partial emoji rendered alongside the label.</summary>
+    [JsonPropertyName("emoji")]
+    public Emoji? Emoji { get; set; }
+
+    /// <summary>Whether this option is pre-selected by default.</summary>
+    [JsonPropertyName("default")]
+    public bool? Default { get; set; }
+}
+
+// ── Checkbox (type 23) ───────────────────────────────────────────────────────────
+
+/// <summary>
+/// A Checkbox component (type 23) is a single toggleable checkbox.
+/// Only valid as a top-level component inside a Container.
+/// </summary>
+public class Checkbox : MessageComponent
+{
+    public Checkbox() => Type = ComponentType.Checkbox;
+
+    /// <summary>Developer-defined identifier (max 100 characters).</summary>
+    [JsonPropertyName("custom_id")]
+    public string CustomId { get; set; } = string.Empty;
+
+    /// <summary>Label shown next to the checkbox (max 80 characters).</summary>
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Whether the checkbox is checked by default.</summary>
+    [JsonPropertyName("default_value")]
+    public bool? DefaultValue { get; set; }
+
+    /// <summary>Whether this component is required. Defaults to false.</summary>
+    [JsonPropertyName("required")]
+    public bool? Required { get; set; }
 }

@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 using PawSharp.API.Models;
 using PawSharp.Client;
 using PawSharp.Core.Entities;
+using PawSharp.Core.Enums;
 using PawSharp.Gateway.Events;
 using PawSharp.Interactions;
+using PawSharp.Interactivity.Validation;
 
 namespace PawSharp.Interactivity.Extensions;
 
@@ -376,4 +378,38 @@ public static class InteractionCreateEventExtensions
 
     private static ulong GetUserId(InteractionCreateEvent evt)
         => evt.User?.Id ?? evt.Member?.User?.Id ?? 0;
+}
+
+/// <summary>
+/// Extension methods for message creation to support Components V2.
+/// </summary>
+public static class MessageFlagExtensions
+{
+    /// <summary>
+    /// The Components V2 message flag value (1 << 15 = 32768).
+    /// </summary>
+    public const int IsComponentsV2 = 1 << 15; // 32768
+
+    /// <summary>
+    /// Sets the IS_COMPONENTS_V2 flag on a message creation request.
+    /// This flag is required when using Components V2 layout elements.
+    /// </summary>
+    /// <param name="request">The message creation request.</param>
+    /// <returns>The modified request for chaining.</returns>
+    public static CreateMessageRequest WithComponentsV2(this CreateMessageRequest request)
+    {
+        request.Flags ??= 0;
+        request.Flags |= IsComponentsV2;
+        return request;
+    }
+
+    /// <summary>
+    /// Checks if a message has the IS_COMPONENTS_V2 flag set.
+    /// </summary>
+    /// <param name="message">The message to check.</param>
+    /// <returns>True if the message has Components V2 flag set.</returns>
+    public static bool HasComponentsV2(this Message message)
+    {
+        return message.Flags.HasValue && (message.Flags.Value & (MessageFlags)64) != 0;
+    }
 }

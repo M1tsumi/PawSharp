@@ -5,6 +5,7 @@ using System.Text.Json;
 using InteractionOption = PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption;
 using PawSharp.Core.Enums;
 using PawSharp.Gateway.Events;
+using PawSharp.Core.Entities;
 
 namespace PawSharp.Interactions.Extensions;
 
@@ -105,6 +106,86 @@ public static class InteractionExtensions
     /// </summary>
     public static bool IsDmInteraction(this InteractionCreateEvent interaction)
         => !interaction.GuildId.HasValue;
+
+    // ── Modal value retrieval ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Gets the value of a text input field from a modal submission by its custom ID.
+    /// </summary>
+    /// <param name="interaction">The modal submit interaction event.</param>
+    /// <param name="customId">The custom ID of the text input field.</param>
+    /// <returns>The submitted text value, or null if not found.</returns>
+    public static string? GetModalValue(this InteractionCreateEvent interaction, string customId)
+    {
+        if (interaction.Data?.Components is null) return null;
+
+        foreach (var actionRow in interaction.Data.Components)
+        {
+            if (actionRow is ActionRow row && row.Components is not null)
+            {
+                foreach (var component in row.Components)
+                {
+                    if (component is PawSharp.Core.Entities.TextInput textInput &&
+                        textInput.CustomId == customId)
+                    {
+                        return textInput.Value;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets all modal input values as a dictionary keyed by custom ID.
+    /// </summary>
+    /// <param name="interaction">The modal submit interaction event.</param>
+    /// <returns>A dictionary of custom ID to submitted value.</returns>
+    public static Dictionary<string, string> GetModalValues(this InteractionCreateEvent interaction)
+    {
+        var values = new Dictionary<string, string>();
+
+        if (interaction.Data?.Components is null) return values;
+
+        foreach (var actionRow in interaction.Data.Components)
+        {
+            if (actionRow is ActionRow row && row.Components is not null)
+            {
+                foreach (var component in row.Components)
+                {
+                    if (component is PawSharp.Core.Entities.TextInput textInput)
+                    {
+                        values[textInput.CustomId] = textInput.Value ?? string.Empty;
+                    }
+                }
+            }
+        }
+
+        return values;
+    }
+
+    // ── Component value retrieval ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Gets the selected values from a select menu component interaction.
+    /// </summary>
+    /// <param name="interaction">The component interaction event.</param>
+    /// <returns>A list of selected string values, or empty list if not found.</returns>
+    public static List<string> GetSelectedValues(this InteractionCreateEvent interaction)
+    {
+        return interaction.Data?.Values ?? new List<string>();
+    }
+
+    /// <summary>
+    /// Gets the component type from a component interaction.
+    /// </summary>
+    /// <param name="interaction">The component interaction event.</param>
+    /// <returns>The component type as an integer, or null if not found.</returns>
+    public static int? GetComponentType(this InteractionCreateEvent interaction)
+    {
+        return interaction.Data?.ComponentType;
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

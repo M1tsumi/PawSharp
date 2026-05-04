@@ -2,15 +2,17 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using PawSharp.Cache.Interfaces;
+using PawSharp.Cache.Telemetry;
 using PawSharp.Core.Entities;
 
 namespace PawSharp.Cache.Providers
 {
-    public class MemoryCacheProvider : IEntityCache
+    public class MemoryCacheProvider : IEntityCache, ICacheProviderHealthCheckable
     {
         private readonly ConcurrentDictionary<ulong, Guild> _guilds;
         private readonly ConcurrentDictionary<ulong, Channel> _channels;
@@ -29,7 +31,17 @@ namespace PawSharp.Cache.Providers
         private readonly int _maxMembers;
         private readonly int _maxRoles;
         private readonly int _maxEmojis;
-        private readonly object _evictionLock = new object();
+        private readonly CacheOptions _options;
+        private readonly System.Timers.Timer _cleanupTimer;
+        private readonly ICacheTelemetry? _telemetry;
+        private readonly object _lock = new();
+        private readonly object _evictionLock = new();
+
+        public ICacheTelemetry? Telemetry
+        {
+            get => _telemetry;
+            set => throw new InvalidOperationException("Telemetry is set at construction time.");
+        }
 
         // Expiration configuration
         private readonly TimeSpan? _userExpiration;
@@ -61,7 +73,7 @@ namespace PawSharp.Cache.Providers
         public int RoleCacheSize => _roles.Count;
         public int EmojiCacheSize => _emojis.Count;
 
-        public MemoryCacheProvider(CacheOptions? options = null)
+        public MemoryCacheProvider(CacheOptions? options = null, ICacheTelemetry? telemetry = null)
         {
             var opts = options ?? new CacheOptions();
 
@@ -80,6 +92,8 @@ namespace PawSharp.Cache.Providers
             _memberExpiration = opts.MemberExpiration ?? opts.DefaultExpiration;
             _roleExpiration = opts.RoleExpiration ?? opts.DefaultExpiration;
             _emojiExpiration = opts.EmojiExpiration ?? opts.DefaultExpiration;
+
+            _telemetry = telemetry ?? new CacheTelemetry();
 
             _guilds = new ConcurrentDictionary<ulong, Guild>();
             _channels = new ConcurrentDictionary<ulong, Channel>();
@@ -231,6 +245,7 @@ namespace PawSharp.Cache.Providers
                         if (key is ulong entityId)
                         {
                             _lastAccess.TryRemove(entityId, out _);
+                            _telemetry?.RecordEviction(entityType, "LRU");
                             EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs
                             {
                                 EntityType = entityType,
@@ -268,13 +283,18 @@ namespace PawSharp.Cache.Providers
 
         public User? GetUser(ulong userId)
         {
+            var stopwatch = Stopwatch.StartNew();
             if (_users.TryGetValue(userId, out var user))
             {
                 _lastAccess[userId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("User");
+                _telemetry?.RecordOperation("Get", "User", stopwatch.Elapsed);
                 return user;
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("User");
+            _telemetry?.RecordOperation("Get", "User", stopwatch.Elapsed);
             return null;
         }
 
@@ -286,13 +306,18 @@ namespace PawSharp.Cache.Providers
 
         public Guild? GetGuild(ulong guildId)
         {
+            var stopwatch = Stopwatch.StartNew();
             if (_guilds.TryGetValue(guildId, out var guild))
             {
                 _lastAccess[guildId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Guild");
+                _telemetry?.RecordOperation("Get", "Guild", stopwatch.Elapsed);
                 return guild;
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Guild");
+            _telemetry?.RecordOperation("Get", "Guild", stopwatch.Elapsed);
             return null;
         }
 
@@ -309,13 +334,18 @@ namespace PawSharp.Cache.Providers
 
         public Channel? GetChannel(ulong channelId)
         {
+            var stopwatch = Stopwatch.StartNew();
             if (_channels.TryGetValue(channelId, out var channel))
             {
                 _lastAccess[channelId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Channel");
+                _telemetry?.RecordOperation("Get", "Channel", stopwatch.Elapsed);
                 return channel;
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Channel");
+            _telemetry?.RecordOperation("Get", "Channel", stopwatch.Elapsed);
             return null;
         }
 
@@ -332,13 +362,18 @@ namespace PawSharp.Cache.Providers
 
         public Message? GetMessage(ulong messageId)
         {
+            var stopwatch = Stopwatch.StartNew();
             if (_messages.TryGetValue(messageId, out var message))
             {
                 _lastAccess[messageId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Message");
+                _telemetry?.RecordOperation("Get", "Message", stopwatch.Elapsed);
                 return message;
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Message");
+            _telemetry?.RecordOperation("Get", "Message", stopwatch.Elapsed);
             return null;
         }
 
@@ -365,14 +400,19 @@ namespace PawSharp.Cache.Providers
 
         public GuildMember? GetGuildMember(ulong guildId, ulong userId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"{guildId}:{userId}";
             if (_members.TryGetValue(key, out var member))
             {
                 _lastAccess[userId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Member");
+                _telemetry?.RecordOperation("Get", "Member", stopwatch.Elapsed);
                 return member;
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Member");
+            _telemetry?.RecordOperation("Get", "Member", stopwatch.Elapsed);
             return null;
         }
 
@@ -390,14 +430,19 @@ namespace PawSharp.Cache.Providers
 
         public Role? GetRole(ulong guildId, ulong roleId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"{guildId}:{roleId}";
             if (_roles.TryGetValue(key, out var role))
             {
                 _lastAccess[roleId] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Role");
+                _telemetry?.RecordOperation("Get", "Role", stopwatch.Elapsed);
                 return role;
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Role");
+            _telemetry?.RecordOperation("Get", "Role", stopwatch.Elapsed);
             return null;
         }
 
@@ -418,6 +463,7 @@ namespace PawSharp.Cache.Providers
 
         public Emoji? GetEmoji(ulong guildId, ulong emojiId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"{guildId}:{emojiId}";
             if (_emojis.TryGetValue(key, out var emoji))
             {
@@ -426,9 +472,13 @@ namespace PawSharp.Cache.Providers
                     _lastAccess[emoji.Id.Value] = DateTime.UtcNow;
                 }
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Emoji");
+                _telemetry?.RecordOperation("Get", "Emoji", stopwatch.Elapsed);
                 return emoji;
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Emoji");
+            _telemetry?.RecordOperation("Get", "Emoji", stopwatch.Elapsed);
             return null;
         }
 

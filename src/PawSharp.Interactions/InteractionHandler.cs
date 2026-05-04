@@ -12,10 +12,15 @@ using PawSharp.API;
 using PawSharp.API.Clients;
 using PawSharp.API.Interfaces;
 using PawSharp.API.Models;
+using AutocompleteChoice = PawSharp.API.Models.AutocompleteChoice;
+using InteractionResponse = PawSharp.API.Models.InteractionResponse;
+using EditMessageRequest = PawSharp.API.Models.EditMessageRequest;
+using CreateMessageRequest = PawSharp.API.Models.CreateMessageRequest;
 using PawSharp.Gateway;
 using PawSharp.Gateway.Events;
-using PawSharp.Interactions.Models;
 using PawSharp.Core.Entities;
+using DiscordApiException = PawSharp.API.Exceptions.DiscordApiException;
+using ValidationException = PawSharp.Core.Exceptions.ValidationException;
 
 namespace PawSharp.Interactions;
 
@@ -82,6 +87,82 @@ public class InteractionHandler
     /// Checks if a modal handler is registered for the given custom ID.
     /// </summary>
     public bool HasModalHandler(string customId) => _modalHandlers.ContainsKey(customId);
+
+    /// <summary>
+    /// Checks if an autocomplete handler is registered for the given command name.
+    /// </summary>
+    public bool HasAutocompleteHandler(string commandName) => _autocompleteHandlers.ContainsKey(commandName);
+
+    /// <summary>
+    /// Checks if a user context menu handler is registered for the given name.
+    /// </summary>
+    public bool HasUserContextMenuHandler(string name) => _userContextMenuHandlers.ContainsKey(name);
+
+    /// <summary>
+    /// Checks if a message context menu handler is registered for the given name.
+    /// </summary>
+    public bool HasMessageContextMenuHandler(string name) => _messageContextMenuHandlers.ContainsKey(name);
+
+    /// <summary>
+    /// Checks if an entry point handler is registered for the given name.
+    /// </summary>
+    public bool HasEntryPointHandler(string name) => _entryPointHandlers.ContainsKey(name);
+
+    /// <summary>
+    /// Unregisters a slash command handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterCommand(string name) => _commandHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Unregisters a component handler by custom ID.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterComponent(string customId) => _componentHandlers.TryRemove(customId, out _);
+
+    /// <summary>
+    /// Unregisters a modal handler by custom ID.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterModal(string customId) => _modalHandlers.TryRemove(customId, out _);
+
+    /// <summary>
+    /// Unregisters an autocomplete handler by command name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterAutocomplete(string commandName) => _autocompleteHandlers.TryRemove(commandName, out _);
+
+    /// <summary>
+    /// Unregisters a user context menu handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterUserContextMenu(string name) => _userContextMenuHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Unregisters a message context menu handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterMessageContextMenu(string name) => _messageContextMenuHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Unregisters an entry point handler by name.
+    /// </summary>
+    /// <returns>True if the handler was found and removed.</returns>
+    public bool UnregisterEntryPoint(string name) => _entryPointHandlers.TryRemove(name, out _);
+
+    /// <summary>
+    /// Clears all registered handlers.
+    /// </summary>
+    public void ClearAllHandlers()
+    {
+        _commandHandlers.Clear();
+        _componentHandlers.Clear();
+        _modalHandlers.Clear();
+        _autocompleteHandlers.Clear();
+        _userContextMenuHandlers.Clear();
+        _messageContextMenuHandlers.Clear();
+        _entryPointHandlers.Clear();
+    }
 
     /// <summary>
     /// Registers a component handler.
@@ -211,7 +292,8 @@ public class InteractionHandler
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Unhandled exception in HandleInteractionAsync for interaction ID: {Id}", interaction.Id);
+            _logger?.LogError(ex, "Unhandled exception in HandleInteractionAsync for interaction ID: {Id}, Type: {Type}. Error: {MessageType}", 
+                interaction.Id, interaction.Type, ex.GetType().Name);
             throw;
         }
     }
@@ -227,7 +309,7 @@ public class InteractionHandler
         // Route by application command type: CHAT_INPUT=1, USER=2, MESSAGE=3, PRIMARY_ENTRY_POINT=4
         switch (interaction.Data.Type)
         {
-            case (int)PawSharp.Interactions.Models.ApplicationCommandType.User:
+            case (int)ApplicationCommandType.User:
                 if (_userContextMenuHandlers.TryGetValue(interaction.Data.Name, out var userHandler))
                 {
                     await InvokeHandlerSafelyAsync(userHandler, interaction, "user context menu", interaction.Data.Name);
@@ -285,9 +367,34 @@ public class InteractionHandler
             };
             await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
         }
+        catch (DiscordApiException ex)
+        {
+            _logger?.LogError(ex, "Autocomplete handler failed for command '{CommandName}'. API Error: {StatusCode} - {DiscordMessage}", 
+                interaction.Data?.Name, ex.StatusCode, ex.DiscordErrorMessage);
+            // Send empty choices to prevent timeout
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
+            };
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+        }
+        catch (ValidationException ex)
+        {
+            _logger?.LogError(ex, "Autocomplete handler failed for command '{CommandName}'. Validation Error: {Parameter} = {Value}", 
+                interaction.Data?.Name, ex.ParameterName, ex.InvalidValue);
+            // Send empty choices to prevent timeout
+            var response = new InteractionResponse
+            {
+                Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
+                Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
+            };
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+        }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Autocomplete handler failed for command: {CommandName}", interaction.Data?.Name);
+            _logger?.LogError(ex, "Autocomplete handler failed for command '{CommandName}'. Unexpected error: {MessageType}", 
+                interaction.Data?.Name, ex.GetType().Name);
             // Send empty choices to prevent timeout
             var response = new InteractionResponse
             {
@@ -302,7 +409,7 @@ public class InteractionHandler
     {
         if (handler == null)
         {
-            _logger?.LogWarning("Handler is null for {HandlerType} with key '{Key}'", handlerType, key);
+            _logger?.LogWarning("Handler is null for {HandlerType} with key '{Key}' - this may indicate a registration issue", handlerType, key);
             return;
         }
 
@@ -310,9 +417,10 @@ public class InteractionHandler
         {
             await handler(interaction);
         }
-        catch (Exception ex)
+        catch (DiscordApiException ex)
         {
-            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'", handlerType, key);
+            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. API Error: {StatusCode} - {DiscordMessage}", 
+                handlerType, key, ex.StatusCode, ex.DiscordErrorMessage);
             // Optionally send error response to user
             try
             {
@@ -324,7 +432,42 @@ public class InteractionHandler
             }
             catch (Exception responseEx)
             {
-                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler", handlerType);
+                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler with key '{Key}'", handlerType, key);
+            }
+        }
+        catch (ValidationException ex)
+        {
+            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. Validation Error: {Parameter} = {Value}", 
+                handlerType, key, ex.ParameterName, ex.InvalidValue);
+            try
+            {
+                await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
+                {
+                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Data = new InteractionCallbackData { Content = $"Invalid input: {ex.Message}", Flags = 64 }
+                });
+            }
+            catch (Exception responseEx)
+            {
+                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler with key '{Key}'", handlerType, key);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. Unexpected error: {MessageType}", 
+                handlerType, key, ex.GetType().Name);
+            // Optionally send error response to user
+            try
+            {
+                await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
+                {
+                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
+                });
+            }
+            catch (Exception responseEx)
+            {
+                _logger?.LogError(responseEx, "Failed to send error response for failed {HandlerType} handler with key '{Key}'", handlerType, key);
             }
         }
     }
@@ -346,6 +489,58 @@ public class InteractionHandler
         {
             Type = (int)InteractionResponseType.ChannelMessageWithSource,
             Data = new InteractionCallbackData { Content = content, Flags = 64 }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to a slash command interaction with an ephemeral message and embeds.
+    /// </summary>
+    public Task<bool> RespondEphemeralAsync(ulong interactionId, string interactionToken, string content, List<Embed> embeds)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.ChannelMessageWithSource,
+            Data = new InteractionCallbackData { Content = content, Embeds = embeds, Flags = 64 }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to an interaction with a message and embeds.
+    /// </summary>
+    public Task<bool> RespondWithEmbedsAsync(ulong interactionId, string interactionToken, string content, List<Embed> embeds, bool ephemeral = false)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.ChannelMessageWithSource,
+            Data = new InteractionCallbackData { Content = content, Embeds = embeds, Flags = ephemeral ? 64 : null }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to an interaction by updating the component's message.
+    /// </summary>
+    public Task<bool> RespondUpdateAsync(ulong interactionId, string interactionToken, string content)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.UpdateMessage,
+            Data = new InteractionCallbackData { Content = content }
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds to an interaction by updating the component's message with embeds.
+    /// </summary>
+    public Task<bool> RespondUpdateAsync(ulong interactionId, string interactionToken, string content, List<Embed>? embeds, List<MessageComponent>? components = null)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.UpdateMessage,
+            Data = new InteractionCallbackData { Content = content, Embeds = embeds, Components = components }
         };
         return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
     }
@@ -390,11 +585,35 @@ public class InteractionHandler
     }
 
     /// <summary>
+    /// Gets the original interaction response.
+    /// </summary>
+    public async Task<Message?> GetOriginalResponseAsync(string applicationId, string interactionToken)
+    {
+        return await _restClient.GetOriginalInteractionResponseAsync(applicationId, interactionToken);
+    }
+
+    /// <summary>
+    /// Deletes the original interaction response.
+    /// </summary>
+    public async Task<bool> DeleteOriginalResponseAsync(string applicationId, string interactionToken)
+    {
+        return await _restClient.DeleteOriginalInteractionResponseAsync(applicationId, interactionToken);
+    }
+
+    /// <summary>
     /// Follows up with an additional message. Returns the created Message.
     /// </summary>
     public async Task<Message?> CreateFollowupAsync(string applicationId, string interactionToken, CreateMessageRequest request)
     {
         return await _restClient.CreateFollowupMessageAsync(applicationId, interactionToken, request);
+    }
+
+    /// <summary>
+    /// Gets a follow-up message.
+    /// </summary>
+    public async Task<Message?> GetFollowupAsync(string applicationId, string interactionToken, ulong messageId)
+    {
+        return await _restClient.GetFollowupMessageAsync(applicationId, interactionToken, messageId);
     }
 
     /// <summary>
@@ -424,6 +643,20 @@ public class InteractionHandler
         var response = new InteractionResponse
         {
             Type = (int)InteractionResponseType.LaunchActivity
+        };
+        return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+    }
+
+    /// <summary>
+    /// Responds with a premium required response (deprecated).
+    /// </summary>
+    /// <param name="interactionId">The interaction ID from the event.</param>
+    /// <param name="interactionToken">The interaction token from the event.</param>
+    public Task<bool> RespondPremiumRequiredAsync(ulong interactionId, string interactionToken)
+    {
+        var response = new InteractionResponse
+        {
+            Type = (int)InteractionResponseType.PremiumRequired
         };
         return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
     }
@@ -485,6 +718,8 @@ public enum InteractionResponseType
     UpdateMessage = 7,
     ApplicationCommandAutocompleteResult = 8,
     Modal = 9,
+    /// <summary>Deprecated. Respond to an interaction with an upgrade button.</summary>
+    PremiumRequired = 10,
     /// <summary>Launch the Activity associated with the app. Only for apps with Activities enabled.</summary>
     LaunchActivity = 12
 }

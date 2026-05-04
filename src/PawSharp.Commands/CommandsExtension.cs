@@ -345,16 +345,71 @@ public class CommandInfo
     public string? Description { get; }
 
     /// <summary>
+    /// Gets the command parameters.
+    /// </summary>
+    public IReadOnlyList<CommandParameterInfo> Parameters { get; }
+
+    /// <summary>
+    /// Gets the command preconditions.
+    /// </summary>
+    public IReadOnlyList<string> Preconditions { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="CommandInfo"/> class.
     /// </summary>
     /// <param name="name">The command name.</param>
     /// <param name="aliases">The command aliases.</param>
     /// <param name="description">The command description.</param>
-    public CommandInfo(string name, string[] aliases, string? description)
+    /// <param name="parameters">The command parameters.</param>
+    /// <param name="preconditions">The command preconditions.</param>
+    public CommandInfo(string name, string[] aliases, string? description, CommandParameterInfo[]? parameters = null, string[]? preconditions = null)
     {
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Aliases = aliases ?? Array.Empty<string>();
         Description = description;
+        Parameters = parameters ?? Array.Empty<CommandParameterInfo>();
+        Preconditions = preconditions ?? Array.Empty<string>();
+    }
+}
+
+/// <summary>
+/// Represents information about a command parameter.
+/// </summary>
+public class CommandParameterInfo
+{
+    /// <summary>
+    /// Gets the parameter name.
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
+    /// Gets the parameter description.
+    /// </summary>
+    public string? Description { get; }
+
+    /// <summary>
+    /// Gets whether the parameter is required.
+    /// </summary>
+    public bool IsRequired { get; }
+
+    /// <summary>
+    /// Gets the parameter type.
+    /// </summary>
+    public string Type { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CommandParameterInfo"/> class.
+    /// </summary>
+    /// <param name="name">The parameter name.</param>
+    /// <param name="description">The parameter description.</param>
+    /// <param name="isRequired">Whether the parameter is required.</param>
+    /// <param name="type">The parameter type.</param>
+    public CommandParameterInfo(string name, string? description, bool isRequired, string type)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Description = description;
+        IsRequired = isRequired;
+        Type = type ?? "object";
     }
 }
 
@@ -1066,7 +1121,7 @@ public class CommandsExtension
     }
 
     private static object?[] BuildInvocationArguments(
-        ParameterInfo[] parameters,
+        System.Reflection.ParameterInfo[] parameters,
         InteractionCreateEvent interaction,
         IEnumerable<PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption>? optionScope)
     {

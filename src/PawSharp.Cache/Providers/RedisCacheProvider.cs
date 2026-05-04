@@ -1,14 +1,17 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
-using StackExchange.Redis;
 using PawSharp.Cache.Interfaces;
+using PawSharp.Cache.Telemetry;
 using PawSharp.Core.Entities;
+using PawSharp.Core.Serialization;
+using StackExchange.Redis;
 
 namespace PawSharp.Cache.Providers
 {
@@ -16,13 +19,20 @@ namespace PawSharp.Cache.Providers
     /// Redis-based distributed cache provider for PawSharp.
     /// Provides distributed caching capabilities with Redis as the backend.
     /// </summary>
-    public class RedisCacheProvider : IEntityCache, IDisposable
+    public class RedisCacheProvider : IEntityCache, ICacheProviderHealthCheckable, IDisposable
     {
         private readonly ConnectionMultiplexer _redis;
         private readonly IDatabase _db;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly RedisCacheOptions _options;
+        private readonly ICacheTelemetry? _telemetry;
         private bool _disposed;
+
+        public ICacheTelemetry? Telemetry
+        {
+            get => _telemetry;
+            set => throw new InvalidOperationException("Telemetry is set at construction time.");
+        }
 
         // Metrics tracking
         private long _hits;
@@ -67,6 +77,8 @@ namespace PawSharp.Cache.Providers
         public RedisCacheProvider(string connectionString)
             : this(Options.Create(new RedisCacheOptions { ConnectionString = connectionString }))
         {
+            _options = new RedisCacheOptions { ConnectionString = connectionString };
+            _telemetry = new CacheTelemetry();
         }
 
         #region Generic Cache Operations
@@ -166,14 +178,19 @@ namespace PawSharp.Cache.Providers
         /// <returns>The cached user, or null if not found.</returns>
         public User? GetUser(ulong userId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"user:{userId}";
             var json = _db.StringGet(key);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("User");
+                _telemetry?.RecordOperation("Get", "User", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<User>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("User");
+            _telemetry?.RecordOperation("Get", "User", stopwatch.Elapsed);
             return null;
         }
 
@@ -196,14 +213,19 @@ namespace PawSharp.Cache.Providers
         /// <returns>The cached guild, or null if not found.</returns>
         public Guild? GetGuild(ulong guildId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"guild:{guildId}";
             var json = _db.StringGet(key);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Guild");
+                _telemetry?.RecordOperation("Get", "Guild", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Guild");
+            _telemetry?.RecordOperation("Get", "Guild", stopwatch.Elapsed);
             return null;
         }
 
@@ -252,14 +274,19 @@ namespace PawSharp.Cache.Providers
         /// <returns>The cached channel, or null if not found.</returns>
         public Channel? GetChannel(ulong channelId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"channel:{channelId}";
             var json = _db.StringGet(key);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Channel");
+                _telemetry?.RecordOperation("Get", "Channel", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Channel");
+            _telemetry?.RecordOperation("Get", "Channel", stopwatch.Elapsed);
             return null;
         }
 
@@ -308,14 +335,19 @@ namespace PawSharp.Cache.Providers
         /// <returns>The cached message, or null if not found.</returns>
         public Message? GetMessage(ulong messageId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"message:{messageId}";
             var json = _db.StringGet(key);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Message");
+                _telemetry?.RecordOperation("Get", "Message", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Message");
+            _telemetry?.RecordOperation("Get", "Message", stopwatch.Elapsed);
             return null;
         }
 
@@ -364,14 +396,19 @@ namespace PawSharp.Cache.Providers
         /// <returns>The cached member, or null if not found.</returns>
         public GuildMember? GetGuildMember(ulong guildId, ulong userId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"member:{guildId}:{userId}";
             var json = _db.StringGet(key);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Member");
+                _telemetry?.RecordOperation("Get", "Member", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Member");
+            _telemetry?.RecordOperation("Get", "Member", stopwatch.Elapsed);
             return null;
         }
 
@@ -415,14 +452,19 @@ namespace PawSharp.Cache.Providers
         /// <returns>The cached role, or null if not found.</returns>
         public PawSharp.Core.Entities.Role? GetRole(ulong guildId, ulong roleId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"role:{guildId}:{roleId}";
             var json = _db.StringGet(key);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Role");
+                _telemetry?.RecordOperation("Get", "Role", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Role");
+            _telemetry?.RecordOperation("Get", "Role", stopwatch.Elapsed);
             return null;
         }
 
@@ -471,14 +513,19 @@ namespace PawSharp.Cache.Providers
         /// <returns>The cached emoji, or null if not found.</returns>
         public Emoji? GetEmoji(ulong guildId, ulong emojiId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var key = $"emoji:{guildId}:{emojiId}";
             var json = _db.StringGet(key);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Emoji");
+                _telemetry?.RecordOperation("Get", "Emoji", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Emoji");
+            _telemetry?.RecordOperation("Get", "Emoji", stopwatch.Elapsed);
             return null;
         }
 
@@ -680,85 +727,120 @@ namespace PawSharp.Cache.Providers
         // Async overloads — leverage Redis native async API
         public async Task<User?> GetUserAsync(ulong userId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var json = await _db.StringGetAsync($"user:{userId}");
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("User");
+                _telemetry?.RecordOperation("GetAsync", "User", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<User>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("User");
+            _telemetry?.RecordOperation("GetAsync", "User", stopwatch.Elapsed);
             return null;
         }
 
         public async Task<Guild?> GetGuildAsync(ulong guildId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var json = await _db.StringGetAsync($"guild:{guildId}");
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Guild");
+                _telemetry?.RecordOperation("GetAsync", "Guild", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Guild>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Guild");
+            _telemetry?.RecordOperation("GetAsync", "Guild", stopwatch.Elapsed);
             return null;
         }
 
         public async Task<Channel?> GetChannelAsync(ulong channelId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var json = await _db.StringGetAsync($"channel:{channelId}");
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Channel");
+                _telemetry?.RecordOperation("GetAsync", "Channel", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Channel>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Channel");
+            _telemetry?.RecordOperation("GetAsync", "Channel", stopwatch.Elapsed);
             return null;
         }
 
         public async Task<Message?> GetMessageAsync(ulong messageId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var json = await _db.StringGetAsync($"message:{messageId}");
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Message");
+                _telemetry?.RecordOperation("GetAsync", "Message", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Message>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Message");
+            _telemetry?.RecordOperation("GetAsync", "Message", stopwatch.Elapsed);
             return null;
         }
 
         public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var json = await _db.StringGetAsync($"member:{guildId}:{userId}");
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Member");
+                _telemetry?.RecordOperation("GetAsync", "Member", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<GuildMember>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Member");
+            _telemetry?.RecordOperation("GetAsync", "Member", stopwatch.Elapsed);
             return null;
         }
 
         public async Task<PawSharp.Core.Entities.Role?> GetRoleAsync(ulong guildId, ulong roleId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var json = await _db.StringGetAsync($"role:{guildId}:{roleId}");
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Role");
+                _telemetry?.RecordOperation("GetAsync", "Role", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<PawSharp.Core.Entities.Role>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Role");
+            _telemetry?.RecordOperation("GetAsync", "Role", stopwatch.Elapsed);
             return null;
         }
 
         public async Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId)
         {
+            var stopwatch = Stopwatch.StartNew();
             var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}");
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
+                _telemetry?.RecordHit("Emoji");
+                _telemetry?.RecordOperation("GetAsync", "Emoji", stopwatch.Elapsed);
                 return JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions);
             }
             Interlocked.Increment(ref _misses);
+            _telemetry?.RecordMiss("Emoji");
+            _telemetry?.RecordOperation("GetAsync", "Emoji", stopwatch.Elapsed);
             return null;
         }
 
@@ -961,12 +1043,6 @@ namespace PawSharp.Cache.Providers
             {
                 return false;
             }
-        }
-
-        public async Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId)
-        {
-            var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}");
-            return json.HasValue ? JsonSerializer.Deserialize<Emoji>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>

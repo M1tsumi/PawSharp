@@ -5,6 +5,34 @@ namespace PawSharp.Core.Exceptions;
 
 /// <summary>
 /// Exception thrown when JSON deserialization fails.
+/// <para>
+/// This exception is thrown when the library fails to deserialize JSON responses from Discord's API.
+/// It includes the raw JSON content that failed to parse and the target type that was being deserialized to.
+/// </para>
+/// <para>
+/// <example>
+/// <code>
+/// try
+/// {
+///     var guild = await client.Rest.GetGuildAsync(guildId);
+/// }
+/// catch (DeserializationException ex)
+/// {
+///     Console.WriteLine($"Target Type: {ex.TargetType}");
+///     Console.WriteLine($"Raw JSON: {ex.RawJson}");
+///     Console.WriteLine($"Error: {ex.Message}");
+///     
+///     // This helps diagnose API changes or malformed responses
+/// }
+/// </code>
+/// </example>
+/// </para>
+/// <para>
+/// <remarks>
+/// This exception typically indicates a mismatch between the library's data models and Discord's API response format.
+/// It may occur when Discord introduces breaking changes to their API.
+/// </remarks>
+/// </para>
 /// </summary>
 public class DeserializationException : DiscordException
 {

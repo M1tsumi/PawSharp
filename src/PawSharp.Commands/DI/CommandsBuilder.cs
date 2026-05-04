@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using PawSharp.Commands.Conversion;
 using PawSharp.Commands.Middleware;
 using PawSharp.Client;
@@ -9,141 +10,153 @@ using PawSharp.Client;
 namespace PawSharp.Commands.DependencyInjection;
 
 /// <summary>
-/// Builder for configuring PawSharp.Commands with dependency injection.
+/// Builder for configuring the commands extension with dependency injection.
+/// Provides a fluent API for setting up command prefix, case sensitivity, middleware, and type converters.
 /// </summary>
 public class CommandsBuilder
 {
-    private readonly IServiceCollection _services;
-    private readonly CommandsOptions _options = new();
+    private string _prefix = "!";
+    private bool _caseSensitive = false;
+    private TimeSpan? _executionTimeout;
+    private bool _enableLoggingMiddleware = true;
+    private bool _enableAuditMiddleware = false;
+    private readonly List<IMiddleware> _customMiddleware = new();
+    private readonly List<ITypeConverter> _customConverters = new();
+    private readonly ILogger<CommandsBuilder>? _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandsBuilder"/> class.
     /// </summary>
-    /// <param name="services">The service collection.</param>
-    public CommandsBuilder(IServiceCollection services)
+    /// <param name="logger">Optional logger for diagnostic information.</param>
+    public CommandsBuilder(ILogger<CommandsBuilder>? logger = null)
     {
-        _services = services ?? throw new ArgumentNullException(nameof(services));
+        _logger = logger;
     }
 
     /// <summary>
-    /// Sets the command prefix.
+    /// Sets the command prefix used for prefix-based commands.
     /// </summary>
-    /// <param name="prefix">The prefix.</param>
-    /// <returns>The builder for chaining.</returns>
+    /// <param name="prefix">The prefix string (default: "!").</param>
+    /// <returns>The builder instance for method chaining.</returns>
     public CommandsBuilder WithPrefix(string prefix)
     {
-        _options.Prefix = prefix;
+        _prefix = prefix;
         return this;
     }
 
     /// <summary>
-    /// Sets whether commands are case-sensitive.
+    /// Sets whether command names are case-sensitive.
     /// </summary>
-    /// <param name="caseSensitive">Whether case-sensitive.</param>
-    /// <returns>The builder for chaining.</returns>
+    /// <param name="caseSensitive">True for case-sensitive, false for case-insensitive (default).</param>
+    /// <returns>The builder instance for method chaining.</returns>
     public CommandsBuilder WithCaseSensitivity(bool caseSensitive)
     {
-        _options.CaseSensitive = caseSensitive;
+        _caseSensitive = caseSensitive;
         return this;
     }
 
     /// <summary>
-    /// Sets the command execution timeout.
+    /// Sets the execution timeout for commands.
+    /// Commands exceeding this duration will be cancelled.
     /// </summary>
     /// <param name="timeout">The timeout duration.</param>
-    /// <returns>The builder for chaining.</returns>
+    /// <returns>The builder instance for method chaining.</returns>
     public CommandsBuilder WithExecutionTimeout(TimeSpan timeout)
     {
-        _options.ExecutionTimeout = timeout;
+        _executionTimeout = timeout;
         return this;
     }
 
     /// <summary>
-    /// Enables built-in logging middleware.
+    /// Enables or disables the built-in logging middleware.
     /// </summary>
-    /// <returns>The builder for chaining.</returns>
-    public CommandsBuilder WithLoggingMiddleware()
+    /// <param name="enable">True to enable logging middleware (default: true).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public CommandsBuilder WithLoggingMiddleware(bool enable)
     {
-        _options.EnableLoggingMiddleware = true;
+        _enableLoggingMiddleware = enable;
         return this;
     }
 
     /// <summary>
-    /// Enables built-in audit middleware.
+    /// Enables or disables the built-in audit middleware.
     /// </summary>
-    /// <returns>The builder for chaining.</returns>
-    public CommandsBuilder WithAuditMiddleware()
+    /// <param name="enable">True to enable audit middleware (default: false).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public CommandsBuilder WithAuditMiddleware(bool enable)
     {
-        _options.EnableAuditMiddleware = true;
+        _enableAuditMiddleware = enable;
         return this;
     }
 
     /// <summary>
-    /// Adds a custom middleware to the pipeline.
+    /// Adds a custom middleware to the command execution pipeline.
     /// </summary>
-    /// <typeparam name="TMiddleware">The middleware type.</typeparam>
-    /// <returns>The builder for chaining.</returns>
-    public CommandsBuilder WithMiddleware<TMiddleware>()
-        where TMiddleware : class, IMiddleware
+    /// <param name="middleware">The middleware instance to add.</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="middleware"/> is null.</exception>
+    public CommandsBuilder AddMiddleware(IMiddleware middleware)
     {
-        _services.AddScoped<TMiddleware>();
+        _customMiddleware.Add(middleware);
         return this;
     }
 
     /// <summary>
-    /// Registers a custom type converter.
+    /// Adds a custom type converter for converting command arguments.
     /// </summary>
-    /// <typeparam name="TConverter">The converter type.</typeparam>
-    /// <returns>The builder for chaining.</returns>
-    public CommandsBuilder WithTypeConverter<TConverter>()
-        where TConverter : class, ITypeConverter
+    /// <param name="converter">The type converter instance to add.</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="converter"/> is null.</exception>
+    public CommandsBuilder AddConverter(ITypeConverter converter)
     {
-        _services.AddSingleton<ITypeConverter, TConverter>();
+        _customConverters.Add(converter);
         return this;
     }
 
     /// <summary>
-    /// Builds the commands extension with the configured services.
+    /// Builds the configuration and registers all services with the dependency injection container.
     /// </summary>
-    /// <returns>The service collection for chaining.</returns>
-    public IServiceCollection Build()
+    /// <param name="services">The service collection to register services with.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="services"/> is null.</exception>
+    public void Build(IServiceCollection services)
     {
-        _services.AddSingleton(_options);
-        _services.AddSingleton<MiddlewarePipeline>();
+        services.AddSingleton<TypeConverterService>(sp => new TypeConverterService(sp.GetService<ILogger<TypeConverterService>>()));
+        services.AddSingleton(new MiddlewarePipeline());
 
-        // Register TypeConverterService with DI-registered converters
-        _services.AddSingleton<TypeConverterService>(sp =>
+        foreach (var converter in _customConverters)
         {
-            var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<TypeConverterService>>();
-            var service = new TypeConverterService(logger);
+            var typeConverterService = services.BuildServiceProvider().GetRequiredService<TypeConverterService>();
+            typeConverterService.RegisterConverterFromInterface(converter);
+        }
 
-            // Get all DI-registered custom type converters
-            var customConverters = sp.GetServices<ITypeConverter>();
-            foreach (var converter in customConverters)
-            {
-                service.RegisterConverterFromInterface(converter);
-            }
+        var pipeline = services.BuildServiceProvider().GetRequiredService<MiddlewarePipeline>();
+        if (_enableLoggingMiddleware)
+        {
+            pipeline.Use(new BuiltInMiddleware.LoggingMiddleware(
+                services.BuildServiceProvider().GetRequiredService<ILogger<BuiltInMiddleware.LoggingMiddleware>>()));
+        }
+        if (_enableAuditMiddleware)
+        {
+            pipeline.Use(new BuiltInMiddleware.AuditMiddleware(
+                services.BuildServiceProvider().GetRequiredService<ILogger<BuiltInMiddleware.AuditMiddleware>>()));
+        }
+        if (_executionTimeout.HasValue)
+        {
+            pipeline.Use(new BuiltInMiddleware.TimeoutMiddleware(
+                _executionTimeout.Value,
+                services.BuildServiceProvider().GetRequiredService<ILogger<BuiltInMiddleware.TimeoutMiddleware>>()));
+        }
 
-            return service;
+        foreach (var middleware in _customMiddleware)
+        {
+            pipeline.Use(middleware);
+        }
+
+        services.AddSingleton(new CommandsOptions
+        {
+            Prefix = _prefix,
+            CaseSensitive = _caseSensitive,
+            ExecutionTimeout = _executionTimeout ?? TimeSpan.FromMinutes(5)
         });
-
-        if (_options.EnableLoggingMiddleware)
-        {
-            _services.AddCommandMiddleware<Middleware.BuiltInMiddleware.LoggingMiddleware>();
-        }
-
-        if (_options.EnableAuditMiddleware)
-        {
-            _services.AddCommandMiddleware<Middleware.BuiltInMiddleware.AuditMiddleware>();
-        }
-
-        if (_options.ExecutionTimeout > TimeSpan.Zero)
-        {
-            _services.AddSingleton<IMiddleware>(sp => new Middleware.BuiltInMiddleware.TimeoutMiddleware(
-                _options.ExecutionTimeout,
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Middleware.BuiltInMiddleware.TimeoutMiddleware>>()));
-        }
-
-        return _services;
     }
 }

@@ -8,6 +8,8 @@ Use it when you need faster reads, fewer REST calls, and a cleaner way to keep f
 
 - In-memory caching for low-latency access
 - Redis-based distributed caching for scalable deployments
+- **Cache swapping with automatic fallback** - Switch between cache providers at runtime
+- **Cache distribution** - Share cache invalidations across multiple bot instances
 - Pluggable cache provider model for custom backends
 - Designed to work with gateway-driven updates
 - Configurable entity limits and expiration
@@ -21,7 +23,7 @@ Use it when you need faster reads, fewer REST calls, and a cleaner way to keep f
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Cache --version 1.1.0-alpha.1
+dotnet add package PawSharp.Cache --version 1.1.0-alpha.2
 ```
 
 For Redis support, also add:
@@ -229,6 +231,8 @@ var options = new RedisCacheOptions
 - **Reducing repeat API calls** - Cache frequently accessed entities to reduce REST API calls
 - **Keeping active data in memory** - Cache guilds, members, channels for quick access
 - **Distributed caching** - Use Redis for multi-instance bot deployments
+- **Cache swapping** - Switch between cache providers at runtime with automatic fallback
+- **Cache distribution** - Share cache invalidations across multiple bot instances via Redis pub/sub
 - **Custom cache backends** - Implement IEntityCache for your own caching solution
 
 ## Cache Statistics
@@ -253,6 +257,98 @@ var totalEntities = cache.GetEntityCount();
 Console.WriteLine($"Total entities: {totalEntities}");
 ```
 
+## Cache Swapping
+
+Cache swapping allows you to switch between different cache providers at runtime with automatic fallback support:
+
+```csharp
+using PawSharp.Cache.Swapping;
+
+var swapperOptions = new CacheSwapperOptions
+{
+    AutoFallback = true,
+    MaxFailuresBeforeCircuitOpen = 3,
+    CircuitOpenDuration = TimeSpan.FromMinutes(5),
+    AutoSwapBackToPrimary = true,
+    HealthCheckInterval = TimeSpan.FromSeconds(30),
+    EnableLogging = true
+};
+
+var cacheSwapper = new CacheSwapper(swapperOptions);
+
+// Register multiple cache providers with priorities (lower = higher priority)
+var memoryCache = new MemoryCacheProvider();
+var redisCache = new RedisCacheProvider("localhost:6379");
+
+cacheSwapper.RegisterProvider("memory", memoryCache, priority: 10); // Fallback
+cacheSwapper.RegisterProvider("redis", redisCache, priority: 0);    // Primary
+
+// Start automatic health checks
+cacheSwapper.StartHealthChecks();
+
+// Use like any other cache provider
+cacheSwapper.CacheUser(user);
+var cachedUser = cacheSwapper.GetUser(userId);
+
+// Manually switch providers
+cacheSwapper.SetActiveProvider("memory");
+
+// Get provider information
+var providers = cacheSwapper.GetProviders();
+foreach (var provider in providers)
+{
+    Console.WriteLine($"Provider: {provider.Name}, Healthy: {provider.IsHealthy}");
+}
+
+cacheSwapper.StopHealthChecks();
+cacheSwapper.Dispose();
+```
+
+### Cache Swapping Features
+
+- **Automatic Fallback**: If the active provider fails, automatically switch to the next healthy provider
+- **Circuit Breaker**: Temporarily disable providers that fail repeatedly
+- **Health Checks**: Automatic health monitoring with configurable intervals
+- **Priority-Based**: Configure provider priority for fallback order
+- **Developer-Centric Errors**: Clear exceptions for debugging (CacheSwapException, CacheProviderUnavailableException, etc.)
+
+## Cache Distribution
+
+Cache distribution allows multiple bot instances to share cache invalidations via Redis pub/sub:
+
+```csharp
+using PawSharp.Cache.Distribution;
+using StackExchange.Redis;
+
+var redis = ConnectionMultiplexer.Connect("localhost:6379");
+var distributor = new RedisCacheDistributor(redis, "pawsharp:cache");
+
+var memoryCache = new MemoryCacheProvider();
+var distributedCache = new DistributedCacheProvider(memoryCache, distributor);
+
+// Use like any other cache provider
+distributedCache.CacheUser(user);
+distributedCache.CacheGuild(guild);
+
+// Invalidations are automatically propagated to all instances
+distributedCache.RemoveGuild(guildId); // Publishes to Redis
+
+// Check health
+if (distributedCache.IsHealthy())
+{
+    Console.WriteLine("Cache distribution is healthy");
+}
+
+distributedCache.Dispose();
+```
+
+### Cache Distribution Features
+
+- **Redis Pub/Sub**: Efficient invalidation propagation across instances
+- **Automatic Publishing**: Cache invalidations are automatically published
+- **Event Handling**: Subscribe to invalidation events from other instances
+- **Health Monitoring**: Check distributor health via Redis connection
+
 ## Cache Invalidation Events
 
 Both providers support cache invalidation events to monitor when entities are evicted or the cache is cleared:
@@ -269,19 +365,62 @@ cache.CacheCleared += (sender, args) =>
 };
 ```
 
-## Health Checks
+## Cache Telemetry
 
-Both providers support health checks to verify cache availability:
+Cache providers support telemetry for monitoring cache performance and health:
 
 ```csharp
-if (cache.IsHealthy())
+using PawSharp.Cache.Telemetry;
+
+// Create a telemetry instance
+var telemetry = new CacheTelemetry();
+
+// Pass it to the cache provider
+var cache = new MemoryCacheProvider(new CacheOptions(), telemetry);
+
+// Get a snapshot of telemetry data
+var snapshot = cache.Telemetry?.GetSnapshot();
+Console.WriteLine($"Hit Rate: {snapshot?.HitRate:P2}");
+Console.WriteLine($"Average Operation Duration: {snapshot?.AverageOperationDuration.TotalMilliseconds}ms");
+Console.WriteLine($"Total Hits: {snapshot?.TotalHits}");
+Console.WriteLine($"Total Misses: {snapshot?.TotalMisses}");
+
+// Per-entity metrics
+foreach (var (entityType, metrics) in snapshot?.EntityMetrics ?? [])
 {
-    Console.WriteLine("Cache is healthy and operational");
+    Console.WriteLine($"{entityType}: Hits={metrics.Hits}, Misses={metrics.Misses}, HitRate={metrics.HitRate:P2}");
 }
-else
+
+// Per-operation metrics
+foreach (var (operation, metrics) in snapshot?.OperationMetrics ?? [])
 {
-    Console.WriteLine("Cache is unhealthy - check Redis connection");
+    Console.WriteLine($"{operation}: Count={metrics.Count}, AvgDuration={metrics.AverageDuration.TotalMilliseconds}ms");
 }
+
+// Recent evictions
+foreach (var eviction in snapshot?.RecentEvictions ?? [])
+{
+    Console.WriteLine($"Evicted {eviction.EntityType} at {eviction.Timestamp}: {eviction.Reason}");
+}
+
+// Reset telemetry
+cache.Telemetry?.Reset();
+```
+
+## Health Checks
+
+Cache providers support health checks to verify cache availability:
+
+```csharp
+if (cache is ICacheProviderHealthCheckable healthCheckable)
+{
+    bool isHealthy = healthCheckable.IsHealthy();
+    Console.WriteLine($"Cache is {(isHealthy ? "healthy" : "unhealthy")}");
+}
+
+// For MemoryCacheProvider: checks if cleanup timer is running
+// For RedisCacheProvider: checks Redis connection and performs PING
+// For DistributedCacheProvider: checks both inner cache and distributor health
 ```
 
 ## Related Packages
