@@ -4,6 +4,24 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.1.0-alpha.2] - 2026-05-03
+
+### New Features
+
+- **Cache System Enhancements** (`PawSharp.Cache`)
+  - Added comprehensive telemetry for cache operations (hits, misses, operation durations, evictions)
+  - Added `ICacheTelemetry` interface and `CacheTelemetry` implementation for monitoring cache performance
+  - Added `ICacheProviderHealthCheckable` interface for provider health checks
+  - Implemented health checks on all cache providers (Memory, Redis, Distributed)
+  - Added telemetry recording to all cache operations (sync and async)
+  - Added eviction recording telemetry in MemoryCacheProvider LRU eviction
+  - Updated README with telemetry usage examples and health check documentation
+
+### Bug Fixes
+
+- Fixed health check logic in `CacheSwapper` to properly check provider health on registration
+- Fixed duplicate `IsHealthy` method in test mock class
+
 ## [1.1.0-alpha.1] - 2026-05-01
 
 ### New Features

@@ -21,7 +21,7 @@ It provides a unified client surface for REST API, Gateway WebSocket, entity cac
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Client --version 1.1.0-alpha.1
+dotnet add package PawSharp.Client --version 1.1.0-alpha.2
 ```
 
 ## Quick Start

@@ -7,7 +7,7 @@ _disableToc: false
 A modular Discord API wrapper for **.NET 10** — REST, Gateway, caching, slash
 commands, prefix commands, interactivity, and voice with full DAVE E2EE.
 
-**Current version:** `1.1.0-alpha.1` | **Discord API:** v10
+**Current version:** `1.1.0-alpha.2` | **Discord API:** v10
 
 ---
 
