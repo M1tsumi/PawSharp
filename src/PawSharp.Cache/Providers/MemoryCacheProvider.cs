@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using PawSharp.Cache.Interfaces;
+using PawSharp.Cache.Telemetry;
 using PawSharp.Core.Entities;
 
 namespace PawSharp.Cache.Providers
@@ -29,7 +30,17 @@ namespace PawSharp.Cache.Providers
         private readonly int _maxMembers;
         private readonly int _maxRoles;
         private readonly int _maxEmojis;
-        private readonly object _evictionLock = new object();
+        private readonly CacheOptions _options;
+        private readonly System.Timers.Timer _cleanupTimer;
+        private readonly ICacheTelemetry? _telemetry;
+        private readonly object _lock = new();
+        private readonly object _evictionLock = new();
+
+        public ICacheTelemetry? Telemetry
+        {
+            get => _telemetry;
+            set => throw new InvalidOperationException("Telemetry is set at construction time.");
+        }
 
         // Expiration configuration
         private readonly TimeSpan? _userExpiration;
@@ -61,7 +72,7 @@ namespace PawSharp.Cache.Providers
         public int RoleCacheSize => _roles.Count;
         public int EmojiCacheSize => _emojis.Count;
 
-        public MemoryCacheProvider(CacheOptions? options = null)
+        public MemoryCacheProvider(CacheOptions? options = null, ICacheTelemetry? telemetry = null)
         {
             var opts = options ?? new CacheOptions();
 
@@ -80,6 +91,8 @@ namespace PawSharp.Cache.Providers
             _memberExpiration = opts.MemberExpiration ?? opts.DefaultExpiration;
             _roleExpiration = opts.RoleExpiration ?? opts.DefaultExpiration;
             _emojiExpiration = opts.EmojiExpiration ?? opts.DefaultExpiration;
+
+            _telemetry = telemetry ?? new CacheTelemetry();
 
             _guilds = new ConcurrentDictionary<ulong, Guild>();
             _channels = new ConcurrentDictionary<ulong, Channel>();

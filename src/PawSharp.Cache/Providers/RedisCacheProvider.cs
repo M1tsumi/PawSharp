@@ -6,9 +6,11 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
-using StackExchange.Redis;
 using PawSharp.Cache.Interfaces;
+using PawSharp.Cache.Telemetry;
 using PawSharp.Core.Entities;
+using PawSharp.Core.Serialization;
+using StackExchange.Redis;
 
 namespace PawSharp.Cache.Providers
 {
@@ -22,7 +24,14 @@ namespace PawSharp.Cache.Providers
         private readonly IDatabase _db;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly RedisCacheOptions _options;
+        private readonly ICacheTelemetry? _telemetry;
         private bool _disposed;
+
+        public ICacheTelemetry? Telemetry
+        {
+            get => _telemetry;
+            set => throw new InvalidOperationException("Telemetry is set at construction time.");
+        }
 
         // Metrics tracking
         private long _hits;
@@ -67,6 +76,8 @@ namespace PawSharp.Cache.Providers
         public RedisCacheProvider(string connectionString)
             : this(Options.Create(new RedisCacheOptions { ConnectionString = connectionString }))
         {
+            _options = new RedisCacheOptions { ConnectionString = connectionString };
+            _telemetry = new CacheTelemetry();
         }
 
         #region Generic Cache Operations

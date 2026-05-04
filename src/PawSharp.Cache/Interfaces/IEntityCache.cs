@@ -2,35 +2,40 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using PawSharp.Core.Entities;
+using PawSharp.Cache.Telemetry;
 
-namespace PawSharp.Cache.Interfaces
+namespace PawSharp.Cache.Interfaces;
+
+/// <summary>
+/// Event arguments for cache invalidation events.
+/// </summary>
+public class CacheInvalidationEventArgs : EventArgs
 {
     /// <summary>
-    /// Event arguments for cache invalidation events.
+    /// The type of entity that was invalidated.
     /// </summary>
-    public class CacheInvalidationEventArgs : EventArgs
-    {
-        /// <summary>
-        /// The type of entity that was invalidated.
-        /// </summary>
-        public string EntityType { get; set; } = string.Empty;
-
-        /// <summary>
-        /// The ID of the entity that was invalidated.
-        /// </summary>
-        public ulong EntityId { get; set; }
-
-        /// <summary>
-        /// The guild ID (if applicable).
-        /// </summary>
-        public ulong? GuildId { get; set; }
-    }
+    public string EntityType { get; set; } = string.Empty;
 
     /// <summary>
-    /// Interface for caching Discord entities.
+    /// The ID of the entity that was invalidated.
     /// </summary>
-    public interface IEntityCache
-    {
+    public ulong EntityId { get; set; }
+
+    /// <summary>
+    /// The guild ID (if applicable).
+    /// </summary>
+    public ulong? GuildId { get; set; }
+}
+
+/// <summary>
+/// Defines the contract for a cache provider that stores Discord entities.
+/// </summary>
+public interface IEntityCache
+{
+    /// <summary>
+    /// Optional telemetry provider for monitoring cache performance.
+    /// </summary>
+    ICacheTelemetry? Telemetry { get; set; }
         // Cache invalidation events
         event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
         event EventHandler? CacheCleared;
@@ -121,66 +126,65 @@ namespace PawSharp.Cache.Interfaces
         /// </summary>
         /// <returns>True if the cache is healthy, false otherwise.</returns>
         bool IsHealthy();
-    }
+}
+
+/// <summary>
+/// Cache statistics information.
+/// </summary>
+public class CacheStats
+{
+    /// <summary>
+    /// Number of users cached.
+    /// </summary>
+    public int UserCount { get; set; }
 
     /// <summary>
-    /// Cache statistics information.
+    /// Number of guilds cached.
     /// </summary>
-    public class CacheStats
-    {
-        /// <summary>
-        /// Number of users cached.
-        /// </summary>
-        public int UserCount { get; set; }
+    public int GuildCount { get; set; }
 
-        /// <summary>
-        /// Number of guilds cached.
-        /// </summary>
-        public int GuildCount { get; set; }
+    /// <summary>
+    /// Number of channels cached.
+    /// </summary>
+    public int ChannelCount { get; set; }
 
-        /// <summary>
-        /// Number of channels cached.
-        /// </summary>
-        public int ChannelCount { get; set; }
+    /// <summary>
+    /// Number of messages cached.
+    /// </summary>
+    public int MessageCount { get; set; }
 
-        /// <summary>
-        /// Number of messages cached.
-        /// </summary>
-        public int MessageCount { get; set; }
+    /// <summary>
+    /// Number of guild members cached.
+    /// </summary>
+    public int MemberCount { get; set; }
 
-        /// <summary>
-        /// Number of guild members cached.
-        /// </summary>
-        public int MemberCount { get; set; }
+    /// <summary>
+    /// Number of roles cached.
+    /// </summary>
+    public int RoleCount { get; set; }
 
-        /// <summary>
-        /// Number of roles cached.
-        /// </summary>
-        public int RoleCount { get; set; }
+    /// <summary>
+    /// Number of emojis cached.
+    /// </summary>
+    public int EmojiCount { get; set; }
 
-        /// <summary>
-        /// Number of emojis cached.
-        /// </summary>
-        public int EmojiCount { get; set; }
+    /// <summary>
+    /// Estimated memory usage in bytes.
+    /// </summary>
+    public long MemoryUsage { get; set; }
 
-        /// <summary>
-        /// Estimated memory usage in bytes.
-        /// </summary>
-        public long MemoryUsage { get; set; }
+    /// <summary>
+    /// Total number of cache hits.
+    /// </summary>
+    public long Hits { get; set; }
 
-        /// <summary>
-        /// Total number of cache hits.
-        /// </summary>
-        public long Hits { get; set; }
+    /// <summary>
+    /// Total number of cache misses.
+    /// </summary>
+    public long Misses { get; set; }
 
-        /// <summary>
-        /// Total number of cache misses.
-        /// </summary>
-        public long Misses { get; set; }
-
-        /// <summary>
-        /// Cache hit ratio (0.0 to 1.0).
-        /// </summary>
-        public double HitRatio => Hits + Misses > 0 ? (double)Hits / (Hits + Misses) : 0.0;
-    }
+    /// <summary>
+    /// Cache hit ratio (0.0 to 1.0).
+    /// </summary>
+    public double HitRatio => Hits + Misses > 0 ? (double)Hits / (Hits + Misses) : 0.0;
 }
