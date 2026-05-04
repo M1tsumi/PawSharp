@@ -8,6 +8,8 @@ Use it when you need faster reads, fewer REST calls, and a cleaner way to keep f
 
 - In-memory caching for low-latency access
 - Redis-based distributed caching for scalable deployments
+- **Cache swapping with automatic fallback** - Switch between cache providers at runtime
+- **Cache distribution** - Share cache invalidations across multiple bot instances
 - Pluggable cache provider model for custom backends
 - Designed to work with gateway-driven updates
 - Configurable entity limits and expiration
@@ -229,6 +231,8 @@ var options = new RedisCacheOptions
 - **Reducing repeat API calls** - Cache frequently accessed entities to reduce REST API calls
 - **Keeping active data in memory** - Cache guilds, members, channels for quick access
 - **Distributed caching** - Use Redis for multi-instance bot deployments
+- **Cache swapping** - Switch between cache providers at runtime with automatic fallback
+- **Cache distribution** - Share cache invalidations across multiple bot instances via Redis pub/sub
 - **Custom cache backends** - Implement IEntityCache for your own caching solution
 
 ## Cache Statistics
@@ -252,6 +256,98 @@ Console.WriteLine($"Hit Ratio: {stats.HitRatio:P2}");
 var totalEntities = cache.GetEntityCount();
 Console.WriteLine($"Total entities: {totalEntities}");
 ```
+
+## Cache Swapping
+
+Cache swapping allows you to switch between different cache providers at runtime with automatic fallback support:
+
+```csharp
+using PawSharp.Cache.Swapping;
+
+var swapperOptions = new CacheSwapperOptions
+{
+    AutoFallback = true,
+    MaxFailuresBeforeCircuitOpen = 3,
+    CircuitOpenDuration = TimeSpan.FromMinutes(5),
+    AutoSwapBackToPrimary = true,
+    HealthCheckInterval = TimeSpan.FromSeconds(30),
+    EnableLogging = true
+};
+
+var cacheSwapper = new CacheSwapper(swapperOptions);
+
+// Register multiple cache providers with priorities (lower = higher priority)
+var memoryCache = new MemoryCacheProvider();
+var redisCache = new RedisCacheProvider("localhost:6379");
+
+cacheSwapper.RegisterProvider("memory", memoryCache, priority: 10); // Fallback
+cacheSwapper.RegisterProvider("redis", redisCache, priority: 0);    // Primary
+
+// Start automatic health checks
+cacheSwapper.StartHealthChecks();
+
+// Use like any other cache provider
+cacheSwapper.CacheUser(user);
+var cachedUser = cacheSwapper.GetUser(userId);
+
+// Manually switch providers
+cacheSwapper.SetActiveProvider("memory");
+
+// Get provider information
+var providers = cacheSwapper.GetProviders();
+foreach (var provider in providers)
+{
+    Console.WriteLine($"Provider: {provider.Name}, Healthy: {provider.IsHealthy}");
+}
+
+cacheSwapper.StopHealthChecks();
+cacheSwapper.Dispose();
+```
+
+### Cache Swapping Features
+
+- **Automatic Fallback**: If the active provider fails, automatically switch to the next healthy provider
+- **Circuit Breaker**: Temporarily disable providers that fail repeatedly
+- **Health Checks**: Automatic health monitoring with configurable intervals
+- **Priority-Based**: Configure provider priority for fallback order
+- **Developer-Centric Errors**: Clear exceptions for debugging (CacheSwapException, CacheProviderUnavailableException, etc.)
+
+## Cache Distribution
+
+Cache distribution allows multiple bot instances to share cache invalidations via Redis pub/sub:
+
+```csharp
+using PawSharp.Cache.Distribution;
+using StackExchange.Redis;
+
+var redis = ConnectionMultiplexer.Connect("localhost:6379");
+var distributor = new RedisCacheDistributor(redis, "pawsharp:cache");
+
+var memoryCache = new MemoryCacheProvider();
+var distributedCache = new DistributedCacheProvider(memoryCache, distributor);
+
+// Use like any other cache provider
+distributedCache.CacheUser(user);
+distributedCache.CacheGuild(guild);
+
+// Invalidations are automatically propagated to all instances
+distributedCache.RemoveGuild(guildId); // Publishes to Redis
+
+// Check health
+if (distributedCache.IsHealthy())
+{
+    Console.WriteLine("Cache distribution is healthy");
+}
+
+distributedCache.Dispose();
+```
+
+### Cache Distribution Features
+
+- **Redis Pub/Sub**: Efficient invalidation propagation across instances
+- **Automatic Publishing**: Cache invalidations are automatically published
+- **Event Handling**: Subscribe to invalidation events from other instances
+- **Health Monitoring**: Check distributor health via Redis connection
 
 ## Cache Invalidation Events
 
