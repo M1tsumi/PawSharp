@@ -28,6 +28,7 @@ public sealed class InteractionResponseBuilder
     private string? _content;
     private bool _ephemeral;
     private bool _updateMessage;
+    private int? _flags;
     private readonly List<Embed> _embeds = new();
     private readonly List<MessageComponent> _actionRows = new();
 
@@ -82,6 +83,23 @@ public sealed class InteractionResponseBuilder
     }
 
     /// <summary>
+    /// Sets message flags directly (useful for custom flag combinations).
+    /// </summary>
+    public InteractionResponseBuilder WithFlags(int flags)
+    {
+        if (_ephemeral) flags |= 64;
+        _ephemeral = false;
+        return this.WithFlagsInternal(flags);
+    }
+
+    private InteractionResponseBuilder WithFlagsInternal(int flags)
+    {
+        // Store flags to be applied in Build
+        _flags = flags;
+        return this;
+    }
+
+    /// <summary>
     /// Produces an <c>UpdateMessage</c> (type 7) response that edits the original component message
     /// instead of sending a new one. Used in button / select menu handlers.
     /// </summary>
@@ -101,7 +119,7 @@ public sealed class InteractionResponseBuilder
             Content    = _content,
             Embeds     = _embeds.Count > 0 ? new List<Embed>(_embeds) : null,
             Components = _actionRows.Count > 0 ? new List<MessageComponent>(_actionRows) : null,
-            Flags      = _ephemeral ? 64 : null,
+            Flags      = _flags ?? (_ephemeral ? 64 : null),
         };
 
         int type = _updateMessage

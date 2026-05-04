@@ -3,7 +3,7 @@
 namespace PawSharp.Commands.Preconditions;
 
 /// <summary>
-/// The result of a precondition check.
+/// Represents the result of a precondition check.
 /// </summary>
 public sealed class PreconditionResult
 {
@@ -13,25 +13,34 @@ public sealed class PreconditionResult
     public bool IsSuccess { get; }
 
     /// <summary>
-    /// Gets the error message when <see cref="IsSuccess"/> is <see langword="false"/>; otherwise <see langword="null"/>.
+    /// Gets the error message if the check failed.
     /// </summary>
     public string? ErrorMessage { get; }
 
     private PreconditionResult(bool isSuccess, string? errorMessage)
     {
-        IsSuccess    = isSuccess;
+        IsSuccess = isSuccess;
         ErrorMessage = errorMessage;
     }
 
     /// <summary>
-    /// Returns a successful result.
+    /// Creates a successful precondition result indicating the command can proceed.
     /// </summary>
-    public static PreconditionResult FromSuccess() => new(true, null);
+    /// <returns>A successful precondition result.</returns>
+    public static PreconditionResult FromSuccess()
+    {
+        return new PreconditionResult(true, null);
+    }
 
     /// <summary>
-    /// Returns a failed result with <paramref name="errorMessage"/>.
+    /// Creates a failed precondition result with an error message.
     /// </summary>
-    public static PreconditionResult FromError(string errorMessage) => new(false, errorMessage);
+    /// <param name="errorMessage">The error message describing why the precondition failed.</param>
+    /// <returns>A failed precondition result.</returns>
+    public static PreconditionResult FromError(string errorMessage)
+    {
+        return new PreconditionResult(false, errorMessage);
+    }
 
     /// <inheritdoc/>
     public override string ToString()

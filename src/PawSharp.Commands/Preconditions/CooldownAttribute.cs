@@ -32,6 +32,9 @@ public sealed class CooldownAttribute : Attribute, IPrecondition
     public CooldownBucketType BucketType { get; }
 
     private readonly ConcurrentDictionary<string, BucketState> _buckets = new();
+    private readonly object _cleanupLock = new();
+    private DateTimeOffset _lastCleanup = DateTimeOffset.UtcNow;
+    private const int CleanupIntervalSeconds = 300; // Clean up every 5 minutes
 
     /// <summary>
     /// Initialises the attribute.
@@ -56,24 +59,73 @@ public sealed class CooldownAttribute : Attribute, IPrecondition
         var now    = DateTimeOffset.UtcNow;
         var bucket = _buckets.GetOrAdd(key, _ => new BucketState(now));
 
-        lock (bucket)
+        try
         {
-            // Reset the bucket if the window has expired
-            if (now - bucket.WindowStart >= Per)
+            lock (bucket)
             {
-                bucket.WindowStart     = now;
-                bucket.InvocationCount = 0;
+                // Reset the bucket if the window has expired
+                if (now - bucket.WindowStart >= Per)
+                {
+                    bucket.WindowStart     = now;
+                    bucket.InvocationCount = 0;
+                }
+
+                if (bucket.InvocationCount < MaxUses)
+                {
+                    bucket.InvocationCount++;
+                    return Task.FromResult(PreconditionResult.FromSuccess());
+                }
+
+                var remaining = Per - (now - bucket.WindowStart);
+                return Task.FromResult(PreconditionResult.FromError(
+                    $"You are on cooldown. Try again in {remaining.TotalSeconds:F1} second(s)."));
+            }
+        }
+        finally
+        {
+            // Periodically clean up expired buckets to prevent memory leaks
+            if (now - _lastCleanup >= TimeSpan.FromSeconds(CleanupIntervalSeconds))
+            {
+                CleanupExpiredBuckets(now);
+            }
+        }
+    }
+
+    private void CleanupExpiredBuckets(DateTimeOffset now)
+    {
+        // Use a lock to prevent multiple concurrent cleanups
+        if (!Monitor.TryEnter(_cleanupLock))
+            return;
+
+        try
+        {
+            // Double-check after acquiring lock
+            if (now - _lastCleanup < TimeSpan.FromSeconds(CleanupIntervalSeconds))
+                return;
+
+            var expiredKeys = new List<string>();
+            foreach (var kvp in _buckets)
+            {
+                lock (kvp.Value)
+                {
+                    // Remove buckets that haven't been used for 3x the cooldown period
+                    if (now - kvp.Value.WindowStart > Per * 3)
+                    {
+                        expiredKeys.Add(kvp.Key);
+                    }
+                }
             }
 
-            if (bucket.InvocationCount < MaxUses)
+            foreach (var key in expiredKeys)
             {
-                bucket.InvocationCount++;
-                return Task.FromResult(PreconditionResult.FromSuccess());
+                _buckets.TryRemove(key, out _);
             }
 
-            var remaining = Per - (now - bucket.WindowStart);
-            return Task.FromResult(PreconditionResult.FromError(
-                $"You are on cooldown. Try again in {remaining.TotalSeconds:F1} second(s)."));
+            _lastCleanup = now;
+        }
+        finally
+        {
+            Monitor.Exit(_cleanupLock);
         }
     }
 

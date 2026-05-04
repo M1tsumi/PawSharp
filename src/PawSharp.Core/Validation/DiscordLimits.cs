@@ -104,7 +104,57 @@ public static class DiscordLimits
     
     /// <summary>Minimum media gallery items.</summary>
     public const int MinMediaGalleryItems = 1;
-    
+
+    // ── Components v2 Limits ─────────────────────────────────────────────────────
+
+    /// <summary>Maximum label text length.</summary>
+    public const int MaxLabelTextLength = 80;
+
+    /// <summary>Maximum label description length.</summary>
+    public const int MaxLabelDescriptionLength = 200;
+
+    /// <summary>Maximum file upload label length.</summary>
+    public const int MaxFileUploadLabelLength = 45;
+
+    /// <summary>Maximum file upload placeholder length.</summary>
+    public const int MaxFileUploadPlaceholderLength = 100;
+
+    /// <summary>Maximum file upload minimum length (number of files).</summary>
+    public const int MaxFileUploadMinLength = 10;
+
+    /// <summary>Maximum file upload maximum length (number of files).</summary>
+    public const int MaxFileUploadMaxLength = 10;
+
+    /// <summary>Maximum radio group options.</summary>
+    public const int MaxRadioGroupOptions = 25;
+
+    /// <summary>Maximum radio group option label length.</summary>
+    public const int MaxRadioGroupOptionLabelLength = 100;
+
+    /// <summary>Maximum radio group option value length.</summary>
+    public const int MaxRadioGroupOptionValueLength = 100;
+
+    /// <summary>Maximum radio group option description length.</summary>
+    public const int MaxRadioGroupOptionDescriptionLength = 100;
+
+    /// <summary>Maximum checkbox group options.</summary>
+    public const int MaxCheckboxGroupOptions = 25;
+
+    /// <summary>Maximum checkbox group option label length.</summary>
+    public const int MaxCheckboxGroupOptionLabelLength = 100;
+
+    /// <summary>Maximum checkbox group option value length.</summary>
+    public const int MaxCheckboxGroupOptionValueLength = 100;
+
+    /// <summary>Maximum checkbox group option description length.</summary>
+    public const int MaxCheckboxGroupOptionDescriptionLength = 100;
+
+    /// <summary>Maximum checkbox label length.</summary>
+    public const int MaxCheckboxLabelLength = 80;
+
+    /// <summary>Maximum components per container.</summary>
+    public const int MaxComponentsPerContainer = 20;
+
     // ── Application Command Limits ───────────────────────────────────────────────
     
     /// <summary>Maximum command name length.</summary>

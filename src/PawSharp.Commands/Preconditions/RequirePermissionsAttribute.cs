@@ -49,7 +49,31 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
                 "This command can only be used inside a server.");
 
         var guildId = ctx.GuildId.Value;
+        var cacheKey = (guildId, ctx.User.Id, ctx.ChannelId);
+        var now = DateTimeOffset.UtcNow;
 
+        // Check cache first
+        lock (_cacheLock)
+        {
+            if (_permissionCache.TryGetValue(cacheKey, out var cached) && cached.expiry > now)
+            {
+                var cachedPermissions = cached.permissions;
+                var cachedAdminBit = (ulong)PawSharp.Core.Enums.Permissions.Administrator;
+
+                if (IgnoreAdmins)
+                {
+                    var cachedGuild = ctx.Client.Cache.GetGuild(guildId);
+                    if (cachedGuild != null && (cachedGuild.OwnerId == ctx.User.Id || (cachedPermissions & cachedAdminBit) == cachedAdminBit))
+                        return PreconditionResult.FromSuccess();
+                }
+
+                return (cachedPermissions & RequiredPermissions) == RequiredPermissions
+                    ? PreconditionResult.FromSuccess()
+                    : PreconditionResult.FromError("You do not have the required permissions to run this command.");
+            }
+        }
+
+        // Cache miss - fetch from API
         var guild = ctx.Client.Cache.GetGuild(guildId)
             ?? await ctx.Client.Rest.GetGuildAsync(guildId);
 
@@ -75,6 +99,26 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
 
         var effectivePermissions = permissionsResult.Value;
         var adminBit = (ulong)PawSharp.Core.Enums.Permissions.Administrator;
+
+        // Cache the result
+        lock (_cacheLock)
+        {
+            _permissionCache[cacheKey] = (effectivePermissions, now.Add(CacheTtl));
+            
+            // Periodic cleanup of expired cache entries
+            if (_permissionCache.Count > 1000)
+            {
+                var expiredKeys = _permissionCache
+                    .Where(kvp => kvp.Value.expiry <= now)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+                
+                foreach (var key in expiredKeys)
+                {
+                    _permissionCache.Remove(key);
+                }
+            }
+        }
 
         if (IgnoreAdmins)
         {
@@ -115,6 +159,12 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
 
         return ApplyChannelOverwrites(basePermissions.Value, channel, member, ctx.User.Id, guild.Id);
     }
+
+    // Permission cache with TTL to reduce API calls
+    private static readonly Dictionary<(ulong guildId, ulong userId, ulong channelId), (ulong permissions, DateTimeOffset expiry)> 
+        _permissionCache = new();
+    private static readonly object _cacheLock = new();
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     private static ulong? ComputeBasePermissions(Guild guild, GuildMember member, ulong userId)
     {

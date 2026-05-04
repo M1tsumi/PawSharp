@@ -26,7 +26,7 @@ public class ValidationTests
         var ex = Assert.Throws<ValidationException>(() =>
             SnowflakeValidator.ValidateSnowflake(0));
         
-        ex.Message.Should().Contain("valid Snowflake");
+        ex.Message.Should().Contain("valid Discord ID");
     }
 
     [Fact]

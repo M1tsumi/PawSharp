@@ -20,6 +20,8 @@ public sealed class RequireChannelAttribute : Attribute, IPrecondition
     /// Initializes a new instance of the <see cref="RequireChannelAttribute"/> class.
     /// </summary>
     /// <param name="channelIds">The channel IDs where the command is allowed.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="channelIds"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="channelIds"/> is empty.</exception>
     public RequireChannelAttribute(params ulong[] channelIds)
     {
         ChannelIds = channelIds ?? throw new ArgumentNullException(nameof(channelIds));

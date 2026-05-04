@@ -340,4 +340,168 @@ public class PawSharpOptions
         /// </summary>
         public int MaxTransientErrorRetries { get; set; } = 3;
     }
+
+    /// <summary>
+    /// Builder for creating PawSharpOptions with a fluent API.
+    /// </summary>
+    public class Builder
+    {
+        private readonly PawSharpOptions _options = new PawSharpOptions();
+
+        /// <summary>
+        /// Sets the Discord bot token.
+        /// </summary>
+        public Builder WithToken(string token)
+        {
+            _options.Token = token;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the gateway intents.
+        /// </summary>
+        public Builder WithIntents(GatewayIntents intents)
+        {
+            _options.Intents = intents;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the intent validation mode.
+        /// </summary>
+        public Builder WithIntentValidation(IntentValidationMode mode)
+        {
+            _options.IntentValidation = mode;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the shard configuration.
+        /// </summary>
+        public Builder WithShards(int shards, int shardCount)
+        {
+            _options.Shards = shards;
+            _options.ShardCount = shardCount;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the shard connection delay.
+        /// </summary>
+        public Builder WithShardConnectionDelayMs(int delayMs)
+        {
+            _options.ShardConnectionDelayMs = delayMs;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the API version.
+        /// </summary>
+        public Builder WithApiVersion(int version)
+        {
+            _options.ApiVersion = version;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets a custom gateway URL for testing.
+        /// </summary>
+        public Builder WithCustomGatewayUrl(string url)
+        {
+            _options.CustomGatewayUrl = url;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables or disables gateway compression.
+        /// </summary>
+        public Builder WithCompression(bool enabled)
+        {
+            _options.EnableCompression = enabled;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the WebSocket buffer size.
+        /// </summary>
+        public Builder WithWebSocketBufferSizeKb(int sizeKb)
+        {
+            _options.WebSocketBufferSizeKb = sizeKb;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the maximum missed heartbeat ACKs.
+        /// </summary>
+        public Builder WithMaxMissedHeartbeatAcks(int max)
+        {
+            _options.MaxMissedHeartbeatAcks = max;
+            return this;
+        }
+
+        /// <summary>
+        /// Configures reconnection options.
+        /// </summary>
+        public Builder ConfigureReconnection(Action<ReconnectionOptions> configure)
+        {
+            configure(_options.Reconnection);
+            return this;
+        }
+
+        /// <summary>
+        /// Configures event dispatch options.
+        /// </summary>
+        public Builder ConfigureEventDispatch(Action<EventDispatchOptions> configure)
+        {
+            configure(_options.EventDispatch);
+            return this;
+        }
+
+        /// <summary>
+        /// Configures cache options.
+        /// </summary>
+        public Builder ConfigureCache(Action<CacheOptions> configure)
+        {
+            configure(_options.Cache);
+            return this;
+        }
+
+        /// <summary>
+        /// Configures REST API options.
+        /// </summary>
+        public Builder ConfigureRestApi(Action<RestApiOptions> configure)
+        {
+            configure(_options.RestApi);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the initial bot presence.
+        /// </summary>
+        public Builder WithPresence(string status, string? activityName = null, int activityType = 0, string? streamUrl = null)
+        {
+            _options.Presence = new PresenceOptions
+            {
+                Status = status,
+                ActivityName = activityName,
+                ActivityType = activityType,
+                StreamUrl = streamUrl
+            };
+            return this;
+        }
+
+        /// <summary>
+        /// Builds the PawSharpOptions instance.
+        /// </summary>
+        public PawSharpOptions Build()
+        {
+            _options.ValidateApiVersion();
+            return _options;
+        }
+
+        /// <summary>
+        /// Creates a new builder instance.
+        /// </summary>
+        public static Builder Create() => new Builder();
+    }
 }

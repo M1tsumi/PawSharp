@@ -9,6 +9,8 @@ namespace PawSharp.Commands.Conversion;
 
 /// <summary>
 /// Service for managing and using type converters.
+/// This service maintains a registry of type converters and handles the conversion
+/// of string command arguments to strongly-typed C# objects.
 /// </summary>
 public class TypeConverterService
 {
@@ -18,7 +20,7 @@ public class TypeConverterService
     /// <summary>
     /// Initializes a new instance of the <see cref="TypeConverterService"/> class.
     /// </summary>
-    /// <param name="logger">Optional logger.</param>
+    /// <param name="logger">Optional logger for diagnostic information.</param>
     public TypeConverterService(ILogger<TypeConverterService>? logger = null)
     {
         _logger = logger;
@@ -27,9 +29,11 @@ public class TypeConverterService
 
     /// <summary>
     /// Registers a type converter for a specific type.
+    /// If a converter for the type already exists, it will be replaced.
     /// </summary>
     /// <typeparam name="T">The type to convert to.</typeparam>
-    /// <param name="converter">The converter instance.</param>
+    /// <param name="converter">The converter instance to register.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="converter"/> is null.</exception>
     public void RegisterConverter<T>(ITypeConverter<T> converter)
     {
         if (converter == null) throw new ArgumentNullException(nameof(converter));
@@ -42,6 +46,11 @@ public class TypeConverterService
     /// Uses reflection to determine the target type from the implemented generic interface.
     /// </summary>
     /// <param name="converter">The converter instance implementing ITypeConverter{T}.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="converter"/> is null.</exception>
+    /// <remarks>
+    /// This method is useful when registering converters via dependency injection
+    /// where the generic type parameter is not known at compile time.
+    /// </remarks>
     public void RegisterConverterFromInterface(ITypeConverter converter)
     {
         if (converter == null) throw new ArgumentNullException(nameof(converter));
@@ -60,6 +69,17 @@ public class TypeConverterService
         {
             _logger?.LogWarning("Converter type {ConverterType} does not implement ITypeConverter<T>", converterType.Name);
         }
+    }
+
+    /// <summary>
+    /// Registers a converter for a specific enum type.
+    /// </summary>
+    /// <typeparam name="T">The enum type to register a converter for.</typeparam>
+    public void RegisterEnumConverter<T>() where T : struct, Enum
+    {
+        var converter = new BuiltInConverters.GenericEnumConverter<T>();
+        _converters[typeof(T)] = converter;
+        _logger?.LogDebug("Registered enum converter for {Type}", typeof(T).Name);
     }
 
     /// <summary>
@@ -102,18 +122,34 @@ public class TypeConverterService
     /// <returns>A conversion result.</returns>
     public async Task<object?> ConvertAsync(Type targetType, string value, CommandContext context)
     {
+        // Handle nullable types by unwrapping to the underlying type
+        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
         var method = typeof(TypeConverterService).GetMethod(nameof(ConvertAsync), 1, new[] { typeof(string), typeof(CommandContext) });
         if (method == null)
             return null;
 
-        var genericMethod = method.MakeGenericMethod(targetType);
+        var genericMethod = method.MakeGenericMethod(underlyingType);
         var result = await (dynamic)genericMethod.Invoke(this, new object[] { value, context });
         
         // Check if conversion was successful
         var isSuccessProp = result?.GetType().GetProperty("IsSuccess");
         if (isSuccessProp != null && (bool)isSuccessProp.GetValue(result) == true)
         {
-            return result?.GetType().GetProperty("Value")?.GetValue(result);
+            var convertedValue = result?.GetType().GetProperty("Value")?.GetValue(result);
+            
+            // If the original type was nullable, wrap the converted value appropriately
+            if (underlyingType != targetType)
+            {
+                // For nullable reference types, the value is already correct
+                // For nullable value types, we need to handle the wrapping
+                if (targetType.IsValueType)
+                {
+                    return convertedValue;
+                }
+            }
+            
+            return convertedValue;
         }
         
         // Conversion failed
@@ -142,9 +178,21 @@ public class TypeConverterService
         RegisterConverter<bool>(new BuiltInConverters.BooleanConverter());
         RegisterConverter<double>(new BuiltInConverters.DoubleConverter());
         RegisterConverter<float>(new BuiltInConverters.FloatConverter());
+        RegisterConverter<decimal>(new BuiltInConverters.DecimalConverter());
         RegisterConverter<DateTime>(new BuiltInConverters.DateTimeConverter());
+        RegisterConverter<DateTimeOffset>(new BuiltInConverters.DateTimeOffsetConverter());
         RegisterConverter<TimeSpan>(new BuiltInConverters.TimeSpanConverter());
+        RegisterConverter<Guid>(new BuiltInConverters.GuidConverter());
+        RegisterConverter<Uri>(new BuiltInConverters.UriConverter());
+        RegisterConverter<sbyte>(new BuiltInConverters.SByteConverter());
+        RegisterConverter<byte>(new BuiltInConverters.ByteConverter());
+        RegisterConverter<short>(new BuiltInConverters.Int16Converter());
+        RegisterConverter<ushort>(new BuiltInConverters.UInt16Converter());
+        RegisterConverter<uint>(new BuiltInConverters.UInt32Converter());
         RegisterConverter<PawSharp.Core.Entities.User>(new BuiltInConverters.UserConverter());
+        RegisterConverter<PawSharp.Core.Entities.Channel>(new BuiltInConverters.ChannelConverter());
+        RegisterConverter<PawSharp.Core.Entities.Role>(new BuiltInConverters.RoleConverter());
+        RegisterConverter<PawSharp.Core.Entities.GuildMember>(new BuiltInConverters.GuildMemberConverter());
         
         _logger?.LogDebug("Registered {Count} built-in type converters", _converters.Count);
     }

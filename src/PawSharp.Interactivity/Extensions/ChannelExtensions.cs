@@ -9,6 +9,7 @@ using PawSharp.Client;
 using PawSharp.Core.Entities;
 using PawSharp.Gateway.Events;
 using PawSharp.Interactions;
+using PawSharp.Interactivity.Validation;
 
 namespace PawSharp.Interactivity.Extensions;
 
@@ -25,14 +26,20 @@ public static class ChannelExtensions
     /// <param name="user">The user who can control the pagination.</param>
     /// <param name="pages">The pages to paginate.</param>
     /// <param name="timeout">The timeout for the pagination.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     public static async Task SendPaginatedMessageAsync(
         this Channel channel,
         DiscordClient client,
         User user,
         IEnumerable<Page> pages,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
     {
+        InteractivityValidation.RequireNotNull(channel, nameof(channel));
+        InteractivityValidation.RequireNotNull(client, nameof(client));
+        InteractivityValidation.RequireNotNull(user, nameof(user));
+
         var pageList = pages.ToList();
         if (!pageList.Any())
             return;
@@ -42,6 +49,7 @@ public static class ChannelExtensions
 
         var emojis = interactivity.PaginationEmojis;
         var behaviour = interactivity.PollBehaviour;
+        var callbacks = interactivity.PaginationCallbacks;
 
         var currentPage = 0;
         var message = await client.Rest.CreateMessageAsync(channel.Id, new CreateMessageRequest
@@ -65,7 +73,8 @@ public static class ChannelExtensions
 
         var tcs = new TaskCompletionSource<bool>();
         using var cts = new CancellationTokenSource(timeout!.Value);
-        cts.Token.Register(() => tcs.TrySetResult(false));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, cts.Token);
+        linkedCts.Token.Register(() => tcs.TrySetResult(false));
 
         async Task OnReactionAdd(MessageReactionAddEvent evt)
         {
@@ -107,6 +116,12 @@ public static class ChannelExtensions
                         ? new List<Embed> { pageList[currentPage].Embed! }
                         : new List<Embed>()
                 });
+
+                // Invoke page changed callback
+                if (callbacks?.OnPageChanged != null)
+                {
+                    await callbacks.OnPageChanged(currentPage, pageList[currentPage]);
+                }
             }
             catch (Exception ex)
             {
@@ -118,7 +133,15 @@ public static class ChannelExtensions
 
         try
         {
-            await tcs.Task;
+            var result = await tcs.Task;
+            if (!result && callbacks?.OnTimeout != null)
+            {
+                await callbacks.OnTimeout();
+            }
+            else if (result && callbacks?.OnStopped != null)
+            {
+                await callbacks.OnStopped();
+            }
         }
         finally
         {
@@ -327,6 +350,8 @@ public static class ChannelExtensions
 
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
+        var labels = interactivity.PaginationButtonLabels;
+        var callbacks = interactivity.PaginationCallbacks;
 
         var currentPage = 0;
         var totalPages = pageList.Count;
@@ -338,7 +363,7 @@ public static class ChannelExtensions
             Embeds = pageList[currentPage].Embed != null
                 ? new List<Embed> { pageList[currentPage].Embed! }
                 : null,
-            Components = BuildPaginationButtons(currentPage, totalPages)
+            Components = BuildPaginationButtons(currentPage, totalPages, labels)
         };
 
         var message = await client.Rest.CreateMessageAsync(channel.Id, initialRequest);
@@ -354,10 +379,19 @@ public static class ChannelExtensions
                 cancellationToken: cancellationToken);
 
             if (result.TimedOut || result.Result == null)
+            {
+                // Invoke timeout callback
+                if (callbacks?.OnTimeout != null)
+                {
+                    await callbacks.OnTimeout();
+                }
                 break;
+            }
 
             var customId = result.Result.Data?.CustomId;
             if (customId == null) continue;
+
+            var previousPage = currentPage;
 
             // Handle button clicks
             switch (customId)
@@ -390,7 +424,21 @@ public static class ChannelExtensions
                             : null,
                         Components = new List<MessageComponent>()
                     });
+
+                    // Invoke stopped callback
+                    if (callbacks?.OnStopped != null)
+                    {
+                        await callbacks.OnStopped();
+                    }
                     return;
+            }
+
+            if (currentPage == previousPage) continue; // No change, skip update
+
+            // Invoke page changed callback
+            if (callbacks?.OnPageChanged != null)
+            {
+                await callbacks.OnPageChanged(currentPage, pageList[currentPage]);
             }
 
             // Update message with new page and button states
@@ -403,7 +451,7 @@ public static class ChannelExtensions
                     Embeds = pageList[currentPage].Embed != null
                         ? new List<Embed> { pageList[currentPage].Embed! }
                         : null,
-                    Components = BuildPaginationButtons(currentPage, totalPages)
+                    Components = BuildPaginationButtons(currentPage, totalPages, labels)
                 }
             };
 
@@ -417,41 +465,41 @@ public static class ChannelExtensions
     /// <summary>
     /// Builds pagination buttons with appropriate disabled states.
     /// </summary>
-    private static List<MessageComponent> BuildPaginationButtons(int currentPage, int totalPages)
+    private static List<MessageComponent> BuildPaginationButtons(int currentPage, int totalPages, PaginationButtonLabels labels)
     {
         var buttons = new List<Button>
         {
             new()
             {
                 CustomId = "page_first",
-                Label = "⏮ First",
+                Label = labels.First,
                 Style = ButtonStyle.Secondary,
                 Disabled = currentPage == 0
             },
             new()
             {
                 CustomId = "page_prev",
-                Label = "◀ Previous",
+                Label = labels.Previous,
                 Style = ButtonStyle.Secondary,
                 Disabled = currentPage == 0
             },
             new()
             {
                 CustomId = "page_stop",
-                Label = "⏹ Stop",
+                Label = labels.Stop,
                 Style = ButtonStyle.Danger
             },
             new()
             {
                 CustomId = "page_next",
-                Label = "▶ Next",
+                Label = labels.Next,
                 Style = ButtonStyle.Secondary,
                 Disabled = currentPage >= totalPages - 1
             },
             new()
             {
                 CustomId = "page_last",
-                Label = "⏭ Last",
+                Label = labels.Last,
                 Style = ButtonStyle.Secondary,
                 Disabled = currentPage >= totalPages - 1
             }
@@ -461,5 +509,177 @@ public static class ChannelExtensions
         {
             new ActionRow { Components = buttons.Cast<MessageComponent>().ToList() }
         };
+    }
+
+    /// <summary>
+    /// Sends a prompt message and waits for the user to respond with text input.
+    /// </summary>
+    /// <param name="channel">The channel to send the prompt to.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user to wait for input from.</param>
+    /// <param name="prompt">The prompt message to display.</param>
+    /// <param name="timeout">Maximum time to wait for input.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The user's input, or TimedOut=true if deadline exceeded.</returns>
+    public static async Task<InteractivityResult<string>> GetInputAsync(
+        this Channel channel,
+        DiscordClient client,
+        User user,
+        string prompt,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        InteractivityValidation.RequireNotNull(channel, nameof(channel));
+        InteractivityValidation.RequireNotNull(client, nameof(client));
+        InteractivityValidation.RequireNotNull(user, nameof(user));
+        InteractivityValidation.RequireNotNullOrEmpty(prompt, nameof(prompt));
+
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        // Send the prompt message
+        var promptMessage = await client.Rest.CreateMessageAsync(channel.Id, new CreateMessageRequest
+        {
+            Content = prompt
+        });
+
+        if (promptMessage == null)
+            return new InteractivityResult<string> { TimedOut = true };
+
+        // Wait for the user's response
+        var result = await channel.GetNextMessageAsync(
+            client,
+            msg => msg.Author.Id == user.Id,
+            timeout,
+            cancellationToken);
+
+        if (result.TimedOut || result.Result == null)
+        {
+            // Clean up the prompt message on timeout
+            try
+            {
+                await client.Rest.DeleteMessageAsync(channel.Id, promptMessage.Id);
+            }
+            catch { /* Best effort cleanup */ }
+
+            return new InteractivityResult<string> { TimedOut = true };
+        }
+
+        return new InteractivityResult<string> { Result = result.Result.Content };
+    }
+
+    /// <summary>
+    /// Sends a prompt message with optional validation and waits for the user to respond with valid text input.
+    /// </summary>
+    /// <param name="channel">The channel to send the prompt to.</param>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="user">The user to wait for input from.</param>
+    /// <param name="prompt">The prompt message to display.</param>
+    /// <param name="validator">A function to validate the input. Returns true if valid, false otherwise.</param>
+    /// <param name="errorMessage">The error message to display when validation fails.</param>
+    /// <param name="maxAttempts">Maximum number of attempts before giving up.</param>
+    /// <param name="timeout">Maximum time to wait for each input attempt.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The user's valid input, or TimedOut=true if deadline exceeded or max attempts reached.</returns>
+    public static async Task<InteractivityResult<string>> GetValidInputAsync(
+        this Channel channel,
+        DiscordClient client,
+        User user,
+        string prompt,
+        Func<string, bool> validator,
+        string errorMessage = "Invalid input. Please try again.",
+        int maxAttempts = 3,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        InteractivityValidation.RequireNotNull(channel, nameof(channel));
+        InteractivityValidation.RequireNotNull(client, nameof(client));
+        InteractivityValidation.RequireNotNull(user, nameof(user));
+        InteractivityValidation.RequireNotNullOrEmpty(prompt, nameof(prompt));
+        InteractivityValidation.RequireNotNull(validator, nameof(validator));
+        InteractivityValidation.RequirePositive(maxAttempts, nameof(maxAttempts));
+
+        var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
+        timeout ??= interactivity.Timeout;
+
+        Message? lastPromptMessage = null;
+
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            // Delete previous prompt message if exists
+            if (lastPromptMessage != null)
+            {
+                try
+                {
+                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+                }
+                catch { /* Best effort cleanup */ }
+            }
+
+            // Send the prompt message
+            lastPromptMessage = await client.Rest.CreateMessageAsync(channel.Id, new CreateMessageRequest
+            {
+                Content = prompt
+            });
+
+            if (lastPromptMessage == null)
+                return new InteractivityResult<string> { TimedOut = true };
+
+            // Wait for the user's response
+            var result = await channel.GetNextMessageAsync(
+                client,
+                msg => msg.Author.Id == user.Id,
+                timeout,
+                cancellationToken);
+
+            if (result.TimedOut || result.Result == null)
+            {
+                // Clean up the prompt message on timeout
+                try
+                {
+                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+                }
+                catch { /* Best effort cleanup */ }
+
+                return new InteractivityResult<string> { TimedOut = true };
+            }
+
+            var input = result.Result.Content;
+
+            // Validate the input
+            if (validator(input))
+            {
+                // Valid input - clean up prompt and return
+                try
+                {
+                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+                }
+                catch { /* Best effort cleanup */ }
+
+                return new InteractivityResult<string> { Result = input };
+            }
+
+            // Invalid input - show error and retry
+            try
+            {
+                await client.Rest.CreateMessageAsync(channel.Id, new CreateMessageRequest
+                {
+                    Content = errorMessage
+                });
+            }
+            catch { /* Best effort */ }
+        }
+
+        // Max attempts reached
+        if (lastPromptMessage != null)
+        {
+            try
+            {
+                await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+            }
+            catch { /* Best effort cleanup */ }
+        }
+
+        return new InteractivityResult<string> { TimedOut = true };
     }
 }

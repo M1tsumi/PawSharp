@@ -65,11 +65,12 @@ internal sealed class LeafNode
         out byte[] hpkePrivateKeyOut,
         out byte[] sigPrivateKeyOut)
     {
-        Curve25519.GenerateKeyPair(out hpkePrivateKeyOut, out var hpkePub);
-        Ed25519.GenerateKeyPair(out sigPrivateKeyOut, out var sigPub);
+        var provider = CryptoProviderFactory.Instance;
+        provider.GenerateX25519KeyPair(out hpkePrivateKeyOut, out var hpkePub);
+        provider.GenerateEd25519KeyPair(out sigPrivateKeyOut, out var sigPub);
         var cred   = Credential.Basic(identity);
         var node   = new LeafNode(hpkePub, sigPub, cred, LeafNodeSource.KeyPackage, Array.Empty<byte>());
-        node.Signature = Ed25519.Sign(node.ToBeSigned(), sigPrivateKeyOut);
+        node.Signature = provider.Ed25519Sign(node.ToBeSigned(), sigPrivateKeyOut);
         return node;
     }
 
@@ -123,7 +124,7 @@ internal sealed class LeafNode
 
     /// <summary>Verifies the leaf node's self-signature (RFC 9420 §7.3).</summary>
     public bool VerifySignature()
-        => Ed25519.Verify(ToBeSigned(), Signature, SignatureKey);
+        => CryptoProviderFactory.Instance.Ed25519Verify(ToBeSigned(), Signature, SignatureKey);
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

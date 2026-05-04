@@ -14,6 +14,12 @@ public static class PermissionsExtensions
     /// <param name="source">The source permissions.</param>
     /// <param name="permission">The permission to check.</param>
     /// <returns>True if the source has the permission.</returns>
+    /// <example>
+    /// <code>
+    /// Permissions userPerms = Permissions.SendMessages | Permissions.EmbedLinks;
+    /// bool canEmbed = userPerms.HasPermission(Permissions.EmbedLinks); // true
+    /// </code>
+    /// </example>
     public static bool HasPermission(this Permissions source, Permissions permission)
     {
         return (source & permission) == permission;

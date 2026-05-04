@@ -38,8 +38,7 @@ internal static class MlsHkdf
     /// <returns>32-byte pseudo-random key.</returns>
     public static byte[] Extract(ReadOnlySpan<byte> salt, ReadOnlySpan<byte> ikm)
     {
-        var saltArr = salt.IsEmpty ? new byte[HashLen] : salt.ToArray();
-        return HKDF.Extract(HashAlgorithmName.SHA256, ikm.ToArray(), saltArr);
+        return CryptoProviderFactory.Instance.HkdfExtract(salt, ikm);
     }
 
     /// <summary>
@@ -48,9 +47,7 @@ internal static class MlsHkdf
     /// </summary>
     public static byte[] Expand(ReadOnlySpan<byte> prk, ReadOnlySpan<byte> info, int length)
     {
-        var output = new byte[length];
-        HKDF.Expand(HashAlgorithmName.SHA256, prk.ToArray(), output, info.ToArray());
-        return output;
+        return CryptoProviderFactory.Instance.HkdfExpand(prk, info, length);
     }
 
     /// <summary>
@@ -106,7 +103,7 @@ internal static class MlsHkdf
     /// SHA-256 hash of arbitrary data. Used for transcript hashes.
     /// </summary>
     public static byte[] Hash(ReadOnlySpan<byte> data)
-        => SHA256.HashData(data);
+        => CryptoProviderFactory.Instance.Sha256Hash(data);
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

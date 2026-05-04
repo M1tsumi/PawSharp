@@ -4,14 +4,17 @@ using System;
 namespace PawSharp.Commands.Preconditions;
 
 /// <summary>
-/// Thrown when a command precondition check fails.
-/// Delivered to <see cref="CommandsExtension.CommandErrored"/> so the bot can respond with
-/// the specific <see cref="Exception.Message"/> (e.g. "You are on cooldown. Try again in 3.2 second(s).").
+/// Exception thrown when a precondition check fails.
+/// This exception is used to surface precondition failures through the
+/// <see cref="CommandsExtension.CommandErrored"/> event handler.
 /// </summary>
 public sealed class PreconditionFailedException : Exception
 {
     /// <summary>
-    /// Initialises a new instance with the precondition failure description.
+    /// Initializes a new instance of the <see cref="PreconditionFailedException"/> class.
     /// </summary>
-    public PreconditionFailedException(string message) : base(message) { }
+    /// <param name="message">The error message describing why the precondition failed.</param>
+    public PreconditionFailedException(string message) : base(message)
+    {
+    }
 }
