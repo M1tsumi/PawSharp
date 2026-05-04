@@ -1,6 +1,7 @@
 #nullable enable
 using System.Text.Json.Serialization;
 using PawSharp.Core.Enums;
+using PawSharp.Core.Serialization;
 
 namespace PawSharp.Core.Entities;
 
@@ -104,7 +105,13 @@ public class User : DiscordEntity
     /// </summary>
     [JsonPropertyName("avatar_decoration_data")]
     public AvatarDecorationData? AvatarDecorationData { get; set; }
-    
+
+    /// <summary>
+    /// The user's primary guild (for server tags/profile display).
+    /// </summary>
+    [JsonPropertyName("primary_guild")]
+    public UserPrimaryGuild? PrimaryGuild { get; set; }
+
     /// <summary>
     /// Gets the user's avatar URL.
     /// </summary>
@@ -161,4 +168,40 @@ public class User : DiscordEntity
     /// Gets the user's full tag (username#discriminator). For new users, returns just the username.
     /// </summary>
     public string FullTag => Discriminator == "0" ? Username : $"{Username}#{Discriminator}";
+}
+
+/// <summary>
+/// Represents a user's primary guild for profile display (server tags).
+/// </summary>
+public class UserPrimaryGuild
+{
+    /// <summary>
+    /// The guild ID being used as the primary guild.
+    /// </summary>
+    [JsonPropertyName("identity_guild_id")]
+    [JsonConverter(typeof(SnowflakeJsonConverter))]
+    public ulong IdentityGuildId { get; set; }
+
+    /// <summary>
+    /// Whether the primary guild identity is enabled.
+    /// </summary>
+    [JsonPropertyName("identity_enabled")]
+    public bool IdentityEnabled { get; set; }
+
+    /// <summary>
+    /// The 4-character server tag displayed on the user's profile.
+    /// </summary>
+    [JsonPropertyName("tag")]
+    public string Tag { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The server tag badge hash.
+    /// </summary>
+    [JsonPropertyName("badge")]
+    public string? Badge { get; set; }
+
+    /// <summary>
+    /// Gets whether the server tag is currently displayed.
+    /// </summary>
+    public bool IsDisplayed => IdentityEnabled && !string.IsNullOrEmpty(Tag);
 }
