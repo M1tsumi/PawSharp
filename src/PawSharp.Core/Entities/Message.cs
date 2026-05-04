@@ -692,6 +692,12 @@ public class PartialMessage
 
     [JsonPropertyName("sticker_items")]
     public System.Collections.Generic.List<StickerItem>? StickerItems { get; set; }
+
+    /// <summary>
+    /// Stickers attached to this message (legacy).
+    /// </summary>
+    [JsonPropertyName("stickers")]
+    public System.Collections.Generic.List<Sticker>? Stickers { get; set; }
 }
 
 // ── Channel mention (crosspost) ───────────────────────────────────────────────

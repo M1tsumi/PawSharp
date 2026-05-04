@@ -112,6 +112,17 @@ public class Invite : DiscordEntity
     /// </summary>
     [JsonPropertyName("created_at")]
     public new DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// Invite flags bitfield.
+    /// </summary>
+    [JsonPropertyName("flags")]
+    public InviteFlags? Flags { get; set; }
+
+    /// <summary>
+    /// Gets whether this is a guest invite (grants non-permanent access).
+    /// </summary>
+    public bool IsGuest => Flags.HasValue && (Flags.Value & InviteFlags.Guest) == InviteFlags.Guest;
 }
 
 /// <summary>
@@ -158,4 +169,15 @@ public enum InviteTargetType
     /// Embedded Application.
     /// </summary>
     EmbeddedApplication = 2
+}
+
+/// <summary>
+/// Bitfield flags for a Discord invite.
+/// </summary>
+[System.Flags]
+public enum InviteFlags
+{
+    None = 0,
+    /// <summary>This invite is a guest invite (grants non-permanent access).</summary>
+    Guest = 1 << 2,
 }
