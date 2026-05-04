@@ -365,19 +365,62 @@ cache.CacheCleared += (sender, args) =>
 };
 ```
 
-## Health Checks
+## Cache Telemetry
 
-Both providers support health checks to verify cache availability:
+Cache providers support telemetry for monitoring cache performance and health:
 
 ```csharp
-if (cache.IsHealthy())
+using PawSharp.Cache.Telemetry;
+
+// Create a telemetry instance
+var telemetry = new CacheTelemetry();
+
+// Pass it to the cache provider
+var cache = new MemoryCacheProvider(new CacheOptions(), telemetry);
+
+// Get a snapshot of telemetry data
+var snapshot = cache.Telemetry?.GetSnapshot();
+Console.WriteLine($"Hit Rate: {snapshot?.HitRate:P2}");
+Console.WriteLine($"Average Operation Duration: {snapshot?.AverageOperationDuration.TotalMilliseconds}ms");
+Console.WriteLine($"Total Hits: {snapshot?.TotalHits}");
+Console.WriteLine($"Total Misses: {snapshot?.TotalMisses}");
+
+// Per-entity metrics
+foreach (var (entityType, metrics) in snapshot?.EntityMetrics ?? [])
 {
-    Console.WriteLine("Cache is healthy and operational");
+    Console.WriteLine($"{entityType}: Hits={metrics.Hits}, Misses={metrics.Misses}, HitRate={metrics.HitRate:P2}");
 }
-else
+
+// Per-operation metrics
+foreach (var (operation, metrics) in snapshot?.OperationMetrics ?? [])
 {
-    Console.WriteLine("Cache is unhealthy - check Redis connection");
+    Console.WriteLine($"{operation}: Count={metrics.Count}, AvgDuration={metrics.AverageDuration.TotalMilliseconds}ms");
 }
+
+// Recent evictions
+foreach (var eviction in snapshot?.RecentEvictions ?? [])
+{
+    Console.WriteLine($"Evicted {eviction.EntityType} at {eviction.Timestamp}: {eviction.Reason}");
+}
+
+// Reset telemetry
+cache.Telemetry?.Reset();
+```
+
+## Health Checks
+
+Cache providers support health checks to verify cache availability:
+
+```csharp
+if (cache is ICacheProviderHealthCheckable healthCheckable)
+{
+    bool isHealthy = healthCheckable.IsHealthy();
+    Console.WriteLine($"Cache is {(isHealthy ? "healthy" : "unhealthy")}");
+}
+
+// For MemoryCacheProvider: checks if cleanup timer is running
+// For RedisCacheProvider: checks Redis connection and performs PING
+// For DistributedCacheProvider: checks both inner cache and distributor health
 ```
 
 ## Related Packages
