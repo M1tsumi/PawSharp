@@ -66,13 +66,28 @@ namespace PawSharp.Cache.Swapping
                 if (_providers.ContainsKey(name))
                     throw new ArgumentException($"Provider '{name}' is already registered.", nameof(name));
 
+                // Check if provider is healthy by calling IsHealthy if available
+                bool isHealthy = true;
+                try
+                {
+                    if (provider is ICacheProviderHealthCheckable healthCheckable)
+                    {
+                        isHealthy = healthCheckable.IsHealthy();
+                    }
+                }
+                catch
+                {
+                    // If health check fails, assume healthy for now
+                    isHealthy = true;
+                }
+
                 var info = new CacheProviderInfo
                 {
                     Name = name,
                     Provider = provider,
                     Priority = priority,
                     IsActive = false,
-                    IsHealthy = true,
+                    IsHealthy = isHealthy,
                     LastHealthCheck = DateTime.UtcNow
                 };
 

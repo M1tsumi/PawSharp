@@ -12,7 +12,7 @@ namespace PawSharp.Cache.Tests;
 
 public class CacheSwappingTests
 {
-    private class MockCacheProvider : IEntityCache
+    private class MockCacheProvider : IEntityCache, ICacheProviderHealthCheckable
     {
         public string Name { get; set; } = string.Empty;
         public bool ShouldFail { get; set; }
@@ -21,6 +21,8 @@ public class CacheSwappingTests
 
         public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
         public event EventHandler? CacheCleared;
+
+        public bool IsHealthy() => IsHealthyValue;
 
         public void Add(string key, object entity) { }
         public object? Get(string key) => ShouldFail ? throw new CacheProviderUnavailableException(Name) : null;
@@ -57,7 +59,6 @@ public class CacheSwappingTests
         public int GetEntityCount() => 0;
         public long GetMemoryUsage() => 0;
         public CacheStats GetCacheStats() => new CacheStats();
-        public bool IsHealthy() => IsHealthyValue;
 
         public Task<PawSharp.Core.Entities.User?> GetUserAsync(ulong userId) => Task.FromResult<PawSharp.Core.Entities.User?>(null);
         public Task<PawSharp.Core.Entities.Guild?> GetGuildAsync(ulong guildId) => Task.FromResult<PawSharp.Core.Entities.Guild?>(null);
