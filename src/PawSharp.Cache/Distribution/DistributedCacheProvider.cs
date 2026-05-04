@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using PawSharp.Cache.Exceptions;
@@ -13,7 +14,7 @@ namespace PawSharp.Cache.Distribution
     /// <summary>
     /// A cache provider wrapper that distributes cache invalidation events across instances.
     /// </summary>
-    public class DistributedCacheProvider : IEntityCache, IDisposable
+    public class DistributedCacheProvider : IEntityCache, ICacheProviderHealthCheckable, IDisposable
     {
         private readonly IEntityCache _innerCache;
         private readonly RedisCacheDistributor _distributor;
