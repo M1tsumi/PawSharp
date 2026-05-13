@@ -576,6 +576,10 @@ namespace PawSharp.Gateway
                                     _logger.LogError("Gateway intent error ({CloseCode}) - check intent configuration", closeCode);
                                     await SetStateAsync(GatewayState.Failed);
                                     return;
+
+                                case 4015: // Voice server crashed
+                                    _logger.LogWarning("Voice server crashed ({CloseCode}) - reconnecting", closeCode);
+                                    break;
                                     
                                 default:
                                     _logger.LogWarning("Unknown gateway close code {CloseCode}", closeCode);
