@@ -78,7 +78,8 @@ public static class PawSharpServiceCollectionExtensions
                 sp.GetRequiredService<ILogger<GatewayClient>>()));
 
         // Cache defaults to the in-memory provider unless a custom cache is supplied.
-        services.AddSingleton<IEntityCache>(sp => cacheFactory?.Invoke(sp) ?? new MemoryCacheProvider());
+        services.AddSingleton<IEntityCache>(sp => cacheFactory?.Invoke(sp) ?? new MemoryCacheProvider(
+            logger: sp.GetService<ILogger<MemoryCacheProvider>>()));
 
         // Interaction handler
         services.AddSingleton<InteractionHandler>(sp =>

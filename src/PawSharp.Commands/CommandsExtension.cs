@@ -1114,7 +1114,7 @@ public class CommandsExtension
                 }
                 catch (Exception handlerEx)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error in slash command error handler: {handlerEx.Message}");
+                    _logger.LogError(handlerEx, "Error in slash command error handler for /{CommandName}", commandName);
                 }
             }
         }
@@ -1382,7 +1382,7 @@ public class CommandsExtension
         try { return Convert.ChangeType(option.Value, inner, CultureInfo.InvariantCulture); }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Type conversion failed for {targetType.Name}: {ex.Message}");
+            _logger.LogWarning(ex, "Type conversion failed for {TargetTypeName}", targetType.Name);
             return GetDefault(targetType);
         }
     }
@@ -1604,7 +1604,7 @@ public class CommandsExtension
                             }
                             catch (Exception handlerEx)
                             {
-                                System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                                _logger.LogError(handlerEx, "Error in context menu error handler for {CommandName}", capturedName);
                             }
                         }
                     }
@@ -1631,7 +1631,7 @@ public class CommandsExtension
                             }
                             catch (Exception handlerEx)
                             {
-                                System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                                _logger.LogError(handlerEx, "Error in context menu error handler for {CommandName}", capturedName);
                             }
                         }
                     }
@@ -1708,7 +1708,7 @@ public class CommandsExtension
                                 }
                                 catch (Exception handlerEx)
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                                    _logger.LogError(handlerEx, "Error in context menu error handler for {CommandName}", capturedName);
                                 }
                             }
                         }
@@ -1735,7 +1735,7 @@ public class CommandsExtension
                                 }
                                 catch (Exception handlerEx)
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"Error in context menu error handler: {handlerEx.Message}");
+                                    _logger.LogError(handlerEx, "Error in context menu error handler for {CommandName}", capturedName);
                                 }
                             }
                         }

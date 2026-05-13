@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Net;
+using PawSharp.Core.Exceptions;
 
 namespace PawSharp.API.Exceptions;
 
@@ -44,7 +45,7 @@ namespace PawSharp.API.Exceptions;
 /// </remarks>
 /// </para>
 /// </summary>
-public sealed class DiscordApiException : Exception
+public sealed class DiscordApiException : DiscordException
 {
     /// <summary>
     /// Gets the HTTP status code returned by Discord, if available.

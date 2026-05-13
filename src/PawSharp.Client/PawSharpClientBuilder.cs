@@ -260,7 +260,7 @@ public sealed class PawSharpClientBuilder
         };
 
         var logFactory = _loggerFactory ?? NullLoggerFactory.Instance;
-        var cache      = _cache         ?? new MemoryCacheProvider();
+        var cache      = _cache         ?? new MemoryCacheProvider(logger: logFactory.CreateLogger<MemoryCacheProvider>());
         var http       = _httpClient    ?? new HttpClient(new SocketsHttpHandler
         {
             EnableMultipleHttp2Connections = true
