@@ -115,9 +115,14 @@ public enum GatewayIntents : uint
     DirectMessagePolls = 1 << 25,
 
     /// <summary>
+    /// Guild voice channel status update events (VOICE_CHANNEL_STATUS_UPDATE).
+    /// </summary>
+    GuildVoiceChannelStatusUpdates = 1 << 28,
+
+    /// <summary>
     /// All non-privileged intents.
     /// </summary>
-    AllNonPrivileged = Guilds | GuildModeration | GuildEmojisAndStickers | GuildIntegrations | GuildWebhooks | GuildInvites | GuildVoiceStates | GuildMessages | GuildMessageReactions | GuildMessageTyping | DirectMessages | DirectMessageReactions | DirectMessageTyping | GuildScheduledEvents | AutoModerationConfiguration | AutoModerationExecution | GuildMessagePolls | DirectMessagePolls,
+    AllNonPrivileged = Guilds | GuildModeration | GuildEmojisAndStickers | GuildIntegrations | GuildWebhooks | GuildInvites | GuildVoiceStates | GuildMessages | GuildMessageReactions | GuildMessageTyping | DirectMessages | DirectMessageReactions | DirectMessageTyping | GuildScheduledEvents | AutoModerationConfiguration | AutoModerationExecution | GuildMessagePolls | DirectMessagePolls | GuildVoiceChannelStatusUpdates,
 
     /// <summary>
     /// All intents (including privileged).
