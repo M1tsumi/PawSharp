@@ -2,6 +2,7 @@
 #pragma warning disable IDE0011
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -691,6 +692,40 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         ValidateSnowflake(overwriteId, nameof(overwriteId));
         var response = await DeleteAsync($"channels/{channelId}/permissions/{overwriteId}");
         return response.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// Gets the status of a voice channel.
+    /// </summary>
+    /// <param name="channelId">The voice channel ID.</param>
+    /// <returns>The voice channel status text, or null if none is set or the request fails.</returns>
+    public async Task<string?> GetVoiceChannelStatusAsync(ulong channelId)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        var response = await GetAsync($"channels/{channelId}/voice-status");
+        if (!response.IsSuccessStatusCode) return null;
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.TryGetProperty("status", out var statusProp))
+        {
+            return statusProp.ValueKind == JsonValueKind.Null ? null : statusProp.GetString();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Sets or clears the status of a voice channel.
+    /// </summary>
+    /// <param name="channelId">The voice channel ID.</param>
+    /// <param name="status">The status text (max 500 characters), or null to clear.</param>
+    /// <returns>The updated channel object, or null if the request fails.</returns>
+    public async Task<Channel?> SetVoiceChannelStatusAsync(ulong channelId, string? status)
+    {
+        ValidateSnowflake(channelId, nameof(channelId));
+        var payload = new { status };
+        var content = JsonContent(payload);
+        var response = await PatchAsync($"channels/{channelId}/voice-status", content);
+        return await HandleApiResponseAsync<Channel>("SetVoiceChannelStatusAsync", response);
     }
     
     // Guild operations
@@ -3072,36 +3107,80 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
+            try
+            {
+                var result = await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
+                if (result == null)
+                {
+                    _logger.LogWarning("Deserialization returned null for {Operation}: response body was empty or null", operation);
+                }
+                return result;
+            }
+            catch (JsonException ex)
+            {
+                var rawJson = await response.Content.ReadAsStringAsync();
+                _logger.LogError(ex, "Failed to deserialize JSON response for {Operation}. Raw JSON: {RawJson}", operation, LogSanitizer.SanitizeHttpErrorBody(rawJson));
+                throw new DeserializationException(
+                    $"Failed to deserialize response for {operation}. This may indicate an API schema mismatch.",
+                    rawJson,
+                    typeof(T),
+                    ex);
+            }
+            catch (Exception ex) when (ex is not DeserializationException and not DiscordException)
+            {
+                _logger.LogError(ex, "Unexpected error during deserialization for {Operation}", operation);
+                throw;
+            }
         }
 
         await LogSanitizedApiErrorAsync($"{operation} failed", response);
 
         if (_options.RestApi.ThrowOnApiError)
         {
+            var (discordErrorCode, discordErrorMessage) = await ParseDiscordErrorAsync(response);
             var statusCode = (System.Net.HttpStatusCode)response.StatusCode;
-            var errorBody = await response.Content.ReadAsStringAsync();
-            string? discordErrorCode = null;
-            string? discordErrorMessage = null;
-
-            try
-            {
-                using var doc = JsonDocument.Parse(errorBody);
-                if (doc.RootElement.TryGetProperty("code", out var codeElement))
-                {
-                    discordErrorCode = codeElement.GetInt32().ToString();
-                }
-                if (doc.RootElement.TryGetProperty("message", out var messageElement))
-                {
-                    discordErrorMessage = messageElement.GetString();
-                }
-            }
-            catch { /* Ignore parse errors */ }
-
-            throw PawSharp.API.Exceptions.DiscordApiException.FromResponse(statusCode, operation, "", discordErrorCode, discordErrorMessage);
+            throw PawSharp.API.Exceptions.DiscordApiException.FromResponse(statusCode, operation, response.RequestMessage?.RequestUri?.PathAndQuery ?? "", discordErrorCode, discordErrorMessage);
         }
 
         return null;
+    }
+
+    private static async Task<(string? Code, string? Message)> ParseDiscordErrorAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(errorBody))
+                return (null, null);
+
+            using var doc = JsonDocument.Parse(errorBody);
+            var root = doc.RootElement;
+
+            string? code = null;
+            string? message = null;
+
+            if (root.TryGetProperty("code", out var codeElement) && codeElement.ValueKind == JsonValueKind.Number)
+            {
+                code = codeElement.GetInt32().ToString();
+            }
+
+            if (root.TryGetProperty("message", out var messageElement) && messageElement.ValueKind == JsonValueKind.String)
+            {
+                message = messageElement.GetString();
+            }
+
+            // Discord sometimes returns errors in an "errors" nested object
+            if (message == null && root.TryGetProperty("errors", out var errorsElement))
+            {
+                message = errorsElement.GetRawText();
+            }
+
+            return (code, message);
+        }
+        catch
+        {
+            return (null, null);
+        }
     }
 
     /// <summary>
@@ -3118,8 +3197,9 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
         if (_options.RestApi.ThrowOnApiError)
         {
+            var (discordErrorCode, discordErrorMessage) = await ParseDiscordErrorAsync(response);
             var statusCode = (System.Net.HttpStatusCode)response.StatusCode;
-            throw PawSharp.API.Exceptions.DiscordApiException.FromResponse(statusCode, operation, "");
+            throw PawSharp.API.Exceptions.DiscordApiException.FromResponse(statusCode, operation, response.RequestMessage?.RequestUri?.PathAndQuery ?? "", discordErrorCode, discordErrorMessage);
         }
 
         return response;
@@ -3206,8 +3286,43 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         {
             request.Headers.Add("X-Audit-Log-Reason", Uri.EscapeDataString(reason));
         }
-        
-        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        var sanitizedEndpoint = LogSanitizer.RedactSensitiveEndpoint(endpoint);
+        _logger.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.ApiRequestStarted, method.Method, sanitizedEndpoint);
+
+        var stopwatch = Stopwatch.StartNew();
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.SendAsync(request, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "HTTP request failed: {Method} {Endpoint} after {DurationMs}ms - {Message}",
+                method.Method, sanitizedEndpoint, stopwatch.ElapsedMilliseconds, ex.Message);
+            throw new DiscordException($"HTTP request failed for {method.Method} {sanitizedEndpoint}", ex);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            stopwatch.Stop();
+            _logger.LogWarning("HTTP request timed out: {Method} {Endpoint} after {DurationMs}ms",
+                method.Method, sanitizedEndpoint, stopwatch.ElapsedMilliseconds);
+            throw new DiscordException($"HTTP request timed out for {method.Method} {sanitizedEndpoint}", ex);
+        }
+        stopwatch.Stop();
+
+        var statusCode = (int)response.StatusCode;
+        if (response.IsSuccessStatusCode)
+        {
+            _logger.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.ApiRequestCompleted,
+                method.Method, sanitizedEndpoint, statusCode, stopwatch.ElapsedMilliseconds);
+        }
+        else
+        {
+            _logger.LogWarning(PawSharp.Core.Logging.PawSharpLogEvents.ApiRequestFailed,
+                method.Method, sanitizedEndpoint, statusCode);
+        }
 
         // Parse rate limit headers and update limiter
         ParseAndUpdateRateLimits(response, route, ref bucketHash);
@@ -3275,7 +3390,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
            && bool.TryParse(values.FirstOrDefault(), out var parsed)
            && parsed;
 
-    private static async Task<TimeSpan> GetRetryAfterDelayAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task<TimeSpan> GetRetryAfterDelayAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.Headers.RetryAfter?.Delta is { } headerDelay && headerDelay > TimeSpan.Zero)
         {
@@ -3303,8 +3418,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         }
         catch (Exception ex)
         {
-            // Ignore malformed/unexpected payloads and use a safe fallback.
-            System.Diagnostics.Debug.WriteLine($"Rate limit parse error, using fallback: {ex.Message}");
+            _logger.LogWarning(ex, "Rate limit parse error, using 1-second fallback");
         }
 
         return TimeSpan.FromSeconds(1);

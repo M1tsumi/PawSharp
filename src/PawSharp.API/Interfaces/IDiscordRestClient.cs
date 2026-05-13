@@ -100,6 +100,21 @@ public interface IDiscordRestClient
     Task<Invite?> CreateChannelInviteAsync(ulong channelId, CreateInviteRequest request);
     Task<bool> DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId);
     
+    /// <summary>
+    /// Gets the status of a voice channel.
+    /// </summary>
+    /// <param name="channelId">The voice channel ID.</param>
+    /// <returns>The voice channel status text, or null if none is set.</returns>
+    Task<string?> GetVoiceChannelStatusAsync(ulong channelId);
+    
+    /// <summary>
+    /// Sets or clears the status of a voice channel.
+    /// </summary>
+    /// <param name="channelId">The voice channel ID.</param>
+    /// <param name="status">The status text (max 500 characters), or null to clear.</param>
+    /// <returns>The updated channel object.</returns>
+    Task<Channel?> SetVoiceChannelStatusAsync(ulong channelId, string? status);
+    
     // Guild operations
     Task<Guild?> GetGuildAsync(ulong guildId, bool withCounts = false);
     Task<Guild?> CreateGuildAsync(CreateGuildRequest request);
