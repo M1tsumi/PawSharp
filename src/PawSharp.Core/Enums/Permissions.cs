@@ -52,6 +52,11 @@ public enum Permissions : ulong
     ModerateMembers = 1UL << 40,
     ViewCreatorMonetizationAnalytics = 1UL << 41,
     UseSoundboard = 1UL << 42,
+    CreateGuildExpressions = 1UL << 43,
+    CreateEvents = 1UL << 44,
     UseExternalSounds = 1UL << 45,
-    SendVoiceMessages = 1UL << 46
+    SendVoiceMessages = 1UL << 46,
+    SetVoiceChannelStatus = 1UL << 47,
+    SendPolls = 1UL << 48,
+    UseExternalApps = 1UL << 49
 }
