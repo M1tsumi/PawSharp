@@ -76,7 +76,7 @@ namespace PawSharp.Gateway.Events
             if (_disposed)
                 throw new ObjectDisposedException(nameof(EventDispatchQueue));
 
-            await _channel.Writer.WriteAsync(item);
+            await _channel.Writer.WriteAsync(item).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -91,11 +91,11 @@ namespace PawSharp.Gateway.Events
         {
             if (_enableParallelDispatch)
             {
-                await ProcessQueueParallelAsync();
+                await ProcessQueueParallelAsync().ConfigureAwait(false);
             }
             else
             {
-                await ProcessQueueSequentialAsync();
+                await ProcessQueueSequentialAsync().ConfigureAwait(false);
             }
         }
 
@@ -104,11 +104,11 @@ namespace PawSharp.Gateway.Events
         /// </summary>
         private async Task ProcessQueueSequentialAsync()
         {
-            await foreach (var item in _channel.Reader.ReadAllAsync())
+            await foreach (var item in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
             {
                 try
                 {
-                    await DispatchItemAsync(item);
+                    await DispatchItemAsync(item).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -125,15 +125,15 @@ namespace PawSharp.Gateway.Events
             var semaphore = new System.Threading.SemaphoreSlim(_maxDegreeOfParallelism);
             var tasks = new System.Collections.Concurrent.ConcurrentBag<Task>();
 
-            await foreach (var item in _channel.Reader.ReadAllAsync())
+            await foreach (var item in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
             {
-                await semaphore.WaitAsync();
+                await semaphore.WaitAsync().ConfigureAwait(false);
                 
                 var task = Task.Run(async () =>
                 {
                     try
                     {
-                        await DispatchItemAsync(item);
+                        await DispatchItemAsync(item).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -149,7 +149,7 @@ namespace PawSharp.Gateway.Events
             }
 
             // Wait for all remaining tasks to complete
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -162,12 +162,12 @@ namespace PawSharp.Gateway.Events
             if (item.EventData is GatewayEvent gatewayEvent)
             {
                 // Use the non-generic typed dispatch method for AOT compatibility
-                await _dispatcher.DispatchTypedAsync(item.EventName, gatewayEvent, item.RawJson);
+                await _dispatcher.DispatchTypedAsync(item.EventName, gatewayEvent, item.RawJson).ConfigureAwait(false);
             }
             else if (item.RawJson != null)
             {
                 // Fallback to raw dispatch when typed data is not available
-                await _dispatcher.DispatchRawAsync(item.EventName, item.RawJson);
+                await _dispatcher.DispatchRawAsync(item.EventName, item.RawJson).ConfigureAwait(false);
             }
         }
 
@@ -179,7 +179,7 @@ namespace PawSharp.Gateway.Events
             {
                 try
                 {
-                    await _processingTask.WaitAsync(TimeSpan.FromSeconds(5));
+                    await _processingTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                 }
                 catch (TimeoutException)
                 {

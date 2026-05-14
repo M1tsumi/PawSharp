@@ -96,7 +96,7 @@ namespace PawSharp.Gateway.Connection
                 _compression.Initialize();
             }
             
-            await _webSocket.ConnectAsync(uri, cancellationToken);
+            await _webSocket.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task DisconnectAsync(CancellationToken cancellationToken)
@@ -113,7 +113,7 @@ namespace PawSharp.Gateway.Connection
                     {
                         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                         cts.CancelAfter(TimeSpan.FromSeconds(5)); // 5 second timeout for close handshake
-                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cts.Token);
+                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException ex) when (ex.CancellationToken != cancellationToken)
                     {
@@ -150,7 +150,7 @@ namespace PawSharp.Gateway.Connection
         public async Task SendAsync(string message, CancellationToken cancellationToken)
         {
             var buffer = Encoding.UTF8.GetBytes(message);
-            await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, cancellationToken);
+            await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<string> ReceiveAsync(CancellationToken cancellationToken)
@@ -169,7 +169,7 @@ namespace PawSharp.Gateway.Connection
 
                 do
                 {
-                    result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                    result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken).ConfigureAwait(false);
                     if (result.MessageType == WebSocketMessageType.Text)
                     {
                         if (_useCompression && _compression != null)
@@ -242,7 +242,7 @@ namespace PawSharp.Gateway.Connection
                         _webSocket.State == WebSocketState.CloseSent)
                     {
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token);
+                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token).ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)

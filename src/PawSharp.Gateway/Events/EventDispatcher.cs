@@ -149,12 +149,12 @@ namespace PawSharp.Gateway.Events
                     EventData = eventData,
                     RawJson = rawJson,
                     EventType = typeof(TEvent)
-                });
+                }).ConfigureAwait(false);
                 return;
             }
 
             // Direct dispatch (legacy behavior)
-            await DispatchDirectAsync(eventName, eventData, rawJson);
+            await DispatchDirectAsync(eventName, eventData, rawJson).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -169,9 +169,9 @@ namespace PawSharp.Gateway.Events
             lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
             foreach (var mw in middlewareCopy)
             {
-                try 
-                { 
-                    await mw(eventName, eventData); 
+                try
+                {
+                    await mw(eventName, eventData).ConfigureAwait(false);
                 }
                 catch (EventFilteredException)
                 {
@@ -179,9 +179,9 @@ namespace PawSharp.Gateway.Events
                     sw.Stop();
                     return;
                 }
-                catch (Exception ex) 
-                { 
-                    _logger?.LogError(ex, "Error in event middleware for {Event}", eventName); 
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error in event middleware for {Event}", eventName);
                 }
             }
 
@@ -204,7 +204,7 @@ namespace PawSharp.Gateway.Events
                             using var cts = new System.Threading.CancellationTokenSource(_handlerTimeoutMs);
                             try
                             {
-                                await asyncHandler(eventData).WaitAsync(cts.Token);
+                                await asyncHandler(eventData).WaitAsync(cts.Token).ConfigureAwait(false);
                             }
                             catch (TimeoutException)
                             {
@@ -213,7 +213,7 @@ namespace PawSharp.Gateway.Events
                         }
                         else
                         {
-                            await asyncHandler(eventData);
+                            await asyncHandler(eventData).ConfigureAwait(false);
                         }
                     }
                     else if (handler is Action<TEvent> syncHandler)
@@ -247,19 +247,19 @@ namespace PawSharp.Gateway.Events
                     : JsonSerializer.Deserialize<TEvent>(json, _jsonOptions);
                 
                 if (eventData != null)
-                    await DispatchAsync(eventName, eventData, json);
+                    await DispatchAsync(eventName, eventData, json).ConfigureAwait(false);
             }
             catch (JsonException ex)
             {
                 _logger?.LogError(ex,
                     "Failed to deserialize {Event} event (JSON length: {Len}). Falling back to raw dispatch.",
                     eventName, json?.Length ?? 0);
-                await DispatchRawAsync(eventName, json);
+                await DispatchRawAsync(eventName, json).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Unexpected error dispatching {Event} event", eventName);
-                await DispatchRawAsync(eventName, json);
+                await DispatchRawAsync(eventName, json).ConfigureAwait(false);
             }
         }
 
@@ -272,7 +272,7 @@ namespace PawSharp.Gateway.Events
             lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
             foreach (var mw in middlewareCopy)
             {
-                try { await mw(eventName, json); }
+                try { await mw(eventName, json).ConfigureAwait(false); }
                 catch (Exception ex) { _logger?.LogError(ex, "Error in middleware for raw {Event}", eventName); }
             }
 
@@ -338,7 +338,7 @@ namespace PawSharp.Gateway.Events
                     switch (handler)
                     {
                         case Func<GatewayEvent, Task> asyncHandler:
-                            await asyncHandler(eventData);
+                            await asyncHandler(eventData).ConfigureAwait(false);
                             break;
                         case Action<GatewayEvent> syncHandler:
                             syncHandler(eventData);
@@ -351,7 +351,7 @@ namespace PawSharp.Gateway.Events
                             // This handles cases where handler is Func<SpecificEventType, Task>
                             var result = handler.DynamicInvoke(eventData);
                             if (result is Task task)
-                                await task;
+                                await task.ConfigureAwait(false);
                             break;
                     }
                 }
