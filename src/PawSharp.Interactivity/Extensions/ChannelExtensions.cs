@@ -87,9 +87,9 @@ public static class ChannelExtensions
             {
                 await client.Rest.DeleteUserReactionAsync(channel.Id, message.Id, emojiName, user.Id);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Reaction cleanup failed: {ex.Message}");
+                // Reaction cleanup failed — safe to ignore
             }
 
             var previousPage = currentPage;
@@ -101,8 +101,8 @@ public static class ChannelExtensions
             else if (emojiName == emojis.Stop)  { tcs.TrySetResult(true); return; }
             else
             {
-                System.Diagnostics.Debug.WriteLine($"Unrecognised emoji in pagination: {emojiName}");
-                return; // unrecognised emoji — ignore
+                // unrecognised emoji — ignore
+                return;
             }
 
             if (currentPage == previousPage) return; // no-op (already at boundary)
@@ -123,9 +123,9 @@ public static class ChannelExtensions
                     await callbacks.OnPageChanged(currentPage, pageList[currentPage]);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Message edit failed: {ex.Message}");
+                // Message edit failed — safe to ignore
             }
         }
 
@@ -151,9 +151,9 @@ public static class ChannelExtensions
             if (behaviour == PollBehaviour.DeleteEmojis)
             {
                 try { await client.Rest.DeleteAllReactionsAsync(channel.Id, message.Id); }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Pagination cleanup failed: {ex.Message}");
+                    // Pagination cleanup failed — safe to ignore
                 }
             }
         }

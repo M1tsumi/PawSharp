@@ -56,18 +56,27 @@ namespace PawSharp.Cache.Distribution
         public void StopListening()
         {
             _cancellationTokenSource.Cancel();
-            
+
             if (_listenerTask != null)
             {
-                try
-                {
-                    _listenerTask.Wait(TimeSpan.FromSeconds(5));
-                }
-                catch (OperationCanceledException)
-                {
-                    // Expected
-                }
+                // Fire-and-forget with timeout to avoid blocking the caller thread.
+                var taskToWait = _listenerTask;
                 _listenerTask = null;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await taskToWait.WaitAsync(TimeSpan.FromSeconds(5));
+                    }
+                    catch (TimeoutException)
+                    {
+                        // Listener did not stop within timeout
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected
+                    }
+                });
             }
         }
 

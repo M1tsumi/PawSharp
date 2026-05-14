@@ -18,6 +18,28 @@ using PawSharp.Gateway.Serialization;
 
 namespace PawSharp.Gateway
 {
+    /// <summary>
+    /// Discord Gateway close event codes.
+    /// See https://discord.com/developers/docs/topics/opcodes-and-status-codes#gateway-close-event-codes
+    /// </summary>
+    public enum GatewayCloseCode
+    {
+        UnknownOpcode = 4001,
+        DecodeError = 4002,
+        NotAuthenticated = 4003,
+        AuthenticationFailed = 4004,
+        AlreadyAuthenticated = 4005,
+        InvalidSequence = 4007,
+        RateLimited = 4008,
+        SessionTimedOut = 4009,
+        InvalidShard = 4010,
+        ShardingRequired = 4011,
+        InvalidApiVersion = 4012,
+        InvalidIntent = 4013,
+        DisallowedIntent = 4014,
+        VoiceServerCrashed = 4015
+    }
+
     public class GatewayClient : IGatewayClient
     {
         private readonly PawSharpOptions _options;
@@ -115,9 +137,10 @@ namespace PawSharp.Gateway
             _metrics = metrics;
             _restClient = restClient;
             _webSocket = new WebSocketConnection(
-                options.EnableCompression, 
+                options.EnableCompression,
                 options.EventDispatch.EnableArrayPooling,
-                options.WebSocketBufferSizeKb);
+                options.WebSocketBufferSizeKb,
+                logger != null ? new Logger<WebSocketConnection>(logger) : null);
             _heartbeatManager = new HeartbeatManager(0, SendHeartbeatAsync, logger, _options.MaxMissedHeartbeatAcks);
             _eventDispatcher = new EventDispatcher(
                 logger,
@@ -532,52 +555,52 @@ namespace PawSharp.Gateway
                         // See https://docs.discord.com/developers/topics/opcodes-and-status-codes#gateway-close-event-codes
                         if (closeCode >= 4000)
                         {
-                            switch (closeCode)
+                            switch ((GatewayCloseCode)closeCode)
                             {
-                                case 4001: // Unknown opcode
-                                case 4002: // Decode error
-                                case 4005: // Already authenticated
+                                case GatewayCloseCode.UnknownOpcode:
+                                case GatewayCloseCode.DecodeError:
+                                case GatewayCloseCode.AlreadyAuthenticated:
                                     _logger.LogError("Gateway protocol error ({CloseCode}) - re-identifying", closeCode);
                                     _resumeSessionId = null;
                                     _resumeSequence = null;
                                     break;
-                                    
-                                case 4003: // Not authenticated
-                                case 4004: // Authentication failed
+
+                                case GatewayCloseCode.NotAuthenticated:
+                                case GatewayCloseCode.AuthenticationFailed:
                                     _logger.LogError("Gateway authentication failed ({CloseCode}) - check token", closeCode);
                                     await SetStateAsync(GatewayState.Failed);
                                     return; // Don't reconnect on auth failure
-                                    
-                                case 4007: // Invalid seq
-                                case 4009: // Session timed out
+
+                                case GatewayCloseCode.InvalidSequence:
+                                case GatewayCloseCode.SessionTimedOut:
                                     _logger.LogWarning("Gateway session invalid ({CloseCode}) - starting fresh", closeCode);
                                     _resumeSessionId = null;
                                     _resumeSequence = null;
                                     break;
-                                    
-                                case 4008: // Rate limited
+
+                                case GatewayCloseCode.RateLimited:
                                     _logger.LogWarning("Gateway rate limited - waiting before reconnect");
                                     await Task.Delay(5000);
                                     break;
-                                    
-                                case 4010: // Invalid shard
-                                case 4011: // Sharding required
+
+                                case GatewayCloseCode.InvalidShard:
+                                case GatewayCloseCode.ShardingRequired:
                                     _logger.LogError("Gateway sharding error ({CloseCode}) - check shard configuration", closeCode);
                                     await SetStateAsync(GatewayState.Failed);
                                     return;
-                                    
-                                case 4012: // Invalid API version
+
+                                case GatewayCloseCode.InvalidApiVersion:
                                     _logger.LogError("Invalid API version - update client");
                                     await SetStateAsync(GatewayState.Failed);
                                     return;
-                                    
-                                case 4013: // Invalid intent(s)
-                                case 4014: // Disallowed intent(s)
+
+                                case GatewayCloseCode.InvalidIntent:
+                                case GatewayCloseCode.DisallowedIntent:
                                     _logger.LogError("Gateway intent error ({CloseCode}) - check intent configuration", closeCode);
                                     await SetStateAsync(GatewayState.Failed);
                                     return;
 
-                                case 4015: // Voice server crashed
+                                case GatewayCloseCode.VoiceServerCrashed:
                                     _logger.LogWarning("Voice server crashed ({CloseCode}) - reconnecting", closeCode);
                                     break;
                                     

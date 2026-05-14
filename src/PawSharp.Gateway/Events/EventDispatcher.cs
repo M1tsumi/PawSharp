@@ -254,12 +254,12 @@ namespace PawSharp.Gateway.Events
                 _logger?.LogError(ex,
                     "Failed to deserialize {Event} event (JSON length: {Len}). Falling back to raw dispatch.",
                     eventName, json?.Length ?? 0);
-                await DispatchRawAsync(eventName, json!);
+                await DispatchRawAsync(eventName, json);
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Unexpected error dispatching {Event} event", eventName);
-                await DispatchRawAsync(eventName, json!);
+                await DispatchRawAsync(eventName, json);
             }
         }
 

@@ -174,7 +174,22 @@ namespace PawSharp.Gateway.Events
         public void Dispose()
         {
             _channel.Writer.Complete();
-            _processingTask.Wait(TimeSpan.FromSeconds(5));
+            // Fire-and-forget with timeout to avoid blocking the caller thread.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _processingTask.WaitAsync(TimeSpan.FromSeconds(5));
+                }
+                catch (TimeoutException)
+                {
+                    _logger?.LogWarning("Event dispatch queue did not drain within 5 seconds during dispose");
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger?.LogError(ex, "Error waiting for event dispatch queue to complete");
+                }
+            });
         }
     }
 }

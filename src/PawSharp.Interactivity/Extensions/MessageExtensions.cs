@@ -399,9 +399,9 @@ public static class MessageExtensions
                 {
                     // Cancellation is expected
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Poll cleanup failed: {ex.Message}");
+                    // Poll cleanup failed — safe to ignore
                 }
             }, cancellationToken);
         }
@@ -445,9 +445,8 @@ public static class MessageExtensions
                 results[optionList[i]] = reaction?.Count ?? 0;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to get poll results: {ex.Message}");
             // Return empty results on error
             foreach (var option in optionList)
             {
@@ -490,17 +489,16 @@ public static class MessageExtensions
                         voters.AddRange(reactionUsers);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to get voters for option {optionList[i]}: {ex.Message}");
+                    // Failed to get voters for this option — safe to ignore
                 }
 
                 results[optionList[i]] = voters;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to get poll voters: {ex.Message}");
             // Return empty results on error
             foreach (var option in optionList)
             {

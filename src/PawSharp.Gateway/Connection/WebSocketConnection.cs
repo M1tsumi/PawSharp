@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace PawSharp.Gateway.Connection
 {
@@ -41,6 +42,7 @@ namespace PawSharp.Gateway.Connection
         private bool _disposed;
         private WebSocketCloseStatus? _closeStatus;
         private string? _closeStatusDescription;
+        private readonly ILogger<WebSocketConnection>? _logger;
 
         // zlib-stream transport compression uses a shared decompression context
         // across the connection for better compression ratios (up to 40% bandwidth savings).
@@ -51,14 +53,16 @@ namespace PawSharp.Gateway.Connection
         /// <param name="useCompression">Enable zlib-stream compression</param>
         /// <param name="useArrayPooling">Use ArrayPool for buffer management</param>
         /// <param name="bufferSizeKb">Receive buffer size in KB (default: 64)</param>
-        public WebSocketConnection(bool useCompression = false, bool useArrayPooling = true, int bufferSizeKb = 64)
+        /// <param name="logger">Optional logger for diagnostics</param>
+        public WebSocketConnection(bool useCompression = false, bool useArrayPooling = true, int bufferSizeKb = 64, ILogger<WebSocketConnection>? logger = null)
         {
             _webSocket = new ClientWebSocket();
             _useCompression = useCompression;
             _useArrayPooling = useArrayPooling;
+            _logger = logger;
             // Clamp buffer size between 4KB and 1024KB (1MB)
             _bufferSize = Math.Clamp(bufferSizeKb, 4, 1024) * 1024;
-            
+
             if (useCompression)
             {
                 _compression = new ZlibStreamCompression();
@@ -114,15 +118,15 @@ namespace PawSharp.Gateway.Connection
                     catch (OperationCanceledException ex) when (ex.CancellationToken != cancellationToken)
                     {
                         // Close handshake timed out, force abort
-                        System.Diagnostics.Debug.WriteLine($"WebSocket close handshake timed out: {ex.Message}");
+                        _logger?.LogWarning(ex, "WebSocket close handshake timed out");
                     }
                     catch (OperationCanceledException ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"WebSocket shutdown cancellation: {ex.Message}");
+                        _logger?.LogDebug(ex, "WebSocket shutdown cancelled");
                     }
                     catch (WebSocketException ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"WebSocket may have been torn down remotely: {ex.Message}");
+                        _logger?.LogWarning(ex, "WebSocket may have been torn down remotely");
                     }
                 }
             }
@@ -137,7 +141,7 @@ namespace PawSharp.Gateway.Connection
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error resetting compression context: {ex.Message}");
+                        _logger?.LogError(ex, "Error resetting compression context");
                     }
                 }
             }
@@ -226,40 +230,33 @@ namespace PawSharp.Gateway.Connection
         {
             if (_disposed) return;
             _disposed = true;
-            
-            try
+
+            // Fire-and-forget graceful close to avoid blocking the calling thread.
+            // Dispose() must remain synchronous per IDisposable contract.
+            _ = Task.Run(async () =>
             {
-                // Try to gracefully close if still connected
-                if (_webSocket.State == WebSocketState.Open ||
-                    _webSocket.State == WebSocketState.CloseReceived ||
-                    _webSocket.State == WebSocketState.CloseSent)
+                try
                 {
-                    try
+                    if (_webSocket.State == WebSocketState.Open ||
+                        _webSocket.State == WebSocketState.CloseReceived ||
+                        _webSocket.State == WebSocketState.CloseSent)
                     {
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                        _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token).GetAwaiter().GetResult();
-                    }
-                    catch
-                    {
-                        // Ignore any errors during graceful close in dispose
+                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token);
                     }
                 }
-            }
-            finally
-            {
-                // Always dispose resources even if graceful close fails
-                try
+                catch (Exception ex)
                 {
-                    _webSocket.Dispose();
+                    _logger?.LogDebug(ex, "Graceful WebSocket close during dispose failed");
                 }
-                catch { /* Ignore disposal errors */ }
-                
-                try
+                finally
                 {
-                    _compression?.Dispose();
+                    try { _webSocket.Dispose(); }
+                    catch { /* Ignore disposal errors */ }
+                    try { _compression?.Dispose(); }
+                    catch { /* Ignore disposal errors */ }
                 }
-                catch { /* Ignore disposal errors */ }
-            }
+            });
         }
     }
 }

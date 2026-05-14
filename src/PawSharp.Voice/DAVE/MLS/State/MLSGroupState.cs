@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using PawSharp.Voice.DAVE.MLS.Crypto;
 using PawSharp.Voice.DAVE.MLS.Encoding;
 using PawSharp.Voice.DAVE.MLS.Messages;
@@ -59,6 +60,14 @@ internal sealed class MLSGroupState : IDisposable
 
     // Pending proposals (queued between commits)
     private readonly List<Proposal> _pendingProposals = new();
+    private readonly ILogger<MLSGroupState>? _logger;
+
+    // ── Constructors ─────────────────────────────────────────────────────────
+
+    public MLSGroupState(ILogger<MLSGroupState>? logger = null)
+    {
+        _logger = logger;
+    }
 
     // ── Public properties ─────────────────────────────────────────────────────
 
@@ -251,7 +260,7 @@ internal sealed class MLSGroupState : IDisposable
         {
             // HKDF rotation fallback: forward secrecy is maintained even if parse fails.
             // Log the error for debugging MLS protocol issues.
-            System.Diagnostics.Debug.WriteLine($"DAVE MLS Commit processing failed, using fallback: {ex.Message}");
+            _logger?.LogWarning(ex, "DAVE MLS Commit processing failed, using HKDF rotation fallback");
             _daveEpochSecret         = MlsHkdf.Extract(_daveEpochSecret!, commitBytes);
             _epochNumber++;
             _confirmedTranscriptHash = UpdateTranscriptHash(commitBytes);
