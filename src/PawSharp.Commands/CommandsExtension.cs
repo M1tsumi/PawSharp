@@ -115,7 +115,7 @@ public class CommandContext
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task RespondAsync(string content)
     {
-        await Client.Rest.CreateMessageAsync(ChannelId, new CreateMessageRequest { Content = content });
+        await Client.Rest.CreateMessageAsync(ChannelId, new CreateMessageRequest { Content = content }).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -125,7 +125,7 @@ public class CommandContext
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task RespondAsync(Embed embed)
     {
-        await Client.Rest.CreateMessageAsync(ChannelId, new CreateMessageRequest { Embeds = new List<Embed> { embed } });
+        await Client.Rest.CreateMessageAsync(ChannelId, new CreateMessageRequest { Embeds = new List<Embed> { embed } }).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -560,7 +560,7 @@ public class CommandsExtension
         }
 
         // Allow async initialization
-        await module.InitializeAsync();
+        await module.InitializeAsync().ConfigureAwait(false);
 
         var type = module.GetType();
         var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance);
@@ -650,7 +650,7 @@ public class CommandsExtension
                 // ── Precondition checks ─────────────────────────────────────────────────
                 foreach (var check in command.Preconditions)
                 {
-                    var result = await check.CheckAsync(ctx);
+                    var result = await check.CheckAsync(ctx).ConfigureAwait(false);
                     if (!result.IsSuccess)
                     {
                         _logger.LogDebug(
@@ -677,7 +677,7 @@ public class CommandsExtension
                 }
 
                 // ── Command Execution with Type Conversion ───────────────────────────────
-                await command.Module.BeforeExecutionAsync(ctx);
+                await command.Module.BeforeExecutionAsync(ctx).ConfigureAwait(false);
                 
                 var parameters = command.Method.GetParameters();
                 var argsArray = new object?[parameters.Length];
@@ -723,7 +723,7 @@ public class CommandsExtension
                         else
                         {
                             // Use type converter service
-                            var conversionResult = await _typeConverterService.ConvertAsync(paramType, argValue, ctx);
+                            var conversionResult = await _typeConverterService.ConvertAsync(paramType, argValue, ctx).ConfigureAwait(false);
                             if (conversionResult != null)
                             {
                                 argsArray[i] = conversionResult;
@@ -750,13 +750,13 @@ public class CommandsExtension
                 // Use compiled delegate if available, otherwise fall back to reflection
                 if (command.Delegate != null)
                 {
-                    await command.Delegate(command.Module, argsArray);
+                    await command.Delegate(command.Module, argsArray).ConfigureAwait(false);
                 }
                 else
                 {
                     await (Task)command.Method.Invoke(command.Module, argsArray)!;
                 }
-                await command.Module.AfterExecutionAsync(ctx);
+                await command.Module.AfterExecutionAsync(ctx).ConfigureAwait(false);
             });
         }
         catch (Exception ex)
@@ -813,9 +813,9 @@ public class CommandsExtension
             try
             {
                 if (guildId.HasValue)
-                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, registration.Request);
+                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, registration.Request).ConfigureAwait(false);
                 else
-                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, registration.Request);
+                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, registration.Request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -873,9 +873,9 @@ public class CommandsExtension
         try
         {
             if (guildId.HasValue)
-                await client.Rest.BulkOverwriteGuildApplicationCommandsAsync(applicationId, guildId.Value, requests);
+                await client.Rest.BulkOverwriteGuildApplicationCommandsAsync(applicationId, guildId.Value, requests).ConfigureAwait(false);
             else
-                await client.Rest.BulkOverwriteGlobalApplicationCommandsAsync(applicationId, requests);
+                await client.Rest.BulkOverwriteGlobalApplicationCommandsAsync(applicationId, requests).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1039,7 +1039,7 @@ public class CommandsExtension
             async interaction =>
             {
                 var args = BuildInvocationArguments(parameters, interaction, interaction.Data?.Options);
-                await InvokeSlashMethodWithErrorsAsync(client, module, method, args, slashAttr.Name, interaction);
+                await InvokeSlashMethodWithErrorsAsync(client, module, method, args, slashAttr.Name, interaction).ConfigureAwait(false);
             });
     }
 
@@ -1082,7 +1082,7 @@ public class CommandsExtension
                 }
 
                 var args = BuildInvocationArguments(target.Method.GetParameters(), interaction, invokedSubcommand.Options);
-                await InvokeSlashMethodWithErrorsAsync(client, module, target.Method, args, $"{groupAttr.Name} {target.Sub.Name}", interaction);
+                await InvokeSlashMethodWithErrorsAsync(client, module, target.Method, args, $"{groupAttr.Name} {target.Sub.Name}", interaction).ConfigureAwait(false);
             });
     }
 
@@ -1568,9 +1568,9 @@ public class CommandsExtension
             try
             {
                 if (guildId.HasValue)
-                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, request);
+                    await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId.Value, request).ConfigureAwait(false);
                 else
-                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, request);
+                    await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, request).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -1750,9 +1750,9 @@ public class CommandsExtension
         try
         {
             if (guildId.HasValue)
-                await client.Rest.BulkOverwriteGuildApplicationCommandsAsync(applicationId, guildId.Value, requests);
+                await client.Rest.BulkOverwriteGuildApplicationCommandsAsync(applicationId, guildId.Value, requests).ConfigureAwait(false);
             else
-                await client.Rest.BulkOverwriteGlobalApplicationCommandsAsync(applicationId, requests);
+                await client.Rest.BulkOverwriteGlobalApplicationCommandsAsync(applicationId, requests).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
