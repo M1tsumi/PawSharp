@@ -1005,20 +1005,6 @@ public static class EventDispatcherExtensions
     public static IDisposable OnIntegrationDelete(this EventDispatcher dispatcher, Action<IntegrationDeleteEvent> handler)
         => dispatcher.On("INTEGRATION_DELETE", handler);
 
-    // Voice Channel Status Events
-
-    /// <summary>
-    /// Subscribes to VOICE_CHANNEL_STATUS_UPDATE events.
-    /// </summary>
-    public static IDisposable OnVoiceChannelStatusUpdate(this EventDispatcher dispatcher, Func<VoiceChannelStatusUpdateEvent, Task> handler)
-        => dispatcher.On("VOICE_CHANNEL_STATUS_UPDATE", handler);
-
-    /// <summary>
-    /// Subscribes to VOICE_CHANNEL_STATUS_UPDATE events (synchronous).
-    /// </summary>
-    public static IDisposable OnVoiceChannelStatusUpdate(this EventDispatcher dispatcher, Action<VoiceChannelStatusUpdateEvent> handler)
-        => dispatcher.On("VOICE_CHANNEL_STATUS_UPDATE", handler);
-
     // User Events
 
     /// <summary>
