@@ -381,7 +381,7 @@ public static class MessageExtensions
         // Add reactions for voting
         for (int i = 0; i < optionList.Count; i++)
         {
-            await client.Rest.CreateReactionAsync(message.ChannelId, message.Id, pollEmojis[i]);
+            await client.Rest.CreateReactionAsync(message.ChannelId, message.Id, pollEmojis[i]).ConfigureAwait(false);
         }
 
         // Auto-cleanup after timeout
@@ -391,17 +391,18 @@ public static class MessageExtensions
             {
                 try
                 {
-                    await Task.Delay(timeout.Value, cancellationToken);
+                    await Task.Delay(timeout.Value, cancellationToken).ConfigureAwait(false);
                     // Clean up all reactions from this message
-                    await client.Rest.DeleteAllReactionsAsync(message.ChannelId, message.Id);
+                    await client.Rest.DeleteAllReactionsAsync(message.ChannelId, message.Id).ConfigureAwait(false);
                 }
-                catch (TaskCanceledException)
+                catch (OperationCanceledException)
                 {
                     // Cancellation is expected
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Poll cleanup failed: {ex.Message}");
+                    // Poll cleanup failed — log and ignore
+                    System.Diagnostics.Debug.WriteLine($"[MessageExtensions] Poll cleanup failed: {ex.Message}");
                 }
             }, cancellationToken);
         }
@@ -426,7 +427,7 @@ public static class MessageExtensions
         try
         {
             // Get the message with reactions
-            var updatedMessage = await client.Rest.GetMessageAsync(message.ChannelId, message.Id);
+            var updatedMessage = await client.Rest.GetMessageAsync(message.ChannelId, message.Id).ConfigureAwait(false);
             if (updatedMessage?.Reactions == null)
             {
                 // Initialize all options with 0 votes if no reactions
@@ -445,9 +446,8 @@ public static class MessageExtensions
                 results[optionList[i]] = reaction?.Count ?? 0;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to get poll results: {ex.Message}");
             // Return empty results on error
             foreach (var option in optionList)
             {
@@ -484,23 +484,22 @@ public static class MessageExtensions
                 try
                 {
                     // Get users who reacted with this emoji
-                    var reactionUsers = await client.Rest.GetReactionsAsync(message.ChannelId, message.Id, emoji);
+                    var reactionUsers = await client.Rest.GetReactionsAsync(message.ChannelId, message.Id, emoji).ConfigureAwait(false);
                     if (reactionUsers != null)
                     {
                         voters.AddRange(reactionUsers);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to get voters for option {optionList[i]}: {ex.Message}");
+                    // Failed to get voters for this option — safe to ignore
                 }
 
                 results[optionList[i]] = voters;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to get poll voters: {ex.Message}");
             // Return empty results on error
             foreach (var option in optionList)
             {
@@ -551,7 +550,7 @@ public static class MessageExtensions
         if (message.Poll == null)
             throw new InvalidOperationException("Message does not contain a poll.");
 
-        return await client.Rest.EndPollAsync(message.ChannelId, message.Id);
+        return await client.Rest.EndPollAsync(message.ChannelId, message.Id).ConfigureAwait(false);
     }
 
     // ── Component interaction waiting ─────────────────────────────────────────
@@ -806,7 +805,7 @@ public static class MessageExtensions
         CancellationToken cancellationToken = default)
     {
         // RadioGroup is a modal component, so we use WaitForModalAsync and extract the value
-        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken);
+        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken).ConfigureAwait(false);
 
         if (result.TimedOut || result.Result == null)
             return new InteractivityResult<string?> { TimedOut = true };
@@ -837,7 +836,7 @@ public static class MessageExtensions
         CancellationToken cancellationToken = default)
     {
         // CheckboxGroup is a modal component, so we use WaitForModalAsync and extract the values
-        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken);
+        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken).ConfigureAwait(false);
 
         if (result.TimedOut || result.Result == null)
             return new InteractivityResult<List<string>> { TimedOut = true };
@@ -868,7 +867,7 @@ public static class MessageExtensions
         CancellationToken cancellationToken = default)
     {
         // Checkbox is a modal component, so we use WaitForModalAsync and extract the value
-        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken);
+        var result = await WaitForModalAsync(message, client, user, customId, timeout, cancellationToken).ConfigureAwait(false);
 
         if (result.TimedOut || result.Result == null)
             return new InteractivityResult<bool?> { TimedOut = true };

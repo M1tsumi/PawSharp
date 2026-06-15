@@ -18,7 +18,7 @@ If you are building integrations, middleware, or custom abstractions, this packa
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Core --version 1.1.0-alpha.2
+dotnet add package PawSharp.Core --version 1.1.0-alpha.3
 ```
 
 ## Quick Start

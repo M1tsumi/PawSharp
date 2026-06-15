@@ -2,6 +2,8 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Net.Security;
+using System.Security.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PawSharp.API.Clients;
@@ -236,17 +238,51 @@ public sealed class PawSharpClientBuilder
         return this;
     }
 
+    // ── Factory ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Creates a new <see cref="PawSharpClientBuilder"/> with default settings.
+    /// </summary>
+    public static PawSharpClientBuilder Create()
+    {
+        return new PawSharpClientBuilder();
+    }
+
     // ── Build ──────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Validates configuration and constructs a fully wired <see cref="DiscordClient"/>.
+    /// Validates configuration and constructs a fully wired <see cref="IDiscordClient"/>.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when no token has been provided.</exception>
-    public DiscordClient Build()
+    /// <exception cref="InvalidOperationException">Thrown when the configuration is invalid.</exception>
+    /// <example>
+    /// <code>
+    /// var client = PawSharpClientBuilder.Create()
+    ///     .WithToken(Environment.GetEnvironmentVariable("DISCORD_TOKEN")!)
+    ///     .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+    ///     .UseConsoleLogging(LogLevel.Information)
+    ///     .Build();
+    /// 
+    /// await client.ConnectAsync();
+    /// </code>
+    /// </example>
+    public IDiscordClient Build()
     {
         if (string.IsNullOrWhiteSpace(_token))
             throw new InvalidOperationException(
-                "A bot token is required. Call WithToken(\"Bot YOUR_TOKEN\") before Build().");
+                "A bot token is required. Use WithToken() or set PawSharpOptions.Token " +
+                "before calling Build(). Tokens should be loaded from environment variables " +
+                "or a secure configuration source.");
+
+        if (_intents == GatewayIntents.None)
+            throw new InvalidOperationException(
+                "At least one gateway intent must be specified. Use WithIntents() or " +
+                "AddIntents() to configure which events your bot needs.");
+
+        int apiVersion = _apiVersion > 0 ? _apiVersion : 10;
+        if (apiVersion < PawSharpOptions.MinSupportedApiVersion || apiVersion > PawSharpOptions.MaxSupportedApiVersion)
+            throw new InvalidOperationException(
+                $"API version {apiVersion} is not supported. " +
+                $"Supported versions: {PawSharpOptions.MinSupportedApiVersion}-{PawSharpOptions.MaxSupportedApiVersion}.");
 
         var options = new PawSharpOptions
         {
@@ -260,10 +296,15 @@ public sealed class PawSharpClientBuilder
         };
 
         var logFactory = _loggerFactory ?? NullLoggerFactory.Instance;
-        var cache      = _cache         ?? new MemoryCacheProvider();
+        var cache      = _cache         ?? new MemoryCacheProvider(logger: logFactory.CreateLogger<MemoryCacheProvider>());
         var http       = _httpClient    ?? new HttpClient(new SocketsHttpHandler
         {
-            EnableMultipleHttp2Connections = true
+            EnableMultipleHttp2Connections = true,
+            SslOptions = new SslClientAuthenticationOptions
+            {
+                // Enforce TLS 1.2+ for secure Discord API communication
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
+            }
         })
         {
             DefaultRequestVersion = HttpVersion.Version20,

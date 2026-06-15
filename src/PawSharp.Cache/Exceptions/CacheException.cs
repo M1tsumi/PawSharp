@@ -1,12 +1,13 @@
 #nullable enable
 using System;
+using PawSharp.Core.Exceptions;
 
 namespace PawSharp.Cache.Exceptions
 {
     /// <summary>
     /// Base exception for cache-related errors.
     /// </summary>
-    public class CacheException : Exception
+    public class CacheException : DiscordException
     {
         /// <summary>
         /// The cache provider that threw the exception.

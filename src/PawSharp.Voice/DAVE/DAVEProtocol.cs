@@ -69,6 +69,9 @@ public sealed class DAVEProtocol : IDisposable
     /// <summary>Current MLS epoch number (advances on every Commit or Welcome).</summary>
     public ulong EpochNumber => _mls.EpochNumber;
 
+    /// <summary>Exposes the internal MLS state for testing.</summary>
+    internal MLSState MlsState => _mls;
+
     /// <summary>The local sender's SSRC (set from the voice Ready payload, op 2).</summary>
     public uint LocalSsrc
     {
@@ -142,11 +145,14 @@ public sealed class DAVEProtocol : IDisposable
                 break;
 
             case DAVEVoiceOpcode.DaveMlsExternalSenderPackage:
-                // Server sends the external sender’s MLS credential + HPKE key.
-                // We store it for commit-signature validation in future epochs.
+                // Server sends the external sender's MLS credential + HPKE key.
+                // Store it and pass to MLS for commit-signature validation.
                 var extBytes = ExtractBinaryPayload(data);
                 if (extBytes != null)
+                {
                     _externalSenderPackage = extBytes;
+                    _mls.SetExternalSenderPackage(extBytes);
+                }
                 break;
 
             case DAVEVoiceOpcode.DaveMlsAnnounceCommitTransition:
@@ -280,9 +286,17 @@ public sealed class DAVEProtocol : IDisposable
     {
         _active = false;
         _transitionPending = false;
+        var savedExtSender = _externalSenderPackage;
         _externalSenderPackage = null;
         Interlocked.Exchange(ref _outgoingFrameCounter, 0L);
         _mls.Reset();
+        // Restore the external sender package so it's available for the next
+        // group entry without requiring the server to re-send op 31.
+        if (savedExtSender != null)
+        {
+            _externalSenderPackage = savedExtSender;
+            _mls.SetExternalSenderPackage(savedExtSender);
+        }
     }
 
     public void Dispose()

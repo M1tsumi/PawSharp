@@ -89,7 +89,7 @@ namespace PawSharp.Gateway.Heartbeat
                 var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(5);
                 try
                 {
-                    await _heartbeatTask.WaitAsync(effectiveTimeout);
+                    await _heartbeatTask.WaitAsync(effectiveTimeout).ConfigureAwait(false);
                 }
                 catch (TimeoutException)
                 {
@@ -126,7 +126,7 @@ namespace PawSharp.Gateway.Heartbeat
             _missedAcks = 0;
             _logger?.LogDebug("Heartbeat ACK received - connection healthy");
             if (OnHeartbeatAckReceived is { } ackHandler)
-                await ackHandler();
+                await ackHandler().ConfigureAwait(false);
         }
 
         private async Task RunHeartbeatLoopAsync(CancellationToken cancellationToken)
@@ -134,7 +134,7 @@ namespace PawSharp.Gateway.Heartbeat
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(_heartbeatInterval));
             try
             {
-                while (await timer.WaitForNextTickAsync(cancellationToken))
+                while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
                 {
                     try
                     {
@@ -147,7 +147,7 @@ namespace PawSharp.Gateway.Heartbeat
                             {
                                 _logger?.LogError("Connection is zombie - no heartbeat ACKs received!");
                                 if (OnZombieConnection is { } zombieHandler)
-                                    await zombieHandler();
+                                    await zombieHandler().ConfigureAwait(false);
                             }
                         }
                         else
@@ -155,9 +155,9 @@ namespace PawSharp.Gateway.Heartbeat
                             _ackReceived = false; // Expect a new ACK after the next heartbeat
                         }
 
-                        await _sendHeartbeat();
+                        await _sendHeartbeat().ConfigureAwait(false);
                         if (OnHeartbeatSent is { } sentHandler)
-                            await sentHandler();
+                            await sentHandler().ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -184,7 +184,7 @@ namespace PawSharp.Gateway.Heartbeat
             try
             {
                 // Apply initial jitter delay
-                await Task.Delay(initialDelayMs, cancellationToken);
+                await Task.Delay(initialDelayMs, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -194,10 +194,10 @@ namespace PawSharp.Gateway.Heartbeat
             // Send first heartbeat after jitter
             try
             {
-                await _sendHeartbeat();
+                await _sendHeartbeat().ConfigureAwait(false);
                 _ackReceived = false;
                 if (OnHeartbeatSent is { } sentHandler)
-                    await sentHandler();
+                    await sentHandler().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -205,7 +205,7 @@ namespace PawSharp.Gateway.Heartbeat
             }
 
             // Continue with regular heartbeat loop
-            await RunHeartbeatLoopAsync(cancellationToken);
+            await RunHeartbeatLoopAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }

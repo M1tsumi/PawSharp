@@ -27,29 +27,29 @@ public class MLSStateTests : IDisposable
 
     // ── ProcessWelcome ────────────────────────────────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void ProcessWelcome_SetsIsInitializedTrue()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01, 0x02, 0x03, 0x04 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
 
         _state.IsInitialized.Should().BeTrue();
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void ProcessWelcome_SetsEpochTo1()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0xAB, 0xCD });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
 
         _state.EpochNumber.Should().Be(1);
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void ProcessWelcome_PopulatesEpochSecret_As32Bytes()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
 
         _state.EpochSecret.Should().NotBeNull();
         _state.EpochSecret!.Length.Should().Be(32);
@@ -72,34 +72,34 @@ public class MLSStateTests : IDisposable
 
     // ── ProcessCommit ─────────────────────────────────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void ProcessCommit_AdvancesEpochNumber()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
-        _state.ProcessCommit(new byte[] { 0x02 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
+        _state.ProcessCommit(DAVETestData.CreateEmptyCommit());
 
         _state.EpochNumber.Should().Be(2);
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void ProcessCommit_ChangesEpochSecret()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
         var secretAfterWelcome = (byte[])_state.EpochSecret!.Clone();
 
-        _state.ProcessCommit(new byte[] { 0x02, 0x03 });
+        _state.ProcessCommit(DAVETestData.CreateEmptyCommit());
 
         _state.EpochSecret.Should().NotBeEquivalentTo(secretAfterWelcome,
             "each commit must rotate the epoch secret");
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void ProcessCommit_EmptyPayload_ThrowsArgumentException()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
         Action act = () => _state.ProcessCommit(Array.Empty<byte>());
         act.Should().Throw<ArgumentException>();
     }
@@ -113,22 +113,22 @@ public class MLSStateTests : IDisposable
         act.Should().Throw<InvalidOperationException>();
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void GetSenderKey_Returns16Bytes()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
 
         var key = _state.GetSenderKey(ssrc: 0xDEAD);
 
         key.Should().HaveCount(16);
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void GetSenderKey_SameSsrc_ReturnsSameKey()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
 
         var k1 = _state.GetSenderKey(ssrc: 100);
         var k2 = _state.GetSenderKey(ssrc: 100);
@@ -136,11 +136,11 @@ public class MLSStateTests : IDisposable
         k1.Should().BeEquivalentTo(k2, "cached keys must be stable within an epoch");
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void GetSenderKey_DifferentSsrcs_ReturnDifferentKeys()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
 
         var k1 = _state.GetSenderKey(ssrc: 1);
         var k2 = _state.GetSenderKey(ssrc: 2);
@@ -150,14 +150,14 @@ public class MLSStateTests : IDisposable
 
     // ── Key cache invalidation on epoch advance ───────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void AfterCommit_GetSenderKey_ReturnsDifferentKeyThanPreviousEpoch()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x01 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
         var keyEpoch1 = (byte[])_state.GetSenderKey(ssrc: 5).Clone();
 
-        _state.ProcessCommit(new byte[] { 0x02 });
+        _state.ProcessCommit(DAVETestData.CreateEmptyCommit());
         var keyEpoch2 = _state.GetSenderKey(ssrc: 5);
 
         keyEpoch2.Should().NotBeEquivalentTo(keyEpoch1,
@@ -166,14 +166,14 @@ public class MLSStateTests : IDisposable
 
     // ── Multiple commits ──────────────────────────────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public void MultipleCommits_EachAdvancesEpochByOne()
     {
-        _state.GenerateKeyPackage(new byte[] { 0x01 });
-        _state.ProcessWelcome(new byte[] { 0x00 });
-        _state.ProcessCommit(new byte[] { 0x01 });
-        _state.ProcessCommit(new byte[] { 0x02 });
-        _state.ProcessCommit(new byte[] { 0x03 });
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_state);
+        _state.ProcessWelcome(welcomeBytes);
+        _state.ProcessCommit(DAVETestData.CreateEmptyCommit());
+        _state.ProcessCommit(DAVETestData.CreateEmptyCommit());
+        _state.ProcessCommit(DAVETestData.CreateEmptyCommit());
 
         _state.EpochNumber.Should().Be(4);
     }

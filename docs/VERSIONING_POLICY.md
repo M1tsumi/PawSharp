@@ -30,7 +30,7 @@ PawSharp uses **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH[-pre-release]`).
 ### Pre-release identifiers (in order of maturity)
 
 ```
-1.1.0-alpha.2   ← early development, APIs may change freely
+1.1.0-alpha.3   ← early development, APIs may change freely
 6.1.0-beta-1    ← feature-complete, undergoing stabilisation
 6.1.0-rc-1      ← release candidate, only critical fixes
 6.1.0           ← stable release

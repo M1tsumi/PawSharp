@@ -6,9 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PawSharp.Client;
 using PawSharp.Commands;
+using PawSharp.Commands.Extensions;
+using PawSharp.Core.Builders;
 using PawSharp.Core.Models;
 using PawSharp.Core.Enums;
-using PawSharp.Interactivity;
 using PawSharp.Voice;
 
 namespace MusicBot;
@@ -30,21 +31,20 @@ public class Program
         };
 
         services.SetupPawSharp(options);
-        services.AddPawSharpCommands();
-        services.AddPawSharpInteractivity();
+        services.AddCommands();
+        services.AddSingleton<MusicService>();
 
         var serviceProvider = services.BuildServiceProvider();
 
-        // Get the Discord client and music player service
-        var client = serviceProvider.GetRequiredService<DiscordClient>();
+        // Get the Discord client, music service, and logger
+        var client = serviceProvider.GetRequiredService<IDiscordClient>();
         var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-        
-        // Create and register the music service
-        var musicService = new MusicService(client, logger);
+        var musicService = serviceProvider.GetRequiredService<MusicService>();
 
         // Register commands
-        var commandService = serviceProvider.GetRequiredService<CommandService>();
-        await commandService.AddModuleAsync<MusicCommands>(serviceProvider);
+        var commandsExtension = client.UseCommands();
+        var musicCommands = new MusicCommands(client, logger, musicService);
+        commandsExtension.RegisterModule(client, musicCommands);
 
         // Connect
         try
@@ -69,11 +69,11 @@ public class Program
 /// </summary>
 public class MusicService
 {
-    private readonly DiscordClient _client;
+    private readonly IDiscordClient _client;
     private readonly ILogger _logger;
     private readonly Dictionary<ulong, GuildMusicPlayer> _players = new();
 
-    public MusicService(DiscordClient client, ILogger logger)
+    public MusicService(IDiscordClient client, ILogger logger)
     {
         _client = client;
         _logger = logger;
@@ -154,18 +154,17 @@ public class GuildMusicPlayer
     }
 }
 
-[CommandModule("music")]
-public class MusicCommands : CommandModule
+public class MusicCommands : BaseCommandModule
 {
     private readonly MusicService _musicService;
-    private readonly DiscordClient _client;
+    private readonly IDiscordClient _client;
     private readonly ILogger _logger;
 
-    public MusicCommands(DiscordClient client, ILogger logger)
+    public MusicCommands(IDiscordClient client, ILogger logger, MusicService musicService)
     {
         _client = client;
         _logger = logger;
-        _musicService = new MusicService(client, logger);
+        _musicService = musicService;
     }
 
     private GuildMusicPlayer GetPlayer() 
@@ -309,7 +308,7 @@ public class MusicCommands : CommandModule
         var embed = new EmbedBuilder()
             .WithTitle("🎵 Music Queue")
             .WithDescription(currentStatus + queueStatus)
-            .WithColor(Color.Purple)
+            .WithColor(0x9B59B6)
             .WithFooter($"Volume: {player.Volume}%")
             .Build();
 
@@ -363,7 +362,7 @@ public class MusicCommands : CommandModule
         var embed = new EmbedBuilder()
             .WithTitle(statusText)
             .WithDescription($"**{player.CurrentTrack}**")
-            .WithColor(Color.Green)
+            .WithColor(0x2ECC71)
             .AddField("Queue Position", $"1 of {player.Queue.Count + 1}", inline: true)
             .AddField("Volume", $"{player.Volume}%", inline: true)
             .Build();
