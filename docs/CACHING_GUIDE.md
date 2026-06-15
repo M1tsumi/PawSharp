@@ -248,9 +248,6 @@ var cache = new RedisCacheProvider(
 );
 
 // With custom database
- 
- The in-memory cache uses automatic size-based eviction:
- 
 var options = new RedisCacheOptions
 {
     ConnectionString = "localhost:6379",
@@ -437,12 +434,6 @@ public class SelectiveCache
         else
             _priorityGuilds.Remove(guildId);
     }
-         The in-memory cache automatically enforces size limits to prevent unbounded memory growth:
- 
-         ```csharp
-         private const int MaxCacheSize = 10000;          // General cache entries
-         private const int MaxEntityCacheSize = 5000;     // Per entity type limit
- 
     
     public void Initialize()
     {

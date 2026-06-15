@@ -80,7 +80,7 @@ var services = new ServiceCollection()
     {
         Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN") 
             ?? throw new InvalidOperationException("Set DISCORD_TOKEN env var"),
-        Intents = PawSharp.Core.Enums.GatewayIntents.AllUnprivileged 
+        Intents = PawSharp.Core.Enums.GatewayIntents.AllNonPrivileged 
             | PawSharp.Core.Enums.GatewayIntents.MessageContent,
         ApiVersion = 10,
     })
@@ -174,7 +174,7 @@ var options = new PawSharpOptions
     ApiVersion = 10,  // Discord API version
     
     // Gateway Configuration
-    Intents = GatewayIntents.AllUnprivileged 
+    Intents = GatewayIntents.AllNonPrivileged 
         | GatewayIntents.MessageContent,  // Subscribe to events
     
     // Sharding (for large bots)
@@ -203,7 +203,7 @@ Intents control which events you receive. Request only what you need:
 
 ```csharp
 // Recommended for most bots
-var intents = GatewayIntents.AllUnprivileged 
+var intents = GatewayIntents.AllNonPrivileged 
     | GatewayIntents.MessageContent;
 
 // Only specific intents
@@ -652,16 +652,6 @@ client.OnRoleUpdated(role =>
     return Task.CompletedTask;
 });
 ```
-    Console.WriteLine($"Role created: @{role.Role.Name}");
-    return Task.CompletedTask;
-});
-
-client.Gateway.EventDispatcher.On<GuildRoleUpdateEvent>(role =>
-{
-    Console.WriteLine($"Role updated: @{role.Role.Name}");
-    return Task.CompletedTask;
-});
-```
 
 ### Accessing Cached Data
 
@@ -957,7 +947,7 @@ For bots in 2500+ servers:
 var options = new PawSharpOptions
 {
     Token = token,
-    Intents = GatewayIntents.AllUnprivileged,
+    Intents = GatewayIntents.AllNonPrivileged,
     
     // Auto-sharding
     Shards = ShardingStrategy.Auto,
@@ -1046,7 +1036,7 @@ public class MyBot
 ❌ All required intents enabled in Discord developer portal?
 
 ✅ Enable in code:
-var intents = GatewayIntents.AllUnprivileged 
+var intents = GatewayIntents.AllNonPrivileged 
     | GatewayIntents.MessageContent;
 ```
 
@@ -1121,7 +1111,7 @@ else
 ### Getting Help
 
 1. Check [ERROR_HANDLING.md](./docs/ERROR_HANDLING.md)
-2. Review [QUICK_REFERENCE.md](./docs/QUICK_REFERENCE.md)
+2. Review the documentation index at [INDEX.md](./INDEX.md)
 3. Check examples in `examples/` folder
 4. Open GitHub issue with:
    - Your code snippet
