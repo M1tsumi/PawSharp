@@ -4,6 +4,22 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.1.0-alpha.3] - 2026-06-15
+
+### Bug Fixes
+
+- **Voice — DAVE E2EE fixes** (`PawSharp.Voice`)
+  - Fixed DM/GroupDM voice calls crashing on connect: `VoiceClient.ConnectAsync` now accepts DM/GroupDM channel types with `guildId = 0`, and `OnVoiceServerUpdate` matches DM connections by channel type when the gateway sends `guild_id = 0`.
+  - Fixed inbound DAVE frames being silently dropped: `UdpReceiveLoopAsync` now checks `_dave?.IsActive` before attempting transport decryption on received audio packets.
+  - Fixed keep-alive (NAT timeout) never running: `KeepAliveLoopAsync` is now started during `ConnectInternalAsync` instead of being left as dead code.
+  - Fixed forward secrecy gap: external sender packages (op 31) are now stored in `MLSGroupState` and bound as the HKDF salt during commit epoch advances, so future commits benefit from the sender's entropy.
+
+### Internal / Tooling
+
+- Exposed `DAVEProtocol.MlsState` as internal for test access and added `InternalsVisibleTo` for `PawSharp.Voice.Tests`.
+- Created `DAVETestData` helper that generates structurally valid MLS Welcome/Commit messages using real HPKE, HKDF, and AES-GCM primitives.
+- Unskipped all 16 previously-skipped DAVE tests — they now run against real cryptographically-generated test data.
+
 ## [1.1.0-alpha.2] - 2026-05-03
 
 ### New Features

@@ -17,38 +17,23 @@
 
 ---
 
-PawSharp is a Discord library for C# developers who want clean building blocks instead of one giant monolith.
+PawSharp is a Discord API wrapper built for C# developers who want modularity without the baggage. Instead of one monolithic library, you get independent packages — grab the full client if you're building a bot, or pick just the pieces you need (REST, Gateway, Voice, Interactions) for more specialized projects.
 
-If you want a high-level client, use `PawSharp.Client`.
-If you only need specific pieces (REST, Gateway, Interactions, Voice), install just those packages.
+Current release status: `1.1.0-alpha.3`. It's still early days, but the library is functional and growing fast. See the [versioning policy][versioning] for what to expect.
 
-Current release status: `1.1.0-alpha.1`.
+## Getting Started
 
-This is a public alpha. The library is already usable, but some APIs can still evolve. See [versioning policy][versioning].
-
-## What You Get
-
-- REST coverage for about 140+ Discord endpoints
-- Gateway connection lifecycle, heartbeat, reconnect, and session resume
-- Prefix commands with preconditions and cooldowns
-- Slash commands, components, and modals
-- Interactivity helpers for reactions/buttons/select menus
-- In-memory caching and route-aware rate limiting
-- Voice support with Opus, RTP, and Discord DAVE E2EE
-
-## Installation
-
-Most bots should start with the full client package:
+Install the packages you need:
 
 ```bash
-dotnet add package PawSharp.Client --version 1.1.0-alpha.2
-dotnet add package PawSharp.Commands --version 1.1.0-alpha.2
-dotnet add package PawSharp.Interactions --version 1.1.0-alpha.2
-dotnet add package PawSharp.Interactivity --version 1.1.0-alpha.2
-dotnet add package PawSharp.Voice --version 1.1.0-alpha.2
+dotnet add package PawSharp.Client --version 1.1.0-alpha.3
+dotnet add package PawSharp.Commands --version 1.1.0-alpha.3
+dotnet add package PawSharp.Interactions --version 1.1.0-alpha.3
+dotnet add package PawSharp.Interactivity --version 1.1.0-alpha.3
+dotnet add package PawSharp.Voice --version 1.1.0-alpha.3
 ```
 
-## Quick Start
+Here's a minimal bot that responds to `!ping`:
 
 ```csharp
 using PawSharp.Client;
@@ -65,35 +50,32 @@ var client = new PawSharpClientBuilder()
 
 client.OnMessageCreated(async evt =>
 {
-    if (evt.Author?.Bot == true)
-    {
-        return;
-    }
+    if (evt.Author?.Bot == true) return;
 
     if (evt.Content == "!ping")
-    {
         await client.SendMessageAsync(evt.ChannelId, "Pong!");
-    }
 });
 
 await client.ConnectAsync();
 await Task.Delay(Timeout.Infinite);
 ```
 
-## Package Guide
+## Packages
 
-- `PawSharp.Client`: recommended entry point (`DiscordClient` and fluent builder)
-- `PawSharp.Core`: entities, enums, exceptions, validation, utility builders
-- `PawSharp.API`: raw REST layer with advanced rate-limit handling
-- `PawSharp.Gateway`: gateway connection and event dispatcher
-- `PawSharp.Commands`: attribute-based prefix command framework
-- `PawSharp.Interactions`: slash commands and interaction routing
-- `PawSharp.Interactivity`: wait helpers for reactions/components and polls
-- `PawSharp.Voice`: voice transport, Opus codec integration, DAVE E2EE support
+| Package | What it does |
+|---------|-------------|
+| **PawSharp.Client** | Entry point — `DiscordClient` with a fluent builder, logging, and DI integration |
+| **PawSharp.Core** | Shared entities, enums, exceptions, builders (embeds, components) |
+| **PawSharp.API** | Raw REST layer with rate-limit handling (140+ endpoints) |
+| **PawSharp.Gateway** | WebSocket connection, heartbeat, reconnect, event dispatch |
+| **PawSharp.Commands** | Prefix commands with attributes, preconditions, cooldowns |
+| **PawSharp.Interactions** | Slash commands, components, modals |
+| **PawSharp.Interactivity** | Wait for reactions, buttons, select menus — no boilerplate |
+| **PawSharp.Voice** | Voice transport, Opus codec, Discord DAVE E2EE encryption |
 
-## Dependency Injection Setup
+## Dependency Injection
 
-For `Microsoft.Extensions.DependencyInjection`, use the one-call setup entrypoint:
+If you're using `Microsoft.Extensions.DependencyInjection`, you can wire everything up in one call:
 
 ```csharp
 using PawSharp.Client.Extensions;
@@ -110,20 +92,22 @@ services.AddPawSharpCommands();
 services.AddPawSharpInteractions();
 ```
 
-## Alpha.2 Highlights
+## What's Here
 
-- `SetupPawSharp(options)` for simpler DI setup
-- Connect-time intent validation modes (`Off`, `Warn`, `Strict`)
-- Message forwarding support using Discord message reference forwarding
-- Structured rate-limit telemetry from the REST client (`RateLimitObserved`)
-- `EmbedTemplates` helpers for common success/error/info/warning responses
+- REST coverage for 140+ Discord endpoints with automatic rate-limit handling
+- Gateway connection lifecycle with heartbeat, resume, and reconnection
+- Prefix commands with preconditions (permissions, cooldowns, guild-only)
+- Slash commands, message components, and modals
+- Interactivity helpers — wait for reactions, buttons, and select menus without tracking state yourself
+- In-memory and Redis caching
+- Voice support with Opus audio, RTP framing, and Discord DAVE end-to-end encryption (including DM/GroupDM calls)
 
-## Still In Progress
+## What's Still Cooking
 
-- Slash command attribute auto-registration scanner (manual registration works today)
-- Dedicated Redis cache package publication (provider implementation exists)
+- Slash command auto-registration scanner (manual registration works today)
+- Dedicated Redis cache NuGet package (provider implementation exists)
 
-## Documentation And Examples
+## Documentation
 
 - Start here: [docs/INDEX.md][docs-index]
 - REST guide: [docs/REST_API_GUIDE.md][rest-guide]
@@ -134,11 +118,11 @@ services.AddPawSharpInteractions();
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md][contributing] before opening a pull request.
+Pull requests are welcome. Check out [CONTRIBUTING.md][contributing] before opening one.
 
 ## License
 
-PawSharp is distributed under the [MIT License][license].
+MIT — see [LICENSE][license].
 
 ---
 
