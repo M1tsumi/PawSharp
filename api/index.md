@@ -12,7 +12,7 @@ The top-level entry point for the library.
 | Type | Purpose |
 |------|---------|
 | `DiscordClient` | Main bot client. Wraps the gateway, REST client, and extension host. |
-| `PawSharpClientBuilder` | Fluent builder — configure tokens, intents, caching, logging, and extensions before `BuildAsync()`. |
+| `PawSharpClientBuilder` | Fluent builder — configure tokens, intents, caching, logging, and extensions before `Build()`. |
 | `CacheManager` | In-memory LRU cache for guilds, channels, users, and messages. Thread-safe. |
 
 ---
@@ -40,11 +40,7 @@ Typed HTTP wrappers for every Discord REST endpoint.
 
 | Type | Purpose |
 |------|---------|
-| `DiscordRestClient` | Top-level REST client. Owns the rate limiter and HTTP pipeline. |
-| `ChannelClient` | Messages, pins, threads, stage channels. |
-| `GuildClient` | Members, roles, bans, audit log, emojis, stickers. |
-| `WebhookClient` | Webhook CRUD and execution. |
-| `ApplicationClient` | Global and guild slash commands, entitlements. |
+| `DiscordRestClient` | Monolithic REST client — messages, guilds, members, roles, channels, threads, webhooks, interactions, auto-mod, scheduled events, voice regions, polls, entitlements, and more. |
 | `AdvancedRateLimiter` | Bucket-based rate limiter with per-route and global limit tracking. |
 
 ---
@@ -58,7 +54,7 @@ WebSocket connection to the Discord gateway (v10).
 | `GatewayClient` | Manages the gateway WebSocket lifecycle — identify, heartbeat, resume, reconnect. |
 | `ShardManager` | Spins up and monitors one `GatewayClient` per shard. |
 | `ReconnectionManager` | Exponential backoff logic for unexpected disconnects. |
-| `GatewayState` | Snapshot of `SessionId`, `ResumeGatewayUrl`, `SequenceNumber`. |
+| `GatewayState` | Enum — `Disconnected`, `Connecting`, `Connected`, `Ready`, `Failed`. |
 
 ---
 
@@ -69,8 +65,7 @@ Real-time voice connection with Opus audio and DAVE E2EE.
 | Type | Purpose |
 |------|---------|
 | `VoiceClient` | Extension entry point. Manages the `ActiveConnections` dictionary. |
-| `VoiceConnection` | Single voice channel connection — audio I/O, RTP framing, DAVE crypto. |
-| `VoiceConnection.DAVESession` | Holds `MLSState` and exposes `EncryptFrame` / `DecryptFrame`. |
+| `VoiceConnection` | Single voice channel connection — audio I/O, RTP framing, DAVE crypto via `DAVEProtocol`. |
 
 Internal DAVE/MLS types (`MLSState`, `MLSKeySchedule`, `RatchetTree`, …) are
 excluded from this reference by `filterConfig.yml` — they're implementation
@@ -108,4 +103,6 @@ Awaitable response after a message or interaction.
 
 | Type | Purpose |
 |------|---------|
-| `InteractivityExtension` | `WaitForMessageAsync`, `WaitForReactionAsync`, `WaitForButtonAsync` — all cancellable with a timeout. |
+| `InteractivityExtension` | Pagination helpers (`GeneratePagesInContent`, `GeneratePagesInEmbed`). |
+| Extension methods on `Message` | `WaitForMessageAsync`, `WaitForReactionAsync`, `WaitForButtonAsync`, `WaitForModalAsync` — cancellable with a timeout. |
+| Extension methods on `Channel` | `SendPaginatedMessageAsync`, `ConfirmAsync`, `GetInputAsync`. |
