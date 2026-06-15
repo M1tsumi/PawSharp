@@ -38,7 +38,7 @@ var options = new PawSharpOptions
 // 3. Go to "Bot" section
 // 4. Copy the token carefully
 // 5. No extra spaces or characters!
-var token = "MzI4ODk1NzQ2NTkzNTkwNzUy.XX.XXXX";
+var token = "MzI4ODk1NzQ2NTkzNTkwNzUy.XX.XXXX"; // ⚠️ DUMMY — replace with your real token
 
 // ❌ Problem 2: Hardcoded token
 var options = new PawSharpOptions 
@@ -289,6 +289,7 @@ foreach (var i in range)
 // Then send in batches with delays
 foreach (var batch in messages.Chunk(10))
 {
+    // ⚠️ Parallel.ForEach with async lambdas is problematic — consider SemaphoreSlim instead
     Parallel.ForEach(batch, msg => client.Rest.CreateMessageAsync(channelId, msg));
     await Task.Delay(1000);  // Wait between batches
 }
@@ -698,8 +699,8 @@ catch (Exception ex)
 
 Include:
 ```
-**Version:** 1.0.0-alpha.4
-**Environment:** Windows 11, .NET 8.0
+**Version:** 1.1.0-alpha.2
+**Environment:** Windows 11, .NET 10.0
 **Intents Used:** [list intents]
 
 **Problem:**

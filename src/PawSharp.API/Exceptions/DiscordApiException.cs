@@ -45,7 +45,7 @@ namespace PawSharp.API.Exceptions;
 /// </remarks>
 /// </para>
 /// </summary>
-public sealed class DiscordApiException : DiscordException
+public class DiscordApiException : DiscordException
 {
     /// <summary>
     /// Gets the HTTP status code returned by Discord, if available.

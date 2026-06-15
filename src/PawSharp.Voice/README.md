@@ -116,6 +116,8 @@ The voice connection goes through these states:
 - **Connecting**: WebSocket connection in progress
 - **Discovering**: UDP IP discovery in progress
 - **Connected**: WebSocket and UDP are connected, voice session is active
+- **DaveNegotiating**: DAVE E2EE key exchange in progress
+- **DaveEncrypted**: DAVE E2EE encryption is active
 - **Disconnecting**: Graceful disconnect in progress
 
 ## Resume Support
@@ -191,17 +193,11 @@ The implementation supports AEAD encryption modes as specified in the Discord Vo
 - **AEAD_AES256_GCM_RTPSIZE**: AES-256-GCM with RTP-sized nonce
 - **AEAD_XChaCha20_Poly1305_RTPSIZE**: XChaCha20-Poly1305 with RTP-sized nonce
 
-**Note**: XChaCha20-Poly1305 requires libsodium for proper implementation. The current implementation uses AES-GCM as a fallback.
+**Note**: XChaCha20-Poly1305 is implemented using pure .NET cryptography primitives. AES-GCM is used as a fallback when available.
 
 ## DAVE E2EE Support
 
-DAVE (Discord Audio & Video End-to-End Encryption) is a **separate optional protocol layer** that sits on top of the voice gateway v8. It requires:
-
-- libdave library for MLS (Messaging Layer Security) implementation
-- Support for DAVE opcodes 21-31
-- Additional key exchange and encryption logic
-
-The base PawSharp.Voice implementation focuses on the v8 protocol with transport encryption. DAVE E2EE support can be added as a separate optional layer using libdave.
+PawSharp.Voice includes a full MLS (RFC 9420) implementation for DAVE E2EE. The crypto stack uses X25519, Ed25519, AES-128-GCM, and HKDF-SHA256 — all implemented in pure .NET. No external native libraries required.
 
 ## Typical Use Cases
 

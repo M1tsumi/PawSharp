@@ -395,13 +395,14 @@ public static class MessageExtensions
                     // Clean up all reactions from this message
                     await client.Rest.DeleteAllReactionsAsync(message.ChannelId, message.Id).ConfigureAwait(false);
                 }
-                catch (TaskCanceledException)
+                catch (OperationCanceledException)
                 {
                     // Cancellation is expected
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Poll cleanup failed — safe to ignore
+                    // Poll cleanup failed — log and ignore
+                    System.Diagnostics.Debug.WriteLine($"[MessageExtensions] Poll cleanup failed: {ex.Message}");
                 }
             }, cancellationToken);
         }

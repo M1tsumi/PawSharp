@@ -363,6 +363,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating presence");
+                throw;
             }
         }
 
@@ -400,6 +401,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error requesting guild members");
+                throw;
             }
         }
 
@@ -428,6 +430,7 @@ namespace PawSharp.Gateway
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error requesting soundboard sounds");
+                throw;
             }
         }
 
@@ -793,11 +796,20 @@ namespace PawSharp.Gateway
             {
                 await _wsRateLimiter.WaitAsync(ct).ConfigureAwait(false);
                 // Return the token to the bucket after 60 s (sliding window).
-                _ = Task.Delay(60_000, ct)
-                    .ContinueWith(_ => _wsRateLimiter.Release(),
-                        CancellationToken.None,
-                        TaskContinuationOptions.OnlyOnRanToCompletion,
-                        TaskScheduler.Default);
+                // Use a separate CancellationTokenSource for the rate limiter release
+                // so cancellation of the main operation doesn't prevent semaphore release.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(60_000, CancellationToken.None).ConfigureAwait(false);
+                        _wsRateLimiter.Release();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to release WebSocket rate limiter after delay");
+                    }
+                }, CancellationToken.None);
             }
 
             await _webSocket.SendAsync(json, ct).ConfigureAwait(false);

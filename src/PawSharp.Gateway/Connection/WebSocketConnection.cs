@@ -40,6 +40,7 @@ namespace PawSharp.Gateway.Connection
         private readonly bool _useArrayPooling;
         private readonly int _bufferSize;
         private bool _disposed;
+        private Task? _disposeTask;
         private WebSocketCloseStatus? _closeStatus;
         private string? _closeStatusDescription;
         private readonly ILogger<WebSocketConnection>? _logger;
@@ -226,6 +227,11 @@ namespace PawSharp.Gateway.Connection
         /// </summary>
         public bool IsDiscordErrorClose => _closeStatus.HasValue && (int)_closeStatus.Value >= 4000;
         
+        /// <summary>
+        /// Disposes the WebSocket connection in a fire-and-forget manner.
+        /// Dispose must remain synchronous per IDisposable contract, so callers that need
+        /// a clean shutdown should await <see cref="WaitForDisposeAsync"/> after disposal.
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;
@@ -233,7 +239,7 @@ namespace PawSharp.Gateway.Connection
 
             // Fire-and-forget graceful close to avoid blocking the calling thread.
             // Dispose() must remain synchronous per IDisposable contract.
-            _ = Task.Run(async () =>
+            _disposeTask = Task.Run(async () =>
             {
                 try
                 {
@@ -252,11 +258,32 @@ namespace PawSharp.Gateway.Connection
                 finally
                 {
                     try { _webSocket.Dispose(); }
-                    catch { /* Ignore disposal errors */ }
+                    catch (Exception ex) { _logger?.LogDebug(ex, "WebSocket disposal error"); }
                     try { _compression?.Dispose(); }
-                    catch { /* Ignore disposal errors */ }
+                    catch (Exception ex) { _logger?.LogDebug(ex, "WebSocket compression disposal error"); }
                 }
             });
+        }
+
+        /// <summary>
+        /// Waits for the asynchronous dispose operation to complete.
+        /// Call this after <see cref="Dispose"/> during a graceful shutdown.
+        /// </summary>
+        /// <param name="timeout">Optional timeout. Defaults to 5 seconds.</param>
+        public async Task WaitForDisposeAsync(TimeSpan? timeout = null)
+        {
+            if (_disposeTask is not null)
+            {
+                timeout ??= TimeSpan.FromSeconds(5);
+                try
+                {
+                    await _disposeTask.WaitAsync(timeout.Value).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    _logger?.LogDebug("WebSocket dispose did not complete within {Timeout}", timeout.Value);
+                }
+            }
         }
     }
 }

@@ -26,9 +26,14 @@ namespace PawSharp.Interactions;
 /// </code>
 ///
 /// The Ed25519 verification is implemented using <see cref="System.Numerics.BigInteger"/>
-/// arithmetic for full portability across platforms without adding NuGet dependencies.
-/// For high-throughput scenarios consider replacing the inner
-/// <see cref="VerifyEd25519"/> method with a native binding (e.g. NSec.Cryptography).
+/// arithmetic for full portability across platforms.
+/// <para>
+/// <b>Security Note:</b> BigInteger operations are not constant-time, which may enable 
+/// timing side-channel attacks in high-throughput or adversarial environments. 
+/// For production deployments handling sensitive interactions, consider replacing 
+/// the inner <see cref="VerifyEd25519"/> method with a constant-time implementation 
+/// (e.g., NSec.Cryptography or BouncyCastle).
+/// </para>
 /// </summary>
 public sealed class WebhookVerifier
 {
@@ -70,7 +75,11 @@ public sealed class WebhookVerifier
 
         byte[] signature;
         try { signature = HexToBytes(signatureHex); }
-        catch { return false; }
+        catch (Exception)
+        {
+            // Hex parsing failure means invalid signature format
+            return false;
+        }
 
         // Build signed message: timestamp_utf8 || body
         var timestampBytes = Encoding.UTF8.GetBytes(timestamp);

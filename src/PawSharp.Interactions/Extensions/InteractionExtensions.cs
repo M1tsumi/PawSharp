@@ -240,7 +240,7 @@ public static class InteractionExtensions
                 // Generic fallback through JsonSerializer
                 return element.Deserialize<T>();
             }
-            catch
+            catch (Exception)
             {
                 return default;
             }
@@ -250,6 +250,6 @@ public static class InteractionExtensions
         if (raw is T direct) return direct;
 
         try { return (T?)Convert.ChangeType(raw, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T)); }
-        catch { return default; }
+        catch (Exception) { return default; }
     }
 }

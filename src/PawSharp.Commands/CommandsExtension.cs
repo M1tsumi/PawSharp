@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using PawSharp.API.Models;
 using PawSharp.Client;
 using PawSharp.Commands.Attributes;
+using PawSharp.Commands.Discovery;
 using PawSharp.Commands.Conversion;
 using PawSharp.Commands.Execution;
 using PawSharp.Commands.Middleware;
@@ -31,7 +32,7 @@ public class CommandContext
     /// <summary>
     /// Gets the Discord client.
     /// </summary>
-    public DiscordClient Client { get; }
+    public IDiscordClient Client { get; }
 
     /// <summary>
     /// Gets the message that triggered the command.
@@ -91,7 +92,7 @@ public class CommandContext
     /// <param name="rawArguments">The raw arguments.</param>
     /// <param name="member">The guild member who triggered the command, if in a guild.</param>
     public CommandContext(
-        DiscordClient client,
+        IDiscordClient client,
         Message message,
         string prefix,
         string commandName,
@@ -425,7 +426,7 @@ public class CommandsExtension
     private readonly MiddlewarePipeline _middlewarePipeline;
     private readonly IServiceProvider? _serviceProvider;
     private readonly bool _caseSensitive;
-    private DiscordClient? _client;
+    private IDiscordClient? _client;
 
     /// <summary>
     /// Invoked when a command throws an unhandled exception.
@@ -469,7 +470,14 @@ public class CommandsExtension
     /// </summary>
     /// <param name="client">The Discord client.</param>
     /// <param name="module">The command module to register.</param>
-    public void RegisterModule(DiscordClient client, BaseCommandModule module)
+    /// <example>
+    /// <code>
+    /// var commands = new CommandsExtension("!");
+    /// var module = new MyCommands();
+    /// commands.RegisterModule(client, module);
+    /// </code>
+    /// </example>
+    public void RegisterModule(IDiscordClient client, BaseCommandModule module)
     {
         if (client == null)
             throw new ArgumentNullException(nameof(client));
@@ -545,7 +553,7 @@ public class CommandsExtension
     /// </summary>
     /// <param name="client">The Discord client.</param>
     /// <param name="module">The command module to register.</param>
-    public async Task RegisterModuleAsync(DiscordClient client, BaseCommandModule module)
+    public async Task RegisterModuleAsync(IDiscordClient client, BaseCommandModule module)
     {
         if (client == null)
             throw new ArgumentNullException(nameof(client));
@@ -594,9 +602,150 @@ public class CommandsExtension
     }
 
     /// <summary>
+    /// Discovers and registers all <see cref="BaseCommandModule"/> subclasses in the specified assembly.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="assembly">The assembly to scan (defaults to the calling assembly).</param>
+    /// <returns>The number of modules registered.</returns>
+    public int RegisterModulesInAssembly(IDiscordClient client, Assembly? assembly = null)
+    {
+        if (client == null)
+            throw new ArgumentNullException(nameof(client));
+
+        assembly ??= Assembly.GetCallingAssembly();
+        var moduleTypes = CommandDiscoveryService.DiscoverCommandModules(assembly);
+        var count = 0;
+
+        foreach (var type in moduleTypes)
+        {
+            try
+            {
+                BaseCommandModule? module;
+                if (_serviceProvider != null)
+                {
+                    module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
+                }
+                else
+                {
+                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                }
+
+                RegisterModule(client, module);
+                count++;
+                _logger.LogDebug("Discovered and registered command module {ModuleType}", type.FullName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register command module {ModuleType}", type.FullName);
+            }
+        }
+
+        _logger.LogInformation("Registered {Count} command module(s) from assembly {Assembly}", count, assembly.GetName().Name);
+        return count;
+    }
+
+    /// <summary>
+    /// Discovers and registers all <see cref="BaseCommandModule"/> subclasses in the specified assembly asynchronously.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="assembly">The assembly to scan (defaults to the calling assembly).</param>
+    /// <returns>The number of modules registered.</returns>
+    public async Task<int> RegisterModulesInAssemblyAsync(IDiscordClient client, Assembly? assembly = null)
+    {
+        if (client == null)
+            throw new ArgumentNullException(nameof(client));
+
+        assembly ??= Assembly.GetCallingAssembly();
+        var moduleTypes = CommandDiscoveryService.DiscoverCommandModules(assembly);
+        var count = 0;
+
+        foreach (var type in moduleTypes)
+        {
+            try
+            {
+                BaseCommandModule? module;
+                if (_serviceProvider != null)
+                {
+                    module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
+                }
+                else
+                {
+                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                }
+
+                await RegisterModuleAsync(client, module).ConfigureAwait(false);
+                count++;
+                _logger.LogDebug("Discovered and registered command module {ModuleType}", type.FullName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register command module {ModuleType}", type.FullName);
+            }
+        }
+
+        _logger.LogInformation("Registered {Count} command module(s) from assembly {Assembly}", count, assembly.GetName().Name);
+        return count;
+    }
+
+    /// <summary>
+    /// Discovers and registers all <see cref="BaseCommandModule"/> subclasses found in the calling assembly
+    /// as slash commands via Discord's application command API.
+    /// </summary>
+    /// <param name="client">The Discord client.</param>
+    /// <param name="applicationId">The bot's application ID.</param>
+    /// <param name="assembly">The assembly to scan (defaults to the calling assembly).</param>
+    /// <param name="guildId">Optional guild ID for guild-specific commands.</param>
+    /// <returns>The number of slash command modules registered.</returns>
+    public async Task<int> RegisterSlashModulesInAssemblyAsync(IDiscordClient client, ulong applicationId, Assembly? assembly = null, ulong? guildId = null)
+    {
+        if (client == null)
+            throw new ArgumentNullException(nameof(client));
+
+        assembly ??= Assembly.GetCallingAssembly();
+        var moduleTypes = CommandDiscoveryService.DiscoverCommandModules(assembly);
+        var count = 0;
+
+        foreach (var type in moduleTypes)
+        {
+            try
+            {
+                BaseCommandModule? module;
+                if (_serviceProvider != null)
+                {
+                    module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
+                }
+                else
+                {
+                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                }
+
+                await RegisterSlashModuleAsync(client, module, applicationId, guildId).ConfigureAwait(false);
+                count++;
+                _logger.LogDebug("Discovered and registered slash command module {ModuleType}", type.FullName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register slash command module {ModuleType}", type.FullName);
+            }
+        }
+
+        _logger.LogInformation("Registered {Count} slash command module(s) from assembly {Assembly}", count, assembly.GetName().Name);
+        return count;
+    }
+
+    /// <summary>
     /// Gets a list of all registered commands.
     /// </summary>
     /// <returns>A list of registered command information.</returns>
+    /// <example>
+    /// <code>
+    /// var registered = commands.GetRegisteredCommands();
+    /// foreach (var cmd in registered)
+    /// {
+    ///     Console.WriteLine($"/{cmd.Name}: {cmd.Description}");
+    /// }
+    /// </code>
+    /// </example>
     public IReadOnlyList<CommandInfo> GetRegisteredCommands()
     {
         return _commands.Values
@@ -798,7 +947,7 @@ public class CommandsExtension
     /// one hour to propagate to all clients).
     /// </param>
     public async Task RegisterSlashModuleAsync(
-        DiscordClient client,
+        IDiscordClient client,
         BaseCommandModule module,
         ulong applicationId,
         ulong? guildId = null)
@@ -845,7 +994,7 @@ public class CommandsExtension
     /// Pass <see langword="null"/> to register as global commands (up to one hour propagation).
     /// </param>
     public async Task BulkRegisterSlashModulesAsync(
-        DiscordClient client,
+        IDiscordClient client,
         IEnumerable<BaseCommandModule> modules,
         ulong applicationId,
         ulong? guildId = null)
@@ -934,7 +1083,7 @@ public class CommandsExtension
         return request;
     }
 
-    private List<SlashRegistration> BuildSlashRegistrations(DiscordClient client, BaseCommandModule module)
+    private List<SlashRegistration> BuildSlashRegistrations(IDiscordClient client, BaseCommandModule module)
     {
         var registrations = new List<SlashRegistration>();
         var moduleType = module.GetType();
@@ -972,7 +1121,7 @@ public class CommandsExtension
         return registrations;
     }
 
-    private void RegisterAutocompleteHandlers(DiscordClient client, BaseCommandModule module)
+    private void RegisterAutocompleteHandlers(IDiscordClient client, BaseCommandModule module)
     {
         var moduleType = module.GetType();
         var methods = moduleType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
@@ -1025,7 +1174,7 @@ public class CommandsExtension
     }
 
     private SlashRegistration BuildSlashMethodRegistration(
-        DiscordClient client,
+        IDiscordClient client,
         BaseCommandModule module,
         MethodInfo method,
         SlashCommandAttribute slashAttr)
@@ -1044,7 +1193,7 @@ public class CommandsExtension
     }
 
     private SlashRegistration BuildSlashGroupRegistration(
-        DiscordClient client,
+        IDiscordClient client,
         BaseCommandModule module,
         SlashGroupAttribute groupAttr,
         IReadOnlyList<(MethodInfo Method, SlashSubCommandAttribute Sub)> subcommandMethods)
@@ -1087,7 +1236,7 @@ public class CommandsExtension
     }
 
     private async Task InvokeSlashMethodWithErrorsAsync(
-        DiscordClient client,
+        IDiscordClient client,
         BaseCommandModule module,
         MethodInfo method,
         object?[] args,
@@ -1537,7 +1686,7 @@ public class CommandsExtension
     /// <param name="applicationId">The bot application ID.</param>
     /// <param name="guildId">Optional guild ID for guild-scoped registration.</param>
     public async Task RegisterContextMenuModuleAsync(
-        DiscordClient client,
+        IDiscordClient client,
         BaseCommandModule module,
         ulong applicationId,
         ulong? guildId = null)
@@ -1650,7 +1799,7 @@ public class CommandsExtension
     /// <param name="applicationId">The bot application ID.</param>
     /// <param name="guildId">Optional guild ID for guild-scoped registration.</param>
     public async Task BulkRegisterContextMenuModulesAsync(
-        DiscordClient client,
+        IDiscordClient client,
         IEnumerable<BaseCommandModule> modules,
         ulong applicationId,
         ulong? guildId = null)
@@ -1802,7 +1951,7 @@ public sealed class SlashCommandContext : CommandContext
     /// <summary>The interaction that triggered this slash command invocation.</summary>
     public InteractionCreateEvent Interaction { get; }
 
-    internal SlashCommandContext(DiscordClient client, InteractionCreateEvent interaction, string commandName)
+    internal SlashCommandContext(IDiscordClient client, InteractionCreateEvent interaction, string commandName)
         : base(
             client,
             new PawSharp.Core.Entities.Message

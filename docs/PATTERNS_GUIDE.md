@@ -18,7 +18,7 @@ Real-world patterns and code recipes for building Discord bots with PawSharp.
 ### Class-Based Commands with `CommandsExtension` (Recommended)
 
 `CommandsExtension` discovers command methods automatically using reflection and wires up the `MESSAGE_CREATE` event internally —
-nno manual event subscription required.
+no manual event subscription required.
 
 ```csharp
 using PawSharp.Commands;
@@ -361,10 +361,8 @@ public class AutoModerator
 }
 
 dispatcher.On<MessageCreateEvent>(moderator.HandleMessageAsync);
-```
 
 > **Tip:** To attach to the DiscordClient use `client.OnMessageCreated(moderator.HandleMessageAsync)`.
-```
 
 ### Kick & Ban with Logging
 
@@ -803,7 +801,7 @@ public class StatusRotator
     private readonly string[] _statuses = new[]
     {
         "!help for commands",
-        "Discord.NET wannabe",
+        "built with PawSharp",
         "PawSharp is awesome",
         $"in {DateTime.Now.Year}",
     };

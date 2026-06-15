@@ -76,6 +76,10 @@ namespace PawSharp.Cache.Distribution
                     {
                         // Expected
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[RedisCacheDistributor] Error waiting for listener to stop: {ex.Message}");
+                    }
                 });
             }
         }

@@ -59,6 +59,14 @@ public class InteractionHandler
     /// <summary>
     /// Registers a slash command handler.
     /// </summary>
+    /// <example>
+    /// <code>
+    /// handler.RegisterCommand("ping", async interaction =>
+    /// {
+    ///     await handler.RespondEphemeralAsync(interaction.Id, interaction.Token, "Pong!");
+    /// });
+    /// </code>
+    /// </example>
     public void RegisterCommand(string name, Func<InteractionCreateEvent, Task> handler)
     {
         RegisterWithDiagnostics(_commandHandlers, name, handler, "slash command");
@@ -167,6 +175,14 @@ public class InteractionHandler
     /// <summary>
     /// Registers a component handler.
     /// </summary>
+    /// <example>
+    /// <code>
+    /// handler.RegisterComponent("confirm_button", async interaction =>
+    /// {
+    ///     await handler.RespondUpdateAsync(interaction.Id, interaction.Token, "Confirmed!");
+    /// });
+    /// </code>
+    /// </example>
     public void RegisterComponent(string customId, Func<InteractionCreateEvent, Task> handler)
     {
         RegisterWithDiagnostics(_componentHandlers, customId, handler, "component");
@@ -209,6 +225,17 @@ public class InteractionHandler
     /// <summary>
     /// Registers a modal submit handler by its <c>custom_id</c>.
     /// </summary>
+    /// <example>
+    /// <code>
+    /// handler.RegisterModal("feedback_modal", async interaction =>
+    /// {
+    ///     var feedback = interaction.Data?.Components?
+    ///         .SelectMany(c => c.Components ?? Enumerable.Empty&lt;MessageComponent&gt;())
+    ///         .FirstOrDefault(c => c.CustomId == "feedback_input")?.Value;
+    ///     await handler.RespondEphemeralAsync(interaction.Id, interaction.Token, $"Thanks: {feedback}");
+    /// });
+    /// </code>
+    /// </example>
     public void RegisterModal(string customId, Func<InteractionCreateEvent, Task> handler)
     {
         RegisterWithDiagnostics(_modalHandlers, customId, handler, "modal");

@@ -298,7 +298,7 @@ public static class ChannelExtensions
                     Components = new List<MessageComponent>()
                 });
             }
-            catch { /* Best effort cleanup */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
             return new InteractivityResult<bool> { TimedOut = true };
         }
@@ -320,7 +320,7 @@ public static class ChannelExtensions
                 Components = new List<MessageComponent>()
             });
         }
-        catch { /* Best effort */ }
+        catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
         return new InteractivityResult<bool> { Result = confirmed };
     }
@@ -560,7 +560,7 @@ public static class ChannelExtensions
             {
                 await client.Rest.DeleteMessageAsync(channel.Id, promptMessage.Id).ConfigureAwait(false);
             }
-            catch { /* Best effort cleanup */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
             return new InteractivityResult<string> { TimedOut = true };
         }
@@ -613,7 +613,7 @@ public static class ChannelExtensions
                 {
                     await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
                 }
-                catch { /* Best effort cleanup */ }
+                catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
             }
 
             // Send the prompt message
@@ -639,7 +639,7 @@ public static class ChannelExtensions
                 {
                     await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
                 }
-                catch { /* Best effort cleanup */ }
+                catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
                 return new InteractivityResult<string> { TimedOut = true };
             }
@@ -654,7 +654,7 @@ public static class ChannelExtensions
                 {
                     await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
                 }
-                catch { /* Best effort cleanup */ }
+                catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
                 return new InteractivityResult<string> { Result = input };
             }
@@ -667,7 +667,7 @@ public static class ChannelExtensions
                     Content = errorMessage
                 });
             }
-            catch { /* Best effort */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
         }
 
         // Max attempts reached
@@ -677,7 +677,7 @@ public static class ChannelExtensions
             {
                 await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
             }
-            catch { /* Best effort cleanup */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
         }
 
         return new InteractivityResult<string> { TimedOut = true };

@@ -1,6 +1,6 @@
 # PawSharp Developer Documentation
 
-Welcome to PawSharp! This documentation will guide you through building Discord bots with .NET 8.0+.
+Welcome to PawSharp! This documentation will guide you through building Discord bots with .NET 10.0+.
 
 ## Table of Contents
 

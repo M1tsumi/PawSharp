@@ -33,8 +33,8 @@ var gateway = new GatewayClient(new PawSharpOptions
     Intents = GatewayIntents.Guilds | GatewayIntents.GuildMessages
 });
 
-// Strongly-typed event subscription (no string literals!)
-gateway.Events.OnMessageCreate(async evt =>
+// Strongly-typed event subscription
+gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", async evt =>
 {
     Console.WriteLine($"Message in {evt.ChannelId}: {evt.Content}");
 });
@@ -66,7 +66,7 @@ var shardManager = new ShardManager(options, logger);
 await shardManager.ConnectAllAsync();
 
 // Subscribe to events across all shards
-shardManager.Events.OnMessageCreate(async evt =>
+shardManager.Events.On<MessageCreateEvent>("MESSAGE_CREATE", async evt =>
 {
     Console.WriteLine($"[Shard {evt.ShardId}] Message: {evt.Content}");
 });
@@ -117,7 +117,7 @@ The library handles reconnection automatically with exponential backoff. You can
 ```csharp
 // The gateway automatically reconnects on disconnect
 // You can monitor the connection state
-gateway.Events.OnResumed(async evt =>
+gateway.Events.On<ResumedEvent>("RESUMED", async evt =>
 {
     Console.WriteLine("Session resumed successfully");
 });
@@ -132,7 +132,7 @@ Filter events before they reach your handlers using middleware:
 
 ```csharp
 // Add middleware to filter events
-gateway.Events.UseMiddleware(async (eventName, eventData, next) =>
+gateway.Events.UseMiddleware(async (eventName, eventData) =>
 {
     // Only process events from a specific guild
     if (eventName == "MESSAGE_CREATE")
@@ -140,11 +140,10 @@ gateway.Events.UseMiddleware(async (eventName, eventData, next) =>
         var evt = JsonSerializer.Deserialize<MessageCreateEvent>(eventData);
         if (evt?.GuildId == 123456789)
         {
-            await next(); // Process this event
-            return;
+            // Event will be dispatched to all handlers after middleware completes
         }
     }
-    // Skip all other events
+    // All other events pass through
 });
 ```
 

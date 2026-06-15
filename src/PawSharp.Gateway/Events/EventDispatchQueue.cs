@@ -30,6 +30,7 @@ namespace PawSharp.Gateway.Events
         private readonly int _maxDegreeOfParallelism;
         private readonly bool _disposed;
         private readonly Microsoft.Extensions.Logging.ILogger? _logger;
+        private Task? _disposeTask;
 
         public EventDispatchQueue(
             EventDispatcher dispatcher,
@@ -171,11 +172,16 @@ namespace PawSharp.Gateway.Events
             }
         }
 
+        /// <summary>
+        /// Disposes the queue and begins draining pending events in a fire-and-forget manner.
+        /// Dispose must remain synchronous per IDisposable contract, so callers that need
+        /// a clean shutdown should await <see cref="WaitForDrainAsync"/> after disposal.
+        /// </summary>
         public void Dispose()
         {
             _channel.Writer.Complete();
             // Fire-and-forget with timeout to avoid blocking the caller thread.
-            _ = Task.Run(async () =>
+            _disposeTask = Task.Run(async () =>
             {
                 try
                 {
@@ -190,6 +196,28 @@ namespace PawSharp.Gateway.Events
                     _logger?.LogError(ex, "Error waiting for event dispatch queue to complete");
                 }
             });
+        }
+
+        /// <summary>
+        /// Waits for the disposal / drain operation to complete.
+        /// Call this after <see cref="Dispose"/> during a graceful shutdown
+        /// to ensure all queued events have been processed.
+        /// </summary>
+        /// <param name="timeout">Optional timeout for the drain wait. Defaults to 10 seconds.</param>
+        public async Task WaitForDrainAsync(TimeSpan? timeout = null)
+        {
+            if (_disposeTask is not null)
+            {
+                timeout ??= TimeSpan.FromSeconds(10);
+                try
+                {
+                    await _disposeTask.WaitAsync(timeout.Value).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    _logger?.LogWarning("Event dispatch queue drain did not complete within {Timeout}", timeout.Value);
+                }
+            }
         }
     }
 }

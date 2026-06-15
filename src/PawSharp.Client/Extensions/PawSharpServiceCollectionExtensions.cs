@@ -88,13 +88,15 @@ public static class PawSharpServiceCollectionExtensions
                 sp.GetService<ILogger<InteractionHandler>>()));
 
         // Top-level Discord client
-        services.AddSingleton<DiscordClient>(sp =>
+        services.AddSingleton<IDiscordClient>(sp =>
             new DiscordClient(
                 sp.GetRequiredService<PawSharpOptions>(),
                 sp.GetRequiredService<IEntityCache>(),
                 sp.GetRequiredService<ILogger<DiscordClient>>(),
                 sp.GetRequiredService<IDiscordRestClient>(),
                 sp.GetRequiredService<IGatewayClient>()));
+        services.AddSingleton<DiscordClient>(sp =>
+            (DiscordClient)sp.GetRequiredService<IDiscordClient>());
 
         return services;
     }
@@ -112,7 +114,7 @@ public static class PawSharpServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The service collection to register into.</param>
     /// <param name="options">Bot configuration (token, intents, etc.).</param>
-    [Obsolete("Use SetupPawSharp(options) or AddPawSharpWithMemoryCache(options) instead.")]
+    [Obsolete("AddPawSharpClient(options) is deprecated. Use SetupPawSharp(options) for a single-call setup, or AddPawSharp(options) for full control over cache configuration.")]
     public static IServiceCollection AddPawSharpClient(
         this IServiceCollection services,
         PawSharpOptions options)
@@ -124,7 +126,7 @@ public static class PawSharpServiceCollectionExtensions
     /// <exception cref="InvalidOperationException">
     /// Thrown when no concrete <see cref="PawSharpOptions"/> instance has been registered in the service collection.
     /// </exception>
-    [Obsolete("Use SetupPawSharp(options) or AddPawSharpWithMemoryCache(options) instead.")]
+    [Obsolete("AddPawSharpClient() is deprecated. Register PawSharpOptions first, then call SetupPawSharp(options) or AddPawSharpWithMemoryCache(options) instead.")]
     public static IServiceCollection AddPawSharpClient(this IServiceCollection services)
     {
         var options = services
