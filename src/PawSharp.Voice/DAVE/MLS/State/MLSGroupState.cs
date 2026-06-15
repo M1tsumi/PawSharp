@@ -165,8 +165,7 @@ internal sealed class MLSGroupState : IDisposable
         }
         else
         {
-            throw new Exception("Failed to decrypt GroupInfo");
-            groupContextBytes        = BuildGroupContext().Encode();
+            throw new MlsDecodeException("Failed to decrypt GroupInfo in Welcome message");
         }
 
         // 5. Run RFC 9420 §8 key schedule.

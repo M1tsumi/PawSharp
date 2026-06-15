@@ -81,7 +81,7 @@ internal sealed class GroupContext
         var epoch  = r.ReadUint64();
         var tHash  = r.ReadVector32();
         var ctHash = r.ReadVector32();
-        // skip extensions
+        r.ReadUint32(); // extensions count — consume for symmetrical encode/decode
         return new GroupContext(gid, epoch, tHash, ctHash);
     }
 }
