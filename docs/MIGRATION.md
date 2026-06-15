@@ -160,4 +160,4 @@ If you encounter any issues during migration:
 
 1. Check the full [CHANGELOG.md](../CHANGELOG.md) for detailed per-version changes
 2. Review the documentation index at [INDEX.md](INDEX.md)
-3. Open a [GitHub issue](https://github.com/pawsharp/PawSharp/issues)
+3. Open a [GitHub issue](https://github.com/M1tsumi/PawSharp/issues)

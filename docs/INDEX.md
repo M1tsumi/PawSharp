@@ -89,7 +89,7 @@ For a structured overview by module:
 - **PawSharp.Commands** — `CommandsExtension`, `BaseCommandModule`, `[Command]`, `[Aliases]`, `[Description]`
 - **PawSharp.Interactions** — `InteractionHandler`, slash commands, components, autocomplete, context menus
 - **PawSharp.Interactivity** — Reaction pagination, `InteractivityExtension`
-- **PawSharp.Voice** — `VoiceClient`, `VoiceConnection` (experimental)
+- **PawSharp.Voice** — `VoiceClient`, `VoiceConnection` (alpha, DAVE E2EE)
 
 ---
 
@@ -162,7 +162,7 @@ var options = new PawSharpOptions
     ApiVersion = 10,
 
     // Gateway
-    Intents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent,
+    Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
 
     // Sharding
     Shards = ShardingStrategy.Auto,

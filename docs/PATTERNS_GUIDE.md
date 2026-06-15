@@ -360,9 +360,7 @@ public class AutoModerator
     }
 }
 
-dispatcher.On<MessageCreateEvent>(moderator.HandleMessageAsync);
-
-> **Tip:** To attach to the DiscordClient use `client.OnMessageCreated(moderator.HandleMessageAsync)`.
+client.OnMessageCreated(moderator.HandleMessageAsync);
 
 ### Kick & Ban with Logging
 

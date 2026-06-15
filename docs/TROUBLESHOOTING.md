@@ -141,7 +141,7 @@ var options = new PawSharpOptions
 // Solution: Use comprehensive intents
 var options = new PawSharpOptions
 {
-    Intents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent,
+    Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
 };
 
 // Cause 2: Network issues
@@ -511,7 +511,7 @@ var options = new PawSharpOptions
 // ✅ Solution
 var options = new PawSharpOptions
 {
-    Intents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent,
+    Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
 };
 
 // Cause 2: Using low-level API without required event name string
@@ -750,4 +750,4 @@ services.AddLogging(builder =>
 
 ---
 
-**Still stuck?** Open an issue on [GitHub](https://github.com/pawsharp/pawsharp/issues) with the information above!
+**Still stuck?** Open an issue on [GitHub](https://github.com/M1tsumi/PawSharp/issues) with the information above!
