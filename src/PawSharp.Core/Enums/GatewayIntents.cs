@@ -10,6 +10,11 @@ namespace PawSharp.Core.Enums;
 public enum GatewayIntents : uint
 {
     /// <summary>
+    /// No intents.
+    /// </summary>
+    None = 0,
+    
+    /// <summary>
     /// Guild-related events (e.g., GUILD_CREATE).
     /// </summary>
     Guilds = 1 << 0,
