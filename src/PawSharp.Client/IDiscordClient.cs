@@ -80,7 +80,7 @@ namespace PawSharp.Client
 
         Task<Message?> ForwardMessageAsync(ulong targetChannelId, ulong sourceChannelId, ulong sourceMessageId, CreateMessageRequest request, bool failIfNotExists = true);
 
-        Task<Message?> GetCurrentUserAsync();
+        Task<User?> GetCurrentUserAsync();
 
         Task<Message?> EditMessageAsync(ulong channelId, ulong messageId, string content);
 
