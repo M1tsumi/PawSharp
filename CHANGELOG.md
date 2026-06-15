@@ -4,6 +4,106 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.1.0-alpha.3] - 2026-06-15
+
+### New Features
+
+- **IDiscordClient interface** (`PawSharp.Client`)
+  - New `IDiscordClient` interface with 130+ methods, 8 properties, 2 events, and 74 gateway event subscriptions.
+  - `DiscordClient` now implements `IDiscordClient` — all existing code continues to work.
+  - `PawSharpClientBuilder.Build()` returns `IDiscordClient`.
+  - DI registration registers both `IDiscordClient` and `DiscordClient` for backward compatibility.
+  - Enables full mocking via Moq for unit tests.
+
+- **Connection state tracking** (`PawSharp.Client`)
+  - Added `ClientConnectionState` enum (`Disconnected`, `Connecting`, `Connected`, `Disconnecting`).
+  - `DiscordClient.ConnectionState` property and `ConnectionStateChanged` event.
+  - `DiscordClient.IsConnected` helper property.
+  - `DiscordClient.ReconnectAsync()` for graceful disconnect-reconnect cycles.
+  - State transitions are tracked during `ConnectAsync()` and `DisconnectAsync()`.
+
+- **Global exception handler infrastructure** (`PawSharp.Client`)
+  - Added `DiscordClient.SetupGlobalExceptionHandlers()` static method.
+  - Wires `AppDomain.CurrentDomain.UnhandledException` and `TaskScheduler.UnobservedTaskException`.
+  - Optional logger and custom callback parameters.
+
+- **Command module auto-discovery** (`PawSharp.Commands`)
+  - `CommandsExtension.RegisterModulesInAssembly()` — discovers and registers all `BaseCommandModule` subclasses in an assembly.
+  - `CommandsExtension.RegisterSlashModulesInAssemblyAsync()` — same, but as slash commands.
+  - `UseCommandsWithAutoDiscovery()` extension method for one-liner setup.
+  - Modules are resolved via service provider when available, falling back to `Activator.CreateInstance`.
+
+- **Convenience methods on DiscordClient** (`PawSharp.Client`)
+  - `SendDirectMessageAsync(ulong userId, string content)` — creates DM channel and sends message.
+  - `TrySendMessageAsync(ulong channelId, string content)` — returns null on failure instead of throwing.
+  - `TryReplyAsync(MessageCreateEvent, string)` — non-throwing reply helper.
+  - `SendEmbedAsync(ulong channelId, Embed embed)` — shorthand for sending a single embed.
+  - `GetOrCreateThreadAsync(ulong channelId, string threadName, ...)` — find or create a thread.
+
+- **Builder validation** (`PawSharp.Client`)
+  - `PawSharpClientBuilder.Build()` now validates token (not null/empty), intents (not `None`), API version (in supported range).
+  - All validation errors include actionable messages.
+  - Added `PawSharpClientBuilder.Create()` static factory method.
+
+- **XML documentation with code examples** (across all projects)
+  - Added `<example>` blocks to 30+ methods across `DiscordClient`, `PawSharpClientBuilder`, `InteractionHandler`, `CommandsExtension`, `IDiscordRestClient`, `IEntityCache`, `IGatewayClient`.
+  - Examples compile, use realistic patterns, and include error handling.
+
+### Changes
+
+- **Exception hierarchy consolidated** (`PawSharp.Core` / `PawSharp.API`)
+  - `PawSharp.Core.Exceptions.DiscordApiException` now inherits from `PawSharp.API.Exceptions.DiscordApiException` instead of being a separate class — eliminates catch ambiguity. [Breaking if you caught the Core version by full type name]
+  - `PawSharp.Cache.Exceptions.CacheException` now inherits from `DiscordException` instead of `Exception` — all library exceptions are now in the same hierarchy.
+
+- **Error handling hardened** (all modules)
+  - Gateway `UpdatePresenceAsync`, `RequestGuildMembersAsync`, `RequestSoundboardSoundsAsync` now re-throw exceptions after logging (previously silent).
+  - `GatewaySendAsync` rate-limit release uses `CancellationToken.None` to prevent semaphore leak on cancellation.
+  - `EventDispatchQueue.Dispose()` stores disposal task and exposes `WaitForDrainAsync()`.
+  - `WebSocketConnection.Dispose()` stores disposal task and exposes `WaitForDisposeAsync()`.
+  - 15 empty `catch {}` blocks replaced with `catch (Exception)` across CacheSwapper, ChannelExtensions, WebhookVerifier, InteractionExtensions.
+  - `CacheManager.HandleGuildMemberUpdate` null-guards `e.User`.
+  - `InteractivityValidation` now uses `ValidationException` from Core instead of `ArgumentException`.
+
+- **Log sanitization and security** (`PawSharp.API` / `PawSharp.Interactions`)
+  - `PawSharpClientBuilder` now enforces TLS 1.2+ on the HttpClient via `SslOptions`.
+  - `WebhookVerifier` XML docs updated with clear warning about non-constant-time BigInteger implementation.
+  - Token security warning added to `PawSharpOptions.Token` XML docs.
+  - `ConnectAsync()` XML docs recommend setting up global exception handlers.
+
+### Documentation
+
+- Created `docs/MIGRATION.md` — migration guide covering all breaking changes from 0.x through 1.1.0-alpha versions.
+- Rewrote README.md — comprehensive, human-written, with clear getting-started paths, package reference, and real code examples.
+- Updated all .NET version references from 8.0 to 10.0 across 4 documentation files.
+- Re-reconciled `docs/VOICE_GUIDE.md` and `src/PawSharp.Voice/README.md` — Voice README now accurately describes built-in MLS DAVE E2EE implementation.
+- Fixed `src/PawSharp.Gateway/README.md` — event examples now use correct `On<T>("EVENT_NAME", handler)` API.
+- Fixed formatting issues in `docs/PATTERNS_GUIDE.md` and `docs/GATEWAY_GUIDE.md`.
+- Updated `docs/DEVELOPERS_GUIDE.md`, `docs/TROUBLESHOOTING.md`, `docs/VOICE_GUIDE.md` version and framework references.
+- Updated `docs/INDEX.md` to reflect new features and fix version numbers.
+
+### Example Bots
+
+- **ModerationBot** — all 22 `_client.API.*` calls changed to `_client.Rest.*` (property didn't exist).
+- **MusicBot** — `AddPawSharpCommands()` → `AddCommands()`, `CommandModule` → `BaseCommandModule`, `MusicService` now DI-injected (no duplicate creation), removed non-existent attributes.
+- **DashboardBot** — rewritten to use `InteractionHandler` instead of non-existent `InteractionService`.
+- All example bots updated to use `IDiscordClient` instead of `DiscordClient`.
+
+### Bug Fixes
+
+- **Voice — DAVE E2EE fixes** (`PawSharp.Voice`)
+  - Fixed DM/GroupDM voice calls crashing on connect: `VoiceClient.ConnectAsync` now accepts DM/GroupDM channel types with `guildId = 0`, and `OnVoiceServerUpdate` matches DM connections by channel type when the gateway sends `guild_id = 0`.
+  - Fixed inbound DAVE frames being silently dropped: `UdpReceiveLoopAsync` now checks `_dave?.IsActive` before attempting transport decryption on received audio packets.
+  - Fixed keep-alive (NAT timeout) never running: `KeepAliveLoopAsync` is now started during `ConnectInternalAsync` instead of being left as dead code.
+  - Fixed forward secrecy gap: external sender packages (op 31) are now stored in `MLSGroupState` and bound as the HKDF salt during commit epoch advances, so future commits benefit from the sender's entropy.
+
+- **Example bot compilation** — fixed `client.API` → `client.Rest` in ModerationBot, fixed `AddPawSharpCommands` → `AddCommands` in MusicBot, removed references to non-existent `InteractionService`, `CommandModule`, `[CommandModule]`, and `Color` enum in example projects.
+
+### Internal / Tooling
+
+- Exposed `DAVEProtocol.MlsState` as internal for test access and added `InternalsVisibleTo` for `PawSharp.Voice.Tests`.
+- Created `DAVETestData` helper that generates structurally valid MLS Welcome/Commit messages using real HPKE, HKDF, and AES-GCM primitives.
+- Unskipped all 16 previously-skipped DAVE tests — they now run against real cryptographically-generated test data.
+
 ## [1.1.0-alpha.2] - 2026-05-03
 
 ### New Features

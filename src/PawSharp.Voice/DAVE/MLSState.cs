@@ -110,6 +110,18 @@ public sealed class MLSState : IDisposable
         _group.ProcessProposals(proposals);
     }
 
+    /// <summary>
+    /// Stores the external sender package (op 31) for commit signature validation.
+    /// The external sender is Discord's server, which produces signed commits on
+    /// behalf of the group.  This package binds the server's HPKE key into the
+    /// MLS key schedule for forward secrecy.
+    /// </summary>
+    /// <param name="packageBytes">Raw TLS-encoded ExternalSender package.</param>
+    public void SetExternalSenderPackage(byte[] packageBytes)
+    {
+        _group.SetExternalSenderPackage(packageBytes);
+    }
+
     // ── Key access ────────────────────────────────────────────────────────────
 
     /// <summary>

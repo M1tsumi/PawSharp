@@ -207,6 +207,7 @@ dispatcher.Use(async (eventName, eventData) =>
             await _auditLog.RecordBotMessageAsync(msg);
     }
 });
+```
 
 ### Best practices for event handlers
 
@@ -243,8 +244,6 @@ sub.Dispose();
 - Avoid blocking calls like `.Result` or `.Wait()` inside handlers — prefer async/await.
 
 - Be mindful of intents: handlers that rely on message content require `GatewayIntents.MessageContent`.
-
-```
 
 ---
 

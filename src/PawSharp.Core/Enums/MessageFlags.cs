@@ -32,4 +32,6 @@ public enum MessageFlags
     SuppressNotifications         = 1 << 12,
     /// <summary>This message is a voice message.</summary>
     IsVoiceMessage                = 1 << 13,
+    /// <summary>This message uses the components v2 layout.</summary>
+    IsComponentsV2                = 1 << 15,
 }

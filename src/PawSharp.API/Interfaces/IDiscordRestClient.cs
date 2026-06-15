@@ -13,6 +13,18 @@ namespace PawSharp.API.Interfaces;
 /// <summary>
 /// Interface for Discord REST API client.
 /// </summary>
+/// <example>
+/// <code>
+/// var message = await restClient.CreateMessageAsync(channelId, new CreateMessageRequest
+/// {
+///     Content = "Hello from PawSharp!",
+///     Embeds = new List&lt;Embed&gt;
+///     {
+///         new Embed { Title = "PawSharp", Description = "A Discord API wrapper" }
+///     }
+/// });
+/// </code>
+/// </example>
 public interface IDiscordRestClient
 {
     /// <summary>
@@ -77,6 +89,21 @@ public interface IDiscordRestClient
     Task<bool> LeaveGuildAsync(ulong guildId);
     
     // Message operations
+    /// <summary>
+    /// Creates and sends a message in the specified channel.
+    /// </summary>
+    /// <param name="channelId">The ID of the channel to send the message to.</param>
+    /// <param name="request">The message content, embeds, components, and other options.</param>
+    /// <returns>The created message, or <see langword="null"/> if the operation failed.</returns>
+    /// <example>
+    /// <code>
+    /// var msg = await client.CreateMessageAsync(channelId, new CreateMessageRequest
+    /// {
+    ///     Content = "Hello, world!",
+    ///     Tts = false
+    /// });
+    /// </code>
+    /// </example>
     Task<Message?> CreateMessageAsync(ulong channelId, CreateMessageRequest request);
     Task<Message?> ForwardMessageAsync(ulong targetChannelId, ulong sourceChannelId, ulong sourceMessageId, string? content = null, bool failIfNotExists = true);
     Task<Message?> SendFileAsync(ulong channelId, Stream fileStream, string fileName, CreateMessageRequest? messageRequest = null, CancellationToken cancellationToken = default);
@@ -99,6 +126,21 @@ public interface IDiscordRestClient
     Task<List<Invite>?> GetChannelInvitesAsync(ulong channelId);
     Task<Invite?> CreateChannelInviteAsync(ulong channelId, CreateInviteRequest request);
     Task<bool> DeleteChannelPermissionAsync(ulong channelId, ulong overwriteId);
+    
+    /// <summary>
+    /// Gets the status of a voice channel.
+    /// </summary>
+    /// <param name="channelId">The voice channel ID.</param>
+    /// <returns>The voice channel status text, or null if none is set.</returns>
+    Task<string?> GetVoiceChannelStatusAsync(ulong channelId);
+    
+    /// <summary>
+    /// Sets or clears the status of a voice channel.
+    /// </summary>
+    /// <param name="channelId">The voice channel ID.</param>
+    /// <param name="status">The status text (max 500 characters), or null to clear.</param>
+    /// <returns>The updated channel object.</returns>
+    Task<Channel?> SetVoiceChannelStatusAsync(ulong channelId, string? status);
     
     // Guild operations
     Task<Guild?> GetGuildAsync(ulong guildId, bool withCounts = false);

@@ -53,13 +53,20 @@ public class VoiceClient : IDisposable
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task<VoiceConnection> ConnectAsync(Channel channel, VoiceConnectionOptions? options = null)
     {
-        if (channel.Type != ChannelType.GuildVoice && channel.Type != ChannelType.GuildStageVoice)
-            throw new ArgumentException("Channel must be a voice channel.", nameof(channel));
+        if (channel.Type != ChannelType.GuildVoice && channel.Type != ChannelType.GuildStageVoice
+            && channel.Type != ChannelType.DM && channel.Type != ChannelType.GroupDM)
+            throw new ArgumentException("Channel must be a voice or DM channel.", nameof(channel));
 
-        var guildId = channel.GuildId ?? throw new ArgumentException("Channel must be in a guild.", nameof(channel));
+        ulong guildId;
+        if (channel.Type == ChannelType.DM || channel.Type == ChannelType.GroupDM)
+        {
+            guildId = 0;
+        }
+        else
+        {
+            guildId = channel.GuildId ?? throw new ArgumentException("Guild channel must have a guild ID.", nameof(channel));
+        }
 
-        // Create and register the connection object — actual WebSocket connect
-        // happens in OnVoiceServerUpdate when Discord provides the server endpoint.
         var connection = new VoiceConnection(
             _discordClient,
             channel,
@@ -69,6 +76,7 @@ public class VoiceClient : IDisposable
         _connections[channel.Id] = connection;
 
         // Send op4 — Discord will reply with VOICE_STATE_UPDATE then VOICE_SERVER_UPDATE
+        // For DMs (guildId=0), Discord still responds with the call's voice server info.
         await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId, channel.Id, false, false);
 
         return connection;
@@ -194,14 +202,29 @@ public class VoiceClient : IDisposable
 
     private async Task OnVoiceServerUpdate(VoiceServerUpdateEvent evt)
     {
-        // Find the connection for this guild
         VoiceConnection? target = null;
-        foreach (var conn in _connections.Values)
+        if (evt.GuildId == 0)
         {
-            if (conn.GuildId == evt.GuildId)
+            // DM/GroupDM call: find a pending connection whose channel is a DM or GroupDM.
+            // There should be at most one active DM call connection at a time.
+            foreach (var conn in _connections.Values)
             {
-                target = conn;
-                break;
+                if (conn.Channel.Type == ChannelType.DM || conn.Channel.Type == ChannelType.GroupDM)
+                {
+                    target = conn;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            foreach (var conn in _connections.Values)
+            {
+                if (conn.GuildId == evt.GuildId)
+                {
+                    target = conn;
+                    break;
+                }
             }
         }
 

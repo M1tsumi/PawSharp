@@ -285,7 +285,7 @@ Created: {user.CreatedAt:g}";
                         new CreateMessageRequest { Content = userInfo });
                 }
             }
-            catch (PawSharp.Core.Exceptions.DiscordApiException ex) when (ex.StatusCode == 404)
+            catch (PawSharp.API.Exceptions.DiscordApiException ex) when (ex.StatusCode == 404)
             {
                 await _client.Rest.CreateMessageAsync(msg.ChannelId,
                     new CreateMessageRequest { Content = "User not found." });

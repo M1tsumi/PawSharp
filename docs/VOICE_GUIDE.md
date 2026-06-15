@@ -9,7 +9,7 @@ end-to-end encryption layer works underneath.
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice  # 1.0.0-alpha.4
+dotnet add package PawSharp.Voice  # 1.1.0-alpha.3
 ```
 
 This pulls in NAudio (audio device I/O) and Concentus (Opus codec). The entire
@@ -238,7 +238,7 @@ construction deterministic within each epoch.
 
 ### Cryptographic components
 
-All of this runs on .NET 8's built-in `System.Security.Cryptography`. Nothing
+All of this runs on .NET 10's built-in `System.Security.Cryptography`. Nothing
 in `PawSharp.Voice.DAVE` calls P/Invoke or loads a native crypto DLL.
 
 | Layer | Algorithm | .NET type |
