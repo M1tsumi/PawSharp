@@ -30,6 +30,18 @@ public class CacheInvalidationEventArgs : EventArgs
 /// <summary>
 /// Defines the contract for a cache provider that stores Discord entities.
 /// </summary>
+/// <example>
+/// <code>
+/// public class MyCache : IEntityCache
+/// {
+///     private readonly ConcurrentDictionary&lt;ulong, User&gt; _users = new();
+/// 
+///     public void CacheUser(User user) =&gt; _users[user.Id] = user;
+///     public User? GetUser(ulong userId) =&gt; _users.TryGetValue(userId, out var u) ? u : null;
+///     // ... implement remaining members
+/// }
+/// </code>
+/// </example>
 public interface IEntityCache
 {
     /// <summary>

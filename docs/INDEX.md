@@ -1,6 +1,6 @@
 # PawSharp Developer Documentation Index
 
-Welcome to PawSharp! This is your complete guide to building Discord bots with .NET 8.0+.
+Welcome to PawSharp! This is your complete guide to building Discord bots with .NET 10.0+.
 
 ## 📚 Getting Started (Start Here!)
 
@@ -85,7 +85,7 @@ For a structured overview by module:
 - **PawSharp.API** — `IDiscordRestClient` with 140+ typed endpoints; `RestClient`, rate-limit layer
 - **PawSharp.Gateway** — `GatewayClient`, `EventDispatcher`, `HeartbeatManager`, `ReconnectionManager`, `ShardManager`
 - **PawSharp.Cache** — `IEntityCache`, `MemoryCacheProvider`, `RedisCacheProvider`
-- **PawSharp.Client** — `DiscordClient` (unified facade), `CacheManager`, DI extension `AddPawSharp()`
+- **PawSharp.Client** — `IDiscordClient` / `DiscordClient` (unified facade), `CacheManager`, `PawSharpClientBuilder`, DI extensions `AddPawSharp()` / `SetupPawSharp()`
 - **PawSharp.Commands** — `CommandsExtension`, `BaseCommandModule`, `[Command]`, `[Aliases]`, `[Description]`
 - **PawSharp.Interactions** — `InteractionHandler`, slash commands, components, autocomplete, context menus
 - **PawSharp.Interactivity** — Reaction pagination, `InteractivityExtension`
@@ -98,27 +98,29 @@ For a structured overview by module:
 ### Basic Bot in 5 Minutes
 
 ```csharp
-// 1. Add NuGet package
+// 1. Add NuGet packages
 // dotnet add package PawSharp.Client
+// dotnet add package Microsoft.Extensions.Logging.Console
 
-// 2. Create bot
+// 2. Create bot with DI
 var services = new ServiceCollection()
-    .AddLogging(x => x.AddConsole())
-    .AddSingleton(new PawSharpOptions
+    .AddLogging(x => x.AddConsole().SetMinimumLevel(LogLevel.Information))
+    .SetupPawSharp(new PawSharpOptions
     {
         Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")!,
-        Intents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent,
-    })
-    .AddPawSharp();
+        Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
+    });
 
-var client = services.BuildServiceProvider().GetRequiredService<DiscordClient>();
+var client = services.BuildServiceProvider()
+    .GetRequiredService<IDiscordClient>();
 
-// 3. Add command
-client.OnMessageCreated(msg =>
+// 3. Handle messages
+client.OnMessageCreated(async evt =>
 {
-    if (msg.Content == "!ping")
-        return client.Rest.CreateMessageAsync(msg.ChannelId, new() { Content = "🏓 Pong!" });
-    return Task.CompletedTask;
+    if (evt.Author?.IsBot == true) return;
+
+    if (evt.Content == "!ping")
+        await client.SendMessageAsync(evt.ChannelId, "🏓 Pong!");
 });
 
 // 4. Run
@@ -202,8 +204,17 @@ dotnet add package PawSharp.Interactions
 
 ## ❓ FAQ
 
-**Q: Can I use PawSharp with .NET 7?**
-A: No, PawSharp requires .NET 8.0+.
+**Q: Can I use PawSharp with .NET 9?**
+A: No, PawSharp requires .NET 10.0+. The library targets `net10.0` and uses APIs from the .NET 10 BCL.
+
+**Q: Can I use dependency injection?**
+A: Yes. PawSharp integrates with `Microsoft.Extensions.DependencyInjection` out of the box. Call `services.SetupPawSharp(options)` and everything is wired up.
+
+**Q: How do I test my bot logic?**
+A: PawSharp provides `IDiscordClient`, `IDiscordRestClient`, `IGatewayClient`, and `IEntityCache` interfaces — all mockable. See `docs/MIGRATION.md` for patterns.
+
+**Q: How do I auto-discover command modules?**
+A: Call `client.UseCommandsWithAutoDiscovery()` to scan the calling assembly for all `BaseCommandModule` subclasses and register them automatically.
 
 **Q: How many guilds can a single bot instance handle?**
 A: Typically 2500+ guilds per shard. Use sharding for larger bots.
@@ -215,10 +226,10 @@ A: For small bots (< 500 guilds), in-memory cache is fine. For larger bots, Redi
 A: Enable the `MessageContent` intent and request it in Developer Portal.
 
 **Q: Can I use voice?**
-A: Voice is experimental and lacks full features. Use DSharpPlus/Discord.NET for production voice.
+A: Yes — PawSharp.Voice implements the full Discord Voice Protocol v8 with Opus audio and DAVE end-to-end encryption (MLS / RFC 9420). Voice is still alpha but functional for music bots and audio processing.
 
 **Q: Where's the source code?**
-A: Visit [GitHub](https://github.com/pawsharp/pawsharp)
+A: Visit [GitHub](https://github.com/M1tsumi/PawSharp)
 
 → More FAQs: [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 
@@ -292,11 +303,10 @@ PawSharp implements **140+ Discord API endpoints**:
 - 🔍 Use Ctrl+F to search for specific topics
 
 ### Community
-- 💬 [GitHub Discussions](https://github.com/pawsharp/pawsharp/discussions)
-- 🐛 [GitHub Issues](https://github.com/pawsharp/pawsharp/issues)
+- 💬 [GitHub Discussions](https://github.com/M1tsumi/PawSharp/discussions)
+- 🐛 [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues)
 
 ### External Resources
-- 📚 [Discord.js Guide](https://discordjs.guide/) (similar concepts)
 - 🔗 [Discord API Documentation](https://discord.com/developers/docs)
 - 💻 [Stack Overflow `discord-api` tag](https://stackoverflow.com/questions/tagged/discord-api)
 
@@ -304,7 +314,7 @@ PawSharp implements **140+ Discord API endpoints**:
 
 ## 📝 Documentation Versions
 
-**Latest:** 1.1.0-alpha.2 (May 3, 2026)
+**Latest:** 1.1.0-alpha.3 (June 15, 2026)
 
 Documentation covers:
 - ✅ 1.0.0-alpha.1 and later
@@ -317,8 +327,8 @@ Documentation covers:
 
 Want to improve the docs?
 
-1. **Report issues** - Found an error? [Open an issue](https://github.com/pawsharp/pawsharp/issues)
-2. **Suggest changes** - Have an idea? [Start a discussion](https://github.com/pawsharp/pawsharp/discussions)
+1. **Report issues** - Found an error? [Open an issue](https://github.com/M1tsumi/PawSharp/issues)
+2. **Suggest changes** - Have an idea? [Start a discussion](https://github.com/M1tsumi/PawSharp/discussions)
 3. **Submit PRs** - Fix typos or improve guides directly
 4. **Add examples** - Create real-world examples for other developers
 
@@ -343,6 +353,6 @@ PawSharp documentation is available under the MIT License.
 
 ---
 
-*Last updated: March 29, 2026*  
-*PawSharp Version: 1.1.0-alpha.2*  
-*For the latest documentation, visit [github.com/pawsharp/pawsharp/docs](https://github.com/pawsharp/pawsharp/docs)*
+*Last updated: June 15, 2026*  
+*PawSharp Version: 1.1.0-alpha.3*  
+*For the latest documentation, visit [github.com/M1tsumi/PawSharp](https://github.com/M1tsumi/PawSharp)*

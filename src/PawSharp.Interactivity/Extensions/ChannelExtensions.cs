@@ -65,11 +65,11 @@ public static class ChannelExtensions
             return; // No need for pagination controls
 
         // Add all navigation reaction controls
-        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.SkipLeft);
-        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Left);
-        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Stop);
-        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Right);
-        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.SkipRight);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.SkipLeft).ConfigureAwait(false);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Left).ConfigureAwait(false);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Stop).ConfigureAwait(false);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.Right).ConfigureAwait(false);
+        await client.Rest.CreateReactionAsync(channel.Id, message.Id, emojis.SkipRight).ConfigureAwait(false);
 
         var tcs = new TaskCompletionSource<bool>();
         using var cts = new CancellationTokenSource(timeout!.Value);
@@ -85,11 +85,11 @@ public static class ChannelExtensions
             var emojiName = evt.Emoji.Name ?? string.Empty;
             try
             {
-                await client.Rest.DeleteUserReactionAsync(channel.Id, message.Id, emojiName, user.Id);
+                await client.Rest.DeleteUserReactionAsync(channel.Id, message.Id, emojiName, user.Id).ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Reaction cleanup failed: {ex.Message}");
+                // Reaction cleanup failed — safe to ignore
             }
 
             var previousPage = currentPage;
@@ -101,8 +101,8 @@ public static class ChannelExtensions
             else if (emojiName == emojis.Stop)  { tcs.TrySetResult(true); return; }
             else
             {
-                System.Diagnostics.Debug.WriteLine($"Unrecognised emoji in pagination: {emojiName}");
-                return; // unrecognised emoji — ignore
+                // unrecognised emoji — ignore
+                return;
             }
 
             if (currentPage == previousPage) return; // no-op (already at boundary)
@@ -120,12 +120,12 @@ public static class ChannelExtensions
                 // Invoke page changed callback
                 if (callbacks?.OnPageChanged != null)
                 {
-                    await callbacks.OnPageChanged(currentPage, pageList[currentPage]);
+                    await callbacks.OnPageChanged(currentPage, pageList[currentPage]).ConfigureAwait(false);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Message edit failed: {ex.Message}");
+                // Message edit failed — safe to ignore
             }
         }
 
@@ -136,11 +136,11 @@ public static class ChannelExtensions
             var result = await tcs.Task;
             if (!result && callbacks?.OnTimeout != null)
             {
-                await callbacks.OnTimeout();
+                await callbacks.OnTimeout().ConfigureAwait(false);
             }
             else if (result && callbacks?.OnStopped != null)
             {
-                await callbacks.OnStopped();
+                await callbacks.OnStopped().ConfigureAwait(false);
             }
         }
         finally
@@ -151,9 +151,9 @@ public static class ChannelExtensions
             if (behaviour == PollBehaviour.DeleteEmojis)
             {
                 try { await client.Rest.DeleteAllReactionsAsync(channel.Id, message.Id); }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Pagination cleanup failed: {ex.Message}");
+                    // Pagination cleanup failed — safe to ignore
                 }
             }
         }
@@ -173,7 +173,7 @@ public static class ChannelExtensions
         Func<MessageCreateEvent, bool>? predicate = null,
         TimeSpan? timeout = null)
     {
-        return await GetNextMessageAsync(channel, client, predicate, timeout, CancellationToken.None);
+        return await GetNextMessageAsync(channel, client, predicate, timeout, CancellationToken.None).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -280,12 +280,12 @@ public static class ChannelExtensions
             Components = new List<MessageComponent> { actionRow }
         };
 
-        var message = await client.Rest.CreateMessageAsync(channel.Id, request);
+        var message = await client.Rest.CreateMessageAsync(channel.Id, request).ConfigureAwait(false);
         if (message == null)
             return new InteractivityResult<bool> { TimedOut = true };
 
         // Wait for button click
-        var result = await message.WaitForButtonAsync(client, user, timeout: timeout, cancellationToken: cancellationToken);
+        var result = await message.WaitForButtonAsync(client, user, timeout: timeout, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         if (result.TimedOut || result.Result == null)
         {
@@ -298,7 +298,7 @@ public static class ChannelExtensions
                     Components = new List<MessageComponent>()
                 });
             }
-            catch { /* Best effort cleanup */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
             return new InteractivityResult<bool> { TimedOut = true };
         }
@@ -320,7 +320,7 @@ public static class ChannelExtensions
                 Components = new List<MessageComponent>()
             });
         }
-        catch { /* Best effort */ }
+        catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
         return new InteractivityResult<bool> { Result = confirmed };
     }
@@ -366,7 +366,7 @@ public static class ChannelExtensions
             Components = BuildPaginationButtons(currentPage, totalPages, labels)
         };
 
-        var message = await client.Rest.CreateMessageAsync(channel.Id, initialRequest);
+        var message = await client.Rest.CreateMessageAsync(channel.Id, initialRequest).ConfigureAwait(false);
         if (message == null) return;
 
         // Pagination loop
@@ -383,7 +383,7 @@ public static class ChannelExtensions
                 // Invoke timeout callback
                 if (callbacks?.OnTimeout != null)
                 {
-                    await callbacks.OnTimeout();
+                    await callbacks.OnTimeout().ConfigureAwait(false);
                 }
                 break;
             }
@@ -428,7 +428,7 @@ public static class ChannelExtensions
                     // Invoke stopped callback
                     if (callbacks?.OnStopped != null)
                     {
-                        await callbacks.OnStopped();
+                        await callbacks.OnStopped().ConfigureAwait(false);
                     }
                     return;
             }
@@ -438,7 +438,7 @@ public static class ChannelExtensions
             // Invoke page changed callback
             if (callbacks?.OnPageChanged != null)
             {
-                await callbacks.OnPageChanged(currentPage, pageList[currentPage]);
+                await callbacks.OnPageChanged(currentPage, pageList[currentPage]).ConfigureAwait(false);
             }
 
             // Update message with new page and button states
@@ -558,9 +558,9 @@ public static class ChannelExtensions
             // Clean up the prompt message on timeout
             try
             {
-                await client.Rest.DeleteMessageAsync(channel.Id, promptMessage.Id);
+                await client.Rest.DeleteMessageAsync(channel.Id, promptMessage.Id).ConfigureAwait(false);
             }
-            catch { /* Best effort cleanup */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
             return new InteractivityResult<string> { TimedOut = true };
         }
@@ -611,9 +611,9 @@ public static class ChannelExtensions
             {
                 try
                 {
-                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
                 }
-                catch { /* Best effort cleanup */ }
+                catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
             }
 
             // Send the prompt message
@@ -637,9 +637,9 @@ public static class ChannelExtensions
                 // Clean up the prompt message on timeout
                 try
                 {
-                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
                 }
-                catch { /* Best effort cleanup */ }
+                catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
                 return new InteractivityResult<string> { TimedOut = true };
             }
@@ -652,9 +652,9 @@ public static class ChannelExtensions
                 // Valid input - clean up prompt and return
                 try
                 {
-                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+                    await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
                 }
-                catch { /* Best effort cleanup */ }
+                catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
 
                 return new InteractivityResult<string> { Result = input };
             }
@@ -667,7 +667,7 @@ public static class ChannelExtensions
                     Content = errorMessage
                 });
             }
-            catch { /* Best effort */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
         }
 
         // Max attempts reached
@@ -675,9 +675,9 @@ public static class ChannelExtensions
         {
             try
             {
-                await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id);
+                await client.Rest.DeleteMessageAsync(channel.Id, lastPromptMessage.Id).ConfigureAwait(false);
             }
-            catch { /* Best effort cleanup */ }
+            catch (Exception) { /* Best-effort cleanup failure is non-critical */ }
         }
 
         return new InteractivityResult<string> { TimedOut = true };

@@ -21,7 +21,7 @@ public class PawSharpClientBuilderTests
         Action act = () => builder.Build();
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Call WithToken*");
+            .WithMessage("*WithToken()*");
     }
 
     [Theory]

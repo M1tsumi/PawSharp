@@ -332,8 +332,14 @@ public class VoiceConnection : IDisposable
         await _webSocket.ConnectAsync(uri, _cts.Token);
         _speaking = false;  // reset speaking gate on fresh connection
 
-        _receiveTask   = Task.Run(ReceiveLoopAsync,   _cts.Token);
-        _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
+        _receiveTask    = Task.Run(ReceiveLoopAsync,    _cts.Token);
+        _heartbeatTask  = Task.Run(HeartbeatLoopAsync,  _cts.Token);
+
+        // UDP keep-alive: sends silence frames during idle periods to prevent NAT
+        // timeouts and keep the Discord voice server from dropping the session.
+        // Note: the _udpClient isn't created until IP discovery, but the loop checks
+        // for null internally so it's safe to start early.
+        var keepAliveTask = Task.Run(KeepAliveLoopAsync, _cts.Token);
 
         // Send Opcode 0 IDENTIFY immediately after WebSocket upgrade
         await SendIdentifyAsync();
@@ -1371,18 +1377,31 @@ public class VoiceConnection : IDisposable
                 if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
                 {
                     byte[] opusData = encryptedPayload;
-                    
-                    // Remove transport encryption
-                    if (_secretKey != null)
+
+                    // Try DAVE E2EE decryption first (for DM/GroupDM calls)
+                    if (_dave?.IsActive == true)
+                    {
+                        try
+                        {
+                            opusData = _dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "DAVE decryption failed for SSRC {Ssrc} in UDP receive loop, dropping packet for channel {ChannelId}", ssrc, _channel.Id);
+                            DaveError?.Invoke(ex);
+                            continue;
+                        }
+                    }
+                    else if (_secretKey != null)
                     {
                         opusData = RemoveTransportEncryption(encryptedPayload, rtpHeader);
                     }
-                    
+
                     var pcm = DecodeAudio(opusData);
-                    
+
                     // Fire the receive event before feeding audio to local playback
                     VoicePacketReceived?.Invoke(ssrc, pcm);
-                    
+
                     await PlayAudioFromPcmAsync(pcm);
                 }
             }

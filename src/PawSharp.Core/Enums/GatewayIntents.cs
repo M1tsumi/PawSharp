@@ -10,6 +10,11 @@ namespace PawSharp.Core.Enums;
 public enum GatewayIntents : uint
 {
     /// <summary>
+    /// No intents.
+    /// </summary>
+    None = 0,
+    
+    /// <summary>
     /// Guild-related events (e.g., GUILD_CREATE).
     /// </summary>
     Guilds = 1 << 0,
@@ -115,9 +120,14 @@ public enum GatewayIntents : uint
     DirectMessagePolls = 1 << 25,
 
     /// <summary>
+    /// Guild voice channel status update events (VOICE_CHANNEL_STATUS_UPDATE).
+    /// </summary>
+    GuildVoiceChannelStatusUpdates = 1 << 28,
+
+    /// <summary>
     /// All non-privileged intents.
     /// </summary>
-    AllNonPrivileged = Guilds | GuildModeration | GuildEmojisAndStickers | GuildIntegrations | GuildWebhooks | GuildInvites | GuildVoiceStates | GuildMessages | GuildMessageReactions | GuildMessageTyping | DirectMessages | DirectMessageReactions | DirectMessageTyping | GuildScheduledEvents | AutoModerationConfiguration | AutoModerationExecution | GuildMessagePolls | DirectMessagePolls,
+    AllNonPrivileged = Guilds | GuildModeration | GuildEmojisAndStickers | GuildIntegrations | GuildWebhooks | GuildInvites | GuildVoiceStates | GuildMessages | GuildMessageReactions | GuildMessageTyping | DirectMessages | DirectMessageReactions | DirectMessageTyping | GuildScheduledEvents | AutoModerationConfiguration | AutoModerationExecution | GuildMessagePolls | DirectMessagePolls | GuildVoiceChannelStatusUpdates,
 
     /// <summary>
     /// All intents (including privileged).

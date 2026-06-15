@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using PawSharp.Voice.DAVE.MLS.Crypto;
 using PawSharp.Voice.DAVE.MLS.Encoding;
 using PawSharp.Voice.DAVE.MLS.Messages;
@@ -45,6 +46,10 @@ internal sealed class MLSGroupState : IDisposable
     private byte[]? _confirmedTranscriptHash;
     private byte[]? _daveEpochSecret; // 32-byte DAVE epoch secret
 
+    // External sender package (from op 31) — Discord's server credential + HPKE key.
+    // Used as binding material during epoch advances for forward secrecy.
+    private byte[]? _externalSenderPackage;
+
     // RFC 9420 key schedule — kept alive across epochs so AdvanceEpoch can chain
     // InitSecret from one epoch into the next.
     private MLSKeySchedule? _keySchedule;
@@ -59,6 +64,14 @@ internal sealed class MLSGroupState : IDisposable
 
     // Pending proposals (queued between commits)
     private readonly List<Proposal> _pendingProposals = new();
+    private readonly ILogger<MLSGroupState>? _logger;
+
+    // ── Constructors ─────────────────────────────────────────────────────────
+
+    public MLSGroupState(ILogger<MLSGroupState>? logger = null)
+    {
+        _logger = logger;
+    }
 
     // ── Public properties ─────────────────────────────────────────────────────
 
@@ -251,7 +264,7 @@ internal sealed class MLSGroupState : IDisposable
         {
             // HKDF rotation fallback: forward secrecy is maintained even if parse fails.
             // Log the error for debugging MLS protocol issues.
-            System.Diagnostics.Debug.WriteLine($"DAVE MLS Commit processing failed, using fallback: {ex.Message}");
+            _logger?.LogWarning(ex, "DAVE MLS Commit processing failed, using HKDF rotation fallback");
             _daveEpochSecret         = MlsHkdf.Extract(_daveEpochSecret!, commitBytes);
             _epochNumber++;
             _confirmedTranscriptHash = UpdateTranscriptHash(commitBytes);
@@ -304,8 +317,19 @@ internal sealed class MLSGroupState : IDisposable
         else
         {
             // No schedule (session started with the simplified Welcome fallback).
-            _daveEpochSecret = MlsHkdf.Extract(_daveEpochSecret!, commitBytes);
+            // Bind the external sender package into the derivation for forward secrecy.
+            var salt = _externalSenderPackage ?? commitBytes;
+            _daveEpochSecret = MlsHkdf.Extract(_daveEpochSecret!, salt);
         }
+    }
+
+    /// <summary>
+    /// Stores the external sender package from op 31 so it can be bound into the
+    /// key schedule during commit processing.
+    /// </summary>
+    public void SetExternalSenderPackage(byte[] packageBytes)
+    {
+        _externalSenderPackage = packageBytes;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -427,6 +451,7 @@ internal sealed class MLSGroupState : IDisposable
             _localKeyPackage         = null;
             _keySchedule             = null;
             _tree                    = null;
+            _externalSenderPackage   = null;
             _pendingProposals.Clear();
         }
     }
@@ -448,6 +473,7 @@ internal sealed class MLSGroupState : IDisposable
             _localInitPrivKey = null;
             _localLeafHpkePrivKey = null;
             _localLeafSigPrivKey = null;
+            _externalSenderPackage = null;
         }
     }
 }
