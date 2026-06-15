@@ -421,6 +421,7 @@ public class CommandsExtension
 {
     private readonly string _prefix;
     private readonly Dictionary<string, Command> _commands = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ILogger<CommandsExtension> _staticLogger = NullLogger<CommandsExtension>.Instance;
     private readonly ILogger<CommandsExtension> _logger;
     private readonly TypeConverterService _typeConverterService;
     private readonly MiddlewarePipeline _middlewarePipeline;
@@ -1531,7 +1532,7 @@ public class CommandsExtension
         try { return Convert.ChangeType(option.Value, inner, CultureInfo.InvariantCulture); }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Type conversion failed for {TargetTypeName}", targetType.Name);
+            _staticLogger.LogWarning(ex, "Type conversion failed for {TargetTypeName}", targetType.Name);
             return GetDefault(targetType);
         }
     }

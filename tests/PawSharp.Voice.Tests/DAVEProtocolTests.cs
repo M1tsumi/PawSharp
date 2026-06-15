@@ -123,7 +123,7 @@ public class DAVEProtocolTests : IDisposable
 
         // Create a shared Welcome that both sides can process (same joiner_secret,
         // separate EncryptedGroupSecrets entry per recipient).
-        var (welcomeBytes, _) = DAVETestData.CreateMultiWelcome(new MLSState[] { _proto.GetMlsState(), remote.GetMlsState() });
+        var (welcomeBytes, _) = DAVETestData.CreateMultiWelcome(new MLSState[] { _proto.MlsState, remote.MlsState });
 
         _proto.LocalSsrc = mySSRC;
         var welcomeData = MakeBase64Payload(welcomeBytes);

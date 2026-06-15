@@ -6,6 +6,7 @@ using PawSharp.Voice.DAVE;
 using PawSharp.Voice.DAVE.MLS.Crypto;
 using PawSharp.Voice.DAVE.MLS.Encoding;
 using PawSharp.Voice.DAVE.MLS.Messages;
+using PawSharp.Voice.DAVE.MLS.Tree;
 
 namespace PawSharp.Voice.Tests;
 
