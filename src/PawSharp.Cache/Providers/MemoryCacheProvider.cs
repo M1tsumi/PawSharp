@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Cache.Telemetry;
 using PawSharp.Core.Entities;
@@ -34,6 +35,7 @@ namespace PawSharp.Cache.Providers
         private readonly CacheOptions _options;
         private readonly System.Timers.Timer _cleanupTimer;
         private readonly ICacheTelemetry? _telemetry;
+        private readonly ILogger<MemoryCacheProvider>? _logger;
         private readonly object _lock = new();
         private readonly object _evictionLock = new();
 
@@ -73,8 +75,9 @@ namespace PawSharp.Cache.Providers
         public int RoleCacheSize => _roles.Count;
         public int EmojiCacheSize => _emojis.Count;
 
-        public MemoryCacheProvider(CacheOptions? options = null, ICacheTelemetry? telemetry = null)
+        public MemoryCacheProvider(CacheOptions? options = null, ICacheTelemetry? telemetry = null, ILogger<MemoryCacheProvider>? logger = null)
         {
+            _logger = logger;
             var opts = options ?? new CacheOptions();
 
             _maxGuilds = opts.MaxGuilds;
@@ -246,6 +249,7 @@ namespace PawSharp.Cache.Providers
                         {
                             _lastAccess.TryRemove(entityId, out _);
                             _telemetry?.RecordEviction(entityType, "LRU");
+                            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheEviction, entityType, 1);
                             EntityEvicted?.Invoke(this, new CacheInvalidationEventArgs
                             {
                                 EntityType = entityType,
@@ -264,6 +268,7 @@ namespace PawSharp.Cache.Providers
 
         public void Clear()
         {
+            var total = GetEntityCount();
             _guilds.Clear();
             _channels.Clear();
             _users.Clear();
@@ -271,6 +276,7 @@ namespace PawSharp.Cache.Providers
             _members.Clear();
             _roles.Clear();
             _emojis.Clear();
+            _logger?.LogInformation("Cache cleared. Removed {Count} entities.", total);
             CacheCleared?.Invoke(this, EventArgs.Empty);
         }
 
@@ -278,6 +284,7 @@ namespace PawSharp.Cache.Providers
         public void CacheUser(User user)
         {
             _users[user.Id] = user;
+            _logger?.LogDebug("Cached user {UserId}", user.Id);
             EnforceEntityCacheBounds(_users, _maxUsers, "User");
         }
 
@@ -290,17 +297,20 @@ namespace PawSharp.Cache.Providers
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("User");
                 _telemetry?.RecordOperation("Get", "User", stopwatch.Elapsed);
+                _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheHit, "User", userId);
                 return user;
             }
             Interlocked.Increment(ref _misses);
             _telemetry?.RecordMiss("User");
             _telemetry?.RecordOperation("Get", "User", stopwatch.Elapsed);
+            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheMiss, "User", userId);
             return null;
         }
 
         public void CacheGuild(Guild guild)
         {
             _guilds[guild.Id] = guild;
+            _logger?.LogDebug("Cached guild {GuildId} ({GuildName})", guild.Id, guild.Name);
             EnforceEntityCacheBounds(_guilds, _maxGuilds, "Guild");
         }
 
@@ -313,11 +323,13 @@ namespace PawSharp.Cache.Providers
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Guild");
                 _telemetry?.RecordOperation("Get", "Guild", stopwatch.Elapsed);
+                _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheHit, "Guild", guildId);
                 return guild;
             }
             Interlocked.Increment(ref _misses);
             _telemetry?.RecordMiss("Guild");
             _telemetry?.RecordOperation("Get", "Guild", stopwatch.Elapsed);
+            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheMiss, "Guild", guildId);
             return null;
         }
 
@@ -329,6 +341,7 @@ namespace PawSharp.Cache.Providers
         public void CacheChannel(Channel channel)
         {
             _channels[channel.Id] = channel;
+            _logger?.LogDebug("Cached channel {ChannelId} ({ChannelName})", channel.Id, channel.Name);
             EnforceEntityCacheBounds(_channels, _maxChannels, "Channel");
         }
 
@@ -341,11 +354,13 @@ namespace PawSharp.Cache.Providers
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Channel");
                 _telemetry?.RecordOperation("Get", "Channel", stopwatch.Elapsed);
+                _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheHit, "Channel", channelId);
                 return channel;
             }
             Interlocked.Increment(ref _misses);
             _telemetry?.RecordMiss("Channel");
             _telemetry?.RecordOperation("Get", "Channel", stopwatch.Elapsed);
+            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheMiss, "Channel", channelId);
             return null;
         }
 
@@ -357,6 +372,7 @@ namespace PawSharp.Cache.Providers
         public void CacheMessage(Message message)
         {
             _messages[message.Id] = message;
+            _logger?.LogDebug("Cached message {MessageId} in channel {ChannelId}", message.Id, message.ChannelId);
             EnforceEntityCacheBounds(_messages, _maxMessages, "Message");
         }
 
@@ -369,11 +385,13 @@ namespace PawSharp.Cache.Providers
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Message");
                 _telemetry?.RecordOperation("Get", "Message", stopwatch.Elapsed);
+                _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheHit, "Message", messageId);
                 return message;
             }
             Interlocked.Increment(ref _misses);
             _telemetry?.RecordMiss("Message");
             _telemetry?.RecordOperation("Get", "Message", stopwatch.Elapsed);
+            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheMiss, "Message", messageId);
             return null;
         }
 
@@ -389,6 +407,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"{guildId}:{member.User?.Id}";
             _members[key] = member;
+            _logger?.LogDebug("Cached guild member {UserId} in guild {GuildId}", member.User?.Id, guildId);
             EnforceEntityCacheBounds(_members, _maxMembers, "Member");
             
             // Also cache the user
@@ -408,11 +427,13 @@ namespace PawSharp.Cache.Providers
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Member");
                 _telemetry?.RecordOperation("Get", "Member", stopwatch.Elapsed);
+                _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheHit, "Member", userId);
                 return member;
             }
             Interlocked.Increment(ref _misses);
             _telemetry?.RecordMiss("Member");
             _telemetry?.RecordOperation("Get", "Member", stopwatch.Elapsed);
+            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheMiss, "Member", userId);
             return null;
         }
 
@@ -425,6 +446,7 @@ namespace PawSharp.Cache.Providers
         {
             var key = $"{guildId}:{role.Id}";
             _roles[key] = role;
+            _logger?.LogDebug("Cached role {RoleId} ({RoleName}) in guild {GuildId}", role.Id, role.Name, guildId);
             EnforceEntityCacheBounds(_roles, _maxRoles, "Role");
         }
 
@@ -438,11 +460,13 @@ namespace PawSharp.Cache.Providers
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Role");
                 _telemetry?.RecordOperation("Get", "Role", stopwatch.Elapsed);
+                _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheHit, "Role", roleId);
                 return role;
             }
             Interlocked.Increment(ref _misses);
             _telemetry?.RecordMiss("Role");
             _telemetry?.RecordOperation("Get", "Role", stopwatch.Elapsed);
+            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheMiss, "Role", roleId);
             return null;
         }
 
@@ -457,6 +481,7 @@ namespace PawSharp.Cache.Providers
             {
                 var key = $"{guildId}:{emoji.Id.Value}";
                 _emojis[key] = emoji;
+                _logger?.LogDebug("Cached emoji {EmojiId} in guild {GuildId}", emoji.Id.Value, guildId);
                 EnforceEntityCacheBounds(_emojis, _maxEmojis, "Emoji");
             }
         }
@@ -474,11 +499,13 @@ namespace PawSharp.Cache.Providers
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Emoji");
                 _telemetry?.RecordOperation("Get", "Emoji", stopwatch.Elapsed);
+                _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheHit, "Emoji", emojiId);
                 return emoji;
             }
             Interlocked.Increment(ref _misses);
             _telemetry?.RecordMiss("Emoji");
             _telemetry?.RecordOperation("Get", "Emoji", stopwatch.Elapsed);
+            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheMiss, "Emoji", emojiId);
             return null;
         }
 

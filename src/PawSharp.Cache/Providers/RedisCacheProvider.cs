@@ -728,7 +728,7 @@ namespace PawSharp.Cache.Providers
         public async Task<User?> GetUserAsync(ulong userId)
         {
             var stopwatch = Stopwatch.StartNew();
-            var json = await _db.StringGetAsync($"user:{userId}");
+            var json = await _db.StringGetAsync($"user:{userId}").ConfigureAwait(false);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
@@ -745,7 +745,7 @@ namespace PawSharp.Cache.Providers
         public async Task<Guild?> GetGuildAsync(ulong guildId)
         {
             var stopwatch = Stopwatch.StartNew();
-            var json = await _db.StringGetAsync($"guild:{guildId}");
+            var json = await _db.StringGetAsync($"guild:{guildId}").ConfigureAwait(false);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
@@ -762,7 +762,7 @@ namespace PawSharp.Cache.Providers
         public async Task<Channel?> GetChannelAsync(ulong channelId)
         {
             var stopwatch = Stopwatch.StartNew();
-            var json = await _db.StringGetAsync($"channel:{channelId}");
+            var json = await _db.StringGetAsync($"channel:{channelId}").ConfigureAwait(false);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
@@ -779,7 +779,7 @@ namespace PawSharp.Cache.Providers
         public async Task<Message?> GetMessageAsync(ulong messageId)
         {
             var stopwatch = Stopwatch.StartNew();
-            var json = await _db.StringGetAsync($"message:{messageId}");
+            var json = await _db.StringGetAsync($"message:{messageId}").ConfigureAwait(false);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
@@ -796,7 +796,7 @@ namespace PawSharp.Cache.Providers
         public async Task<GuildMember?> GetGuildMemberAsync(ulong guildId, ulong userId)
         {
             var stopwatch = Stopwatch.StartNew();
-            var json = await _db.StringGetAsync($"member:{guildId}:{userId}");
+            var json = await _db.StringGetAsync($"member:{guildId}:{userId}").ConfigureAwait(false);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
@@ -813,7 +813,7 @@ namespace PawSharp.Cache.Providers
         public async Task<PawSharp.Core.Entities.Role?> GetRoleAsync(ulong guildId, ulong roleId)
         {
             var stopwatch = Stopwatch.StartNew();
-            var json = await _db.StringGetAsync($"role:{guildId}:{roleId}");
+            var json = await _db.StringGetAsync($"role:{guildId}:{roleId}").ConfigureAwait(false);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
@@ -830,7 +830,7 @@ namespace PawSharp.Cache.Providers
         public async Task<Emoji?> GetEmojiAsync(ulong guildId, ulong emojiId)
         {
             var stopwatch = Stopwatch.StartNew();
-            var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}");
+            var json = await _db.StringGetAsync($"emoji:{guildId}:{emojiId}").ConfigureAwait(false);
             if (json.HasValue)
             {
                 Interlocked.Increment(ref _hits);
@@ -851,7 +851,7 @@ namespace PawSharp.Cache.Providers
             var key = $"user:{user.Id}";
             var json = JsonSerializer.Serialize(user, _jsonOptions);
             var expiry = _options.UserExpiration ?? _options.DefaultExpiration;
-            await _db.StringSetAsync(key, json, expiry);
+            await _db.StringSetAsync(key, json, expiry).ConfigureAwait(false);
         }
 
         public async Task CacheGuildAsync(Guild guild)
@@ -859,7 +859,7 @@ namespace PawSharp.Cache.Providers
             var key = $"guild:{guild.Id}";
             var json = JsonSerializer.Serialize(guild, _jsonOptions);
             var expiry = _options.GuildExpiration ?? _options.DefaultExpiration;
-            await _db.StringSetAsync(key, json, expiry);
+            await _db.StringSetAsync(key, json, expiry).ConfigureAwait(false);
         }
 
         public async Task CacheChannelAsync(Channel channel)
@@ -867,14 +867,14 @@ namespace PawSharp.Cache.Providers
             var key = $"channel:{channel.Id}";
             var json = JsonSerializer.Serialize(channel, _jsonOptions);
             var expiry = _options.ChannelExpiration ?? _options.DefaultExpiration;
-            await _db.StringSetAsync(key, json, expiry);
+            await _db.StringSetAsync(key, json, expiry).ConfigureAwait(false);
 
             // Maintain a set of channel IDs per guild for efficient lookup
             if (channel.GuildId.HasValue)
             {
                 var guildChannelsKey = $"guild:{channel.GuildId}:channels";
                 await _db.SetAddAsync(guildChannelsKey, channel.Id.ToString());
-                await _db.KeyExpireAsync(guildChannelsKey, expiry);
+                await _db.KeyExpireAsync(guildChannelsKey, expiry).ConfigureAwait(false);
             }
         }
 
@@ -883,12 +883,12 @@ namespace PawSharp.Cache.Providers
             var key = $"message:{message.Id}";
             var json = JsonSerializer.Serialize(message, _jsonOptions);
             var expiry = _options.MessageExpiration ?? _options.DefaultExpiration;
-            await _db.StringSetAsync(key, json, expiry);
+            await _db.StringSetAsync(key, json, expiry).ConfigureAwait(false);
 
             // Also maintain a sorted set for channel messages
             var channelKey = $"channel:{message.ChannelId}:messages";
             await _db.SortedSetAddAsync(channelKey, message.Id.ToString(), message.Id);
-            await _db.KeyExpireAsync(channelKey, expiry);
+            await _db.KeyExpireAsync(channelKey, expiry).ConfigureAwait(false);
         }
 
         public async Task CacheGuildMemberAsync(ulong guildId, GuildMember member)
@@ -897,7 +897,7 @@ namespace PawSharp.Cache.Providers
             var key = $"member:{guildId}:{member.User.Id}";
             var json = JsonSerializer.Serialize(member, _jsonOptions);
             var expiry = _options.MemberExpiration ?? _options.DefaultExpiration;
-            await _db.StringSetAsync(key, json, expiry);
+            await _db.StringSetAsync(key, json, expiry).ConfigureAwait(false);
         }
 
         public async Task CacheRoleAsync(ulong guildId, PawSharp.Core.Entities.Role role)
@@ -905,7 +905,7 @@ namespace PawSharp.Cache.Providers
             var key = $"role:{guildId}:{role.Id}";
             var json = JsonSerializer.Serialize(role, _jsonOptions);
             var expiry = _options.RoleExpiration ?? _options.DefaultExpiration;
-            await _db.StringSetAsync(key, json, expiry);
+            await _db.StringSetAsync(key, json, expiry).ConfigureAwait(false);
         }
 
         public async Task CacheEmojiAsync(ulong guildId, Emoji emoji)
@@ -915,19 +915,19 @@ namespace PawSharp.Cache.Providers
                 var key = $"emoji:{guildId}:{emoji.Id.Value}";
                 var json = JsonSerializer.Serialize(emoji, _jsonOptions);
                 var expiry = _options.EmojiExpiration ?? _options.DefaultExpiration;
-                await _db.StringSetAsync(key, json, expiry);
+                await _db.StringSetAsync(key, json, expiry).ConfigureAwait(false);
             }
         }
 
         public async Task CacheGuildDataAsync(Guild guild)
         {
-            await CacheGuildAsync(guild);
+            await CacheGuildAsync(guild).ConfigureAwait(false);
 
             if (guild.Channels != null)
             {
                 foreach (var channel in guild.Channels)
                 {
-                    await CacheChannelAsync(channel);
+                    await CacheChannelAsync(channel).ConfigureAwait(false);
                 }
             }
 
@@ -935,7 +935,7 @@ namespace PawSharp.Cache.Providers
             {
                 foreach (var member in guild.Members)
                 {
-                    await CacheGuildMemberAsync(guild.Id, member);
+                    await CacheGuildMemberAsync(guild.Id, member).ConfigureAwait(false);
                 }
             }
 
@@ -943,7 +943,7 @@ namespace PawSharp.Cache.Providers
             {
                 foreach (var role in guild.Roles)
                 {
-                    await CacheRoleAsync(guild.Id, role);
+                    await CacheRoleAsync(guild.Id, role).ConfigureAwait(false);
                 }
             }
 
@@ -951,7 +951,7 @@ namespace PawSharp.Cache.Providers
             {
                 foreach (var emoji in guild.Emojis)
                 {
-                    await CacheEmojiAsync(guild.Id, emoji);
+                    await CacheEmojiAsync(guild.Id, emoji).ConfigureAwait(false);
                 }
             }
         }
@@ -1004,23 +1004,23 @@ namespace PawSharp.Cache.Providers
 
         public async Task RemoveChannelAsync(ulong channelId)
         {
-            await _db.KeyDeleteAsync($"channel:{channelId}");
-            await _db.KeyDeleteAsync($"channel:{channelId}:messages");
+            await _db.KeyDeleteAsync($"channel:{channelId}").ConfigureAwait(false);
+            await _db.KeyDeleteAsync($"channel:{channelId}:messages").ConfigureAwait(false);
         }
 
         public async Task RemoveMessageAsync(ulong messageId)
         {
-            await _db.KeyDeleteAsync($"message:{messageId}");
+            await _db.KeyDeleteAsync($"message:{messageId}").ConfigureAwait(false);
         }
 
         public async Task RemoveGuildMemberAsync(ulong guildId, ulong userId)
         {
-            await _db.KeyDeleteAsync($"member:{guildId}:{userId}");
+            await _db.KeyDeleteAsync($"member:{guildId}:{userId}").ConfigureAwait(false);
         }
 
         public async Task RemoveRoleAsync(ulong guildId, ulong roleId)
         {
-            await _db.KeyDeleteAsync($"role:{guildId}:{roleId}");
+            await _db.KeyDeleteAsync($"role:{guildId}:{roleId}").ConfigureAwait(false);
         }
 
         #endregion

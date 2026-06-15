@@ -139,6 +139,10 @@ public class ModifyChannelRequest
     [System.Text.Json.Serialization.JsonPropertyName("permission_overwrites")]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<Overwrite>? PermissionOverwrites { get; set; }
+    /// <summary>Voice channel status text (max 500 characters). Null to clear.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("status")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Status { get; set; }
 }
 
 // Guild Request Models
@@ -306,6 +310,16 @@ public class InteractionCallbackData
     [System.Text.Json.Serialization.JsonPropertyName("custom_id")]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? CustomId { get; set; }
+
+    /// <summary>A poll to include with this interaction response.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("poll")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CreatePollRequest? Poll { get; set; }
+
+    /// <summary>File attachments for this interaction response. Used with multipart/form-data uploads.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("attachments")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<Attachment>? Attachments { get; set; }
 }
 
 /// <summary>

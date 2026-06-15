@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace PawSharp.Gateway.Connection
 {
@@ -39,8 +40,10 @@ namespace PawSharp.Gateway.Connection
         private readonly bool _useArrayPooling;
         private readonly int _bufferSize;
         private bool _disposed;
+        private Task? _disposeTask;
         private WebSocketCloseStatus? _closeStatus;
         private string? _closeStatusDescription;
+        private readonly ILogger<WebSocketConnection>? _logger;
 
         // zlib-stream transport compression uses a shared decompression context
         // across the connection for better compression ratios (up to 40% bandwidth savings).
@@ -51,14 +54,16 @@ namespace PawSharp.Gateway.Connection
         /// <param name="useCompression">Enable zlib-stream compression</param>
         /// <param name="useArrayPooling">Use ArrayPool for buffer management</param>
         /// <param name="bufferSizeKb">Receive buffer size in KB (default: 64)</param>
-        public WebSocketConnection(bool useCompression = false, bool useArrayPooling = true, int bufferSizeKb = 64)
+        /// <param name="logger">Optional logger for diagnostics</param>
+        public WebSocketConnection(bool useCompression = false, bool useArrayPooling = true, int bufferSizeKb = 64, ILogger<WebSocketConnection>? logger = null)
         {
             _webSocket = new ClientWebSocket();
             _useCompression = useCompression;
             _useArrayPooling = useArrayPooling;
+            _logger = logger;
             // Clamp buffer size between 4KB and 1024KB (1MB)
             _bufferSize = Math.Clamp(bufferSizeKb, 4, 1024) * 1024;
-            
+
             if (useCompression)
             {
                 _compression = new ZlibStreamCompression();
@@ -92,7 +97,7 @@ namespace PawSharp.Gateway.Connection
                 _compression.Initialize();
             }
             
-            await _webSocket.ConnectAsync(uri, cancellationToken);
+            await _webSocket.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task DisconnectAsync(CancellationToken cancellationToken)
@@ -109,20 +114,20 @@ namespace PawSharp.Gateway.Connection
                     {
                         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                         cts.CancelAfter(TimeSpan.FromSeconds(5)); // 5 second timeout for close handshake
-                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cts.Token);
+                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException ex) when (ex.CancellationToken != cancellationToken)
                     {
                         // Close handshake timed out, force abort
-                        System.Diagnostics.Debug.WriteLine($"WebSocket close handshake timed out: {ex.Message}");
+                        _logger?.LogWarning(ex, "WebSocket close handshake timed out");
                     }
                     catch (OperationCanceledException ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"WebSocket shutdown cancellation: {ex.Message}");
+                        _logger?.LogDebug(ex, "WebSocket shutdown cancelled");
                     }
                     catch (WebSocketException ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"WebSocket may have been torn down remotely: {ex.Message}");
+                        _logger?.LogWarning(ex, "WebSocket may have been torn down remotely");
                     }
                 }
             }
@@ -137,7 +142,7 @@ namespace PawSharp.Gateway.Connection
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error resetting compression context: {ex.Message}");
+                        _logger?.LogError(ex, "Error resetting compression context");
                     }
                 }
             }
@@ -146,7 +151,7 @@ namespace PawSharp.Gateway.Connection
         public async Task SendAsync(string message, CancellationToken cancellationToken)
         {
             var buffer = Encoding.UTF8.GetBytes(message);
-            await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, cancellationToken);
+            await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<string> ReceiveAsync(CancellationToken cancellationToken)
@@ -165,7 +170,7 @@ namespace PawSharp.Gateway.Connection
 
                 do
                 {
-                    result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                    result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken).ConfigureAwait(false);
                     if (result.MessageType == WebSocketMessageType.Text)
                     {
                         if (_useCompression && _compression != null)
@@ -222,43 +227,62 @@ namespace PawSharp.Gateway.Connection
         /// </summary>
         public bool IsDiscordErrorClose => _closeStatus.HasValue && (int)_closeStatus.Value >= 4000;
         
+        /// <summary>
+        /// Disposes the WebSocket connection in a fire-and-forget manner.
+        /// Dispose must remain synchronous per IDisposable contract, so callers that need
+        /// a clean shutdown should await <see cref="WaitForDisposeAsync"/> after disposal.
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
-            
-            try
+
+            // Fire-and-forget graceful close to avoid blocking the calling thread.
+            // Dispose() must remain synchronous per IDisposable contract.
+            _disposeTask = Task.Run(async () =>
             {
-                // Try to gracefully close if still connected
-                if (_webSocket.State == WebSocketState.Open ||
-                    _webSocket.State == WebSocketState.CloseReceived ||
-                    _webSocket.State == WebSocketState.CloseSent)
+                try
                 {
-                    try
+                    if (_webSocket.State == WebSocketState.Open ||
+                        _webSocket.State == WebSocketState.CloseReceived ||
+                        _webSocket.State == WebSocketState.CloseSent)
                     {
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                        _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token).GetAwaiter().GetResult();
-                    }
-                    catch
-                    {
-                        // Ignore any errors during graceful close in dispose
+                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token).ConfigureAwait(false);
                     }
                 }
-            }
-            finally
+                catch (Exception ex)
+                {
+                    _logger?.LogDebug(ex, "Graceful WebSocket close during dispose failed");
+                }
+                finally
+                {
+                    try { _webSocket.Dispose(); }
+                    catch (Exception ex) { _logger?.LogDebug(ex, "WebSocket disposal error"); }
+                    try { _compression?.Dispose(); }
+                    catch (Exception ex) { _logger?.LogDebug(ex, "WebSocket compression disposal error"); }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Waits for the asynchronous dispose operation to complete.
+        /// Call this after <see cref="Dispose"/> during a graceful shutdown.
+        /// </summary>
+        /// <param name="timeout">Optional timeout. Defaults to 5 seconds.</param>
+        public async Task WaitForDisposeAsync(TimeSpan? timeout = null)
+        {
+            if (_disposeTask is not null)
             {
-                // Always dispose resources even if graceful close fails
+                timeout ??= TimeSpan.FromSeconds(5);
                 try
                 {
-                    _webSocket.Dispose();
+                    await _disposeTask.WaitAsync(timeout.Value).ConfigureAwait(false);
                 }
-                catch { /* Ignore disposal errors */ }
-                
-                try
+                catch (TimeoutException)
                 {
-                    _compression?.Dispose();
+                    _logger?.LogDebug("WebSocket dispose did not complete within {Timeout}", timeout.Value);
                 }
-                catch { /* Ignore disposal errors */ }
             }
         }
     }

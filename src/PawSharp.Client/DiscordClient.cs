@@ -18,10 +18,25 @@ using PawSharp.Interactions;
 namespace PawSharp.Client
 {
     /// <summary>
+    /// Represents the current connection state of the Discord client.
+    /// </summary>
+    public enum ClientConnectionState
+    {
+        /// <summary>Not connected to Discord.</summary>
+        Disconnected,
+        /// <summary>Attempting to establish a connection.</summary>
+        Connecting,
+        /// <summary>Connected and ready.</summary>
+        Connected,
+        /// <summary>Gracefully disconnecting.</summary>
+        Disconnecting
+    }
+
+    /// <summary>
     /// Primary entry point for bots interacting with Discord.
     /// Composes the REST client, gateway, cache, and interaction handler.
     /// </summary>
-    public class DiscordClient
+    public class DiscordClient : IDiscordClient
     {
         private readonly PawSharpOptions _options;
         private readonly ILogger<DiscordClient> _logger;
@@ -30,6 +45,22 @@ namespace PawSharp.Client
         private readonly IEntityCache _cache;
         private readonly InteractionHandler _interactionHandler;
         private readonly CacheManager _cacheManager;
+        private ClientConnectionState _connectionState = ClientConnectionState.Disconnected;
+
+        /// <summary>
+        /// Gets the current connection state of the client.
+        /// </summary>
+        public ClientConnectionState ConnectionState => _connectionState;
+
+        /// <summary>
+        /// Raised when the client's connection state changes.
+        /// </summary>
+        public event EventHandler<ClientConnectionState>? ConnectionStateChanged;
+
+        /// <summary>
+        /// Gets whether the client is currently connected to Discord.
+        /// </summary>
+        public bool IsConnected => _connectionState == ClientConnectionState.Connected;
 
         /// <summary>
         /// The bot's own user object, populated after <see cref="ConnectAsync"/> completes
@@ -122,13 +153,48 @@ namespace PawSharp.Client
 
         // ── Connection ────────────────────────────────────────────────────────────
 
-        /// <summary>Opens the WebSocket connection to Discord's gateway.</summary>
+        /// <summary>
+        /// Opens the WebSocket connection to Discord's gateway.
+        /// <para>
+        /// It is recommended to set up global exception handlers for your application domain:
+        /// <code>
+        /// AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+        ///     logger.LogError((Exception)args.ExceptionObject, "Unhandled exception");
+        /// TaskScheduler.UnobservedTaskException += (sender, args) =>
+        ///     logger.LogError(args.Exception, "Unobserved task exception");
+        /// </code>
+        /// </para>
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// var client = new DiscordClient(options, cache, logger, rest, gateway);
+        /// try
+        /// {
+        ///     await client.ConnectAsync();
+        ///     Console.WriteLine("Bot is online!");
+        /// }
+        /// catch (DiscordException ex)
+        /// {
+        ///     Console.WriteLine($"Connection failed: {ex.Message}");
+        /// }
+        /// </code>
+        /// </example>
         public async Task ConnectAsync()
         {
             ValidateIntentConfiguration();
             _logger.LogInformation("Connecting to Discord...");
-            await _gatewayClient.ConnectAsync();
-            _logger.LogInformation("Connected to Discord.");
+            SetConnectionState(ClientConnectionState.Connecting);
+            try
+            {
+                await _gatewayClient.ConnectAsync();
+                SetConnectionState(ClientConnectionState.Connected);
+                _logger.LogInformation("Connected to Discord.");
+            }
+            catch
+            {
+                SetConnectionState(ClientConnectionState.Disconnected);
+                throw;
+            }
         }
 
         private void ValidateIntentConfiguration()
@@ -157,13 +223,76 @@ namespace PawSharp.Client
         public async Task DisconnectAsync()
         {
             _logger.LogInformation("Disconnecting from Discord...");
-            await _gatewayClient.DisconnectAsync();
-            _logger.LogInformation("Disconnected from Discord.");
+            SetConnectionState(ClientConnectionState.Disconnecting);
+            try
+            {
+                await _gatewayClient.DisconnectAsync();
+                SetConnectionState(ClientConnectionState.Disconnected);
+                _logger.LogInformation("Disconnected from Discord.");
+            }
+            catch
+            {
+                SetConnectionState(ClientConnectionState.Disconnected);
+                throw;
+            }
+        }
+
+        private void SetConnectionState(ClientConnectionState newState)
+        {
+            if (_connectionState != newState)
+            {
+                _connectionState = newState;
+                ConnectionStateChanged?.Invoke(this, newState);
+            }
+        }
+
+        /// <summary>
+        /// Disconnects and reconnects to Discord gracefully.
+        /// </summary>
+        /// <param name="delayMs">Optional delay in milliseconds before reconnecting.</param>
+        public async Task ReconnectAsync(int delayMs = 1000)
+        {
+            _logger.LogInformation("Reconnecting to Discord in {DelayMs}ms...", delayMs);
+            await DisconnectAsync();
+            if (delayMs > 0)
+                await Task.Delay(delayMs);
+            await ConnectAsync();
+        }
+
+        /// <summary>
+        /// Configures global exception handlers for unhandled exceptions and unobserved task exceptions.
+        /// Call this once at application startup to ensure no exceptions go unnoticed.
+        /// </summary>
+        /// <param name="logger">Optional logger to record exceptions.</param>
+        /// <param name="onUnhandledException">Optional callback for custom handling (e.g., environment exit).</param>
+        public static void SetupGlobalExceptionHandlers(
+            ILogger? logger = null,
+            Action<Exception, string>? onUnhandledException = null)
+        {
+            AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+            {
+                var ex = args.ExceptionObject as Exception;
+                var message = $"Unhandled exception (terminating: {args.IsTerminating})";
+                logger?.LogCritical(ex, message);
+                onUnhandledException?.Invoke(ex ?? new Exception("Unknown unhandled exception"), message);
+            };
+
+            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            {
+                logger?.LogError(args.Exception, "Unobserved task exception");
+                onUnhandledException?.Invoke(args.Exception, "Unobserved task exception");
+                args.SetObserved();
+            };
         }
 
         // ── Typed REST helpers ────────────────────────────────────────────────────
 
         /// <summary>Sends a plain-text message to a channel.</summary>
+        /// <example>
+        /// <code>
+        /// await client.SendMessageAsync(channelId, "Hello, world!");
+        /// </code>
+        /// </example>
         public async Task<Message?> SendMessageAsync(ulong channelId, string content)
         {
             return await _restClient.CreateMessageAsync(channelId, new CreateMessageRequest { Content = content });
@@ -179,6 +308,28 @@ namespace PawSharp.Client
             });
         }
 
+        /// <summary>Sends a message with a single embed.</summary>
+        public async Task<Message?> SendEmbedAsync(ulong channelId, Embed embed)
+        {
+            return await SendMessageAsync(channelId, "", embed);
+        }
+
+        /// <summary>
+        /// Attempts to send a message and returns null instead of throwing on failure.
+        /// </summary>
+        public async Task<Message?> TrySendMessageAsync(ulong channelId, string content)
+        {
+            try
+            {
+                return await _restClient.CreateMessageAsync(channelId, new CreateMessageRequest { Content = content });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send message to channel {ChannelId}", channelId);
+                return null;
+            }
+        }
+
         /// <summary>Sends a fully specified message to a channel.</summary>
         public async Task<Message?> SendMessageAsync(ulong channelId, CreateMessageRequest request)
         {
@@ -188,6 +339,18 @@ namespace PawSharp.Client
         /// <summary>
         /// Forwards a source message into another channel using Discord's message snapshot forwarding model.
         /// </summary>
+        /// <example>
+        /// <code>
+        /// var forwarded = await client.ForwardMessageAsync(
+        ///     targetChannelId: 987654321098765432,
+        ///     sourceChannelId: 123456789012345678,
+        ///     sourceMessageId: 111111111111111111);
+        /// if (forwarded != null)
+        /// {
+        ///     Console.WriteLine($"Message forwarded: {forwarded.Id}");
+        /// }
+        /// </code>
+        /// </example>
         public async Task<Message?> ForwardMessageAsync(
             ulong targetChannelId,
             ulong sourceChannelId,
@@ -277,6 +440,15 @@ namespace PawSharp.Client
         }
 
         /// <summary>Gets a guild by ID.</summary>
+        /// <example>
+        /// <code>
+        /// var guild = await client.GetGuildAsync(123456789012345678);
+        /// if (guild != null)
+        /// {
+        ///     Console.WriteLine($"Guild: {guild.Name} (Members: {guild.MemberCount})");
+        /// }
+        /// </code>
+        /// </example>
         public async Task<Guild?> GetGuildAsync(ulong guildId)
         {
             return await _restClient.GetGuildAsync(guildId);
@@ -325,6 +497,17 @@ namespace PawSharp.Client
         }
 
         /// <summary>Replies to a message with plain text.</summary>
+        /// <example>
+        /// <code>
+        /// client.OnMessageCreated(async msg =>
+        /// {
+        ///     if (msg.Content.Contains("!ping"))
+        ///     {
+        ///         await client.ReplyAsync(msg, "Pong!");
+        ///     }
+        /// });
+        /// </code>
+        /// </example>
         public async Task<Message?> ReplyAsync(MessageCreateEvent message, string content)
         {
             return await SendMessageAsync(message.ChannelId, content);
@@ -342,11 +525,36 @@ namespace PawSharp.Client
             return await SendMessageAsync(message.ChannelId, request);
         }
 
+        /// <summary>
+        /// Attempts to reply to a message event gracefully, returning null on failure.
+        /// </summary>
+        public async Task<Message?> TryReplyAsync(MessageCreateEvent message, string content)
+        {
+            try
+            {
+                return await ReplyAsync(message, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to reply to message {MessageId}", message.Id);
+                return null;
+            }
+        }
+
         // ── Additional REST helpers ───────────────────────────────────────────────
 
         // User operations ───────────────────────────────────────────────────────────
 
         /// <summary>Gets a user by ID.</summary>
+        /// <example>
+        /// <code>
+        /// var user = await client.GetUserAsync(123456789012345678);
+        /// if (user != null)
+        /// {
+        ///     Console.WriteLine($"User: {user.Username}");
+        /// }
+        /// </code>
+        /// </example>
         public async Task<User?> GetUserAsync(ulong userId)
         {
             return await _restClient.GetUserAsync(userId);
@@ -373,6 +581,16 @@ namespace PawSharp.Client
         // Additional Message operations ──────────────────────────────────────────────
 
         /// <summary>Sends a file to a channel.</summary>
+        /// <example>
+        /// <code>
+        /// await using var fileStream = File.OpenRead("image.png");
+        /// var message = await client.SendFileAsync(channelId, fileStream, "image.png");
+        /// if (message != null)
+        /// {
+        ///     Console.WriteLine($"File sent: {message.Id}");
+        /// }
+        /// </code>
+        /// </example>
         public async Task<Message?> SendFileAsync(ulong channelId, System.IO.Stream fileStream, string fileName, CreateMessageRequest? messageRequest = null, System.Threading.CancellationToken cancellationToken = default)
         {
             return await _restClient.SendFileAsync(channelId, fileStream, fileName, messageRequest, cancellationToken);
@@ -561,6 +779,19 @@ namespace PawSharp.Client
         // Thread operations ──────────────────────────────────────────────────────────
 
         /// <summary>Creates a thread.</summary>
+        /// <example>
+        /// <code>
+        /// var thread = await client.CreateThreadAsync(channelId, new CreateThreadRequest
+        /// {
+        ///     Name = "Discussion",
+        ///     AutoArchiveDuration = 60
+        /// });
+        /// if (thread != null)
+        /// {
+        ///     Console.WriteLine($"Thread created: {thread.Name}");
+        /// }
+        /// </code>
+        /// </example>
         public async Task<Channel?> CreateThreadAsync(ulong channelId, CreateThreadRequest request)
         {
             return await _restClient.CreateThreadAsync(channelId, request);
@@ -618,6 +849,26 @@ namespace PawSharp.Client
         public async Task<ActiveThreadsResponse?> GetActiveThreadsAsync(ulong guildId)
         {
             return await _restClient.GetActiveThreadsAsync(guildId);
+        }
+
+        /// <summary>
+        /// Gets an existing thread by name or creates a new one.
+        /// </summary>
+        public async Task<Channel?> GetOrCreateThreadAsync(ulong channelId, string threadName, int autoArchiveDuration = 60)
+        {
+            var channel = await _restClient.GetChannelAsync(channelId);
+            if (channel == null) return null;
+
+            var activeThreads = await _restClient.GetActiveThreadsAsync(channel.GuildId ?? 0);
+            var existing = activeThreads?.Threads?.FirstOrDefault(t =>
+                t.Name?.Equals(threadName, StringComparison.OrdinalIgnoreCase) == true);
+            if (existing != null) return existing;
+
+            return await _restClient.CreateThreadAsync(channelId, new CreateThreadRequest
+            {
+                Name = threadName,
+                AutoArchiveDuration = autoArchiveDuration
+            });
         }
 
         /// <summary>Gets public archived threads for a channel.</summary>
@@ -742,6 +993,19 @@ namespace PawSharp.Client
         public async Task<Channel?> CreateGroupDmAsync(List<string> accessTokens, Dictionary<string, string>? nicks = null)
         {
             return await _restClient.CreateGroupDmAsync(accessTokens, nicks);
+        }
+
+        /// <summary>
+        /// Sends a direct message to a user by creating a DM channel first.
+        /// </summary>
+        /// <param name="userId">The user to send the DM to.</param>
+        /// <param name="content">The message content.</param>
+        /// <returns>The sent message, or null if the DM channel could not be created.</returns>
+        public async Task<Message?> SendDirectMessageAsync(ulong userId, string content)
+        {
+            var dm = await _restClient.CreateDmAsync(userId);
+            if (dm == null) return null;
+            return await _restClient.CreateMessageAsync(dm.Id, new CreateMessageRequest { Content = content });
         }
 
         // Scheduled Event operations ───────────────────────────────────────────────────
@@ -1458,6 +1722,15 @@ namespace PawSharp.Client
             => _gatewayClient.Events.On<ReadyEvent>("READY", handler);
 
         /// <summary>Subscribes to the MESSAGE_CREATE gateway event.</summary>
+        /// <example>
+        /// <code>
+        /// using var subscription = client.OnMessageCreated(async msg =>
+        /// {
+        ///     if (msg.Author?.Bot == true) return;
+        ///     Console.WriteLine($"[{msg.ChannelId}] {msg.Author?.Username}: {msg.Content}");
+        /// });
+        /// </code>
+        /// </example>
         [EventInterest("MESSAGE_CREATE")]
         public IDisposable OnMessageCreated(Func<MessageCreateEvent, Task> handler)
             => _gatewayClient.Events.On<MessageCreateEvent>("MESSAGE_CREATE", handler);

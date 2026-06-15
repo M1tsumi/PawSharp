@@ -291,6 +291,12 @@ public class CacheManager
     {
         try
         {
+            if (e.User == null)
+            {
+                _logger?.LogWarning("Received GUILD_MEMBER_UPDATE with null user");
+                return;
+            }
+
             _logger?.LogDebug("Updating cached guild member: {UserId} in guild {GuildId}", e.User.Id, e.GuildId);
 
             var member = _cache.GetGuildMember(e.GuildId, e.User.Id);

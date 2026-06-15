@@ -25,7 +25,13 @@ public enum IntentValidationMode
 public class PawSharpOptions
 {
     /// <summary>
-    /// The Discord bot token.
+    /// The Discord bot token used for authentication.
+    /// <para>
+    /// <b>Security Note:</b> This token is stored as a plain string in memory. 
+    /// For production use, always load the token from a secure source like 
+    /// environment variables or a secrets manager. Never hardcode tokens or 
+    /// commit them to source control.
+    /// </para>
     /// </summary>
     public string Token { get; set; } = string.Empty;
     

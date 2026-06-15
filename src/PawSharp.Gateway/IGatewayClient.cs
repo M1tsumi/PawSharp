@@ -9,6 +9,17 @@ namespace PawSharp.Gateway;
 /// Abstraction over the Discord gateway WebSocket connection.
 /// Enables dependency injection and unit testing without a live WebSocket.
 /// </summary>
+/// <example>
+/// <code>
+/// await gateway.ConnectAsync();
+/// gateway.Events.On&lt;MessageCreateEvent&gt;("MESSAGE_CREATE", async evt =>
+/// {
+///     Console.WriteLine($"{evt.Author?.Username}: {evt.Content}");
+/// });
+/// Console.WriteLine($"Latency: {gateway.LastHeartbeatLatency?.TotalMilliseconds}ms");
+/// await Task.Delay(-1);
+/// </code>
+/// </example>
 public interface IGatewayClient
 {
     /// <summary>Access the event dispatcher to subscribe to typed gateway events.</summary>

@@ -19,7 +19,7 @@ It is designed for teams that want direct control over HTTP calls while still ge
 ## Installation
 
 ```bash
-dotnet add package PawSharp.API --version 1.1.0-alpha.2
+dotnet add package PawSharp.API --version 1.1.0-alpha.3
 ```
 
 ## Quick Start

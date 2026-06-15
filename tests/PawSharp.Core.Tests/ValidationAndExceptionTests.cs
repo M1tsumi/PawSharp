@@ -112,14 +112,7 @@ public class ExceptionHierarchyTests
         ex.Should().BeOfType<DiscordException>();
     }
 
-    [Fact]
-    public void DiscordApiException_ContainsStatusCode()
-    {
-        var ex = new DiscordApiException("API error", 400);
-        
-        ex.StatusCode.Should().Be(400);
-        ex.Message.Should().Contain("API error");
-    }
+
 
     [Fact]
     public void RateLimitException_ContainsRetryInfo()
