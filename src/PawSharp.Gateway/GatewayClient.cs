@@ -19,6 +19,20 @@ using PawSharp.Gateway.Serialization;
 namespace PawSharp.Gateway
 {
     /// <summary>
+    /// Minimal adapter that wraps an <see cref="ILogger"/> to satisfy <see cref="ILogger{T}"/>.
+    /// Used when only an untyped <see cref="ILogger"/> is available (e.g. from a legacy constructor).
+    /// </summary>
+    internal sealed class TypedLogger<T> : ILogger<T>
+    {
+        private readonly ILogger _logger;
+        public TypedLogger(ILogger logger) => _logger = logger;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => _logger.BeginScope(state);
+        public bool IsEnabled(LogLevel logLevel) => _logger.IsEnabled(logLevel);
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => _logger.Log(logLevel, eventId, state, exception, formatter);
+    }
+
+    /// <summary>
     /// Discord Gateway close event codes.
     /// See https://discord.com/developers/docs/topics/opcodes-and-status-codes#gateway-close-event-codes
     /// </summary>
@@ -140,7 +154,7 @@ namespace PawSharp.Gateway
                 options.EnableCompression,
                 options.EventDispatch.EnableArrayPooling,
                 options.WebSocketBufferSizeKb,
-                logger != null ? new Logger<WebSocketConnection>(logger) : null);
+                logger != null ? new TypedLogger<WebSocketConnection>(logger) : null);
             _heartbeatManager = new HeartbeatManager(0, SendHeartbeatAsync, logger, _options.MaxMissedHeartbeatAcks);
             _eventDispatcher = new EventDispatcher(
                 logger,

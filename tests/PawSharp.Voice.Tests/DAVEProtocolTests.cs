@@ -60,10 +60,9 @@ public class DAVEProtocolTests : IDisposable
 
     // ── Op 24 (ProtocolReady) activates encryption ────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task HandleOpcode_24_SetsIsActiveTrue()
     {
-        // First prime the MLS state via a Welcome (op 25)
         await DispatchWelcomeAsync();
 
         await DispatchOpcodeAsync(24);
@@ -90,61 +89,57 @@ public class DAVEProtocolTests : IDisposable
 
     // ── Welcome (op 25) initialises MLS ──────────────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task HandleOpcode_25_Welcome_EnablesMlsForProtocol()
     {
         await DispatchWelcomeAsync();
 
-        // After Welcome the protocol is not yet active (op 24 hasn't been sent),
-        // but the MLS layer should be initialised so that once op 24 arrives
-        // encryption can start immediately.  We verify this indirectly by
-        // confirming op 24 successfully activates.
         await DispatchOpcodeAsync(24);
         _proto.IsActive.Should().BeTrue();
     }
 
     // ── Commit (op 26) advances the MLS epoch ────────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task HandleOpcode_26_Commit_DoesNotThrow()
     {
         await DispatchWelcomeAsync();
-        var data = MakeBase64Payload(new byte[] { 0xCC, 0xDD });
+        var commitBytes = DAVETestData.CreateEmptyCommit();
+        var data = MakeBase64Payload(commitBytes);
         Func<Task> act = () => _proto.HandleOpcodeAsync(26, data, null);
         await act.Should().NotThrowAsync();
     }
 
     // ── End-to-end encrypt/decrypt round trip when active ─────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task ActiveProtocol_EncryptDecrypt_RoundTrip()
     {
         const uint mySSRC    = 0xABCD;
         const uint theirSSRC = 0x1234;
 
-        // Set up the local sender protocol
+        using var remote = new DAVEProtocol();
+        remote.LocalSsrc = theirSSRC;
+
+        // Create a shared Welcome that both sides can process (same joiner_secret,
+        // separate EncryptedGroupSecrets entry per recipient).
+        var (welcomeBytes, _) = DAVETestData.CreateMultiWelcome(new MLSState[] { _proto.GetMlsState(), remote.GetMlsState() });
+
         _proto.LocalSsrc = mySSRC;
-        await DispatchWelcomeAsync();
-        await DispatchOpcodeAsync(24);
+        var welcomeData = MakeBase64Payload(welcomeBytes);
+        await _proto.HandleOpcodeAsync(25, welcomeData, null);
+        await _proto.HandleOpcodeAsync(24, JsonDocument.Parse("{}").RootElement, null);
         _proto.IsActive.Should().BeTrue();
 
         var plaintext = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF };
 
-        // Encrypt as 'mySSRC' sender
         var encrypted = _proto.EncryptFrame(plaintext);
         encrypted.Should().NotBeEquivalentTo(plaintext, "active protocol must actually encrypt");
 
-        // Build a second protocol instance that simulates the remote side
-        // (same Welcome payload → same epoch secret → same sender keys)
-        using var remote = new DAVEProtocol();
-        remote.LocalSsrc = theirSSRC;
-
-        // Replay the same Welcome and ReadyTransition on the remote side
-        var welcomeData = MakeBase64Payload(WelcomeBytes);
+        // Remote processes the same Welcome + op 24
         await remote.HandleOpcodeAsync(25, welcomeData, null);
         await remote.HandleOpcodeAsync(24, JsonDocument.Parse("{}").RootElement, null);
 
-        // The remote decrypts using mySSRC as the sender SSRC
         var decrypted = remote.DecryptFrame(encrypted, ssrc: mySSRC);
         decrypted.Should().BeEquivalentTo(plaintext, "remote must recover the original frame");
     }
@@ -173,25 +168,26 @@ public class DAVEProtocolTests : IDisposable
         _proto.EpochNumber.Should().Be(0);
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task EpochNumber_AfterWelcome_IsOne()
     {
         await DispatchWelcomeAsync();
         _proto.EpochNumber.Should().Be(1);
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task EpochNumber_AfterCommit_IsTwo()
     {
         await DispatchWelcomeAsync();
-        var commitData = MakeBase64Payload(new byte[] { 0xCC, 0xDD });
+        var commitBytes = DAVETestData.CreateEmptyCommit();
+        var commitData = MakeBase64Payload(commitBytes);
         await _proto.HandleOpcodeAsync(26, commitData, null);
         _proto.EpochNumber.Should().Be(2);
     }
 
     // ── Reset() ───────────────────────────────────────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task Reset_AfterActivation_SetsIsActiveFalse()
     {
         await DispatchWelcomeAsync();
@@ -203,7 +199,7 @@ public class DAVEProtocolTests : IDisposable
         _proto.IsActive.Should().BeFalse();
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task Reset_AfterActivation_ResetsEpochNumber()
     {
         await DispatchWelcomeAsync();
@@ -214,7 +210,7 @@ public class DAVEProtocolTests : IDisposable
         _proto.EpochNumber.Should().Be(0);
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task AfterReset_EncryptFrame_PassesThroughUnchanged()
     {
         await DispatchWelcomeAsync();
@@ -227,14 +223,13 @@ public class DAVEProtocolTests : IDisposable
         result.Should().BeSameAs(frame, "reset protocol must not encrypt");
     }
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task AfterReset_CanReactivateWithNewWelcome()
     {
         await DispatchWelcomeAsync();
         await DispatchOpcodeAsync(24);
         _proto.Reset();
 
-        // Re-enter the group
         await DispatchWelcomeAsync();
         await DispatchOpcodeAsync(24);
 
@@ -244,16 +239,16 @@ public class DAVEProtocolTests : IDisposable
 
     // ── Epoch advance resets frame counter ───────────────────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task CommitAdvance_ProducesEncryptedFrame_NotPassthrough()
     {
         _proto.LocalSsrc = 0x01;
         await DispatchWelcomeAsync();
         await DispatchOpcodeAsync(24);
-        var commitData = MakeBase64Payload(new byte[] { 0xCC, 0xDD });
+        var commitBytes = DAVETestData.CreateEmptyCommit();
+        var commitData = MakeBase64Payload(commitBytes);
         await _proto.HandleOpcodeAsync(26, commitData, null);
 
-        // After epoch advance, encryption should still be active
         var plaintext = new byte[] { 0xAA, 0xBB };
         var encrypted = _proto.EncryptFrame(plaintext);
         encrypted.Should().NotBeEquivalentTo(plaintext,
@@ -262,7 +257,7 @@ public class DAVEProtocolTests : IDisposable
 
     // ── Frame counter increments produce unique ciphertexts ────────────────────
 
-    [Fact(Skip = "Requires valid MLS Welcome message test data")]
+    [Fact]
     public async Task ActiveProtocol_TwoFramesFromSamePayload_ProduceDifferentCiphertext()
     {
         _proto.LocalSsrc = 0x01;
@@ -323,10 +318,6 @@ public class DAVEProtocolTests : IDisposable
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    // Deterministic Welcome payload used across round-trip tests
-    private static readonly byte[] WelcomeBytes = new byte[]
-        { 0x57, 0x65, 0x6C, 0x63, 0x6F, 0x6D, 0x65 }; // "Welcome" in ASCII
-
     private static JsonElement MakeBase64Payload(byte[] raw)
     {
         var b64  = Convert.ToBase64String(raw);
@@ -336,15 +327,13 @@ public class DAVEProtocolTests : IDisposable
 
     private async Task DispatchWelcomeAsync()
     {
-        // Generate key package before processing welcome
-        _proto.GenerateKeyPackage();
-        var data = MakeBase64Payload(WelcomeBytes);
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_proto.MlsState);
+        var data = MakeBase64Payload(welcomeBytes);
         await _proto.HandleOpcodeAsync((int)DAVEVoiceOpcode.DaveMlsWelcome, data, null);
     }
 
     private async Task DispatchOpcodeAsync(int opcode)
     {
-        // Use a null/empty JSON object for opcodes that don't need payload data
         var data = JsonDocument.Parse("{}").RootElement;
         await _proto.HandleOpcodeAsync(opcode, data, null);
     }
