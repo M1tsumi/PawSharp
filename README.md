@@ -10,8 +10,9 @@
   [![.NET][dotnet-badge]][dotnet-link]
   [![License][license-badge]][license]
   [![Build][build-badge]][build]
+  [![Discord][discord-badge]][discord]
 
-  [Documentation][docs] &middot; [Changelog][changelog] &middot; [Examples][examples] &middot; [NuGet][nuget]
+  [Documentation][docs] &middot; [Changelog][changelog] &middot; [Examples][examples] &middot; [NuGet][nuget] &middot; [Support][discord]
 
 </div>
 
@@ -172,3 +173,5 @@ MIT. See [LICENSE][license].
 [examples]:          examples/
 [contributing]:      CONTRIBUTING.md
 [versioning]:        docs/VERSIONING_POLICY.md
+[discord]:           https://discord.gg/6Z8X8cCHXs
+[discord-badge]:     https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white
