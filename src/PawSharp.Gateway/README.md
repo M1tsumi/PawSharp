@@ -164,6 +164,12 @@ gateway.Events.UseMiddleware(async (eventName, eventData) =>
 - Main repository guide: [../../README.md](../../README.md)
 - Package source: [./](./)
 
+## Support
+
+- Join the [PawSharp Discord](https://discord.gg/6Z8X8cCHXs) for help, discussion, and community.
+- Report bugs or request features via [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues).
+- Start a discussion on [GitHub Discussions](https://github.com/M1tsumi/PawSharp/discussions).
+
 ## License
 
 MIT. See [../../LICENSE](../../LICENSE).

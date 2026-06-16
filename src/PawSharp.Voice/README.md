@@ -220,6 +220,12 @@ PawSharp.Voice includes a full MLS (RFC 9420) implementation for DAVE E2EE. The 
 - DAVE Protocol Whitepaper: [https://daveprotocol.com](https://daveprotocol.com)
 - libdave: [https://github.com/discord/libdave](https://github.com/discord/libdave)
 
+## Support
+
+- Join the [PawSharp Discord](https://discord.gg/6Z8X8cCHXs) for help, discussion, and community.
+- Report bugs or request features via [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues).
+- Start a discussion on [GitHub Discussions](https://github.com/M1tsumi/PawSharp/discussions).
+
 ## License
 
 MIT. See [../../LICENSE](../../LICENSE).
