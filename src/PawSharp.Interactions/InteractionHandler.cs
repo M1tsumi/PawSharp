@@ -284,7 +284,7 @@ public class InteractionHandler
                     }
                     else
                     {
-                        _logger?.LogWarning("No component handler registered for custom_id: {CustomId}", interaction.Data.CustomId);
+                        _logger?.LogWarning("No component handler registered for custom_id: {CustomId}", interaction.Data?.CustomId);
                     }
                     break;
 
@@ -296,7 +296,7 @@ public class InteractionHandler
                     }
                     else
                     {
-                        _logger?.LogWarning("No autocomplete handler registered for command: {CommandName}", interaction.Data.Name);
+                        _logger?.LogWarning("No autocomplete handler registered for command: {CommandName}", interaction.Data?.Name);
                     }
                     break;
 
@@ -308,7 +308,7 @@ public class InteractionHandler
                     }
                     else
                     {
-                        _logger?.LogWarning("No modal handler registered for custom_id: {CustomId}", interaction.Data.CustomId);
+                        _logger?.LogWarning("No modal handler registered for custom_id: {CustomId}", interaction.Data?.CustomId);
                     }
                     break;
 

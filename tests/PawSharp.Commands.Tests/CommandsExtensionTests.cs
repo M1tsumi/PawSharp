@@ -562,14 +562,14 @@ public class CommandsExtensionTests
     }
 
     [Fact]
-    public void CommandDelegateFactory_Supports_Void_Returning_Command_Methods()
+    public async Task CommandDelegateFactory_Supports_Void_Returning_Command_Methods()
     {
         var method = typeof(VoidMethodModule).GetMethod(nameof(VoidMethodModule.Increment))
             ?? throw new InvalidOperationException("Test method not found.");
         var compiled = CommandDelegateFactory.CreateDelegate(method);
         var module = new VoidMethodModule();
 
-        compiled(module, Array.Empty<object?>()).GetAwaiter().GetResult();
+        await compiled(module, Array.Empty<object?>());
 
         module.Counter.Should().Be(1);
     }
