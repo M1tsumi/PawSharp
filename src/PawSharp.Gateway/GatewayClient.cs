@@ -163,7 +163,7 @@ namespace PawSharp.Gateway
                 options.EventDispatch.MaxDegreeOfParallelism,
                 metrics,
                 options.EventDispatch.HandlerTimeoutMs);
-            _reconnectionManager = new ReconnectionManager(logger, metrics, options.Reconnection);
+            _reconnectionManager = new ReconnectionManager(logger!, metrics, options.Reconnection);
             _diagnostics = new GatewayDiagnostics();
             
             _reconnectionManager.OnReconnectionAttempt += async (attempt) =>
