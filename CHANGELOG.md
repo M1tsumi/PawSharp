@@ -51,6 +51,19 @@ All notable changes to PawSharp are documented here.
 - **Fixed xUnit1031 warning** (`PawSharp.Commands.Tests`)
   - `CommandDelegateFactory_Supports_Void_Returning_Command_Methods` now uses `await` instead of `.GetAwaiter().GetResult()` — prevents potential deadlocks in test runners.
 
+### Documentation
+
+- **Root README humanized** (`README.md`)
+  - Rewritten with a warmer, more approachable tone throughout.
+  - Added conversational intro, friendlier section headings, and clearer "get started" flow.
+  - Updated all version references from `alpha.3` to `alpha.4`.
+  - Added "Join the community" section with Discord invite.
+  - Restructured "What you can build" to read like real use-cases rather than a spec sheet.
+
+- **All 9 package READMEs updated** (`src/*/README.md`)
+  - Stale `--version 1.1.0-alpha.3` install commands updated to `1.1.0-alpha.4`.
+  - `PawSharp.Commands` README now pins the version in its install command, matching the convention of all other packages.
+
 ### Housekeeping
 
 - Changed `#pragma warning disable IDE0011` (blanket file-level suppression) removed from `RestClient.cs`. EditorConfig brace rules now apply to all new code.
