@@ -307,7 +307,7 @@ namespace PawSharp.Gateway.Events
             {
                 try 
                 { 
-                    await mw(eventName, eventData); 
+                    await mw(eventName, eventData).ConfigureAwait(false); 
                 }
                 catch (EventFilteredException)
                 {

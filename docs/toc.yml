@@ -12,5 +12,11 @@
   href: PATTERNS_GUIDE.md
 - name: Versioning Policy
   href: VERSIONING_POLICY.md
+- name: Error Handling
+  href: ERROR_HANDLING.md
+- name: Event Interest Filtering
+  href: EVENT_INTEREST_FILTERING_GUIDE.md
+- name: Migration Guide
+  href: MIGRATION.md
 - name: Troubleshooting
   href: TROUBLESHOOTING.md

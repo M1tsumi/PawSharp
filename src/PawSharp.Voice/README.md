@@ -6,7 +6,7 @@ It covers the core building blocks needed for real voice features: voice gateway
 
 ## Why Use This Package
 
-- **Complete Discord Voice Protocol v8 Implementation**: WebSocket control channel + UDP audio transport
+- **Discord Voice Protocol**: WebSocket control channel + UDP audio transport (protocol version resolved at runtime)
 - **Opus Codec**: Built-in Opus encoding/decoding via Concentus (pure .NET, no native dependencies)
 - **Transport Encryption**: Support for AEAD_AES256_GCM and AEAD_XChaCha20_Poly1305 modes
 - **Connection Lifecycle**: Automatic reconnection with exponential backoff

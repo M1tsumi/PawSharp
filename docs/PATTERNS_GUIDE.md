@@ -361,6 +361,7 @@ public class AutoModerator
 }
 
 client.OnMessageCreated(moderator.HandleMessageAsync);
+```
 
 ### Kick & Ban with Logging
 

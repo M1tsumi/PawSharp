@@ -219,7 +219,7 @@ namespace PawSharp.Cache.Swapping
             {
                 try
                 {
-                    var isHealthy = await Task.Run(() => provider.Provider.IsHealthy());
+                    var isHealthy = await Task.Run(() => provider.Provider.IsHealthy()).ConfigureAwait(false);
                     
                     lock (_lock)
                     {
@@ -268,7 +268,7 @@ namespace PawSharp.Cache.Swapping
                     // If active provider failed, try to fallback
                     if (_activeProvider?.Name == provider.Name && _options.AutoFallback)
                     {
-                        await TryFallbackAsync(provider.Name);
+                        await TryFallbackAsync(provider.Name).ConfigureAwait(false);
                     }
                 }
             }
@@ -513,7 +513,7 @@ namespace PawSharp.Cache.Swapping
                 return;
 
             _healthCheckTimer = new Timer(
-                async _ => await PerformHealthChecksAsync(),
+                async _ => await PerformHealthChecksAsync().ConfigureAwait(false),
                 null,
                 TimeSpan.Zero,
                 _options.HealthCheckInterval

@@ -299,7 +299,7 @@ public class VoiceConnection : IDisposable
         _sessionId = sessionId;
         _token = token;
 
-        await ConnectInternalAsync();
+        await ConnectInternalAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -310,7 +310,7 @@ public class VoiceConnection : IDisposable
         if (_endpoint is null || _sessionId is null || _token is null)
             throw new InvalidOperationException("Cannot reconnect: handshake parameters not stored. Call ConnectAsync first.");
 
-        await ConnectInternalAsync();
+        await ConnectInternalAsync().ConfigureAwait(false);
     }
 
     private async Task ConnectInternalAsync()
@@ -337,7 +337,7 @@ public class VoiceConnection : IDisposable
         var host = _endpoint!.Contains(':') ? _endpoint.Substring(0, _endpoint.LastIndexOf(':')) : _endpoint;
         var uri = new Uri($"wss://{host}?v={VoiceProtocolVersion}");
 
-        await _webSocket.ConnectAsync(uri, _cts.Token);
+        await _webSocket.ConnectAsync(uri, _cts.Token).ConfigureAwait(false);
         _speaking = false;  // reset speaking gate on fresh connection
 
         _receiveTask    = Task.Run(ReceiveLoopAsync,    _cts.Token);
@@ -350,7 +350,7 @@ public class VoiceConnection : IDisposable
         var keepAliveTask = Task.Run(KeepAliveLoopAsync, _cts.Token);
 
         // Send Opcode 0 IDENTIFY immediately after WebSocket upgrade
-        await SendIdentifyAsync();
+        await SendIdentifyAsync().ConfigureAwait(false);
     }
 
     private async Task SendIdentifyAsync()
@@ -368,7 +368,7 @@ public class VoiceConnection : IDisposable
         };
         var json = System.Text.Json.JsonSerializer.Serialize(payload);
         var buffer = System.Text.Encoding.UTF8.GetBytes(json);
-        await _webSocket!.SendAsync(buffer, WebSocketMessageType.Text, true, _cts?.Token ?? CancellationToken.None);
+        await _webSocket!.SendAsync(buffer, WebSocketMessageType.Text, true, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -394,7 +394,7 @@ public class VoiceConnection : IDisposable
         {
             try
             {
-                await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None);
+                await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -415,7 +415,7 @@ public class VoiceConnection : IDisposable
             _receiveTask   ?? Task.CompletedTask,
             _heartbeatTask ?? Task.CompletedTask,
             _udpReceiveTask ?? Task.CompletedTask
-        );
+        ).ConfigureAwait(false);
 
         _cts?.Dispose();
         _cts = null;
@@ -448,7 +448,7 @@ public class VoiceConnection : IDisposable
         var host = _endpoint!.Contains(':') ? _endpoint.Substring(0, _endpoint.LastIndexOf(':')) : _endpoint;
         var uri = new Uri($"wss://{host}?v={VoiceProtocolVersion}");
         
-        await _webSocket.ConnectAsync(uri, _cts.Token);
+        await _webSocket.ConnectAsync(uri, _cts.Token).ConfigureAwait(false);
         
         // Send Resume (op 7)
         var resumePayload = new
@@ -465,7 +465,7 @@ public class VoiceConnection : IDisposable
         
         var json = JsonSerializer.Serialize(resumePayload);
         var buffer = System.Text.Encoding.UTF8.GetBytes(json);
-        await _webSocket.SendAsync(buffer, WebSocketMessageType.Text, true, _cts.Token);
+        await _webSocket.SendAsync(buffer, WebSocketMessageType.Text, true, _cts.Token).ConfigureAwait(false);
         
         _receiveTask = Task.Run(ReceiveLoopAsync, _cts.Token);
         _heartbeatTask = Task.Run(HeartbeatLoopAsync, _cts.Token);
@@ -503,7 +503,7 @@ public class VoiceConnection : IDisposable
     public async Task PlayAsync(string filePath, CancellationToken cancellationToken = default)
     {
         using var reader = new AudioFileReader(filePath);
-        await PlayAsync(reader, cancellationToken);
+        await PlayAsync(reader, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -530,7 +530,7 @@ public class VoiceConnection : IDisposable
 
         try
         {
-            await SetSpeakingAsync(true);
+            await SetSpeakingAsync(true).ConfigureAwait(false);
 
             var buffer = new byte[PcmFrameBytes];
             int bytesRead;
@@ -541,7 +541,7 @@ public class VoiceConnection : IDisposable
                 if (bytesRead < buffer.Length)
                     Array.Clear(buffer, bytesRead, buffer.Length - bytesRead);
 
-                await SendAudioAsync(buffer);
+                await SendAudioAsync(buffer).ConfigureAwait(false);
 
                 // Pace delivery: one 20 ms frame every 20 ms to avoid flooding the UDP socket
                 await Task.Delay(18, cancellationToken).ConfigureAwait(false);
@@ -550,7 +550,7 @@ public class VoiceConnection : IDisposable
         catch (OperationCanceledException) { /* caller cancelled — normal exit */ }
         finally
         {
-            await SetSpeakingAsync(false);
+            await SetSpeakingAsync(false).ConfigureAwait(false);
             resampler?.Dispose();
         }
     }
@@ -790,7 +790,7 @@ public class VoiceConnection : IDisposable
         var json  = JsonSerializer.Serialize(payload);
         var bytes = System.Text.Encoding.UTF8.GetBytes(json);
         await _webSocket.SendAsync(bytes, WebSocketMessageType.Text, true,
-            _cts?.Token ?? CancellationToken.None);
+            _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
     }
 
     // ── RTP helpers ───────────────────────────────────────────────────────────
@@ -873,7 +873,7 @@ public class VoiceConnection : IDisposable
         {
             while (!_cts.Token.IsCancellationRequested && _webSocket.State == WebSocketState.Open)
             {
-                var result = await _webSocket.ReceiveAsync(segment, _cts.Token);
+                var result = await _webSocket.ReceiveAsync(segment, _cts.Token).ConfigureAwait(false);
 
                 if (result.MessageType == WebSocketMessageType.Close)
                     break;
@@ -882,7 +882,7 @@ public class VoiceConnection : IDisposable
                 {
                     // Handle JSON control messages
                     var json = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await HandleJsonMessageAsync(json);
+                    await HandleJsonMessageAsync(json).ConfigureAwait(false);
                 }
                 else if (result.MessageType == WebSocketMessageType.Binary)
                 {
@@ -927,7 +927,7 @@ public class VoiceConnection : IDisposable
                         // subscribers (e.g. speech-to-text) can process the PCM independently.
                         VoicePacketReceived?.Invoke(ssrc, pcm);
 
-                        await PlayAudioFromPcmAsync(pcm);
+                        await PlayAudioFromPcmAsync(pcm).ConfigureAwait(false);
                     }
                 }
             }
@@ -992,7 +992,7 @@ public class VoiceConnection : IDisposable
                             }
 
                             // Initiate IP discovery and Select Protocol
-                            await PerformIpDiscoveryAndSelectProtocolAsync();
+                            await PerformIpDiscoveryAndSelectProtocolAsync().ConfigureAwait(false);
                         }
                         break;
                     case 4: // SESSION DESCRIPTION — contains secret key for transport encryption
@@ -1057,7 +1057,7 @@ public class VoiceConnection : IDisposable
                         {
                             try
                             {
-                                await _dave.HandleOpcodeAsync(opCode, root.GetProperty("d"), _webSocket, _cts?.Token ?? CancellationToken.None);
+                                await _dave.HandleOpcodeAsync(opCode, root.GetProperty("d"), _webSocket, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
                                 if (opCode == 24 && _dave.IsActive)
                                 {
                                     var davePrevState = State;
@@ -1089,7 +1089,7 @@ public class VoiceConnection : IDisposable
             _logger.LogWarning(ex, "Failed to parse a voice control payload for channel {ChannelId}", _channel.Id);
         }
 
-        await Task.CompletedTask;
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 
     private async Task HeartbeatLoopAsync()
@@ -1102,8 +1102,8 @@ public class VoiceConnection : IDisposable
             while (!_cts.Token.IsCancellationRequested)
             {
                 // Send heartbeat
-                await SendHeartbeatAsync();
-                await Task.Delay(_heartbeatInterval, _cts.Token);
+                await SendHeartbeatAsync().ConfigureAwait(false);
+                await Task.Delay(_heartbeatInterval, _cts.Token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -1134,7 +1134,7 @@ public class VoiceConnection : IDisposable
             var buffer = System.Text.Encoding.UTF8.GetBytes(json);
             var segment = new ArraySegment<byte>(buffer);
 
-            await _webSocket.SendAsync(segment, WebSocketMessageType.Text, true, _cts?.Token ?? CancellationToken.None);
+            await _webSocket.SendAsync(segment, WebSocketMessageType.Text, true, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1279,7 +1279,7 @@ public class VoiceConnection : IDisposable
             _logger.LogInformation("IP Discovery complete: External IP={Ip}, Port={Port}", discoveredIp, discoveredPort);
             
             // Send Select Protocol (op 1)
-            await SendSelectProtocolAsync(discoveredIp, discoveredPort);
+            await SendSelectProtocolAsync(discoveredIp, discoveredPort).ConfigureAwait(false);
             
             // Start UDP receive loop
             _udpReceiveTask = Task.Run(UdpReceiveLoopAsync, _cts!.Token);
@@ -1323,7 +1323,7 @@ public class VoiceConnection : IDisposable
         
         var json = JsonSerializer.Serialize(payload);
         var bytes = System.Text.Encoding.UTF8.GetBytes(json);
-        await _webSocket!.SendAsync(bytes, WebSocketMessageType.Text, true, _cts!.Token);
+        await _webSocket!.SendAsync(bytes, WebSocketMessageType.Text, true, _cts!.Token).ConfigureAwait(false);
         
         _logger.LogInformation("Select Protocol sent: Mode={Mode}, Address={Address}:{Port}", modeString, ip, port);
     }
@@ -1414,7 +1414,7 @@ public class VoiceConnection : IDisposable
                     // Fire the receive event before feeding audio to local playback
                     VoicePacketReceived?.Invoke(ssrc, pcm);
 
-                    await PlayAudioFromPcmAsync(pcm);
+                    await PlayAudioFromPcmAsync(pcm).ConfigureAwait(false);
                 }
             }
         }

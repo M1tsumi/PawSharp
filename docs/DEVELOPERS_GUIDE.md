@@ -1110,7 +1110,7 @@ else
 
 ### Getting Help
 
-1. Check [ERROR_HANDLING.md](./docs/ERROR_HANDLING.md)
+1. Check [ERROR_HANDLING.md](./ERROR_HANDLING.md)
 2. Review the documentation index at [INDEX.md](./INDEX.md)
 3. Check examples in `examples/` folder
 4. Open GitHub issue with:

@@ -124,6 +124,37 @@ No breaking changes were introduced in this version.
 
 No breaking changes were introduced in this version.
 
+### 1.1.0-alpha.3 → 1.1.0-alpha.4
+
+#### Removed Obsolete API Surface
+
+The following `[Obsolete]` methods have been **removed**:
+
+| Removed Method | Replacement |
+|---------------|-------------|
+| `services.AddPawSharpClient(PawSharpOptions)` | `services.SetupPawSharp(options)` or `services.AddPawSharpWithMemoryCache(options)` |
+| `services.AddPawSharpClient()` | `services.SetupPawSharp(options)` or `services.AddPawSharpWithMemoryCache(options)` |
+
+**Before:**
+```csharp
+services.AddPawSharpClient(options);
+```
+
+**After:**
+```csharp
+services.SetupPawSharp(options);
+// or
+services.AddPawSharpWithMemoryCache(options);
+```
+
+#### Voice WebSocket Protocol
+
+`VoiceConnection` no longer hardcodes `?v=8` for the voice WebSocket URI. The version is now resolved at runtime via the `VoiceProtocolVersion` constant (currently `4`). This should be transparent for most users — the voice gateway negotiation handles versioning internally.
+
+#### Exception Handling Changes
+
+- `PlayAudioAsync()` and `PlayAudioFromPcmAsync()` on `VoiceConnection` now throw `ObjectDisposedException` when called on a disposed connection, instead of silently succeeding.
+
 ---
 
 ## General Migration Notes

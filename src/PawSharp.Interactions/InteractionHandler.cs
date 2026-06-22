@@ -273,14 +273,14 @@ public class InteractionHandler
             switch ((InteractionType)interaction.Type)
             {
                 case InteractionType.ApplicationCommand:
-                    await HandleApplicationCommandAsync(interaction);
+                    await HandleApplicationCommandAsync(interaction).ConfigureAwait(false);
                     break;
 
                 case InteractionType.MessageComponent:
                     if (interaction.Data?.CustomId != null &&
                         _componentHandlers.TryGetValue(interaction.Data.CustomId, out var componentHandler))
                     {
-                        await InvokeHandlerSafelyAsync(componentHandler, interaction, "component", interaction.Data.CustomId);
+                        await InvokeHandlerSafelyAsync(componentHandler, interaction, "component", interaction.Data.CustomId).ConfigureAwait(false);
                     }
                     else
                     {
@@ -292,7 +292,7 @@ public class InteractionHandler
                     if (interaction.Data?.Name != null &&
                         _autocompleteHandlers.TryGetValue(interaction.Data.Name, out var autocompleteHandler))
                     {
-                        await HandleAutocompleteAsync(interaction, autocompleteHandler);
+                        await HandleAutocompleteAsync(interaction, autocompleteHandler).ConfigureAwait(false);
                     }
                     else
                     {
@@ -304,7 +304,7 @@ public class InteractionHandler
                     if (interaction.Data?.CustomId != null &&
                         _modalHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
                     {
-                        await InvokeHandlerSafelyAsync(modalHandler, interaction, "modal", interaction.Data.CustomId);
+                        await InvokeHandlerSafelyAsync(modalHandler, interaction, "modal", interaction.Data.CustomId).ConfigureAwait(false);
                     }
                     else
                     {
@@ -339,7 +339,7 @@ public class InteractionHandler
             case (int)ApplicationCommandType.User:
                 if (_userContextMenuHandlers.TryGetValue(interaction.Data.Name, out var userHandler))
                 {
-                    await InvokeHandlerSafelyAsync(userHandler, interaction, "user context menu", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(userHandler, interaction, "user context menu", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -350,7 +350,7 @@ public class InteractionHandler
             case (int)PawSharp.Interactions.Models.ApplicationCommandType.Message:
                 if (_messageContextMenuHandlers.TryGetValue(interaction.Data.Name, out var messageHandler))
                 {
-                    await InvokeHandlerSafelyAsync(messageHandler, interaction, "message context menu", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(messageHandler, interaction, "message context menu", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -361,7 +361,7 @@ public class InteractionHandler
             case 4: // PRIMARY_ENTRY_POINT - Activity entry point
                 if (_entryPointHandlers.TryGetValue(interaction.Data.Name, out var entryHandler))
                 {
-                    await InvokeHandlerSafelyAsync(entryHandler, interaction, "entry point", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(entryHandler, interaction, "entry point", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -372,7 +372,7 @@ public class InteractionHandler
             default: // CHAT_INPUT (1) or unrecognised — fall through to slash command handlers
                 if (_commandHandlers.TryGetValue(interaction.Data.Name, out var slashHandler))
                 {
-                    await InvokeHandlerSafelyAsync(slashHandler, interaction, "slash command", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(slashHandler, interaction, "slash command", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -386,13 +386,13 @@ public class InteractionHandler
     {
         try
         {
-            var choices = await handler(interaction);
+            var choices = await handler(interaction).ConfigureAwait(false);
             var response = new InteractionResponse
             {
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = choices }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
         catch (DiscordApiException ex)
         {
@@ -404,7 +404,7 @@ public class InteractionHandler
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
         catch (ValidationException ex)
         {
@@ -416,7 +416,7 @@ public class InteractionHandler
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -428,7 +428,7 @@ public class InteractionHandler
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
     }
 
@@ -442,7 +442,7 @@ public class InteractionHandler
 
         try
         {
-            await handler(interaction);
+            await handler(interaction).ConfigureAwait(false);
         }
         catch (DiscordApiException ex)
         {
@@ -455,7 +455,7 @@ public class InteractionHandler
                 {
                     Type = (int)InteractionResponseType.ChannelMessageWithSource,
                     Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception responseEx)
             {
@@ -472,7 +472,7 @@ public class InteractionHandler
                 {
                     Type = (int)InteractionResponseType.ChannelMessageWithSource,
                     Data = new InteractionCallbackData { Content = $"Invalid input: {ex.Message}", Flags = 64 }
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception responseEx)
             {
@@ -490,7 +490,7 @@ public class InteractionHandler
                 {
                     Type = (int)InteractionResponseType.ChannelMessageWithSource,
                     Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception responseEx)
             {
@@ -504,7 +504,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<bool> RespondAsync(ulong interactionId, string interactionToken, InteractionResponse response)
     {
-        return await _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+        return await _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -607,7 +607,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<bool> EditResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
     {
-        var response = await _restClient.EditOriginalInteractionResponseAsync(applicationId, interactionToken, request);
+        var response = await _restClient.EditOriginalInteractionResponseAsync(applicationId, interactionToken, request).ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
 
@@ -616,7 +616,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> GetOriginalResponseAsync(string applicationId, string interactionToken)
     {
-        return await _restClient.GetOriginalInteractionResponseAsync(applicationId, interactionToken);
+        return await _restClient.GetOriginalInteractionResponseAsync(applicationId, interactionToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -624,7 +624,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<bool> DeleteOriginalResponseAsync(string applicationId, string interactionToken)
     {
-        return await _restClient.DeleteOriginalInteractionResponseAsync(applicationId, interactionToken);
+        return await _restClient.DeleteOriginalInteractionResponseAsync(applicationId, interactionToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -632,7 +632,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> CreateFollowupAsync(string applicationId, string interactionToken, CreateMessageRequest request)
     {
-        return await _restClient.CreateFollowupMessageAsync(applicationId, interactionToken, request);
+        return await _restClient.CreateFollowupMessageAsync(applicationId, interactionToken, request).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -640,7 +640,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> GetFollowupAsync(string applicationId, string interactionToken, ulong messageId)
     {
-        return await _restClient.GetFollowupMessageAsync(applicationId, interactionToken, messageId);
+        return await _restClient.GetFollowupMessageAsync(applicationId, interactionToken, messageId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -648,7 +648,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> EditFollowupAsync(string applicationId, string interactionToken, ulong messageId, EditMessageRequest request)
     {
-        return await _restClient.EditFollowupMessageAsync(applicationId, interactionToken, messageId, request);
+        return await _restClient.EditFollowupMessageAsync(applicationId, interactionToken, messageId, request).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -656,7 +656,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<bool> DeleteFollowupAsync(string applicationId, string interactionToken, ulong messageId)
     {
-        return await _restClient.DeleteFollowupMessageAsync(applicationId, interactionToken, messageId);
+        return await _restClient.DeleteFollowupMessageAsync(applicationId, interactionToken, messageId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -693,7 +693,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<List<ApplicationCommandPermissions>?> GetGuildApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId)
     {
-        return await _restClient.GetGuildApplicationCommandPermissionsAsync(applicationId, guildId);
+        return await _restClient.GetGuildApplicationCommandPermissionsAsync(applicationId, guildId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -701,7 +701,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<ApplicationCommandPermissions?> GetApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId)
     {
-        return await _restClient.GetApplicationCommandPermissionsAsync(applicationId, guildId, commandId);
+        return await _restClient.GetApplicationCommandPermissionsAsync(applicationId, guildId, commandId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -709,7 +709,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<ApplicationCommandPermissions?> EditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId, List<ApplicationCommandPermission> permissions)
     {
-        return await _restClient.EditApplicationCommandPermissionsAsync(applicationId, guildId, commandId, permissions);
+        return await _restClient.EditApplicationCommandPermissionsAsync(applicationId, guildId, commandId, permissions).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -717,7 +717,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<List<ApplicationCommandPermissions>?> BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions)
     {
-        return await _restClient.BatchEditApplicationCommandPermissionsAsync(applicationId, guildId, permissions);
+        return await _restClient.BatchEditApplicationCommandPermissionsAsync(applicationId, guildId, permissions).ConfigureAwait(false);
     }
 }
 

@@ -173,7 +173,7 @@ namespace PawSharp.Gateway
             };
             _reconnectionManager.OnReconnectionFailed += async () =>
             {
-                await SetStateAsync(GatewayState.Failed);
+                await SetStateAsync(GatewayState.Failed).ConfigureAwait(false);
                 OnReconnectionFailed?.Invoke();
             };
 
@@ -219,7 +219,7 @@ namespace PawSharp.Gateway
                 throw;
             }
 
-            await SetStateAsync(GatewayState.Connecting);
+            await SetStateAsync(GatewayState.Connecting).ConfigureAwait(false);
             _cts = new CancellationTokenSource();
 
             // Discord requires using resume_gateway_url (from the most recent READY) when
@@ -585,7 +585,7 @@ namespace PawSharp.Gateway
                                 case GatewayCloseCode.NotAuthenticated:
                                 case GatewayCloseCode.AuthenticationFailed:
                                     _logger.LogError("Gateway authentication failed ({CloseCode}) - check token", closeCode);
-                                    await SetStateAsync(GatewayState.Failed);
+                                    await SetStateAsync(GatewayState.Failed).ConfigureAwait(false);
                                     return; // Don't reconnect on auth failure
 
                                 case GatewayCloseCode.InvalidSequence:
@@ -597,24 +597,24 @@ namespace PawSharp.Gateway
 
                                 case GatewayCloseCode.RateLimited:
                                     _logger.LogWarning("Gateway rate limited - waiting before reconnect");
-                                    await Task.Delay(5000);
+                                    await Task.Delay(5000).ConfigureAwait(false);
                                     break;
 
                                 case GatewayCloseCode.InvalidShard:
                                 case GatewayCloseCode.ShardingRequired:
                                     _logger.LogError("Gateway sharding error ({CloseCode}) - check shard configuration", closeCode);
-                                    await SetStateAsync(GatewayState.Failed);
+                                    await SetStateAsync(GatewayState.Failed).ConfigureAwait(false);
                                     return;
 
                                 case GatewayCloseCode.InvalidApiVersion:
                                     _logger.LogError("Invalid API version - update client");
-                                    await SetStateAsync(GatewayState.Failed);
+                                    await SetStateAsync(GatewayState.Failed).ConfigureAwait(false);
                                     return;
 
                                 case GatewayCloseCode.InvalidIntent:
                                 case GatewayCloseCode.DisallowedIntent:
                                     _logger.LogError("Gateway intent error ({CloseCode}) - check intent configuration", closeCode);
-                                    await SetStateAsync(GatewayState.Failed);
+                                    await SetStateAsync(GatewayState.Failed).ConfigureAwait(false);
                                     return;
 
                                 case GatewayCloseCode.VoiceServerCrashed:
@@ -994,7 +994,7 @@ namespace PawSharp.Gateway
                             var voiceServerEvent = JsonSerializer.Deserialize(eventData, PawSharp.Gateway.Serialization.PawSharpGatewayJsonContext.Default.VoiceServerUpdateEvent);
                             if (voiceServerEvent != null)
                             {
-                                await VoiceServerUpdate.Invoke(voiceServerEvent);
+                                await VoiceServerUpdate.Invoke(voiceServerEvent).ConfigureAwait(false);
                             }
                         }
                         break;
@@ -1045,13 +1045,13 @@ namespace PawSharp.Gateway
                         await _eventDispatcher.DispatchFromJsonAsync<AutoModerationActionExecutionEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "STAGE_INSTANCE_CREATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceCreateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "STAGE_INSTANCE_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "STAGE_INSTANCE_DELETE":
-                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<StageInstanceDeleteEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_AUDIT_LOG_ENTRY_CREATE":
                         await _eventDispatcher.DispatchFromJsonAsync<GuildAuditLogEntryCreateEvent>(eventType, eventData).ConfigureAwait(false);
@@ -1066,40 +1066,40 @@ namespace PawSharp.Gateway
                         await _eventDispatcher.DispatchFromJsonAsync<EntitlementDeleteEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "MESSAGE_POLL_VOTE_ADD":
-                        await _eventDispatcher.DispatchFromJsonAsync<MessagePollVoteAddEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessagePollVoteAddEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "MESSAGE_POLL_VOTE_REMOVE":
-                        await _eventDispatcher.DispatchFromJsonAsync<MessagePollVoteRemoveEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessagePollVoteRemoveEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_SOUNDBOARD_SOUND_CREATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundCreateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_SOUNDBOARD_SOUND_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_SOUNDBOARD_SOUND_DELETE":
-                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundDeleteEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_SOUNDBOARD_SOUNDS_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundsUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildSoundboardSoundsUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "VOICE_CHANNEL_EFFECT_SEND":
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceChannelEffectSendEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "VOICE_CHANNEL_STATUS_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<VoiceChannelStatusUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<VoiceChannelStatusUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "SUBSCRIPTION_CREATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionCreateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "SUBSCRIPTION_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "SUBSCRIPTION_DELETE":
-                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<SubscriptionDeleteEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "MESSAGE_DELETE_BULK":
-                        await _eventDispatcher.DispatchFromJsonAsync<MessageDeleteBulkEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<MessageDeleteBulkEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "INVITE_CREATE":
                         await _eventDispatcher.DispatchFromJsonAsync<InviteCreateEvent>(eventType, eventData).ConfigureAwait(false);
@@ -1108,28 +1108,28 @@ namespace PawSharp.Gateway
                         await _eventDispatcher.DispatchFromJsonAsync<InviteDeleteEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "WEBHOOKS_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<WebhooksUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<WebhooksUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "APPLICATION_COMMAND_PERMISSIONS_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<ApplicationCommandPermissionsUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<ApplicationCommandPermissionsUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_APP_COMMAND_CREATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandCreateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_APP_COMMAND_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "GUILD_APP_COMMAND_DELETE":
-                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<GuildAppCommandDeleteEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "INTEGRATION_CREATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationCreateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationCreateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "INTEGRATION_UPDATE":
-                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationUpdateEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationUpdateEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     case "INTEGRATION_DELETE":
-                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationDeleteEvent>(eventType, eventData);
+                        await _eventDispatcher.DispatchFromJsonAsync<IntegrationDeleteEvent>(eventType, eventData).ConfigureAwait(false);
                         break;
                     default:
                         _logger.LogDebug("Unhandled event type: {EventType}", eventType);
