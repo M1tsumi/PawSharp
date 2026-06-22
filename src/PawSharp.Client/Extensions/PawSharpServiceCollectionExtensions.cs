@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.Linq;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -108,38 +107,4 @@ public static class PawSharpServiceCollectionExtensions
         this IServiceCollection services,
         PawSharpOptions options)
         => services.AddPawSharp(options, _ => new MemoryCacheProvider());
-
-    /// <summary>
-    /// Backward-compatible alias that registers PawSharp with in-memory cache.
-    /// </summary>
-    /// <param name="services">The service collection to register into.</param>
-    /// <param name="options">Bot configuration (token, intents, etc.).</param>
-    [Obsolete("AddPawSharpClient(options) is deprecated. Use SetupPawSharp(options) for a single-call setup, or AddPawSharp(options) for full control over cache configuration.")]
-    public static IServiceCollection AddPawSharpClient(
-        this IServiceCollection services,
-        PawSharpOptions options)
-        => services.SetupPawSharp(options);
-
-    /// <summary>
-    /// Backward-compatible overload that uses an already-registered <see cref="PawSharpOptions"/> instance.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when no concrete <see cref="PawSharpOptions"/> instance has been registered in the service collection.
-    /// </exception>
-    [Obsolete("AddPawSharpClient() is deprecated. Register PawSharpOptions first, then call SetupPawSharp(options) or AddPawSharpWithMemoryCache(options) instead.")]
-    public static IServiceCollection AddPawSharpClient(this IServiceCollection services)
-    {
-        var options = services
-            .LastOrDefault(d => d.ServiceType == typeof(PawSharpOptions))
-            ?.ImplementationInstance as PawSharpOptions;
-
-        if (options == null)
-        {
-            throw new InvalidOperationException(
-                "AddPawSharpClient() requires a concrete PawSharpOptions instance to be registered first. " +
-                "Call services.SetupPawSharp(options) or services.AddPawSharpWithMemoryCache(options) instead.");
-        }
-
-        return services.SetupPawSharp(options);
-    }
 }
