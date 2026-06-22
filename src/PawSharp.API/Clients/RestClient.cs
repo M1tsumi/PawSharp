@@ -1,5 +1,4 @@
 #nullable enable
-#pragma warning disable IDE0011
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,6 +7,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -72,7 +72,9 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         _httpClient.BaseAddress = new Uri($"https://discord.com/api/v{_options.ApiVersion}/");
         // Discord requires the User-Agent format:  DiscordBot ($url, $versionNumber)
         // Requests without a valid User-Agent may be blocked by Cloudflare.
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot (https://github.com/M1tsumi/Pawsharp, 1.1.0-alpha.2)");
+        // Version is derived from the assembly's informational version (set via Directory.Build.props).
+        var assemblyVersion = typeof(DiscordRestClient).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? _options.ApiVersion.ToString();
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"DiscordBot (https://github.com/M1tsumi/Pawsharp, {assemblyVersion})");
 
         // Apply timeout configuration if specified
         if (_options.RestApi.TimeoutSeconds > 0)

@@ -110,11 +110,17 @@ public class RateLimitBucket
 
     public void Release()
     {
-        // Only release if the semaphore was actually acquired (CurrentCount == 0).
-        // Calling Release() on an unacquired SemaphoreSlim(1,1) throws
-        // SemaphoreFullException because count would exceed the maximum of 1.
-        if (_semaphore.CurrentCount == 0)
+        // Only release if the semaphore was actually acquired.
+        // Using try-catch for SemaphoreFullException is the only reliable way
+        // since CurrentCount is subject to race conditions between check and release.
+        try
+        {
             _semaphore.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            // Already released — no action needed.
+        }
     }
 
     public void UpdateLimits(int remaining, DateTimeOffset resetAt)
