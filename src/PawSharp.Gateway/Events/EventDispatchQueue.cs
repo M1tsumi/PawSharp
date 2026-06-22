@@ -28,7 +28,7 @@ namespace PawSharp.Gateway.Events
         private readonly EventDispatcher _dispatcher;
         private readonly bool _enableParallelDispatch;
         private readonly int _maxDegreeOfParallelism;
-        private readonly bool _disposed;
+        private bool _disposed;
         private readonly Microsoft.Extensions.Logging.ILogger? _logger;
         private Task? _disposeTask;
 
@@ -180,6 +180,7 @@ namespace PawSharp.Gateway.Events
         public void Dispose()
         {
             _channel.Writer.Complete();
+            _disposed = true;
             // Fire-and-forget with timeout to avoid blocking the caller thread.
             _disposeTask = Task.Run(async () =>
             {

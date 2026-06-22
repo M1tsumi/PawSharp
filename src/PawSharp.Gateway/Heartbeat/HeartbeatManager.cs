@@ -36,7 +36,7 @@ namespace PawSharp.Gateway.Heartbeat
         /// </summary>
         public event Func<Task>? OnZombieConnection;
 
-        public HeartbeatManager(int heartbeatInterval, Func<Task>? sendHeartbeat = null, ILogger? logger = null, int maxMissedAcks = 2)
+        public HeartbeatManager(int heartbeatInterval, Func<Task>? sendHeartbeat = null, ILogger? logger = null, int maxMissedAcks = 3)
         {
             _heartbeatInterval = heartbeatInterval;
             _sendHeartbeat = sendHeartbeat ?? (() => Task.CompletedTask);
@@ -109,9 +109,8 @@ namespace PawSharp.Gateway.Heartbeat
 
         /// <summary>
         /// Stops the heartbeat manager without waiting for task completion.
-        /// Use StopAsync() for graceful shutdown to prevent task leaks.
+        /// Use <see cref="StopAsync"/> for graceful shutdown to prevent task leaks.
         /// </summary>
-        [Obsolete("Use StopAsync() for proper cleanup to prevent task leaks")]
         public void Stop()
         {
             _cts?.Cancel();
@@ -175,7 +174,7 @@ namespace PawSharp.Gateway.Heartbeat
         {
             // Discord recommends adding random jitter (0.8-1.0x) to the first heartbeat after HELLO
             // to avoid thundering herd when many clients connect simultaneously
-            var random = new Random();
+            var random = Random.Shared;
             var jitter = random.NextDouble() * 0.2 + 0.8; // 0.8 to 1.0
             var initialDelayMs = (int)(_heartbeatInterval * jitter);
 
