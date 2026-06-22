@@ -127,7 +127,7 @@ Each has its own README.
 
 ## A note on versioning
 
-We follow [Semantic Versioning](https://semver.org/). Before 1.0.0, minor bumps might introduce breaking changes. We try to keep a clean changelog and migration guide so you're not left guessing.
+We follow [Semantic Versioning](https://semver.org/). We're still pre-1.0.0 stable, so minor bumps might include breaking changes. We keep a clean changelog and migration guide so you're not left guessing.
 
 ---
 
