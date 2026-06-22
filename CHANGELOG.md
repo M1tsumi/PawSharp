@@ -4,6 +4,58 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.1.0-alpha.4] - 2026-06-22
+
+### Critical Fixes
+
+- **Stale User-Agent version** (`PawSharp.API`)
+  - User-Agent string now derives the library version from `AssemblyInformationalVersionAttribute` at runtime, ensuring it always matches `Directory.Build.props`. No more drift between hardcoded version strings and the actual package version.
+
+- **Hardcoded voice WebSocket protocol v8** (`PawSharp.Voice`)
+  - `VoiceConnection` no longer hardcodes `?v=8` for the voice WebSocket URI. Introduced `VoiceProtocolVersion` constant (currently `4`) that matches Discord's latest voice gateway protocol.
+
+### Improvements
+
+- **ConfigureAwait(false) added project-wide** (all library projects)
+  - Added `.ConfigureAwait(false)` to every `await` call in `DiscordClient.cs` (208 calls), `AdvancedRateLimiter.cs` (2 calls), `RedisCacheProvider.cs`, and `RedisCacheDistributor.cs`. Prevents deadlocks in synchronization-context-sensitive hosts (ASP.NET, WinForms, WPF).
+
+- **Removed obsolete public API surface** (`PawSharp.Client`, `PawSharp.Gateway`)
+  - Removed `[Obsolete]` `AddPawSharpClient()` overloads from `PawSharpServiceCollectionExtensions`. Use `SetupPawSharp()` or `AddPawSharpWithMemoryCache()` instead.
+  - Removed `[Obsolete]` attribute from `HeartbeatManager.Stop()` — now a documented non-obsolete method alongside `StopAsync()`.
+
+- **Nullable warnings resolved** (all projects)
+  - Fixed ~35 CS8600/CS8601/CS8602/CS8604 nullable reference type warnings across `CommandsExtension.cs`, `TypeConverterService.cs`, `VoiceConnection.cs`, `GatewayClient.cs`, `EventDispatcher.cs`, and `InteractionHandler.cs`.
+
+- **HeartbeatManager default aligned** (`PawSharp.Gateway`)
+  - `HeartbeatManager` constructor default `maxMissedAcks` changed from `2` to `3`, matching `PawSharpOptions.MaxMissedHeartbeatAcks` default.
+
+- **Thread-safe `RateLimitBucket.Release()`** (`PawSharp.API`)
+  - `RateLimitBucket.Release()` now uses `try/catch(SemaphoreFullException)` instead of the racy `CurrentCount == 0` check. Prevents `SemaphoreFullException` under concurrent access.
+
+- **Voice connection hardening** (`PawSharp.Voice`)
+  - `PlayAudioAsync()` and `PlayAudioFromPcmAsync()` now throw `ObjectDisposedException` when called on a disposed connection instead of silently succeeding.
+  - `UserVoiceStateChanged` event preserved as public API placeholder.
+
+- **`Random.Shared` for heartbeat jitter** (`PawSharp.Gateway`)
+  - `HeartbeatManager.RunHeartbeatLoopWithJitterAsync` now uses `Random.Shared` instead of creating a new `Random()` per invocation, avoiding duplicate seeds under high shard counts.
+
+- **XML documentation fixed** (`PawSharp.Interactions`, `PawSharp.Interactivity`)
+  - Fixed unresolvable `<see cref="InteractionHandler.EditOriginalResponseAsync"/>` — corrected to `<see cref="PawSharp.API.Interfaces.IDiscordRestClient.EditOriginalInteractionResponseAsync"/>`.
+  - Fixed badly-formed XML comment in `MessageFlagExtensions` (unescaped `<` in summary).
+
+- **Unused field cleanup** (`PawSharp.Gateway`)
+  - `EventDispatchQueue._disposed` field is now properly set to `true` during `Dispose()`, making the disposal guard in `EnqueueAsync()` functional.
+
+### Testing
+
+- **Fixed xUnit1031 warning** (`PawSharp.Commands.Tests`)
+  - `CommandDelegateFactory_Supports_Void_Returning_Command_Methods` now uses `await` instead of `.GetAwaiter().GetResult()` — prevents potential deadlocks in test runners.
+
+### Housekeeping
+
+- Changed `#pragma warning disable IDE0011` (blanket file-level suppression) removed from `RestClient.cs`. EditorConfig brace rules now apply to all new code.
+- `Directory.Build.props` version bumped to `1.1.0-alpha.4`.
+
 ## [1.1.0-alpha.3] - 2026-06-15
 
 ### New Features
