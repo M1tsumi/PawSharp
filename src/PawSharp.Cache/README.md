@@ -23,7 +23,7 @@ Use it when you need faster reads, fewer REST calls, and a cleaner way to keep f
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Cache --version 1.1.0-alpha.3
+dotnet add package PawSharp.Cache --version 1.1.0-alpha.4
 ```
 
 For Redis support, also add:
