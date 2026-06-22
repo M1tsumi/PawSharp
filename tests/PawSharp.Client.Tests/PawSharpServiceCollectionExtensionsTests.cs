@@ -81,29 +81,25 @@ public class PawSharpServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddPawSharpClient_WithoutOptionsRegistration_ThrowsInvalidOperationException()
+    public void SetupPawSharp_ThrowsOnNullOptions()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
 
-#pragma warning disable CS0618
-        Action act = () => services.AddPawSharpClient();
-#pragma warning restore CS0618
+        Action act = () => services.SetupPawSharp(null!);
 
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*PawSharpOptions*");
+        act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]
-    public void AddPawSharpClient_UsesPreviouslyRegisteredOptionsInstance()
+    public void AddPawSharpWithMemoryCache_ResolvesAllServices()
     {
         var options = new PawSharpOptions { Token = "Bot abc.def.ghi" };
         var services = new ServiceCollection();
 
         services.AddLogging();
         services.AddSingleton(options);
-    #pragma warning disable CS0618
-        services.AddPawSharpClient();
-    #pragma warning restore CS0618
+        services.AddPawSharpWithMemoryCache(options);
 
         using var provider = services.BuildServiceProvider();
 
