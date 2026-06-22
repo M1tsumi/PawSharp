@@ -39,7 +39,9 @@ namespace PawSharp.Cache.Providers
         private long _misses;
 
         // Cache invalidation events
+#pragma warning disable CS0067 // Event is raised by sub-classes via the shared IEntityCache contract
         public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
+#pragma warning restore CS0067
         public event EventHandler? CacheCleared;
 
         /// <summary>

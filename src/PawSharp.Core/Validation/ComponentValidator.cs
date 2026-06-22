@@ -42,9 +42,8 @@ public static class ComponentValidator
             if (string.IsNullOrEmpty(button.Url))
             {
                 throw new ValidationException(
-                    nameof(button.Url),
-                    null,
-                    "Link buttons must have a URL."
+                    "Link buttons must have a URL.",
+                    nameof(button.Url)
                 );
             }
         }
@@ -53,9 +52,8 @@ public static class ComponentValidator
             if (string.IsNullOrEmpty(button.CustomId))
             {
                 throw new ValidationException(
-                    nameof(button.CustomId),
-                    null,
-                    "Non-link and non-premium buttons must have a custom ID."
+                    "Non-link and non-premium buttons must have a custom ID.",
+                    nameof(button.CustomId)
                 );
             }
         }

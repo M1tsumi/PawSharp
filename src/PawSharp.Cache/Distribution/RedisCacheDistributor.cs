@@ -89,7 +89,7 @@ namespace PawSharp.Cache.Distribution
             try
             {
                 var channel = $"{_channelPrefix}:invalidations";
-                await _subscriber!.SubscribeAsync(channel, (channel, message) =>
+                await _subscriber!.SubscribeAsync(RedisChannel.Literal(channel), (channel, message) =>
                 {
                     try
                     {
@@ -138,7 +138,7 @@ namespace PawSharp.Cache.Distribution
                 var json = JsonSerializer.Serialize(message);
                 var channel = $"{_channelPrefix}:invalidations";
                 
-                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
+                await _subscriber!.PublishAsync(RedisChannel.Literal(channel), json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -163,7 +163,7 @@ namespace PawSharp.Cache.Distribution
                 var json = JsonSerializer.Serialize(message);
                 var channel = $"{_channelPrefix}:invalidations";
                 
-                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
+                await _subscriber!.PublishAsync(RedisChannel.Literal(channel), json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

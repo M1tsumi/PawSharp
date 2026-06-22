@@ -147,9 +147,39 @@ services.SetupPawSharp(options);
 services.AddPawSharpWithMemoryCache(options);
 ```
 
+#### `ConfigureAwait(false)` Added Project-Wide
+
+Every `await` call in all library projects now uses `.ConfigureAwait(false)`. This prevents deadlocks in synchronization-context-sensitive hosts (ASP.NET, WinForms, WPF) but may break code that relied on the synchronization context being captured inside event handlers or callbacks.
+
+**If you capture `SynchronizationContext` inside PawSharp event handlers**, wrap your continuation explicitly:
+
+```csharp
+client.OnMessageCreated(async evt =>
+{
+    // Work that needs the original context
+    await Task.Run(() => { /* ... */ });
+});
+```
+
+#### HeartbeatManager `maxMissedAcks` Default Changed
+
+The default `maxMissedAcks` in `HeartbeatManager` changed from `2` to `3`, matching the default in `PawSharpOptions.MaxMissedHeartbeatAcks`. If you were relying on the stricter 2-miss threshold, set `PawSharpOptions.MaxMissedHeartbeatAcks` explicitly.
+
+#### `EventDispatchQueue._disposed` Now Properly Set
+
+The `_disposed` field in `EventDispatchQueue` is now set to `true` during `Dispose()`, making the disposal guard in `EnqueueAsync()` functional. Previously, calling `EnqueueAsync()` after disposal could silently queue events on a disposed object. If you interact directly with `EventDispatchQueue`, be aware that `EnqueueAsync()` will now throw `ObjectDisposedException` after disposal.
+
+#### `RateLimitBucket.Release()` Race Fixed
+
+`RateLimitBucket.Release()` now uses `try/catch(SemaphoreFullException)` instead of checking `CurrentCount == 0`. Under concurrent access, the old approach could throw `SemaphoreFullException`. This is a behavioral fix and should be invisible unless you were catching `SemaphoreFullException` explicitly.
+
 #### Voice WebSocket Protocol
 
 `VoiceConnection` no longer hardcodes `?v=8` for the voice WebSocket URI. The version is now resolved at runtime via the `VoiceProtocolVersion` constant (currently `4`). This should be transparent for most users — the voice gateway negotiation handles versioning internally.
+
+#### Voice `_seqAck` Now Properly Tracked
+
+The `seq_ack` field sent in voice heartbeats (op 3) and resume payloads (op 7) is now updated from the last received RTP packet's sequence number. Previously it was always `null`. This improves resume reliability for bots receiving voice traffic.
 
 #### Exception Handling Changes
 

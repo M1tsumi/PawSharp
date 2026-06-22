@@ -291,7 +291,7 @@ namespace PawSharp.Cache.Swapping
                         SetActiveProvider(provider.Name);
                         return;
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // Try next provider
                         continue;
@@ -322,7 +322,7 @@ namespace PawSharp.Cache.Swapping
                     }
                 }
 
-                return _activeProvider.Provider;
+                return _activeProvider!.Provider;
             }
         }
 
@@ -341,7 +341,7 @@ namespace PawSharp.Cache.Swapping
                     {
                         foreach (var otherProvider in _providers.Values.Where(p => p.Name != _activeProvider?.Name))
                         {
-                            try { otherProvider.Provider.Add(key, entity); } catch (Exception ex) { /* Propagation to secondary providers is best-effort */ }
+                            try { otherProvider.Provider.Add(key, entity); } catch (Exception) { /* Propagation to secondary providers is best-effort */ }
                         }
                     }
                 }
@@ -386,7 +386,7 @@ namespace PawSharp.Cache.Swapping
                     {
                         foreach (var otherProvider in _providers.Values.Where(p => p.Name != _activeProvider?.Name))
                         {
-                            try { otherProvider.Provider.Remove(key); } catch (Exception ex) { /* Propagation to secondary providers is best-effort */ }
+                            try { otherProvider.Provider.Remove(key); } catch (Exception) { /* Propagation to secondary providers is best-effort */ }
                         }
                     }
                 }
@@ -415,7 +415,7 @@ namespace PawSharp.Cache.Swapping
                     {
                         foreach (var otherProvider in _providers.Values.Where(p => p.Name != _activeProvider?.Name))
                         {
-                            try { otherProvider.Provider.Clear(); } catch (Exception ex) { /* Propagation to secondary providers is best-effort */ }
+                            try { otherProvider.Provider.Clear(); } catch (Exception) { /* Propagation to secondary providers is best-effort */ }
                         }
                     }
                 }

@@ -32,8 +32,6 @@ namespace PawSharp.Cache.Providers
         private readonly int _maxMembers;
         private readonly int _maxRoles;
         private readonly int _maxEmojis;
-        private readonly CacheOptions _options;
-        private readonly System.Timers.Timer _cleanupTimer;
         private readonly ICacheTelemetry? _telemetry;
         private readonly ILogger<MemoryCacheProvider>? _logger;
         private readonly object _lock = new();

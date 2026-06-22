@@ -75,6 +75,8 @@ public sealed class RequireRoleAttribute : Attribute, IPrecondition
             }
 
             // Fallback to API call
+            if (member.User == null)
+                return null;
             var guildMember = await ctx.Client.Rest.GetGuildMemberAsync(ctx.GuildId.Value, member.User.Id);
             if (guildMember == null)
                 return null;
