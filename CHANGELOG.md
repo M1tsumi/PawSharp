@@ -64,6 +64,23 @@ All notable changes to PawSharp are documented here.
   - Stale `--version 1.1.0-alpha.3` install commands updated to `1.1.0-alpha.4`.
   - `PawSharp.Commands` README now pins the version in its install command, matching the convention of all other packages.
 
+### Warning Cleanup (Post-Audit)
+
+- **Fixed swapped arguments in `ComponentValidator`** — `ValidationException` was called with `(paramName, null, message)` instead of `(message, paramName)`, causing CS8625 and incorrect error messages.
+- **Fixed XML doc cref in `DiscordException`** — unresolvable `<see cref="DiscordApiException"/>` replaced with `<c>DiscordApiException</c>` since `PawSharp.Core` does not reference `PawSharp.API`.
+- **Removed dead fields from `MemoryCacheProvider`** — `_options` and `_cleanupTimer` were declared but never assigned, causing CS8618.
+- **Fixed obsolete `RedisChannel` implicit conversions** — `RedisCacheDistributor` now uses `RedisChannel.Literal(channel)` instead of the deprecated implicit string-to-`RedisChannel` conversion (3 occurrences, CS0618).
+- **Removed unused `catch (Exception ex)` variable names** — `CacheSwapper` propagation blocks and circuit-breaker fallback no longer declare unused `ex` (5 occurrences, CS0168).
+- **Added null-forgiving operator in `CacheSwapper.GetProviderOrThrow`** — `_activeProvider.Provider` now uses `_activeProvider!.Provider` (CS8602) since the earlier checks guarantee non-null.
+- **Suppressed CS0067 on `RedisCacheProvider.EntityEvicted`** — event is part of the `IEntityCache` contract but unused in the Redis provider.
+- **Fixed null-forgiving in `DiscordApiException`** — `innerException` passed to base constructor now uses `innerException!` (CS8604).
+- **Fixed null-forgiving in `MessageExtensions`** — `value.GetString()` now uses `value.GetString()!` (CS8604).
+- **Fixed `_seqAck` never being assigned in `VoiceConnection`** — RTP sequence numbers are now extracted from received voice packets in both WS and UDP receive loops, fixing CS0649. Stale empty heartbeat-ACK handler (case 9) removed.
+- **Fixed null reference in `BuiltInAutocompleteProviders`** — `Name` fallback added for null role/channel names (`?? "unknown role"` / `?? "unknown"`) (CS8601).
+- **Added null guard in `RequireRoleAttribute.GetMemberRolesAsync`** — `member.User` is now null-checked before accessing `.Id` (CS8602).
+- **Suppressed CS0067 in test mock** — `MockCacheProvider` events required by interface contract but unused in tests.
+- **Fixed CS8602 in `CommandsExtensionTests`** — added null-forgiving operators in test assertions.
+
 ### Housekeeping
 
 - Changed `#pragma warning disable IDE0011` (blanket file-level suppression) removed from `RestClient.cs`. EditorConfig brace rules now apply to all new code.

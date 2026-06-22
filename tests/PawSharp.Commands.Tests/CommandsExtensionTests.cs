@@ -453,19 +453,19 @@ public class CommandsExtensionTests
                     commands[0].Nsfw == true &&
                     commands[0].DmPermission == false &&
                     commands[0].Contexts != null &&
-                    commands[0].Contexts.Contains(0) &&
+                    commands[0].Contexts!.Contains(0) &&
                     commands[0].IntegrationTypes != null &&
-                    commands[0].IntegrationTypes.Contains(0) &&
+                    commands[0].IntegrationTypes!.Contains(0) &&
                     commands[0].DefaultMemberPermissions == "8" &&
                     commands[0].Options != null &&
-                    commands[0].Options.Count == 1 &&
-                    commands[0].Options[0].Autocomplete != true &&
-                    commands[0].Options[0].MinLength == 2 &&
-                    commands[0].Options[0].MaxLength == 32 &&
-                    commands[0].Options[0].Choices != null &&
-                    commands[0].Options[0].Choices.Count == 1 &&
-                    commands[0].Options[0].NameLocalizations != null &&
-                    commands[0].Options[0].DescriptionLocalizations != null)),
+                    commands[0].Options!.Count == 1 &&
+                    commands[0].Options![0].Autocomplete != true &&
+                    commands[0].Options![0].MinLength == 2 &&
+                    commands[0].Options![0].MaxLength == 32 &&
+                    commands[0].Options![0].Choices != null &&
+                    commands[0].Options![0].Choices!.Count == 1 &&
+                    commands[0].Options![0].NameLocalizations != null &&
+                    commands[0].Options![0].DescriptionLocalizations != null)),
             Times.Once);
     }
 

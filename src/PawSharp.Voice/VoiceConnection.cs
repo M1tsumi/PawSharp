@@ -895,6 +895,8 @@ public class VoiceConnection : IDisposable
                     // RTP metadata (sequence, timestamp, SSRC) and not just the payload.
                     if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
                     {
+                        _seqAck = (rtpHeader[2] << 8) | rtpHeader[3];
+
                         byte[] opusData;
                         if (_dave?.IsActive == true)
                         {
@@ -1024,14 +1026,6 @@ public class VoiceConnection : IDisposable
                         }
                         break;
                     case 9: // HEARTBEAT ACK
-                        // Update seq_ack for resume support
-                        if (root.TryGetProperty("d", out var ackData) && ackData.ValueKind == JsonValueKind.Object)
-                        {
-                            if (ackData.TryGetProperty("t", out var tProp))
-                            {
-                                // Store the timestamp for potential resume
-                            }
-                        }
                         break;
                     case 7: // RESUMED
                         _logger.LogInformation("Voice connection resumed for channel {ChannelId}", _channel.Id);
@@ -1388,6 +1382,7 @@ public class VoiceConnection : IDisposable
                 // Parse RTP header and decrypt
                 if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
                 {
+                    _seqAck = (rtpHeader[2] << 8) | rtpHeader[3];
                     byte[] opusData = encryptedPayload;
 
                     // Try DAVE E2EE decryption first (for DM/GroupDM calls)

@@ -82,7 +82,7 @@ public class DiscordApiException : DiscordException
         string? requestMethod = null,
         string? requestEndpoint = null,
         Exception? innerException = null)
-        : base(message, innerException)
+        : base(message, innerException!)
     {
         StatusCode = statusCode;
         DiscordErrorCode = discordErrorCode;

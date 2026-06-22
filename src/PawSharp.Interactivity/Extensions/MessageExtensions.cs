@@ -941,7 +941,7 @@ public static class MessageExtensions
                             var result = new List<string>();
                             foreach (var value in values.EnumerateArray())
                             {
-                                result.Add(value.GetString());
+                                result.Add(value.GetString()!);
                             }
                             return result;
                         }
