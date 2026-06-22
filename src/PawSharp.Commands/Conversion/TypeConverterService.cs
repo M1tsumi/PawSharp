@@ -130,28 +130,34 @@ public class TypeConverterService
             return null;
 
         var genericMethod = method.MakeGenericMethod(underlyingType);
-        var result = await (dynamic)genericMethod.Invoke(this, new object[] { value, context });
+        var result = await (dynamic)genericMethod.Invoke(this, new object[] { value, context })!;
         
         // Check if conversion was successful
-        var isSuccessProp = result?.GetType().GetProperty("IsSuccess");
-        if (isSuccessProp != null && (bool)isSuccessProp.GetValue(result) == true)
+        if (result != null)
         {
-            var convertedValue = result?.GetType().GetProperty("Value")?.GetValue(result);
-            
-            // If the original type was nullable, wrap the converted value appropriately
-            if (underlyingType != targetType)
+            var isSuccessProp = result.GetType().GetProperty("IsSuccess");
+            if (isSuccessProp != null)
             {
-                // For nullable reference types, the value is already correct
-                // For nullable value types, we need to handle the wrapping
-                if (targetType.IsValueType)
+                if ((bool)isSuccessProp.GetValue(result) == true)
                 {
+                    var convertedValue = result.GetType().GetProperty("Value")?.GetValue(result);
+
+                    // If the original type was nullable, wrap the converted value appropriately
+                    if (underlyingType != targetType)
+                    {
+                        // For nullable reference types, the value is already correct
+                        // For nullable value types, we need to handle the wrapping
+                        if (targetType.IsValueType)
+                        {
+                            return convertedValue;
+                        }
+                    }
+
                     return convertedValue;
                 }
             }
-            
-            return convertedValue;
         }
-        
+
         // Conversion failed
         return null;
     }

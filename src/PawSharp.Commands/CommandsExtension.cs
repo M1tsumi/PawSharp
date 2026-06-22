@@ -621,14 +621,14 @@ public class CommandsExtension
         {
             try
             {
-                BaseCommandModule? module;
+                BaseCommandModule module;
                 if (_serviceProvider != null)
                 {
                     module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
                 }
                 else
                 {
-                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                    module = (BaseCommandModule)Activator.CreateInstance(type)!;
                 }
 
                 RegisterModule(client, module);
@@ -664,14 +664,14 @@ public class CommandsExtension
         {
             try
             {
-                BaseCommandModule? module;
+                BaseCommandModule module;
                 if (_serviceProvider != null)
                 {
                     module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
                 }
                 else
                 {
-                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                    module = (BaseCommandModule)Activator.CreateInstance(type)!;
                 }
 
                 await RegisterModuleAsync(client, module).ConfigureAwait(false);
@@ -710,14 +710,14 @@ public class CommandsExtension
         {
             try
             {
-                BaseCommandModule? module;
+                BaseCommandModule module;
                 if (_serviceProvider != null)
                 {
                     module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
                 }
                 else
                 {
-                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                    module = (BaseCommandModule)Activator.CreateInstance(type)!;
                 }
 
                 await RegisterSlashModuleAsync(client, module, applicationId, guildId).ConfigureAwait(false);
@@ -1706,7 +1706,7 @@ public class CommandsExtension
             if (userMenuAttr == null && messageMenuAttr == null) continue;
 
             var isUserMenu = userMenuAttr != null;
-            var name = isUserMenu ? userMenuAttr.Name : messageMenuAttr!.Name;
+            var name = isUserMenu ? userMenuAttr!.Name : messageMenuAttr!.Name;
             var typeValue = isUserMenu ? 2 : 3; // 2 = USER, 3 = MESSAGE
 
             var request = new CreateApplicationCommandRequest
@@ -1824,7 +1824,7 @@ public class CommandsExtension
                 if (userMenuAttr == null && messageMenuAttr == null) continue;
 
                 var isUserMenu = userMenuAttr != null;
-                var name = isUserMenu ? userMenuAttr.Name : messageMenuAttr!.Name;
+                var name = isUserMenu ? userMenuAttr!.Name : messageMenuAttr!.Name;
                 var typeValue = isUserMenu ? 2 : 3;
 
                 requests.Add(new CreateApplicationCommandRequest
