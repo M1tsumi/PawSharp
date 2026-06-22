@@ -834,7 +834,7 @@ public async Task<Message?> SendMessageWithFallback(ulong channelId, CreateMessa
         // Primary: Send message with embed
         return await client.Rest.CreateMessageAsync(channelId, request);
     }
-    catch (DiscordApiException ex) when (ex.DiscordErrorCode == "50013")
+catch (DiscordApiException ex) when (ex.DiscordErrorCode == 50013)
     {
         _logger.LogWarning(ex, "Missing permissions for embed, falling back to plain text");
         

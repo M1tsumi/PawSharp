@@ -27,14 +27,14 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter
         if (DateTimeOffset.UtcNow < _globalResetAt)
         {
             var globalDelay = _globalResetAt - DateTimeOffset.UtcNow;
-            await Task.Delay(globalDelay, cancellationToken);
+            await Task.Delay(globalDelay, cancellationToken).ConfigureAwait(false);
         }
 
         // Get or create bucket for this route
         var bucketKey = bucketHash ?? route;
         var bucket = _buckets.GetOrAdd(bucketKey, _ => new RateLimitBucket());
 
-        await bucket.WaitAsync(cancellationToken);
+        await bucket.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -81,7 +81,7 @@ public class RateLimitBucket
 
     public async Task WaitAsync(CancellationToken cancellationToken = default)
     {
-        await _semaphore.WaitAsync(cancellationToken);
+        await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         TimeSpan delay;
         lock (_lock)
@@ -104,7 +104,7 @@ public class RateLimitBucket
         // Yield outside the lock so we don't block threads while waiting
         if (delay > TimeSpan.Zero)
         {
-            await Task.Delay(delay, cancellationToken);
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
     }
 

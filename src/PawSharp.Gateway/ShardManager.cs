@@ -166,14 +166,14 @@ public class ShardManager
             _shardStatuses[i] = ShardStatus.Disconnected;
             
             // Subscribe to state changes
-            shard.OnStateChanged += async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState);
+            shard.OnStateChanged += async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState).ConfigureAwait(false);
             
-            await shard.ConnectAsync();
+            await shard.ConnectAsync().ConfigureAwait(false);
             
             // Rate limit: Wait calculated delay between shard connections
             if (i < _options.Shards - 1)
             {
-                await Task.Delay(effectiveDelay);
+                await Task.Delay(effectiveDelay).ConfigureAwait(false);
             }
         }
 
@@ -193,21 +193,21 @@ public class ShardManager
         // Dispatch shard events
         if (newState == GatewayState.Ready && oldState != GatewayState.Ready)
         {
-            await _eventDispatcher.DispatchAsync("SHARD_CONNECTED", new ShardConnectedEvent { ShardId = shardId });
+            await _eventDispatcher.DispatchAsync("SHARD_CONNECTED", new ShardConnectedEvent { ShardId = shardId }).ConfigureAwait(false);
         }
         else if (newState == GatewayState.Disconnected && oldState != GatewayState.Disconnected)
         {
-            await _eventDispatcher.DispatchAsync("SHARD_DISCONNECTED", new ShardDisconnectedEvent { ShardId = shardId });
+            await _eventDispatcher.DispatchAsync("SHARD_DISCONNECTED", new ShardDisconnectedEvent { ShardId = shardId }).ConfigureAwait(false);
         }
         else if (newState == GatewayState.Failed)
         {
-            await _eventDispatcher.DispatchAsync("SHARD_FAILED", new ShardFailedEvent { ShardId = shardId });
+            await _eventDispatcher.DispatchAsync("SHARD_FAILED", new ShardFailedEvent { ShardId = shardId }).ConfigureAwait(false);
         }
         
         if (newState == GatewayState.Failed)
         {
             _logger.LogWarning("Shard {ShardId} failed. Attempting reconnection...", shardId);
-            await ReconnectShardAsync(shardId);
+            await ReconnectShardAsync(shardId).ConfigureAwait(false);
         }
     }
 
@@ -250,8 +250,8 @@ public class ShardManager
 
         try
         {
-            await shard.DisconnectAsync();
-            await shard.ConnectAsync();
+            await shard.DisconnectAsync().ConfigureAwait(false);
+            await shard.ConnectAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -268,7 +268,7 @@ public class ShardManager
         _logger.LogInformation("Disconnecting all shards...");
 
         var tasks = _shards.Values.Select(shard => shard.DisconnectAsync());
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
 
         _shards.Clear();
         _shardStatuses.Clear();
@@ -341,7 +341,7 @@ public class ShardManager
         {
             try
             {
-                var info = await _restClient.GetGatewayBotAsync();
+                var info = await _restClient.GetGatewayBotAsync().ConfigureAwait(false);
                 if (info != null)
                 {
                     // Store session start limits for validation

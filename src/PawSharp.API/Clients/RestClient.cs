@@ -531,7 +531,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             queryParams.Add($"after={after.Value}");
         }
 
-        var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}");
+        var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}").ConfigureAwait(false);
         return await HandleApiResponseAsync<List<Message>>("GetChannelMessagesAsync", response).ConfigureAwait(false);
     }
 
@@ -562,7 +562,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             queryParams.Add($"after={after.Value}");
         }
 
-        var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}", null, cancellationToken);
+        var response = await GetAsync($"channels/{channelId}/messages?{string.Join("&", queryParams)}", null, cancellationToken).ConfigureAwait(false);
         return await HandleApiResponseAsync<List<Message>>("GetChannelMessagesAsync", response).ConfigureAwait(false);
     }
     
@@ -803,7 +803,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/{guildId}/mfa", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            using var doc = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            using var doc = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             if (doc.RootElement.TryGetProperty("level", out var lv))
             {
                 return lv.GetInt32();
@@ -1056,19 +1056,19 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     {
         ValidateSnowflake(channelId, nameof(channelId));
         ValidateSnowflake(messageId, nameof(messageId));
-        var response = await PutAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/@me", null);
+        var response = await PutAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/@me", null).ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
-    
+
     public async Task<bool> DeleteOwnReactionAsync(ulong channelId, ulong messageId, string emoji)
     {
-        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/@me");
+        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/@me").ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
-    
+
     public async Task<bool> DeleteUserReactionAsync(ulong channelId, ulong messageId, string emoji, ulong userId)
     {
-        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/{userId}");
+        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}/{userId}").ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
     
@@ -1983,7 +1983,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             queryParams.Add($"limit={limit.Value}");
         }
 
-        var response = await GetAsync($"guilds/{guildId}/members/search?{string.Join("&", queryParams)}");
+        var response = await GetAsync($"guilds/{guildId}/members/search?{string.Join("&", queryParams)}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<List<GuildMember>>().ConfigureAwait(false);
@@ -2037,7 +2037,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<Message?> EndPollAsync(ulong channelId, ulong messageId)
     {
-        var response = await PostAsync($"channels/{channelId}/polls/{messageId}/expire", new StringContent("{}", Encoding.UTF8, "application/json"));
+        var response = await PostAsync($"channels/{channelId}/polls/{messageId}/expire", new StringContent("{}", Encoding.UTF8, "application/json")).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
@@ -2143,7 +2143,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<bool> ConsumeEntitlementAsync(ulong applicationId, ulong entitlementId)
     {
-        var response = await PostAsync($"applications/{applicationId}/entitlements/{entitlementId}/consume", new StringContent("{}", Encoding.UTF8, "application/json"));
+        var response = await PostAsync($"applications/{applicationId}/entitlements/{entitlementId}/consume", new StringContent("{}", Encoding.UTF8, "application/json")).ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
 
@@ -2495,7 +2495,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<Invite?> DeleteInviteAsync(string inviteCode, string? reason = null)
     {
-        var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason);
+        var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<Invite>().ConfigureAwait(false);
@@ -2518,7 +2518,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<GuildTemplate?> GetGuildTemplateAsync(string templateCode)
     {
-        var response = await GetAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}");
+        var response = await GetAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
@@ -2530,7 +2530,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<Guild?> CreateGuildFromTemplateAsync(string templateCode, CreateGuildFromTemplateRequest request)
     {
         var content = JsonContent(request);
-        var response = await PostAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}", content);
+        var response = await PostAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<Guild>().ConfigureAwait(false);
@@ -2553,7 +2553,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<GuildTemplate?> SyncGuildTemplateAsync(ulong guildId, string templateCode)
     {
-        var response = await PutAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", null);
+        var response = await PutAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", null).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
@@ -2565,7 +2565,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     public async Task<GuildTemplate?> ModifyGuildTemplateAsync(ulong guildId, string templateCode, ModifyGuildTemplateRequest request)
     {
         var content = JsonContent(request);
-        var response = await PatchAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", content);
+        var response = await PatchAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
@@ -2576,7 +2576,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<GuildTemplate?> DeleteGuildTemplateAsync(ulong guildId, string templateCode)
     {
-        var response = await DeleteAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}");
+        var response = await DeleteAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
@@ -2922,7 +2922,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<bool> DeleteAllReactionsForEmojiAsync(ulong channelId, ulong messageId, string emoji)
     {
-        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}");
+        var response = await DeleteAsync($"channels/{channelId}/messages/{messageId}/reactions/{Uri.EscapeDataString(emoji)}").ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
 
@@ -3056,7 +3056,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             fields.Add(new("token_type_hint", tokenTypeHint));
         }
 
-        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token/revoke", new FormUrlEncodedContent(fields), skipBotAuth: true);
+        var response = await SendRequestAsync(HttpMethod.Post, "oauth2/token/revoke", new FormUrlEncodedContent(fields), skipBotAuth: true).ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
 
@@ -3081,7 +3081,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<ActivityInstance?> GetActivityInstanceAsync(ulong applicationId, string instanceId)
     {
-        var response = await GetAsync($"applications/{applicationId}/activity-instances/{Uri.EscapeDataString(instanceId)}");
+        var response = await GetAsync($"applications/{applicationId}/activity-instances/{Uri.EscapeDataString(instanceId)}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<ActivityInstance>(_jsonOptions).ConfigureAwait(false);
@@ -3367,7 +3367,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
             // Pass buffered bytes so the retry reconstructs a fresh HttpContent.
             return await SendRequestAsync(method, endpoint, null, reason, cancellationToken,
-                retryCount + 1, bufferedContentBytes, bufferedContentType, skipBotAuth); // Retry
+                retryCount + 1, bufferedContentBytes, bufferedContentType, skipBotAuth).ConfigureAwait(false); // Retry
         }
 
         // Mark request as complete

@@ -66,7 +66,7 @@ namespace PawSharp.Cache.Distribution
                 {
                     try
                     {
-                        await taskToWait.WaitAsync(TimeSpan.FromSeconds(5));
+                        await taskToWait.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                     }
                     catch (TimeoutException)
                     {
@@ -103,9 +103,9 @@ namespace PawSharp.Cache.Distribution
                     {
                         Console.WriteLine($"[RedisCacheDistributor] Failed to deserialize invalidation message: {ex.Message}");
                     }
-                });
+                }).ConfigureAwait(false);
 
-                await Task.Delay(Timeout.Infinite, cancellationToken);
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -138,7 +138,7 @@ namespace PawSharp.Cache.Distribution
                 var json = JsonSerializer.Serialize(message);
                 var channel = $"{_channelPrefix}:invalidations";
                 
-                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget);
+                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -163,7 +163,7 @@ namespace PawSharp.Cache.Distribution
                 var json = JsonSerializer.Serialize(message);
                 var channel = $"{_channelPrefix}:invalidations";
                 
-                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget);
+                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -149,7 +149,7 @@ public static class GatewayClientExtensions
                 return false;
             }
 
-            await Task.Delay(100);
+            await Task.Delay(100).ConfigureAwait(false);
         }
 
         return true;

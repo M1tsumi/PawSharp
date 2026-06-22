@@ -81,7 +81,7 @@ public class ReconnectionManager
         if (!CanReconnect)
         {
             _logger.LogError("Maximum reconnection attempts exceeded. Giving up.");
-            if (OnReconnectionFailed is { } failedHandler) await failedHandler();
+            if (OnReconnectionFailed is { } failedHandler) await failedHandler().ConfigureAwait(false);
             return false;
         }
 
@@ -97,9 +97,9 @@ public class ReconnectionManager
 
         _metrics?.RecordReconnection();
 
-        await Task.Delay(delayMs);
+        await Task.Delay(delayMs).ConfigureAwait(false);
 
-        if (OnReconnectionAttempt is { } attemptHandler) await attemptHandler(_reconnectionAttempts);
+        if (OnReconnectionAttempt is { } attemptHandler) await attemptHandler(_reconnectionAttempts).ConfigureAwait(false);
 
         // Exponential backoff: double the backoff time
         _currentBackoffMs = Math.Min(_currentBackoffMs * 2, _maxBackoffMs);

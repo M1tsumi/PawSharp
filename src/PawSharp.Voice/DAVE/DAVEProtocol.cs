@@ -99,7 +99,7 @@ public sealed class DAVEProtocol : IDisposable
             case DAVEVoiceOpcode.DaveMlsKeyPackageRequest:
                 // Server wants our MLS key package — send op 21 back
                 if (webSocket != null)
-                    await SendKeyPackageAsync(webSocket, ct);
+                    await SendKeyPackageAsync(webSocket, ct).ConfigureAwait(false);
                 break;
 
             case DAVEVoiceOpcode.DaveProtocolPrepareTransition:
@@ -173,7 +173,7 @@ public sealed class DAVEProtocol : IDisposable
                 _mls.Reset();
                 Interlocked.Exchange(ref _outgoingFrameCounter, 0L);
                 if (webSocket != null)
-                    await SendKeyPackageAsync(webSocket, ct);
+                    await SendKeyPackageAsync(webSocket, ct).ConfigureAwait(false);
                 break;
         }
     }
@@ -250,7 +250,7 @@ public sealed class DAVEProtocol : IDisposable
 
         var json = JsonSerializer.Serialize(payload);
         var bytes = Encoding.UTF8.GetBytes(json);
-        await webSocket.SendAsync(bytes, WebSocketMessageType.Text, true, ct);
+        await webSocket.SendAsync(bytes, WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
     }
 
     /// <summary>

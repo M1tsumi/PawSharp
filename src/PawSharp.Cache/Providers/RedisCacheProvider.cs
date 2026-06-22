@@ -873,7 +873,7 @@ namespace PawSharp.Cache.Providers
             if (channel.GuildId.HasValue)
             {
                 var guildChannelsKey = $"guild:{channel.GuildId}:channels";
-                await _db.SetAddAsync(guildChannelsKey, channel.Id.ToString());
+                await _db.SetAddAsync(guildChannelsKey, channel.Id.ToString()).ConfigureAwait(false);
                 await _db.KeyExpireAsync(guildChannelsKey, expiry).ConfigureAwait(false);
             }
         }
@@ -887,7 +887,7 @@ namespace PawSharp.Cache.Providers
 
             // Also maintain a sorted set for channel messages
             var channelKey = $"channel:{message.ChannelId}:messages";
-            await _db.SortedSetAddAsync(channelKey, message.Id.ToString(), message.Id);
+            await _db.SortedSetAddAsync(channelKey, message.Id.ToString(), message.Id).ConfigureAwait(false);
             await _db.KeyExpireAsync(channelKey, expiry).ConfigureAwait(false);
         }
 
@@ -987,7 +987,7 @@ namespace PawSharp.Cache.Providers
 
             if (keys.Count > 0)
             {
-                await _db.KeyDeleteAsync(keys.ToArray());
+                await _db.KeyDeleteAsync(keys.ToArray()).ConfigureAwait(false);
             }
         }
 

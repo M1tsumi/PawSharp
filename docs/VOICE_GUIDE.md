@@ -9,7 +9,7 @@ end-to-end encryption layer works underneath.
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice  # 1.1.0-alpha.3
+dotnet add package PawSharp.Voice  # 1.1.0-alpha.4
 ```
 
 This pulls in NAudio (audio device I/O) and Concentus (Opus codec). The entire
