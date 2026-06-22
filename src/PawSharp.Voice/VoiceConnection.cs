@@ -108,7 +108,7 @@ public class VoiceConnection : IDisposable
     private string? _token;
     
     // Resume support
-    private ulong _seqAck;
+    private int? _seqAck;
 
     // ── Opus codec constants ─────────────────────────────────────────────────
     private const int OpusSampleRate = 48000;   // Hz
@@ -116,6 +116,12 @@ public class VoiceConnection : IDisposable
     private const int OpusFrameSize  = 960;      // samples — 20 ms at 48 kHz
     private const int PcmFrameBytes  = OpusFrameSize * OpusChannels * sizeof(short); // 1 920 bytes
     private const int MaxOpusBytes   = 4000;     // conservative max packet per RFC 6716
+
+    // ── Voice WebSocket protocol version ────────────────────────────────────
+    // Discord's voice WebSocket protocol version. Currently v4 corresponds to
+    // the latest voice gateway. This must match the version expected by Discord's
+    // voice servers for the configured API version.
+    private const int VoiceProtocolVersion = 4;
 
     // UDP keep-alive: send an Opus silence frame every 5 s during silence to keep NAT mappings
     // alive and prevent Discord's voice server from timing out the session.
@@ -159,7 +165,9 @@ public class VoiceConnection : IDisposable
     public event Action<string, int>? UdpConnected;
     
     /// <summary>Raised when a voice user connects or disconnects.</summary>
+#pragma warning disable CS0067 // Event is never used -- reserved for future use
     public event Action<ulong, bool>? UserVoiceStateChanged;
+#pragma warning restore CS0067
 
     /// <summary>Raised when DAVE E2EE encryption is activated (after op 24 ProtocolReady).</summary>
     public event Action? DaveEncryptionActivated;
@@ -327,7 +335,7 @@ public class VoiceConnection : IDisposable
 
         // Strip port suffix — Discord sends "endpoint:80", WebSocket URI needs plain hostname
         var host = _endpoint!.Contains(':') ? _endpoint.Substring(0, _endpoint.LastIndexOf(':')) : _endpoint;
-        var uri = new Uri($"wss://{host}?v=8");
+        var uri = new Uri($"wss://{host}?v={VoiceProtocolVersion}");
 
         await _webSocket.ConnectAsync(uri, _cts.Token);
         _speaking = false;  // reset speaking gate on fresh connection
@@ -438,7 +446,7 @@ public class VoiceConnection : IDisposable
         _webSocket = new ClientWebSocket();
         
         var host = _endpoint!.Contains(':') ? _endpoint.Substring(0, _endpoint.LastIndexOf(':')) : _endpoint;
-        var uri = new Uri($"wss://{host}?v=8");
+        var uri = new Uri($"wss://{host}?v={VoiceProtocolVersion}");
         
         await _webSocket.ConnectAsync(uri, _cts.Token);
         
@@ -477,7 +485,7 @@ public class VoiceConnection : IDisposable
     }
 
     /// <summary>
-    /// Stops the current audio playback. Alias for <see cref="StopPlayback"/> with an async signature
+    /// Stops the current audio playback. Alias for <see cref="StopPlayback"/> with a Task return
     /// for use in async pipelines.
     /// </summary>
     public Task StopAsync()
@@ -576,10 +584,12 @@ public class VoiceConnection : IDisposable
     /// </summary>
     /// <param name="audioData">The audio data to play.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task PlayAudioAsync(byte[] audioData)
+    public Task PlayAudioAsync(byte[] audioData)
     {
-        if (_waveProvider == null || _disposed)
-            return;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_waveProvider == null)
+            return Task.CompletedTask;
 
         // Decode Opus data to PCM
         var pcmData = DecodeAudio(audioData);
@@ -593,7 +603,7 @@ public class VoiceConnection : IDisposable
             IsPlaying = true;
         }
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -601,10 +611,12 @@ public class VoiceConnection : IDisposable
     /// Called internally by the receive loop after Opus decoding; also available for external use.
     /// </summary>
     /// <param name="pcmData">Raw PCM bytes (16-bit signed LE, mono, 48 kHz).</param>
-    public async Task PlayAudioFromPcmAsync(byte[] pcmData)
+    public Task PlayAudioFromPcmAsync(byte[] pcmData)
     {
-        if (_waveProvider == null || _disposed || pcmData.Length == 0)
-            return;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_waveProvider == null || pcmData.Length == 0)
+            return Task.CompletedTask;
 
         _waveProvider.AddSamples(pcmData, 0, pcmData.Length);
 
@@ -614,7 +626,7 @@ public class VoiceConnection : IDisposable
             IsPlaying = true;
         }
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -988,7 +1000,7 @@ public class VoiceConnection : IDisposable
                         {
                             if (sessionData.TryGetProperty("mode", out var modeProp))
                             {
-                                Enum.TryParse<VoiceEncryptionMode>(modeProp.GetString().Replace("_", ""), true, out var mode);
+                                Enum.TryParse<VoiceEncryptionMode>((modeProp.GetString() ?? "").Replace("_", ""), true, out var mode);
                                 _encryptionMode = mode;
                             }
                             
@@ -1270,7 +1282,7 @@ public class VoiceConnection : IDisposable
             await SendSelectProtocolAsync(discoveredIp, discoveredPort);
             
             // Start UDP receive loop
-            _udpReceiveTask = Task.Run(UdpReceiveLoopAsync, _cts.Token);
+            _udpReceiveTask = Task.Run(UdpReceiveLoopAsync, _cts!.Token);
             
             // Update state
             previousState = State;
@@ -1474,7 +1486,7 @@ public class VoiceConnection : IDisposable
         Array.Copy(rtpHeader, 2, nonce, 4, 2); // Use sequence as part of counter
         // Remaining 6 bytes of counter would be tracked in production
         
-        using var aes = new AesGcm(_secretKey, 16);
+        using var aes = new AesGcm(_secretKey!, 16);
         
         var ciphertext = new byte[opusPacket.Length];
         var tag = new byte[16];
@@ -1543,7 +1555,7 @@ public class VoiceConnection : IDisposable
         Array.Copy(rtpHeader, 8, nonce, 0, 4);
         Array.Copy(rtpHeader, 2, nonce, 4, 2);
         
-        using var aes = new AesGcm(_secretKey, 16);
+        using var aes = new AesGcm(_secretKey!, 16);
         
         var plaintext = new byte[cipherLen];
         aes.Decrypt(nonce, ciphertext, tag, plaintext, rtpHeader);
