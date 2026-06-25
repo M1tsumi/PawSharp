@@ -796,18 +796,25 @@ namespace PawSharp.Gateway
             {
                 await _wsRateLimiter.WaitAsync(ct).ConfigureAwait(false);
                 // Return the token to the bucket after 60 s (sliding window).
-                // Use a separate CancellationTokenSource for the rate limiter release
-                // so cancellation of the main operation doesn't prevent semaphore release.
+                // Use _cts token for cancellation so the delay stops on disconnect.
+                var releaseCt = _cts?.Token ?? CancellationToken.None;
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await Task.Delay(60_000, CancellationToken.None).ConfigureAwait(false);
+                        await Task.Delay(60_000, releaseCt).ConfigureAwait(false);
+                        _wsRateLimiter.Release();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Connection was closed; release immediately so the semaphore
+                        // does not leak permits.
                         _wsRateLimiter.Release();
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to release WebSocket rate limiter after delay");
+                        _wsRateLimiter.Release();
                     }
                 }, CancellationToken.None);
             }

@@ -43,22 +43,24 @@ namespace PawSharp.Cache.Providers
             set => throw new InvalidOperationException("Telemetry is set at construction time.");
         }
 
-        // Expiration configuration
-        private readonly TimeSpan? _userExpiration;
-        private readonly TimeSpan? _guildExpiration;
-        private readonly TimeSpan? _channelExpiration;
-        private readonly TimeSpan? _messageExpiration;
-        private readonly TimeSpan? _memberExpiration;
-        private readonly TimeSpan? _roleExpiration;
-        private readonly TimeSpan? _emojiExpiration;
+    // Expiration configuration
+    private readonly TimeSpan? _userExpiration;
+    private readonly TimeSpan? _guildExpiration;
+    private readonly TimeSpan? _channelExpiration;
+    private readonly TimeSpan? _messageExpiration;
+    private readonly TimeSpan? _memberExpiration;
+    private readonly TimeSpan? _roleExpiration;
+    private readonly TimeSpan? _emojiExpiration;
+    private readonly TimeSpan _genericExpiration;
 
         // Metrics tracking
         private long _hits;
         private long _misses;
 
-        // Access tracking for LRU eviction
-        private readonly ConcurrentDictionary<ulong, DateTime> _lastAccess;
-        private readonly Timer? _expirationTimer;
+    // Access tracking for LRU eviction
+    private readonly ConcurrentDictionary<ulong, DateTime> _lastAccess;
+    private readonly ConcurrentDictionary<string, DateTime> _lastAccessString;
+    private readonly Timer? _expirationTimer;
 
         // Cache invalidation events
         public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
@@ -93,6 +95,7 @@ namespace PawSharp.Cache.Providers
             _memberExpiration = opts.MemberExpiration ?? opts.DefaultExpiration;
             _roleExpiration = opts.RoleExpiration ?? opts.DefaultExpiration;
             _emojiExpiration = opts.EmojiExpiration ?? opts.DefaultExpiration;
+            _genericExpiration = opts.GenericCacheExpiration;
 
             _telemetry = telemetry ?? new CacheTelemetry();
 
@@ -105,6 +108,7 @@ namespace PawSharp.Cache.Providers
             _emojis = new ConcurrentDictionary<string, Emoji>();
             _genericCache = new ConcurrentDictionary<string, (object entity, DateTime timestamp)>();
             _lastAccess = new ConcurrentDictionary<ulong, DateTime>();
+            _lastAccessString = new ConcurrentDictionary<string, DateTime>();
 
             // Start expiration cleanup timer if any expiration is configured
             if (_userExpiration.HasValue || _guildExpiration.HasValue || _channelExpiration.HasValue ||
@@ -174,8 +178,47 @@ namespace PawSharp.Cache.Providers
                 }
             }
 
+            // Clean members
+            if (_memberExpiration.HasValue)
+            {
+                var expiredMembers = _members.Where(kvp => _lastAccessString.TryGetValue(kvp.Key, out var access) && (now - access) > _memberExpiration.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var key in expiredMembers)
+                {
+                    if (_members.TryRemove(key, out _))
+                    {
+                        _lastAccessString.TryRemove(key, out _);
+                    }
+                }
+            }
+
+            // Clean roles
+            if (_roleExpiration.HasValue)
+            {
+                var expiredRoles = _roles.Where(kvp => _lastAccessString.TryGetValue(kvp.Key, out var access) && (now - access) > _roleExpiration.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var key in expiredRoles)
+                {
+                    if (_roles.TryRemove(key, out _))
+                    {
+                        _lastAccessString.TryRemove(key, out _);
+                    }
+                }
+            }
+
+            // Clean emojis
+            if (_emojiExpiration.HasValue)
+            {
+                var expiredEmojis = _emojis.Where(kvp => _lastAccessString.TryGetValue(kvp.Key, out var access) && (now - access) > _emojiExpiration.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var key in expiredEmojis)
+                {
+                    if (_emojis.TryRemove(key, out _))
+                    {
+                        _lastAccessString.TryRemove(key, out _);
+                    }
+                }
+            }
+
             // Clean generic cache entries
-            var expiredGeneric = _genericCache.Where(kvp => (now - kvp.Value.timestamp) > TimeSpan.FromHours(1)).Select(kvp => kvp.Key).ToList();
+            var expiredGeneric = _genericCache.Where(kvp => (now - kvp.Value.timestamp) > _genericExpiration).Select(kvp => kvp.Key).ToList();
             foreach (var key in expiredGeneric)
             {
                 _genericCache.TryRemove(key, out _);
@@ -242,7 +285,6 @@ namespace PawSharp.Cache.Providers
                 {
                     if (cache.TryRemove(key, out _))
                     {
-                        // Trigger eviction event for entity keys that are ulong IDs
                         if (key is ulong entityId)
                         {
                             _lastAccess.TryRemove(entityId, out _);
@@ -253,6 +295,12 @@ namespace PawSharp.Cache.Providers
                                 EntityType = entityType,
                                 EntityId = entityId
                             });
+                        }
+                        else if (key is string strKey)
+                        {
+                            _lastAccessString.TryRemove(strKey, out _);
+                            _telemetry?.RecordEviction(entityType, "LRU");
+                            _logger?.LogDebug(PawSharp.Core.Logging.PawSharpLogEvents.CacheEviction, entityType, 1);
                         }
                     }
                 }
@@ -421,7 +469,7 @@ namespace PawSharp.Cache.Providers
             var key = $"{guildId}:{userId}";
             if (_members.TryGetValue(key, out var member))
             {
-                _lastAccess[userId] = DateTime.UtcNow;
+                _lastAccessString[key] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Member");
                 _telemetry?.RecordOperation("Get", "Member", stopwatch.Elapsed);
@@ -454,7 +502,7 @@ namespace PawSharp.Cache.Providers
             var key = $"{guildId}:{roleId}";
             if (_roles.TryGetValue(key, out var role))
             {
-                _lastAccess[roleId] = DateTime.UtcNow;
+                _lastAccessString[key] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Role");
                 _telemetry?.RecordOperation("Get", "Role", stopwatch.Elapsed);
@@ -490,10 +538,7 @@ namespace PawSharp.Cache.Providers
             var key = $"{guildId}:{emojiId}";
             if (_emojis.TryGetValue(key, out var emoji))
             {
-                if (emoji.Id.HasValue)
-                {
-                    _lastAccess[emoji.Id.Value] = DateTime.UtcNow;
-                }
+                _lastAccessString[key] = DateTime.UtcNow;
                 Interlocked.Increment(ref _hits);
                 _telemetry?.RecordHit("Emoji");
                 _telemetry?.RecordOperation("Get", "Emoji", stopwatch.Elapsed);

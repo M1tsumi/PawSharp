@@ -45,7 +45,8 @@ namespace PawSharp.Client
         private readonly IEntityCache _cache;
         private readonly InteractionHandler _interactionHandler;
         private readonly CacheManager _cacheManager;
-        private ClientConnectionState _connectionState = ClientConnectionState.Disconnected;
+        private readonly object _stateLock = new();
+        private volatile ClientConnectionState _connectionState = ClientConnectionState.Disconnected;
 
         /// <summary>
         /// Gets the current connection state of the client.
@@ -78,7 +79,8 @@ namespace PawSharp.Client
             ILogger<DiscordClient> logger,
             IDiscordRestClient restClient,
             IGatewayClient gatewayClient,
-            InteractionHandler? interactionHandler = null)
+            InteractionHandler? interactionHandler = null,
+            ILoggerFactory? loggerFactory = null)
         {
             _options       = options       ?? throw new ArgumentNullException(nameof(options));
             _cache         = cache         ?? throw new ArgumentNullException(nameof(cache));
@@ -86,7 +88,7 @@ namespace PawSharp.Client
             _restClient    = restClient    ?? throw new ArgumentNullException(nameof(restClient));
             _gatewayClient = gatewayClient ?? throw new ArgumentNullException(nameof(gatewayClient));
 
-            _interactionHandler = interactionHandler ?? new InteractionHandler(_restClient, null);
+            _interactionHandler = interactionHandler ?? new InteractionHandler(_restClient, loggerFactory?.CreateLogger<InteractionHandler>());
 
             // Wire cache to gateway events automatically
             _cacheManager = new CacheManager(cache, null);
@@ -239,10 +241,13 @@ namespace PawSharp.Client
 
         private void SetConnectionState(ClientConnectionState newState)
         {
-            if (_connectionState != newState)
+            lock (_stateLock)
             {
-                _connectionState = newState;
-                ConnectionStateChanged?.Invoke(this, newState);
+                if (_connectionState != newState)
+                {
+                    _connectionState = newState;
+                    ConnectionStateChanged?.Invoke(this, newState);
+                }
             }
         }
 
@@ -2105,3 +2110,4 @@ namespace PawSharp.Client
         }
     }
 }
+

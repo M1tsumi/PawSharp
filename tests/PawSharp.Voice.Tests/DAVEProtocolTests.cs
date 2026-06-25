@@ -8,9 +8,6 @@ using Xunit;
 
 namespace PawSharp.Voice.Tests;
 
-/// <summary>
-/// Tests for <see cref="DAVEProtocol"/> — the top-level DAVE state machine.
-/// </summary>
 public class DAVEProtocolTests : IDisposable
 {
     private readonly DAVEProtocol _proto = new();
@@ -46,7 +43,7 @@ public class DAVEProtocolTests : IDisposable
         var frame = new byte[] { 0x01, 0x02, 0x03 };
         var result = _proto.EncryptFrame(frame);
 
-        result.Should().BeSameAs(frame, "no encryption should occur before op 24");
+        result.Should().BeSameAs(frame, "no encryption should occur before DAVE is active");
     }
 
     [Fact]
@@ -55,59 +52,65 @@ public class DAVEProtocolTests : IDisposable
         var frame = new byte[] { 0x11, 0x22, 0x33 };
         var result = _proto.DecryptFrame(frame, ssrc: 1);
 
-        result.Should().BeSameAs(frame, "no decryption should occur before op 24");
+        result.Should().BeSameAs(frame, "no decryption should occur before DAVE is active");
     }
 
-    // ── Op 24 (ProtocolReady) activates encryption ────────────────────────────
+    // ── Welcome (op 30) activates encryption ──────────────────────────────────
 
     [Fact]
-    public async Task HandleOpcode_24_SetsIsActiveTrue()
+    public async Task HandleWelcome_30_SetsIsActiveTrue()
     {
-        await DispatchWelcomeAsync();
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_proto.MlsState);
 
-        await DispatchOpcodeAsync(24);
+        await _proto.HandleBinaryMessageAsync(30, welcomeBytes, webSocket: null);
 
         _proto.IsActive.Should().BeTrue();
     }
 
-    // ── Ops 21–31 are handled without throwing ────────────────────────────────
+    // ── Known JSON opcodes do not throw ───────────────────────────────────────
 
     [Theory]
-    [InlineData(22)]  // KeyPackageRequest  (requires webSocket — we pass null; should not throw)
-    [InlineData(23)]  // PrepareTransition
-    [InlineData(27)]  // Proposals
-    [InlineData(28)]  // PrepareEpoch
-    [InlineData(29)]  // AnnounceCommitTransition
-    [InlineData(30)]  // InvalidCommitWelcome
-    [InlineData(31)]  // ExternalSenderPackage
-    public async Task HandleOpcode_KnownDAVEOpcodes_DoNotThrow(int opcode)
+    [InlineData(21)]  // PrepareTransition
+    [InlineData(22)]  // ExecuteTransition
+    [InlineData(23)]  // TransitionReady (client sent)
+    [InlineData(24)]  // PrepareEpoch
+    [InlineData(31)]  // InvalidCommitWelcome
+    public async Task HandleJsonMessage_KnownDAVEOpcodes_DoNotThrow(int opcode)
     {
-        var data = MakeBase64Payload(new byte[] { 0x01, 0x02 });
-        Func<Task> act = () => _proto.HandleOpcodeAsync(opcode, data, webSocket: null);
+        var data = JsonDocument.Parse("{}").RootElement;
+        Func<Task> act = () => _proto.HandleJsonMessageAsync(opcode, data, webSocket: null);
         await act.Should().NotThrowAsync();
     }
 
-    // ── Welcome (op 25) initialises MLS ──────────────────────────────────────
+    // ── Known binary opcodes do not throw ─────────────────────────────────────
 
-    [Fact]
-    public async Task HandleOpcode_25_Welcome_EnablesMlsForProtocol()
+    [Theory]
+    [InlineData(25)]  // MlsExternalSender
+    [InlineData(26)]  // MlsKeyPackage (client sent)
+    [InlineData(27)]  // MlsProposals
+    [InlineData(28)]  // MlsCommitWelcome (client sent)
+    [InlineData(29)]  // MlsAnnounceCommitTransition
+    [InlineData(30)]  // MlsWelcome
+    public async Task HandleBinaryMessage_KnownDAVEOpcodes_DoNotThrow(int opcode)
     {
-        await DispatchWelcomeAsync();
-
-        await DispatchOpcodeAsync(24);
-        _proto.IsActive.Should().BeTrue();
+        var payload = Array.Empty<byte>();
+        Func<Task> act = () => _proto.HandleBinaryMessageAsync(opcode, payload, webSocket: null);
+        await act.Should().NotThrowAsync();
     }
 
-    // ── Commit (op 26) advances the MLS epoch ────────────────────────────────
+    // ── Commit (op 29) advances the MLS epoch ─────────────────────────────────
 
     [Fact]
-    public async Task HandleOpcode_26_Commit_DoesNotThrow()
+    public async Task HandleCommit_29_AdvancesEpoch()
     {
-        await DispatchWelcomeAsync();
+        var (welcomeBytes, _) = DAVETestData.CreateWelcome(_proto.MlsState);
+        await _proto.HandleBinaryMessageAsync(30, welcomeBytes, null);
+        _proto.EpochNumber.Should().Be(1);
+
         var commitBytes = DAVETestData.CreateEmptyCommit();
-        var data = MakeBase64Payload(commitBytes);
-        Func<Task> act = () => _proto.HandleOpcodeAsync(26, data, null);
-        await act.Should().NotThrowAsync();
+        await _proto.HandleBinaryMessageAsync(29, commitBytes, null);
+
+        _proto.EpochNumber.Should().Be(2);
     }
 
     // ── End-to-end encrypt/decrypt round trip when active ─────────────────────
@@ -121,14 +124,10 @@ public class DAVEProtocolTests : IDisposable
         using var remote = new DAVEProtocol();
         remote.LocalSsrc = theirSSRC;
 
-        // Create a shared Welcome that both sides can process (same joiner_secret,
-        // separate EncryptedGroupSecrets entry per recipient).
         var (welcomeBytes, _) = DAVETestData.CreateMultiWelcome(new MLSState[] { _proto.MlsState, remote.MlsState });
 
         _proto.LocalSsrc = mySSRC;
-        var welcomeData = MakeBase64Payload(welcomeBytes);
-        await _proto.HandleOpcodeAsync(25, welcomeData, null);
-        await _proto.HandleOpcodeAsync(24, JsonDocument.Parse("{}").RootElement, null);
+        await _proto.HandleBinaryMessageAsync(30, welcomeBytes, null);
         _proto.IsActive.Should().BeTrue();
 
         var plaintext = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF };
@@ -136,9 +135,10 @@ public class DAVEProtocolTests : IDisposable
         var encrypted = _proto.EncryptFrame(plaintext);
         encrypted.Should().NotBeEquivalentTo(plaintext, "active protocol must actually encrypt");
 
-        // Remote processes the same Welcome + op 24
-        await remote.HandleOpcodeAsync(25, welcomeData, null);
-        await remote.HandleOpcodeAsync(24, JsonDocument.Parse("{}").RootElement, null);
+        await remote.HandleBinaryMessageAsync(30, welcomeBytes, null);
+
+        _proto.EpochSecret.Should().BeEquivalentTo(remote.EpochSecret,
+            "both sides must derive identical epoch secrets");
 
         var decrypted = remote.DecryptFrame(encrypted, ssrc: mySSRC);
         decrypted.Should().BeEquivalentTo(plaintext, "remote must recover the original frame");
@@ -180,8 +180,7 @@ public class DAVEProtocolTests : IDisposable
     {
         await DispatchWelcomeAsync();
         var commitBytes = DAVETestData.CreateEmptyCommit();
-        var commitData = MakeBase64Payload(commitBytes);
-        await _proto.HandleOpcodeAsync(26, commitData, null);
+        await _proto.HandleBinaryMessageAsync(29, commitBytes, null);
         _proto.EpochNumber.Should().Be(2);
     }
 
@@ -191,7 +190,6 @@ public class DAVEProtocolTests : IDisposable
     public async Task Reset_AfterActivation_SetsIsActiveFalse()
     {
         await DispatchWelcomeAsync();
-        await DispatchOpcodeAsync(24);
         _proto.IsActive.Should().BeTrue();
 
         _proto.Reset();
@@ -214,7 +212,6 @@ public class DAVEProtocolTests : IDisposable
     public async Task AfterReset_EncryptFrame_PassesThroughUnchanged()
     {
         await DispatchWelcomeAsync();
-        await DispatchOpcodeAsync(24);
         _proto.Reset();
 
         var frame  = new byte[] { 0x01, 0x02, 0x03 };
@@ -227,11 +224,9 @@ public class DAVEProtocolTests : IDisposable
     public async Task AfterReset_CanReactivateWithNewWelcome()
     {
         await DispatchWelcomeAsync();
-        await DispatchOpcodeAsync(24);
         _proto.Reset();
 
         await DispatchWelcomeAsync();
-        await DispatchOpcodeAsync(24);
 
         _proto.IsActive.Should().BeTrue();
         _proto.EpochNumber.Should().Be(1);
@@ -244,10 +239,8 @@ public class DAVEProtocolTests : IDisposable
     {
         _proto.LocalSsrc = 0x01;
         await DispatchWelcomeAsync();
-        await DispatchOpcodeAsync(24);
         var commitBytes = DAVETestData.CreateEmptyCommit();
-        var commitData = MakeBase64Payload(commitBytes);
-        await _proto.HandleOpcodeAsync(26, commitData, null);
+        await _proto.HandleBinaryMessageAsync(29, commitBytes, null);
 
         var plaintext = new byte[] { 0xAA, 0xBB };
         var encrypted = _proto.EncryptFrame(plaintext);
@@ -262,7 +255,6 @@ public class DAVEProtocolTests : IDisposable
     {
         _proto.LocalSsrc = 0x01;
         await DispatchWelcomeAsync();
-        await DispatchOpcodeAsync(24);
 
         var payload = new byte[] { 0xFF };
         var enc1 = _proto.EncryptFrame(payload);
@@ -275,17 +267,17 @@ public class DAVEProtocolTests : IDisposable
     // ── Opcode enum coverage ──────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(DAVEVoiceOpcode.DaveMlsKeyPackage,              21)]
-    [InlineData(DAVEVoiceOpcode.DaveMlsKeyPackageRequest,       22)]
-    [InlineData(DAVEVoiceOpcode.DaveProtocolPrepareTransition,  23)]
-    [InlineData(DAVEVoiceOpcode.DaveProtocolReady,              24)]
-    [InlineData(DAVEVoiceOpcode.DaveMlsWelcome,                 25)]
-    [InlineData(DAVEVoiceOpcode.DaveMlsCommit,                  26)]
-    [InlineData(DAVEVoiceOpcode.DaveMlsProposals,               27)]
-    [InlineData(DAVEVoiceOpcode.DaveProtocolPrepareEpoch,       28)]
-    [InlineData(DAVEVoiceOpcode.DaveMlsAnnounceCommitTransition,29)]
-    [InlineData(DAVEVoiceOpcode.DaveMlsInvalidCommitWelcome,    30)]
-    [InlineData(DAVEVoiceOpcode.DaveMlsExternalSenderPackage,   31)]
+    [InlineData(DAVEVoiceOpcode.DavePrepareTransition,             21)]
+    [InlineData(DAVEVoiceOpcode.DaveExecuteTransition,             22)]
+    [InlineData(DAVEVoiceOpcode.DaveTransitionReady,               23)]
+    [InlineData(DAVEVoiceOpcode.DavePrepareEpoch,                  24)]
+    [InlineData(DAVEVoiceOpcode.DaveMlsExternalSender,             25)]
+    [InlineData(DAVEVoiceOpcode.DaveMlsKeyPackage,                 26)]
+    [InlineData(DAVEVoiceOpcode.DaveMlsProposals,                  27)]
+    [InlineData(DAVEVoiceOpcode.DaveMlsCommitWelcome,              28)]
+    [InlineData(DAVEVoiceOpcode.DaveMlsAnnounceCommitTransition,   29)]
+    [InlineData(DAVEVoiceOpcode.DaveMlsWelcome,                    30)]
+    [InlineData(DAVEVoiceOpcode.DaveMlsInvalidCommitWelcome,       31)]
     public void OpcodeEnum_HasCorrectIntegerValue(DAVEVoiceOpcode op, int expected)
     {
         ((int)op).Should().Be(expected);
@@ -318,23 +310,9 @@ public class DAVEProtocolTests : IDisposable
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static JsonElement MakeBase64Payload(byte[] raw)
-    {
-        var b64  = Convert.ToBase64String(raw);
-        var json = $"\"{b64}\"";
-        return JsonDocument.Parse(json).RootElement;
-    }
-
     private async Task DispatchWelcomeAsync()
     {
         var (welcomeBytes, _) = DAVETestData.CreateWelcome(_proto.MlsState);
-        var data = MakeBase64Payload(welcomeBytes);
-        await _proto.HandleOpcodeAsync((int)DAVEVoiceOpcode.DaveMlsWelcome, data, null);
-    }
-
-    private async Task DispatchOpcodeAsync(int opcode)
-    {
-        var data = JsonDocument.Parse("{}").RootElement;
-        await _proto.HandleOpcodeAsync(opcode, data, null);
+        await _proto.HandleBinaryMessageAsync((int)DAVEVoiceOpcode.DaveMlsWelcome, welcomeBytes, null);
     }
 }

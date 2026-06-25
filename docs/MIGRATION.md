@@ -175,7 +175,7 @@ The `_disposed` field in `EventDispatchQueue` is now set to `true` during `Dispo
 
 #### Voice WebSocket Protocol
 
-`VoiceConnection` no longer hardcodes `?v=8` for the voice WebSocket URI. The version is now resolved at runtime via the `VoiceProtocolVersion` constant (currently `4`). This should be transparent for most users — the voice gateway negotiation handles versioning internally.
+`VoiceConnection` no longer hardcodes `?v=8` for the voice WebSocket URI. The version is now resolved at runtime via the `VoiceProtocolVersion` constant (currently `8`). This should be transparent for most users — the voice gateway negotiation handles versioning internally.
 
 #### Voice `_seqAck` Now Properly Tracked
 

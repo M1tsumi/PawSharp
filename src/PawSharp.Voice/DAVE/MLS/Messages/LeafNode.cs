@@ -9,38 +9,20 @@ using PawSharp.Voice.DAVE.MLS.Encoding;
 
 namespace PawSharp.Voice.DAVE.MLS.Messages;
 
-/// <summary>
-/// RFC 9420 §7.2 — LeafNode.
-///
-/// Represents a group member's entry in the MLS ratchet tree.  It bundles the
-/// member's HPKE encryption key, Ed25519 signature key, credential, and
-/// capabilities — all signed by the member's signature key.
-///
-/// For DAVE the capabilities list is fixed to the single supported ciphersuite.
-/// </summary>
 internal sealed class LeafNode
 {
-    // ── Fields ────────────────────────────────────────────────────────────────
-
-    /// <summary>X25519 HPKE public key (32 bytes).</summary>
+    /// <summary>P-256 HPKE public key (uncompressed SEC1, 65 bytes).</summary>
     public byte[] EncryptionKey { get; }
 
-    /// <summary>Ed25519 signing public key (32 bytes).</summary>
+    /// <summary>ECDSA P-256 signing public key (uncompressed SEC1, 65 bytes).</summary>
     public byte[] SignatureKey { get; }
 
-    /// <summary>Member identity credential.</summary>
     public Credential Credential { get; }
 
-    /// <summary>Lifecycle source of this leaf node (KeyPackage, Update, or Commit).</summary>
     public LeafNodeSource Source { get; }
 
-    /// <summary>
-    /// Ed25519 signature over the serialised leaf node content
-    /// (everything except the signature field itself).
-    /// </summary>
+    /// <summary>ECDSA P-256 signature (DER-encoded, ~70-73 bytes).</summary>
     public byte[] Signature { get; private set; }
-
-    // ── Constructor ───────────────────────────────────────────────────────────
 
     private LeafNode(byte[] encKey, byte[] sigKey, Credential cred, LeafNodeSource src, byte[] sig)
     {
@@ -51,32 +33,20 @@ internal sealed class LeafNode
         Signature     = sig;
     }
 
-    // ── Factory ───────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Generates a new LeafNode with fresh X25519 and Ed25519 key pairs,
-    /// signed by the generated Ed25519 private key.
-    /// </summary>
-    /// <param name="identity">The member's raw identity bytes (e.g. Discord user ID as UTF-8).</param>
-    /// <param name="hpkePrivateKeyOut">Outputs the X25519 private key (caller must store securely).</param>
-    /// <param name="sigPrivateKeyOut">Outputs the Ed25519 private seed (caller must store securely).</param>
     public static LeafNode Generate(
         byte[] identity,
         out byte[] hpkePrivateKeyOut,
         out byte[] sigPrivateKeyOut)
     {
         var provider = CryptoProviderFactory.Instance;
-        provider.GenerateX25519KeyPair(out hpkePrivateKeyOut, out var hpkePub);
-        provider.GenerateEd25519KeyPair(out sigPrivateKeyOut, out var sigPub);
+        provider.GenerateP256KeyPair(out hpkePrivateKeyOut, out var hpkePub);
+        provider.GenerateEcdsaP256KeyPair(out sigPrivateKeyOut, out var sigPub);
         var cred   = Credential.Basic(identity);
         var node   = new LeafNode(hpkePub, sigPub, cred, LeafNodeSource.KeyPackage, Array.Empty<byte>());
-        node.Signature = provider.Ed25519Sign(node.ToBeSigned(), sigPrivateKeyOut);
+        node.Signature = provider.EcdsaP256Sign(node.ToBeSigned(), sigPrivateKeyOut);
         return node;
     }
 
-    // ── Serialisation ─────────────────────────────────────────────────────────
-
-    /// <summary>Encodes the full leaf node (including signature) as TLS bytes.</summary>
     public byte[] Encode()
     {
         using var w = new TlsWriter(100);
@@ -84,25 +54,20 @@ internal sealed class LeafNode
         w.WriteVector16(SignatureKey);
         w.WriteBytes(Credential.Encode());
         w.WriteUint8((byte)Source);
-        // Capabilities: just the one ciphersuite
         using var caps = new TlsWriter(4);
-        caps.WriteUint16((ushort)CipherSuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519);
+        caps.WriteUint16((ushort)CipherSuite.MLS_128_DHKEMP256_AES128GCM_SHA256_P256);
         w.WriteNested16(caps);
-        // Extensions: empty list
         w.WriteUint16(0);
-        // Signature
         w.WriteVector16(Signature);
         return w.ToArray();
     }
 
-    /// <summary>Decodes a LeafNode from TLS bytes.</summary>
     public static LeafNode Decode(ReadOnlySpan<byte> data)
     {
         var r      = new TlsReader(data);
         var encKey = r.ReadVector16();
         var sigKey = r.ReadVector16();
 
-        // Decode credential inline (type + variable payload)
         var credType = (CredentialType)r.ReadUint16();
         Credential cred;
         if (credType == CredentialType.Basic)
@@ -116,19 +81,15 @@ internal sealed class LeafNode
         }
 
         var source = (LeafNodeSource)r.ReadUint8();
-        r.ReadVector16(); // capabilities — skip
-        r.ReadVector16(); // extensions   — skip
+        r.ReadVector16();
+        r.ReadVector16();
         var sig    = r.ReadVector16();
         return new LeafNode(encKey, sigKey, cred, source, sig);
     }
 
-    /// <summary>Verifies the leaf node's self-signature (RFC 9420 §7.3).</summary>
     public bool VerifySignature()
-        => CryptoProviderFactory.Instance.Ed25519Verify(ToBeSigned(), Signature, SignatureKey);
+        => CryptoProviderFactory.Instance.EcdsaP256Verify(ToBeSigned(), Signature, SignatureKey);
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    /// <summary>The byte sequence over which the signature is computed (all fields except signature).</summary>
     private byte[] ToBeSigned()
     {
         using var w = new TlsWriter(100);
@@ -137,9 +98,9 @@ internal sealed class LeafNode
         w.WriteBytes(Credential.Encode());
         w.WriteUint8((byte)Source);
         using var caps = new TlsWriter(4);
-        caps.WriteUint16((ushort)CipherSuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519);
+        caps.WriteUint16((ushort)CipherSuite.MLS_128_DHKEMP256_AES128GCM_SHA256_P256);
         w.WriteNested16(caps);
-        w.WriteUint16(0); // extensions
+        w.WriteUint16(0);
         return w.ToArray();
     }
 }

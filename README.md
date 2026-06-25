@@ -20,14 +20,14 @@
 
 We're building a Discord API wrapper for .NET that's modular, predictable, and actually pleasant to use. You can grab the full client and be running in a few lines, or pick just the pieces you need if you already have your own setup.
 
-We're currently at **`1.1.0-alpha.4`** — things are still taking shape, but all the core pieces work. Check the [changelog][changelog] and [migration guide][migration] if you're coming from an earlier version.
+We're currently at **`1.1.0-alpha.5`** — things are still taking shape, but all the core pieces work. Check the [changelog][changelog] and [migration guide][migration] if you're coming from an earlier version.
 
 ---
 
 ## Starting from scratch
 
 ```bash
-dotnet add package PawSharp.Client --version 1.1.0-alpha.4
+dotnet add package PawSharp.Client --version 1.1.0-alpha.5
 ```
 
 ```csharp
@@ -93,7 +93,7 @@ PawSharp is split into separate packages. You can install `PawSharp.Client` and 
 
 **Interactivity** gives you paginated messages, confirmation dialogs, input prompts, and polls. Everything's async and timeout-based.
 
-**Voice** does UDP audio with Opus (pure .NET via Concentus, zero native code) and DAVE E2EE (MLS / RFC 9420). Multiple simultaneous connections work.
+**Voice** does UDP audio with Opus (pure .NET via Concentus, zero native code) and DAVE E2EE (MLS / RFC 9420 with DHKEM(P-256, HKDF-SHA256) ciphersuite and AES-128-GCM frame encryption). Multiple simultaneous connections work.
 
 **Caching** can be in-memory or Redis, with per-entity TTL, eviction, and health checks. You can swap providers at runtime — if Redis goes down, it falls back gracefully.
 
@@ -127,7 +127,7 @@ Each has its own README.
 
 ## A note on versioning
 
-We follow [Semantic Versioning](https://semver.org/). We're still pre-1.0.0 stable, so minor bumps might include breaking changes. We keep a clean changelog and migration guide so you're not left guessing.
+We follow [Semantic Versioning](https://semver.org/). Until we reach 1.0.0 stable, minor bumps may include breaking changes. We keep a clean changelog and migration guide so you're not left guessing.
 
 ---
 

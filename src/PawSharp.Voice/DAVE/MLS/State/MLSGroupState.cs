@@ -55,9 +55,9 @@ internal sealed class MLSGroupState : IDisposable
     private MLSKeySchedule? _keySchedule;
 
     // Local client leaf key material
-    private byte[]? _localInitPrivKey;      // X25519 init private key (for Welcome decryption)
-    private byte[]? _localLeafHpkePrivKey;  // X25519 leaf HPKE private key
-    private byte[]? _localLeafSigPrivKey;   // Ed25519 signing private key
+    private byte[]? _localInitPrivKey;      // P-256 init private key (for Welcome decryption)
+    private byte[]? _localLeafHpkePrivKey;  // P-256 leaf HPKE private key
+    private byte[]? _localLeafSigPrivKey;   // ECDSA P-256 signing private key
 
     // Our KeyPackage for the current session
     private KeyPackage? _localKeyPackage;
@@ -119,7 +119,7 @@ internal sealed class MLSGroupState : IDisposable
     ///   4. Populate group state (epoch, tree hash, transcript hash) from GroupInfo.Context.
     ///   5. Run <see cref="MLSKeySchedule.FromJoinerSecret"/> and store the key schedule
     ///      for subsequent <see cref="ProcessCommit"/> epoch advances.
-    ///   6. Derive the DAVE epoch secret via ExpandWithLabel("DAVE sender").
+    ///   6. Derive the DAVE epoch secret via ExpandWithLabel("Discord Secure Frames v0").
     /// </summary>
     public void ProcessWelcome(byte[] welcomeBytes, byte[]? groupId = null)
     {
@@ -259,11 +259,11 @@ internal sealed class MLSGroupState : IDisposable
         {
             ProcessCommitFull(commitBytes);
         }
-        catch (Exception ex)
+        catch (MlsDecodeException ex)
         {
             // HKDF rotation fallback: forward secrecy is maintained even if parse fails.
             // Log the error for debugging MLS protocol issues.
-            _logger?.LogWarning(ex, "DAVE MLS Commit processing failed, using HKDF rotation fallback");
+            _logger?.LogWarning(ex, "DAVE MLS Commit decoding failed, using HKDF rotation fallback");
             _daveEpochSecret         = MlsHkdf.Extract(_daveEpochSecret!, commitBytes);
             _epochNumber++;
             _confirmedTranscriptHash = UpdateTranscriptHash(commitBytes);
@@ -400,7 +400,7 @@ internal sealed class MLSGroupState : IDisposable
         {
             try
             {
-                var plain = HpkeX25519.OpenBase(
+                var plain = HpkeP256.OpenBase(
                     initPrivKey,
                     entry.EncryptedSecret.Enc,
                     ReadOnlySpan<byte>.Empty,
