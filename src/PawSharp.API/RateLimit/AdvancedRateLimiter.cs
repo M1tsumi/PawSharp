@@ -67,6 +67,23 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter
             bucket.Release();
         }
     }
+
+    /// <summary>
+    /// Removes buckets that have passed their reset time and are no longer in use.
+    /// Call periodically to prevent unbounded dictionary growth under long-running
+    /// operations with many unique API routes.
+    /// </summary>
+    public void CleanupStaleBuckets()
+    {
+        var cutoff = DateTimeOffset.UtcNow;
+        foreach (var kvp in _buckets)
+        {
+            if (kvp.Value.IsExpired(cutoff))
+            {
+                _buckets.TryRemove(kvp.Key, out _);
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -129,6 +146,18 @@ public class RateLimitBucket
         {
             _remaining = remaining;
             _resetAt = resetAt;
+        }
+    }
+
+    /// <summary>
+    /// Returns true if this bucket has passed its reset time and is not actively
+    /// throttled, making it safe to remove from the rate limiter's dictionary.
+    /// </summary>
+    public bool IsExpired(DateTimeOffset cutoff)
+    {
+        lock (_lock)
+        {
+            return _remaining >= 1 && _resetAt < cutoff;
         }
     }
 }

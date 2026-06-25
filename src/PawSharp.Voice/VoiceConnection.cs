@@ -118,10 +118,8 @@ public class VoiceConnection : IDisposable
     private const int MaxOpusBytes   = 4000;     // conservative max packet per RFC 6716
 
     // ── Voice WebSocket protocol version ────────────────────────────────────
-    // Discord's voice WebSocket protocol version. Currently v4 corresponds to
-    // the latest voice gateway. This must match the version expected by Discord's
-    // voice servers for the configured API version.
-    private const int VoiceProtocolVersion = 4;
+    // Discord's voice WebSocket protocol version. DAVE E2EE requires v8.
+    private const int VoiceProtocolVersion = 8;
 
     // UDP keep-alive: send an Opus silence frame every 5 s during silence to keep NAT mappings
     // alive and prevent Discord's voice server from timing out the session.
@@ -136,6 +134,7 @@ public class VoiceConnection : IDisposable
     // RTP sequencing state (per-connection, monotonically increasing)
     private ushort _rtpSequence;
     private uint   _rtpTimestamp;
+    private readonly object _rtpLock = new();
 
     // Outgoing PCM accumulation — holds partial frames until a full 20 ms chunk is ready
     private readonly List<byte> _pendingPcm = new();
@@ -152,6 +151,9 @@ public class VoiceConnection : IDisposable
     private DAVE.DAVEProtocol? _dave;
     private bool _daveEnabled;
 
+    // Running tasks tracked for proper disposal
+    private Task? _keepAliveTask;
+
     /// <summary>Gets the current connection lifecycle state.</summary>
     public VoiceConnectionState State { get; private set; } = VoiceConnectionState.Disconnected;
     
@@ -165,11 +167,9 @@ public class VoiceConnection : IDisposable
     public event Action<string, int>? UdpConnected;
     
     /// <summary>Raised when a voice user connects or disconnects.</summary>
-#pragma warning disable CS0067 // Event is never used -- reserved for future use
     public event Action<ulong, bool>? UserVoiceStateChanged;
-#pragma warning restore CS0067
 
-    /// <summary>Raised when DAVE E2EE encryption is activated (after op 24 ProtocolReady).</summary>
+    /// <summary>Raised when DAVE E2EE encryption is activated (after op 29 AnnounceCommitTransition or op 30 Welcome).</summary>
     public event Action? DaveEncryptionActivated;
 
     /// <summary>Raised when a DAVE epoch advances (after processing a Commit message).</summary>
@@ -347,7 +347,7 @@ public class VoiceConnection : IDisposable
         // timeouts and keep the Discord voice server from dropping the session.
         // Note: the _udpClient isn't created until IP discovery, but the loop checks
         // for null internally so it's safe to start early.
-        var keepAliveTask = Task.Run(KeepAliveLoopAsync, _cts.Token);
+        _keepAliveTask = Task.Run(KeepAliveLoopAsync, _cts.Token);
 
         // Send Opcode 0 IDENTIFY immediately after WebSocket upgrade
         await SendIdentifyAsync().ConfigureAwait(false);
@@ -363,7 +363,8 @@ public class VoiceConnection : IDisposable
                 server_id = _voiceGuildId.ToString(),
                 user_id = _voiceUserId.ToString(),
                 session_id = _sessionId,
-                token = _token
+                token = _token,
+                max_dave_protocol_version = 1
             }
         };
         var json = System.Text.Json.JsonSerializer.Serialize(payload);
@@ -412,8 +413,9 @@ public class VoiceConnection : IDisposable
         StateChanged?.Invoke(previousState, State);
 
         await Task.WhenAll(
-            _receiveTask   ?? Task.CompletedTask,
-            _heartbeatTask ?? Task.CompletedTask,
+            _receiveTask    ?? Task.CompletedTask,
+            _heartbeatTask  ?? Task.CompletedTask,
+            _keepAliveTask  ?? Task.CompletedTask,
             _udpReceiveTask ?? Task.CompletedTask
         ).ConfigureAwait(false);
 
@@ -661,12 +663,13 @@ public class VoiceConnection : IDisposable
 
             // Apply transport encryption
             byte[] encryptedPayload;
-            if (_dave?.IsActive == true)
+            var dave = _dave;
+            if (dave?.IsActive == true)
             {
                 // DAVE E2EE encryption
                 try
                 {
-                    encryptedPayload = _dave.EncryptFrame(opusPacket, rtpHeader);
+                    encryptedPayload = dave.EncryptFrame(opusPacket, rtpHeader);
                 }
                 catch (Exception ex)
                 {
@@ -801,33 +804,36 @@ public class VoiceConnection : IDisposable
     /// </summary>
     private byte[] BuildRtpHeader()
     {
-        var header = new byte[12];
+        lock (_rtpLock)
+        {
+            var header = new byte[12];
 
-        // Byte 0: V=2, P=0, X=0, CC=0
-        header[0] = 0x80;
-        // Byte 1: M=0, PT=120 (Opus payload type, RFC 7587)
-        header[1] = 0x78;
+            // Byte 0: V=2, P=0, X=0, CC=0
+            header[0] = 0x80;
+            // Byte 1: M=0, PT=120 (Opus payload type, RFC 7587)
+            header[1] = 0x78;
 
-        // Sequence number — big-endian uint16, wraps naturally
-        header[2] = (byte)(_rtpSequence >> 8);
-        header[3] = (byte)_rtpSequence;
-        _rtpSequence++;
+            // Sequence number — big-endian uint16, wraps naturally
+            header[2] = (byte)(_rtpSequence >> 8);
+            header[3] = (byte)_rtpSequence;
+            _rtpSequence++;
 
-        // Timestamp — big-endian uint32; advances by OpusFrameSize samples per packet
-        header[4] = (byte)(_rtpTimestamp >> 24);
-        header[5] = (byte)(_rtpTimestamp >> 16);
-        header[6] = (byte)(_rtpTimestamp >> 8);
-        header[7] = (byte)_rtpTimestamp;
-        _rtpTimestamp += OpusFrameSize;  // 960 = 20 ms at 48 kHz
+            // Timestamp — big-endian uint32; advances by OpusFrameSize samples per packet
+            header[4] = (byte)(_rtpTimestamp >> 24);
+            header[5] = (byte)(_rtpTimestamp >> 16);
+            header[6] = (byte)(_rtpTimestamp >> 8);
+            header[7] = (byte)_rtpTimestamp;
+            _rtpTimestamp += OpusFrameSize;  // 960 = 20 ms at 48 kHz
 
-        // SSRC — big-endian uint32 (assigned by the server in op 2 READY)
-        var ssrc = Ssrc;
-        header[8]  = (byte)(ssrc >> 24);
-        header[9]  = (byte)(ssrc >> 16);
-        header[10] = (byte)(ssrc >> 8);
-        header[11] = (byte)ssrc;
+            // SSRC — big-endian uint32 (assigned by the server in op 2 READY)
+            var ssrc = Ssrc;
+            header[8]  = (byte)(ssrc >> 24);
+            header[9]  = (byte)(ssrc >> 16);
+            header[10] = (byte)(ssrc >> 8);
+            header[11] = (byte)ssrc;
 
-        return header;
+            return header;
+        }
     }
 
     /// <summary>
@@ -880,57 +886,26 @@ public class VoiceConnection : IDisposable
 
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
-                    // Handle JSON control messages
-                    var json = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    using var ms = new MemoryStream();
+                    ms.Write(buffer, 0, result.Count);
+                    while (!result.EndOfMessage)
+                    {
+                        result = await _webSocket.ReceiveAsync(segment, _cts.Token).ConfigureAwait(false);
+                        ms.Write(buffer, 0, result.Count);
+                    }
+                    var json = System.Text.Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
                     await HandleJsonMessageAsync(json).ConfigureAwait(false);
                 }
                 else if (result.MessageType == WebSocketMessageType.Binary)
                 {
-                    // Handle incoming voice packets
-                    var packet = new byte[result.Count];
-                    Array.Copy(buffer, packet, result.Count);
-
-                    // Parse the RTP header to recover the sender SSRC and raw header bytes.
-                    // The header bytes are passed as AAD so DAVE authentication covers the
-                    // RTP metadata (sequence, timestamp, SSRC) and not just the payload.
-                    if (TryParseRtpPacket(packet, out var ssrc, out var rtpHeader, out var encryptedPayload))
+                    using var ms = new MemoryStream();
+                    ms.Write(buffer, 0, result.Count);
+                    while (!result.EndOfMessage)
                     {
-                        _seqAck = (rtpHeader[2] << 8) | rtpHeader[3];
-
-                        byte[] opusData;
-                        if (_dave?.IsActive == true)
-                        {
-                            // DAVE E2EE decryption
-                            try
-                            {
-                                opusData = _dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "DAVE decryption failed for SSRC {Ssrc}, dropping packet for channel {ChannelId}", ssrc, _channel.Id);
-                                DaveError?.Invoke(ex);
-                                continue; // Drop the packet if decryption fails
-                            }
-                        }
-                        else if (_secretKey != null)
-                        {
-                            // Standard transport decryption
-                            opusData = RemoveTransportEncryption(encryptedPayload, rtpHeader);
-                        }
-                        else
-                        {
-                            // No encryption (shouldn't happen in normal flow)
-                            opusData = encryptedPayload;
-                        }
-
-                        var pcm = DecodeAudio(opusData);
-
-                        // Fire the receive event before feeding audio to local playback so that
-                        // subscribers (e.g. speech-to-text) can process the PCM independently.
-                        VoicePacketReceived?.Invoke(ssrc, pcm);
-
-                        await PlayAudioFromPcmAsync(pcm).ConfigureAwait(false);
+                        result = await _webSocket.ReceiveAsync(segment, _cts.Token).ConfigureAwait(false);
+                        ms.Write(buffer, 0, result.Count);
                     }
+                    await HandleBinaryDaveMessageAsync(ms.ToArray()).ConfigureAwait(false);
                 }
             }
         }
@@ -982,15 +957,16 @@ public class VoiceConnection : IDisposable
                             
                             _logger.LogInformation("Voice READY received: IP={Ip}, Port={Port}, SSRC={Ssrc}", _udpIp, _udpPort, Ssrc);
 
-                            // Initialize DAVE if enabled and this is a DM/GDM (guildId == 0)
-                            if (_daveEnabled && _voiceGuildId == 0)
+                            // Initialize DAVE if enabled (applies to all channel types)
+                            if (_daveEnabled)
                             {
-                                _dave = new DAVE.DAVEProtocol(_voiceUserId.ToString());
+                                _dave?.Dispose();
+                                _dave = new DAVE.DAVEProtocol(_voiceUserId.ToString(), _logger);
                                 _dave.LocalSsrc = Ssrc;
                                 var davePrevState = State;
                                 State = VoiceConnectionState.DaveNegotiating;
                                 StateChanged?.Invoke(davePrevState, State);
-                                _logger.LogInformation("DAVE E2EE protocol initialized for DM/GDM");
+                                _logger.LogInformation("DAVE E2EE protocol initialized");
                             }
 
                             // Initiate IP discovery and Select Protocol
@@ -1029,46 +1005,47 @@ public class VoiceConnection : IDisposable
                         break;
                     case 7: // RESUMED
                         _logger.LogInformation("Voice connection resumed for channel {ChannelId}", _channel.Id);
-                        var prevState = State;
+                        // Re-initialize DAVE if enabled (server won't send READY again on resume)
+                        if (_daveEnabled && _dave == null)
+                        {
+                            _dave = new DAVE.DAVEProtocol(_voiceUserId.ToString(), _logger);
+                            _dave.LocalSsrc = Ssrc;
+                        }
+                        var resumePrevState = State;
                         State = VoiceConnectionState.Connected;
-                        StateChanged?.Invoke(prevState, State);
+                        StateChanged?.Invoke(resumePrevState, State);
                         break;
                     case 11: // CLIENTS CONNECT
-                        if (root.TryGetProperty("d", out var clientsData))
+                        if (root.TryGetProperty("d", out var clientsData) &&
+                            clientsData.TryGetProperty("user_id", out var connUserId))
                         {
-                            // Handle user voice state changes
+                            var userId = connUserId.GetUInt64();
+                            _logger.LogDebug("Voice user connected: {UserId}", userId);
+                            UserVoiceStateChanged?.Invoke(userId, true);
                         }
                         break;
                     case 13: // CLIENT DISCONNECT
-                        if (root.TryGetProperty("d", out var disconnectData))
+                        if (root.TryGetProperty("d", out var disconnectData) &&
+                            disconnectData.TryGetProperty("user_id", out var disconnUserId))
                         {
-                            // Handle user voice state changes
+                            var userId = disconnUserId.GetUInt64();
+                            _logger.LogDebug("Voice user disconnected: {UserId}", userId);
+                            UserVoiceStateChanged?.Invoke(userId, false);
                         }
                         break;
-                    // DAVE E2EE opcodes 21–31
-                    case >= 21 and <= 31:
-                        if (_dave != null)
+                    // DAVE E2EE JSON opcodes (21–24, 31 are JSON; 25–30 are binary)
+                    case 21: case 22: case 23: case 24: case 31:
+                        var dave = _dave;
+                        if (dave != null)
                         {
                             try
                             {
-                                await _dave.HandleOpcodeAsync(opCode, root.GetProperty("d"), _webSocket, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
-                                if (opCode == 24 && _dave.IsActive)
-                                {
-                                    var davePrevState = State;
-                                    State = VoiceConnectionState.DaveEncrypted;
-                                    StateChanged?.Invoke(davePrevState, State);
-                                    DaveEncryptionActivated?.Invoke();
-                                }
-                                if (opCode == 26)
-                                {
-                                    DaveEpochAdvanced?.Invoke(_dave.EpochNumber);
-                                }
+                                await dave.HandleJsonMessageAsync(opCode, root.GetProperty("d"), _webSocket, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, "DAVE opcode {OpCode} handling failed for channel {ChannelId}", opCode, _channel.Id);
+                                _logger.LogError(ex, "DAVE JSON opcode {OpCode} handling failed for channel {ChannelId}", opCode, _channel.Id);
                                 DaveError?.Invoke(ex);
-                                // DAVE errors are non-fatal - continue with standard encryption
                             }
                         }
                         break;
@@ -1084,6 +1061,51 @@ public class VoiceConnection : IDisposable
         }
 
         await Task.CompletedTask.ConfigureAwait(false);
+    }
+
+    private async Task HandleBinaryDaveMessageAsync(byte[] msg)
+    {
+        // Server→client binary format: [2-byte big-endian seq][1-byte opcode][payload]
+        if (msg.Length < 3) return;
+        var seq = (ushort)((msg[0] << 8) | msg[1]);
+        var opcode = msg[2];
+        var payload = msg.Length > 3 ? msg[3..] : Array.Empty<byte>();
+        _seqAck = seq;
+
+        var dave = _dave;
+        if (dave != null)
+        {
+            try
+            {
+                await dave.HandleBinaryMessageAsync(opcode, payload, _webSocket, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+
+                if (opcode == 29 && dave.IsActive && State != VoiceConnectionState.DaveEncrypted)
+                {
+                    var prev = State;
+                    State = VoiceConnectionState.DaveEncrypted;
+                    StateChanged?.Invoke(prev, State);
+                    DaveEncryptionActivated?.Invoke();
+                    DaveEpochAdvanced?.Invoke(dave.EpochNumber);
+                }
+                else if (opcode == 29 && dave.IsActive)
+                {
+                    // Already DaveEncrypted — just fire the epoch event
+                    DaveEpochAdvanced?.Invoke(dave.EpochNumber);
+                }
+                else if (opcode == 30 && dave.IsActive && State != VoiceConnectionState.DaveEncrypted)
+                {
+                    var prev = State;
+                    State = VoiceConnectionState.DaveEncrypted;
+                    StateChanged?.Invoke(prev, State);
+                    DaveEncryptionActivated?.Invoke();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DAVE binary opcode {OpCode} handling failed for channel {ChannelId}", opcode, _channel.Id);
+                DaveError?.Invoke(ex);
+            }
+        }
     }
 
     private async Task HeartbeatLoopAsync()
@@ -1158,8 +1180,13 @@ public class VoiceConnection : IDisposable
                 // well-formed voice packet and keeps the SSRC / NAT mapping alive.
                 var rtpHeader = BuildRtpHeader();
                 byte[] encryptedPayload;
-                
-                if (_secretKey != null)
+
+                var dave = _dave;
+                if (dave?.IsActive == true)
+                {
+                    encryptedPayload = dave.EncryptFrame(SilenceFrame, rtpHeader);
+                }
+                else if (_secretKey != null)
                 {
                     encryptedPayload = ApplyTransportEncryption(SilenceFrame, rtpHeader);
                 }
@@ -1287,8 +1314,9 @@ public class VoiceConnection : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "IP discovery failed for channel {ChannelId}", _channel.Id);
+            var failPrevState = State;
             State = VoiceConnectionState.Disconnected;
-            StateChanged?.Invoke(State, VoiceConnectionState.Disconnected);
+            StateChanged?.Invoke(failPrevState, State);
             _onConnectionFailed?.Invoke(_channel.Id);
         }
     }
@@ -1325,6 +1353,15 @@ public class VoiceConnection : IDisposable
     /// <summary>
     /// Selects the best available encryption mode based on preferences and server support.
     /// </summary>
+    private static readonly Dictionary<string, VoiceEncryptionMode> ModeMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["aead_aes256_gcm_rtpsize"]               = VoiceEncryptionMode.AeadAes256GcmRtpSize,
+        ["aead_xchacha20_poly1305_rtpsize"]        = VoiceEncryptionMode.AeadXChaCha20Poly1305RtpSize,
+        ["xsalsa20_poly1305_lite_rtpsize"]         = VoiceEncryptionMode.XSalsa20Poly1305LiteRtpSize,
+        ["xsalsa20_poly1305_suffix"]               = VoiceEncryptionMode.XSalsa20Poly1305Suffix,
+        ["xsalsa20_poly1305"]                      = VoiceEncryptionMode.XSalsa20Poly1305,
+    };
+
     private void SelectEncryptionMode(List<string> availableModes)
     {
         var preferredOrder = new[]
@@ -1335,27 +1372,31 @@ public class VoiceConnection : IDisposable
             "xsalsa20_poly1305_suffix",
             "xsalsa20_poly1305"
         };
-        
+
         // Try to match preferred mode first
-        var preferredString = _options.PreferredEncryptionMode.ToString().ToLower().Replace("_", "");
-        if (availableModes.Contains(preferredString))
+        var preferredString = _options.PreferredEncryptionMode.ToString();
+        var preferredLookup = ModeMap.FirstOrDefault(kvp => kvp.Value == _options.PreferredEncryptionMode).Key;
+        if (preferredLookup != null && availableModes.Contains(preferredLookup))
         {
-            Enum.TryParse<VoiceEncryptionMode>(preferredString.Replace("_", ""), true, out _encryptionMode);
+            _encryptionMode = _options.PreferredEncryptionMode;
             return;
         }
-        
+
         // Fall back to first available in preferred order
         foreach (var mode in preferredOrder)
         {
-            if (availableModes.Contains(mode))
+            if (availableModes.Contains(mode) && ModeMap.TryGetValue(mode, out var mapped))
             {
-                Enum.TryParse<VoiceEncryptionMode>(mode.Replace("_", ""), true, out _encryptionMode);
+                _encryptionMode = mapped;
                 return;
             }
         }
-        
+
         // Default to first available
-        Enum.TryParse<VoiceEncryptionMode>(availableModes[0].Replace("_", ""), true, out _encryptionMode);
+        if (availableModes.Count > 0 && ModeMap.TryGetValue(availableModes[0], out var fallback))
+        {
+            _encryptionMode = fallback;
+        }
     }
     
     // ── UDP Receive Loop ───────────────────────────────────────────────────────
@@ -1385,12 +1426,13 @@ public class VoiceConnection : IDisposable
                     _seqAck = (rtpHeader[2] << 8) | rtpHeader[3];
                     byte[] opusData = encryptedPayload;
 
-                    // Try DAVE E2EE decryption first (for DM/GroupDM calls)
-                    if (_dave?.IsActive == true)
+                    // Try DAVE E2EE decryption first
+                    var dave = _dave;
+                    if (dave?.IsActive == true)
                     {
                         try
                         {
-                            opusData = _dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
+                            opusData = dave.DecryptFrame(encryptedPayload, ssrc, rtpHeader);
                         }
                         catch (Exception ex)
                         {
@@ -1474,12 +1516,12 @@ public class VoiceConnection : IDisposable
         // Extract SSRC from RTP header (bytes 8-11)
         var ssrc = BitConverter.ToUInt32(new byte[] { rtpHeader[11], rtpHeader[10], rtpHeader[9], rtpHeader[8] }, 0);
         
-        // Build nonce: 4 bytes SSRC + 8 bytes counter
+        // Nonce: SSRC (4) || RTP sequence (2) || zero-pad (6) = 12 bytes
+        // Per aead_aes256_gcm_rtpsize spec — the 16-bit sequence wraps at 65535
+        // (~22 min of 20 ms audio), which is the accepted limitation of this mode.
         var nonce = new byte[12];
         Array.Copy(rtpHeader, 8, nonce, 0, 4); // SSRC
-        // Counter is derived from RTP sequence (simplified - in production should track per-packet counter)
-        Array.Copy(rtpHeader, 2, nonce, 4, 2); // Use sequence as part of counter
-        // Remaining 6 bytes of counter would be tracked in production
+        Array.Copy(rtpHeader, 2, nonce, 4, 2); // RTP sequence number
         
         using var aes = new AesGcm(_secretKey!, 16);
         
@@ -1573,6 +1615,7 @@ public class VoiceConnection : IDisposable
 
         _webSocket?.Dispose();
         _udpClient?.Close();
+        _dave?.Dispose();
         _waveIn?.Dispose();
         _waveOut?.Dispose();
         _pendingPcm.Clear();

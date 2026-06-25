@@ -75,7 +75,7 @@ internal sealed class RatchetTree
     /// Replaces the HPKE public key on a leaf node (Update proposal, RFC 9420 §12.1.2).
     /// </summary>
     /// <param name="leafNodeIndex">Even in-order node index of the leaf to update.</param>
-    /// <param name="newHpkePublicKey">32-byte replacement X25519 public key.</param>
+    /// <param name="newHpkePublicKey">65-byte replacement P-256 public key.</param>
     public void ReplaceLeafHpkeKey(uint leafNodeIndex, byte[] newHpkePublicKey)
     {
         if ((leafNodeIndex & 1) != 0)
@@ -200,7 +200,7 @@ internal sealed class RatchetTree
                         {
                             try
                             {
-                                pathSecret = HpkeX25519.OpenBase(
+                                pathSecret = HpkeP256.OpenBase(
                                     localNode.HpkePrivateKey,
                                     updatePath[i].EncryptedPathSecrets[r].Enc,
                                     groupContext,

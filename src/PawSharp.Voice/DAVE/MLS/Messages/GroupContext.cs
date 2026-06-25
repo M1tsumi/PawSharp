@@ -27,7 +27,7 @@ namespace PawSharp.Voice.DAVE.MLS.Messages;
 internal sealed class GroupContext
 {
     public ProtocolVersion Version    { get; } = ProtocolVersion.Mls10;
-    public CipherSuite Suite          { get; } = CipherSuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
+    public CipherSuite Suite          { get; } = CipherSuite.MLS_128_DHKEMP256_AES128GCM_SHA256_P256;
 
     /// <summary>The MLS group identifier (arbitrary bytes assigned by the creator).</summary>
     public byte[] GroupId { get; }

@@ -13,7 +13,7 @@ namespace PawSharp.Voice.DAVE;
 /// MLS (Message Layer Security, RFC 9420) group state for DAVE.
 ///
 /// Implements the full RFC 9420 protocol for the DAVE ciphersuite:
-///   MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519
+///   MLS_128_DHKEMP256_AES128GCM_SHA256_P256
 ///
 /// This class is the public face of the MLS implementation.  All heavy lifting
 /// is delegated to <see cref="MLSGroupState"/> (the internal RFC 9420 engine).

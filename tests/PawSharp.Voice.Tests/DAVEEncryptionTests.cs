@@ -28,7 +28,7 @@ public class DAVEEncryptionTests
         var plaintext = System.Text.Encoding.UTF8.GetBytes("Hello, DAVE E2EE!");
 
         var encrypted = DAVEEncryption.EncryptFrame(plaintext, TestKey, TestSsrc, FrameCount);
-        var decrypted = DAVEEncryption.DecryptFrame(encrypted, TestKey);
+        var decrypted = DAVEEncryption.DecryptFrame(encrypted, TestKey, TestSsrc);
 
         decrypted.Should().BeEquivalentTo(plaintext);
     }
@@ -37,57 +37,33 @@ public class DAVEEncryptionTests
     public void EncryptDecrypt_WithAad_RoundTrip_RecoversSamePlaintext()
     {
         var plaintext = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD };
-        var aad       = new byte[] { 0x80, 0x00, 0x00, 0x01 }; // fake RTP header
+        var aad       = new byte[] { 0x80, 0x00, 0x00, 0x01 };
 
         var encrypted = DAVEEncryption.EncryptFrame(plaintext, TestKey, TestSsrc, FrameCount, aad);
-        var decrypted = DAVEEncryption.DecryptFrame(encrypted, TestKey, aad);
+        var decrypted = DAVEEncryption.DecryptFrame(encrypted, TestKey, TestSsrc, aad);
 
         decrypted.Should().BeEquivalentTo(plaintext);
     }
 
     [Fact]
-    public void Encrypt_EmptyPlaintext_ProducesNoncePlusTag()
+    public void Encrypt_EmptyPlaintext_ProducesCounterAndTag()
     {
         var encrypted = DAVEEncryption.EncryptFrame(Array.Empty<byte>(), TestKey, TestSsrc, FrameCount);
 
-        // nonce(12) + ciphertext(0) + tag(16) = 28 bytes
-        encrypted.Length.Should().Be(28);
+        // counter(8) + ciphertext(0) + tag(16) = 24 bytes
+        encrypted.Length.Should().Be(24);
     }
 
     // ── Output structure ──────────────────────────────────────────────────────
 
     [Fact]
-    public void EncryptedFrame_ContainsExpectedNonce()
-    {
-        var plaintext = new byte[] { 0x00 };
-        var encrypted = DAVEEncryption.EncryptFrame(plaintext, TestKey, TestSsrc, FrameCount);
-
-        // Nonce bytes 0–3 = SSRC big-endian (unchecked so the compiler doesn't
-        // reject truncating casts from the const uint 0xDEAD_BEEF)
-        uint ssrc = TestSsrc;
-        var ssrcBytes = new byte[]
-        {
-            (byte)(ssrc >> 24), (byte)(ssrc >> 16),
-            (byte)(ssrc >> 8),  (byte)ssrc
-        };
-        encrypted[0..4].Should().BeEquivalentTo(ssrcBytes);
-
-        // Nonce bytes 4–11 = frame counter little-endian
-        ulong ctr = FrameCount;
-        var counterBytes = new byte[8];
-        for (int i = 0; i < 8; i++)
-            counterBytes[i] = (byte)(ctr >> (8 * i));
-        encrypted[4..12].Should().BeEquivalentTo(counterBytes);
-    }
-
-    [Fact]
-    public void EncryptedFrameLength_Is_NonceSize_Plus_PlaintextSize_Plus_TagSize()
+    public void EncryptedFrameLength_Is_PlaintextSize_Plus_CounterAndTag()
     {
         var plaintext = new byte[100];
         var encrypted = DAVEEncryption.EncryptFrame(plaintext, TestKey, TestSsrc, FrameCount);
 
-        // 12 (nonce) + 100 (ciphertext) + 16 (tag) = 128
-        encrypted.Length.Should().Be(128);
+        // 8 (counter) + 100 (ciphertext) + 16 (tag) = 124
+        encrypted.Length.Should().Be(124);
     }
 
     // ── Different counters produce different ciphertext ───────────────────────
@@ -111,10 +87,10 @@ public class DAVEEncryptionTests
         var plaintext = new byte[] { 0xFF, 0xFE, 0xFD };
         var encrypted = DAVEEncryption.EncryptFrame(plaintext, TestKey, TestSsrc, FrameCount);
 
-        // Flip a byte in the ciphertext (after the 12-byte nonce)
-        encrypted[12] ^= 0xFF;
+        // Flip a byte in the ciphertext (skip the 8-byte counter prefix)
+        encrypted[8] ^= 0xFF;
 
-        Action act = () => DAVEEncryption.DecryptFrame(encrypted, TestKey);
+        Action act = () => DAVEEncryption.DecryptFrame(encrypted, TestKey, TestSsrc);
         act.Should().Throw<CryptographicException>();
     }
 
@@ -125,7 +101,7 @@ public class DAVEEncryptionTests
         var encrypted = DAVEEncryption.EncryptFrame(plaintext, TestKey, TestSsrc, FrameCount);
 
         var wrongKey = new byte[16];
-        Action act = () => DAVEEncryption.DecryptFrame(encrypted, wrongKey);
+        Action act = () => DAVEEncryption.DecryptFrame(encrypted, wrongKey, TestSsrc);
         act.Should().Throw<CryptographicException>();
     }
 
@@ -137,7 +113,7 @@ public class DAVEEncryptionTests
         var encrypted = DAVEEncryption.EncryptFrame(plaintext, TestKey, TestSsrc, FrameCount, aad);
 
         var wrongAad = new byte[] { 0xFF, 0xFF };
-        Action act = () => DAVEEncryption.DecryptFrame(encrypted, TestKey, wrongAad);
+        Action act = () => DAVEEncryption.DecryptFrame(encrypted, TestKey, TestSsrc, wrongAad);
         act.Should().Throw<CryptographicException>();
     }
 
@@ -161,9 +137,9 @@ public class DAVEEncryptionTests
     [Fact]
     public void DecryptFrameTooShort_ThrowsArgumentException()
     {
-        // Less than nonce(12) + tag(16) = 28 bytes minimum
-        var tooShort = new byte[10];
-        Action act = () => DAVEEncryption.DecryptFrame(tooShort, TestKey);
+        // Less than tag(16) bytes minimum
+        var tooShort = new byte[15];
+        Action act = () => DAVEEncryption.DecryptFrame(tooShort, TestKey, TestSsrc);
         act.Should().Throw<ArgumentException>();
     }
 }

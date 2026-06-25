@@ -125,7 +125,7 @@ public class DAVEKeyDerivationTests
         var plaintext = new byte[] { 0x01, 0x02, 0x03, 0x04 };
 
         var encrypted = DAVEEncryption.EncryptFrame(plaintext, key, ssrc: 0x1234, frameCounter: 1);
-        var decrypted = DAVEEncryption.DecryptFrame(encrypted, key);
+        var decrypted = DAVEEncryption.DecryptFrame(encrypted, key, ssrc: 0x1234);
 
         decrypted.Should().BeEquivalentTo(plaintext);
     }

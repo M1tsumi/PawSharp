@@ -5,6 +5,7 @@
 #nullable enable
 using System;
 using System.Security.Cryptography;
+using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Agreement;
 using Org.BouncyCastle.Crypto.Digests;
@@ -13,110 +14,167 @@ using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Macs;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Signers;
+using Org.BouncyCastle.Math;
+using Org.BouncyCastle.Math.EC;
 using Org.BouncyCastle.Security;
 
 namespace PawSharp.Voice.DAVE.MLS.Crypto;
 
-/// <summary>
-/// Crypto provider using BouncyCastle for X25519/Ed25519 and BCL for HKDF/AES-GCM.
-/// Provides hardware-accelerated operations where available via BouncyCastle's optimized C# code.
-/// </summary>
 internal sealed class BouncyCastleCryptoProvider : ICryptoProvider
 {
-    private const int X25519KeySize = 32;
-    private const int Ed25519KeySize = 32;
-    private const int Ed25519SignatureSize = 64;
+    private const int P256KeySize = 32;
     private const int Aes128KeySize = 16;
     private const int GcmNonceSize = 12;
     private const int GcmTagSize = 16;
     private const int Sha256HashSize = 32;
 
-    // ── X25519 ─────────────────────────────────────────────────────────────────
+    private static readonly X9ECParameters P256Params = ECNamedCurveTable.GetByOid(X9ObjectIdentifiers.Prime256v1)!;
+    private static readonly ECDomainParameters P256Domain = new(P256Params.Curve, P256Params.G, P256Params.N, P256Params.H);
 
-    public void GenerateX25519KeyPair(out byte[] privateKey, out byte[] publicKey)
+    // ── P-256 ECDH ──────────────────────────────────────────────────────────
+
+    public void GenerateP256KeyPair(out byte[] privateKey, out byte[] publicKey)
     {
-        var keyGen = new X25519KeyPairGenerator();
-        keyGen.Init(new X25519KeyGenerationParameters(new SecureRandom()));
+        var keyGen = new ECKeyPairGenerator("ECDH");
+        keyGen.Init(new ECKeyGenerationParameters(P256Domain, new SecureRandom()));
         var keyPair = keyGen.GenerateKeyPair();
 
-        privateKey = ((X25519PrivateKeyParameters)keyPair.Private).GetEncoded();
-        publicKey = ((X25519PublicKeyParameters)keyPair.Public).GetEncoded();
+        var priv = (ECPrivateKeyParameters)keyPair.Private;
+        var pub = (ECPublicKeyParameters)keyPair.Public;
+
+        privateKey = priv.D.ToByteArrayUnsigned();
+        // Ensure exactly 32 bytes
+        if (privateKey.Length < P256KeySize)
+        {
+            var tmp = new byte[P256KeySize];
+            privateKey.CopyTo(tmp, P256KeySize - privateKey.Length);
+            privateKey = tmp;
+        }
+        publicKey = pub.Q.GetEncoded(false); // 65 bytes SEC1 uncompressed
     }
 
-    public byte[] X25519SharedSecret(ReadOnlySpan<byte> privateKey, ReadOnlySpan<byte> publicKey)
+    public byte[] P256SharedSecret(ReadOnlySpan<byte> privateKey, ReadOnlySpan<byte> publicKey)
     {
-        if (privateKey.Length != X25519KeySize)
-            throw new ArgumentException($"Private key must be {X25519KeySize} bytes.", nameof(privateKey));
-        if (publicKey.Length != X25519KeySize)
-            throw new ArgumentException($"Public key must be {X25519KeySize} bytes.", nameof(publicKey));
+        if (privateKey.Length != P256KeySize)
+            throw new ArgumentException($"Private key must be {P256KeySize} bytes.", nameof(privateKey));
 
-        var privParams = new X25519PrivateKeyParameters(privateKey.ToArray());
-        var pubParams = new X25519PublicKeyParameters(publicKey.ToArray());
+        var privParams = new ECPrivateKeyParameters(
+            new BigInteger(1, privateKey.ToArray()), P256Domain);
 
-        var agreement = new X25519Agreement();
+        var pubPoint = P256Params.Curve.DecodePoint(publicKey.ToArray());
+        var pubParams = new ECPublicKeyParameters(pubPoint, P256Domain);
+
+        var agreement = new ECDHBasicAgreement();
         agreement.Init(privParams);
-        var shared = new byte[X25519KeySize];
-        agreement.CalculateAgreement(pubParams, shared, 0);
-        return shared;
+        var shared = agreement.CalculateAgreement(pubParams);
+
+        // Shared secret is x-coordinate, encoded as unsigned big-endian, 32 bytes
+        var sharedBytes = shared.ToByteArrayUnsigned();
+        if (sharedBytes.Length < P256KeySize)
+        {
+            var tmp = new byte[P256KeySize];
+            sharedBytes.CopyTo(tmp, P256KeySize - sharedBytes.Length);
+            return tmp;
+        }
+        return sharedBytes;
     }
 
-    public byte[] X25519GetPublicKey(ReadOnlySpan<byte> privateKey)
+    public byte[] P256GetPublicKey(ReadOnlySpan<byte> privateKey)
     {
-        if (privateKey.Length != X25519KeySize)
-            throw new ArgumentException($"Private key must be {X25519KeySize} bytes.", nameof(privateKey));
+        if (privateKey.Length != P256KeySize)
+            throw new ArgumentException($"Private key must be {P256KeySize} bytes.", nameof(privateKey));
 
-        var privParams = new X25519PrivateKeyParameters(privateKey.ToArray());
-        return privParams.GeneratePublicKey().GetEncoded();
+        var privParams = new ECPrivateKeyParameters(
+            new BigInteger(1, privateKey.ToArray()), P256Domain);
+
+        var q = P256Domain.G.Multiply(privParams.D);
+        return q.GetEncoded(false);
     }
 
-    // ── Ed25519 ────────────────────────────────────────────────────────────────
+    // ── ECDSA P-256 ─────────────────────────────────────────────────────────
 
-    public void GenerateEd25519KeyPair(out byte[] privateKey, out byte[] publicKey)
+    public void GenerateEcdsaP256KeyPair(out byte[] privateKey, out byte[] publicKey)
     {
-        var keyGen = new Ed25519KeyPairGenerator();
-        keyGen.Init(new Ed25519KeyGenerationParameters(new SecureRandom()));
+        // For DAVE, ECDH and ECDSA keys use the same curve but different key material.
+        // Reuse the P-256 generator.
+        var keyGen = new ECKeyPairGenerator("ECDSA");
+        keyGen.Init(new ECKeyGenerationParameters(P256Domain, new SecureRandom()));
         var keyPair = keyGen.GenerateKeyPair();
 
-        privateKey = ((Ed25519PrivateKeyParameters)keyPair.Private).GetEncoded();
-        publicKey = ((Ed25519PublicKeyParameters)keyPair.Public).GetEncoded();
+        var priv = (ECPrivateKeyParameters)keyPair.Private;
+        var pub = (ECPublicKeyParameters)keyPair.Public;
+
+        privateKey = priv.D.ToByteArrayUnsigned();
+        if (privateKey.Length < P256KeySize)
+        {
+            var tmp = new byte[P256KeySize];
+            privateKey.CopyTo(tmp, P256KeySize - privateKey.Length);
+            privateKey = tmp;
+        }
+        publicKey = pub.Q.GetEncoded(false);
     }
 
-    public byte[] Ed25519GetPublicKey(ReadOnlySpan<byte> privateKey)
+    public byte[] EcdsaP256GetPublicKey(ReadOnlySpan<byte> privateKey)
     {
-        if (privateKey.Length != Ed25519KeySize)
-            throw new ArgumentException($"Private key must be {Ed25519KeySize} bytes.", nameof(privateKey));
+        if (privateKey.Length != P256KeySize)
+            throw new ArgumentException($"Private key must be {P256KeySize} bytes.", nameof(privateKey));
 
-        var privParams = new Ed25519PrivateKeyParameters(privateKey.ToArray());
-        return privParams.GeneratePublicKey().GetEncoded();
+        var privParams = new ECPrivateKeyParameters(
+            new BigInteger(1, privateKey.ToArray()), P256Domain);
+
+        var q = P256Domain.G.Multiply(privParams.D);
+        return q.GetEncoded(false);
     }
 
-    public byte[] Ed25519Sign(ReadOnlySpan<byte> message, ReadOnlySpan<byte> privateKey)
+    public byte[] EcdsaP256Sign(ReadOnlySpan<byte> message, ReadOnlySpan<byte> privateKey)
     {
-        if (privateKey.Length != Ed25519KeySize)
-            throw new ArgumentException($"Private key must be {Ed25519KeySize} bytes.", nameof(privateKey));
+        if (privateKey.Length != P256KeySize)
+            throw new ArgumentException($"Private key must be {P256KeySize} bytes.", nameof(privateKey));
 
-        var privParams = new Ed25519PrivateKeyParameters(privateKey.ToArray());
-        var signer = new Ed25519Signer();
+        var privParams = new ECPrivateKeyParameters(
+            new BigInteger(1, privateKey.ToArray()), P256Domain);
+        var signer = new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()));
         signer.Init(true, privParams);
-        signer.BlockUpdate(message);
-        return signer.GenerateSignature();
+
+        var hash = Sha256Hash(message);
+        var sig = signer.GenerateSignature(hash);
+
+        // Encode as DER (standard ECDSA signature format)
+        var derSig = new Org.BouncyCastle.Asn1.DerSequence(
+            new Org.BouncyCastle.Asn1.DerInteger(sig[0]),
+            new Org.BouncyCastle.Asn1.DerInteger(sig[1]));
+        return derSig.GetDerEncoded();
     }
 
-    public bool Ed25519Verify(ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
+    public bool EcdsaP256Verify(ReadOnlySpan<byte> message, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
     {
-        if (signature.Length != Ed25519SignatureSize)
-            throw new ArgumentException($"Signature must be {Ed25519SignatureSize} bytes.", nameof(signature));
-        if (publicKey.Length != Ed25519KeySize)
-            throw new ArgumentException($"Public key must be {Ed25519KeySize} bytes.", nameof(publicKey));
+        var hash = Sha256Hash(message);
 
-        var pubParams = new Ed25519PublicKeyParameters(publicKey.ToArray());
-        var verifier = new Ed25519Signer();
+        var pubPoint = P256Params.Curve.DecodePoint(publicKey.ToArray());
+        var pubParams = new ECPublicKeyParameters(pubPoint, P256Domain);
+        var verifier = new ECDsaSigner();
         verifier.Init(false, pubParams);
-        verifier.BlockUpdate(message);
-        return verifier.VerifySignature(signature.ToArray());
+
+        // Parse DER signature
+        try
+        {
+            var derSig = Org.BouncyCastle.Asn1.DerSequence.GetInstance(
+                Org.BouncyCastle.Asn1.Asn1Object.FromByteArray(signature.ToArray()));
+            var r = Org.BouncyCastle.Math.BigInteger.ValueOf(((Org.BouncyCastle.Asn1.DerInteger)derSig[0]).Value.LongValue);
+            var s = Org.BouncyCastle.Math.BigInteger.ValueOf(((Org.BouncyCastle.Asn1.DerInteger)derSig[1]).Value.LongValue);
+            // Use proper BigInteger extraction
+            r = ((Org.BouncyCastle.Asn1.DerInteger)derSig[0]).Value;
+            s = ((Org.BouncyCastle.Asn1.DerInteger)derSig[1]).Value;
+
+            return verifier.VerifySignature(hash, r, s);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
-    // ── HKDF ───────────────────────────────────────────────────────────────────
+    // ── HKDF ────────────────────────────────────────────────────────────────
 
     public byte[] HkdfExtract(ReadOnlySpan<byte> salt, ReadOnlySpan<byte> ikm)
     {
@@ -140,9 +198,7 @@ internal sealed class BouncyCastleCryptoProvider : ICryptoProvider
         while (offset < length)
         {
             if (counter > 1)
-            {
                 hMac.BlockUpdate(result, offset - Sha256HashSize, Sha256HashSize);
-            }
             hMac.BlockUpdate(info);
             hMac.Update(counter);
             var step = new byte[Sha256HashSize];
@@ -157,7 +213,7 @@ internal sealed class BouncyCastleCryptoProvider : ICryptoProvider
         return result;
     }
 
-    // ── SHA-256 ────────────────────────────────────────────────────────────────
+    // ── SHA-256 ─────────────────────────────────────────────────────────────
 
     public byte[] Sha256Hash(ReadOnlySpan<byte> data)
     {
@@ -168,7 +224,7 @@ internal sealed class BouncyCastleCryptoProvider : ICryptoProvider
         return result;
     }
 
-    // ── AES-128-GCM ──────────────────────────────────────────────────────────
+    // ── AES-128-GCM ─────────────────────────────────────────────────────────
 
     public byte[] Aes128GcmEncrypt(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce, ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> aad)
     {
