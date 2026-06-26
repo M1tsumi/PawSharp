@@ -19,6 +19,7 @@ namespace PawSharp.Cache.Distribution
         private readonly ISubscriber? _subscriber;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private Task? _listenerTask;
+        private readonly SemaphoreSlim _reconnectLock = new(1, 1);
         private bool _disposed;
 
         /// <summary>
@@ -171,10 +172,35 @@ namespace PawSharp.Cache.Distribution
             }
         }
 
-        /// <summary>
-        /// Checks if the distributor is healthy (Redis connection is active).
-        /// </summary>
-        public bool IsHealthy()
+    /// <summary>
+    /// Attempts to reconnect the underlying Redis connection.
+    /// Uses a semaphore to prevent concurrent reconnection attempts.
+    /// </summary>
+    public async Task<bool> TryReconnectAsync()
+    {
+        if (!await _reconnectLock.WaitAsync(0).ConfigureAwait(false))
+            return false;
+
+        try
+        {
+            await _redis.GetDatabase().PingAsync().ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RedisCacheDistributor] Reconnect failed: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            _reconnectLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Checks if the distributor is healthy (Redis connection is active).
+    /// </summary>
+    public bool IsHealthy()
         {
             try
             {

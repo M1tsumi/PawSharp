@@ -404,7 +404,7 @@ public static class MessageExtensions
                     // Poll cleanup failed — log and ignore
                     System.Diagnostics.Debug.WriteLine($"[MessageExtensions] Poll cleanup failed: {ex.Message}");
                 }
-            }, cancellationToken);
+            }, CancellationToken.None);
         }
     }
 

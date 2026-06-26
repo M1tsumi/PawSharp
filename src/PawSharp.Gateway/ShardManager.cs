@@ -47,15 +47,17 @@ public class SessionStartLimits
 /// Manages multiple gateway shards for large bots.
 /// Provides automatic shard distribution, reconnection, status monitoring, and event aggregation.
 /// </summary>
-public class ShardManager
-{
-    private readonly Dictionary<int, GatewayClient> _shards = new();
-    private readonly Dictionary<int, ShardStatus> _shardStatuses = new();
-    private readonly PawSharpOptions _options;
-    private readonly ILogger _logger;
-    private readonly EventDispatcher _eventDispatcher;
-    private readonly IDiscordRestClient? _restClient;
-    private SessionStartLimits? _sessionStartLimits;
+    public class ShardManager : IDisposable
+    {
+        private readonly Dictionary<int, GatewayClient> _shards = new();
+        private readonly Dictionary<int, ShardStatus> _shardStatuses = new();
+        private readonly Dictionary<int, Func<GatewayState, GatewayState, Task>> _stateChangeHandlers = new();
+        private readonly PawSharpOptions _options;
+        private readonly ILogger _logger;
+        private readonly EventDispatcher _eventDispatcher;
+        private readonly IDiscordRestClient? _restClient;
+        private SessionStartLimits? _sessionStartLimits;
+        private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShardManager"/> class.
@@ -166,7 +168,9 @@ public class ShardManager
             _shardStatuses[i] = ShardStatus.Disconnected;
             
             // Subscribe to state changes
-            shard.OnStateChanged += async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState).ConfigureAwait(false);
+            Func<GatewayState, GatewayState, Task> handler = async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState).ConfigureAwait(false);
+            shard.OnStateChanged += handler;
+            _stateChangeHandlers[i] = handler;
             
             await shard.ConnectAsync().ConfigureAwait(false);
             
@@ -270,9 +274,35 @@ public class ShardManager
         var tasks = _shards.Values.Select(shard => shard.DisconnectAsync());
         await Task.WhenAll(tasks).ConfigureAwait(false);
 
+        foreach (var shard in _shards.Values)
+        {
+            shard.Dispose();
+        }
+
         _shards.Clear();
         _shardStatuses.Clear();
+        _stateChangeHandlers.Clear();
         _logger.LogInformation("All shards disconnected!");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        foreach (var kvp in _shards)
+        {
+            if (_stateChangeHandlers.TryGetValue(kvp.Key, out var handler))
+            {
+                kvp.Value.OnStateChanged -= handler;
+            }
+            kvp.Value.Dispose();
+        }
+
+        _shards.Clear();
+        _shardStatuses.Clear();
+        _stateChangeHandlers.Clear();
+        _eventDispatcher.Dispose();
     }
 
     /// <summary>

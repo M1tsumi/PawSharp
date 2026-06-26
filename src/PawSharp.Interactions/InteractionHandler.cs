@@ -27,7 +27,7 @@ namespace PawSharp.Interactions;
 /// <summary>
 /// Handles Discord interactions (slash commands, components, autocomplete, context menus).
 /// </summary>
-public class InteractionHandler
+public class InteractionHandler : IDisposable
 {
     private readonly IDiscordRestClient _restClient;
     private readonly ILogger<InteractionHandler>? _logger;
@@ -718,6 +718,11 @@ public class InteractionHandler
     public async Task<List<ApplicationCommandPermissions>?> BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions)
     {
         return await _restClient.BatchEditApplicationCommandPermissionsAsync(applicationId, guildId, permissions).ConfigureAwait(false);
+    }
+
+    public void Dispose()
+    {
+        ClearAllHandlers();
     }
 }
 

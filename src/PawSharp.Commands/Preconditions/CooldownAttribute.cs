@@ -34,7 +34,7 @@ public sealed class CooldownAttribute : Attribute, IPrecondition
     private readonly ConcurrentDictionary<string, BucketState> _buckets = new();
     private readonly object _cleanupLock = new();
     private DateTimeOffset _lastCleanup = DateTimeOffset.UtcNow;
-    private const int CleanupIntervalSeconds = 300; // Clean up every 5 minutes
+    private const int CleanupIntervalSeconds = 60; // Clean up every 1 minute
 
     /// <summary>
     /// Initialises the attribute.
