@@ -4,6 +4,7 @@
 
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Enc = System.Text.Encoding;
 
@@ -23,7 +24,9 @@ internal static class HpkeP256
     private static readonly byte[] KemSuiteId = BuildSuiteId("KEM", KemId);
     private static readonly byte[] HpkeSuiteId = BuildHpkeSuiteId();
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> _publicKeyCache = new();
+    private static readonly ConcurrentDictionary<string, byte[]> _publicKeyCache = new();
+    private const int MaxCacheEntries = 100;
+    private static readonly ConcurrentQueue<string> _cacheEvictionQueue = new();
 
     // KEM constants for DHKEM(P-256, HKDF-SHA256)
     private const int NSecret = 32; // shared secret size
@@ -74,7 +77,9 @@ internal static class HpkeP256
         if (!_publicKeyCache.TryGetValue(privKeyHex, out var recipientPub))
         {
             recipientPub = provider.P256GetPublicKey(recipientPrivateKey);
+            EvictCacheIfNeeded();
             _publicKeyCache[privKeyHex] = recipientPub;
+            _cacheEvictionQueue.Enqueue(privKeyHex);
         }
 
         var dh = provider.P256SharedSecret(recipientPrivateKey, enc);
@@ -215,5 +220,14 @@ internal static class HpkeP256
         int pos = 0;
         foreach (var p in parts) { p.CopyTo(r, pos); pos += p.Length; }
         return r;
+    }
+
+    private static void EvictCacheIfNeeded()
+    {
+        while (_publicKeyCache.Count >= MaxCacheEntries && _cacheEvictionQueue.TryDequeue(out var oldest))
+        {
+            if (!_publicKeyCache.TryRemove(oldest, out _))
+                break;
+        }
     }
 }

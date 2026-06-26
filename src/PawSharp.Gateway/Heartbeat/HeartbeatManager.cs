@@ -53,6 +53,8 @@ namespace PawSharp.Gateway.Heartbeat
         {
             _ackReceived = true;
             _missedAcks = 0;
+            _cts?.Cancel();
+            _cts?.Dispose();
             _cts = new CancellationTokenSource();
             // Fire-and-store: exceptions are caught inside the loop, not propagated as async void.
             _heartbeatTask = RunHeartbeatLoopAsync(_cts.Token);
@@ -66,6 +68,8 @@ namespace PawSharp.Gateway.Heartbeat
         {
             _ackReceived = true;
             _missedAcks = 0;
+            _cts?.Cancel();
+            _cts?.Dispose();
             _cts = new CancellationTokenSource();
             // Fire-and-store: exceptions are caught inside the loop, not propagated as async void.
             _heartbeatTask = RunHeartbeatLoopWithJitterAsync(_cts.Token);
@@ -114,6 +118,16 @@ namespace PawSharp.Gateway.Heartbeat
         public void Stop()
         {
             _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
+        }
+
+        public void Dispose()
+        {
+            Stop();
+            OnHeartbeatSent = null;
+            OnHeartbeatAckReceived = null;
+            OnZombieConnection = null;
         }
 
         /// <summary>

@@ -23,6 +23,8 @@ namespace PawSharp.Cache.Swapping
         private CacheProviderInfo? _activeProvider;
         private Timer? _healthCheckTimer;
         private bool _disposed;
+        private readonly Dictionary<string, EventHandler<CacheInvalidationEventArgs>> _evictedHandlers = new();
+        private readonly Dictionary<string, EventHandler> _clearedHandlers = new();
 
         public ICacheTelemetry? Telemetry
         {
@@ -94,8 +96,12 @@ namespace PawSharp.Cache.Swapping
                 _providers[name] = info;
 
                 // Wire up events
-                provider.EntityEvicted += (sender, args) => EntityEvicted?.Invoke(sender, args);
-                provider.CacheCleared += (sender, args) => CacheCleared?.Invoke(sender, args);
+                var evictedHandler = new EventHandler<CacheInvalidationEventArgs>((sender, args) => EntityEvicted?.Invoke(sender, args));
+                var clearedHandler = new EventHandler((sender, args) => CacheCleared?.Invoke(sender, args));
+                provider.EntityEvicted += evictedHandler;
+                provider.CacheCleared += clearedHandler;
+                _evictedHandlers[name] = evictedHandler;
+                _clearedHandlers[name] = clearedHandler;
 
                 // If this is the first provider, make it active
                 if (_activeProvider == null)
@@ -141,6 +147,17 @@ namespace PawSharp.Cache.Swapping
                 }
 
                 _providers.Remove(name);
+
+                if (_evictedHandlers.TryGetValue(name, out var evictedHandler))
+                {
+                    info.Provider.EntityEvicted -= evictedHandler;
+                    _evictedHandlers.Remove(name);
+                }
+                if (_clearedHandlers.TryGetValue(name, out var clearedHandler))
+                {
+                    info.Provider.CacheCleared -= clearedHandler;
+                    _clearedHandlers.Remove(name);
+                }
 
                 if (_options.EnableLogging)
                 {

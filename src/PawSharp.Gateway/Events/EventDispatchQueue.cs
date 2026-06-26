@@ -21,7 +21,7 @@ namespace PawSharp.Gateway.Events
     /// Bounded queue for event dispatching with automatic backpressure.
     /// Uses System.Threading.Channels for thread-safe async producer/consumer pattern.
     /// </summary>
-    internal class EventDispatchQueue : IDisposable
+    internal class EventDispatchQueue : IDisposable, IAsyncDisposable
     {
         private readonly Channel<EventDispatchItem> _channel;
         private readonly Task _processingTask;
@@ -219,6 +219,23 @@ namespace PawSharp.Gateway.Events
                     _logger?.LogWarning("Event dispatch queue drain did not complete within {Timeout}", timeout.Value);
                 }
             }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            Dispose();
+            if (_disposeTask is not null)
+            {
+                try
+                {
+                    await _disposeTask.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    _logger?.LogWarning("Event dispatch queue async drain did not complete within 10 seconds");
+                }
+            }
+            GC.SuppressFinalize(this);
         }
     }
 }

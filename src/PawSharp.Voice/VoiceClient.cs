@@ -133,6 +133,7 @@ public class VoiceClient : IDisposable
         if (!shouldProceed)
         {
             _logger.LogWarning("Voice reconnection failed for channel {ChannelId} after {Attempts} attempts", channelId, state.Attempts);
+            _pendingSessions.TryRemove(connection.GuildId, out _);
             await DisconnectAsync(connection.Channel).ConfigureAwait(false);
             return;
         }

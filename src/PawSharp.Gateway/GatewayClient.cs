@@ -54,7 +54,7 @@ namespace PawSharp.Gateway
         VoiceServerCrashed = 4015
     }
 
-    public class GatewayClient : IGatewayClient
+    public class GatewayClient : IGatewayClient, IDisposable
     {
         private readonly PawSharpOptions _options;
         private readonly ILogger _logger;
@@ -66,7 +66,13 @@ namespace PawSharp.Gateway
         private readonly ReconnectionManager _reconnectionManager;
         private readonly GatewayDiagnostics _diagnostics;
         private CancellationTokenSource? _cts;
+        private CancellationTokenSource? _rateLimitReleaseCts;
         private Task? _receiveTask;
+        private bool _disposed;
+        
+        private Func<int, Task>? _reconnectionAttemptHandler;
+        private Func<Task>? _reconnectionFailedHandler;
+        private Func<Task>? _zombieConnectionHandler;
         
         private GatewayState _currentState = GatewayState.Disconnected;
         
@@ -166,22 +172,26 @@ namespace PawSharp.Gateway
             _reconnectionManager = new ReconnectionManager(logger!, metrics, options.Reconnection);
             _diagnostics = new GatewayDiagnostics();
             
-            _reconnectionManager.OnReconnectionAttempt += async (attempt) =>
+            _reconnectionAttemptHandler = async (attempt) =>
             {
                 OnReconnectionAttempt?.Invoke(attempt);
                 await Task.CompletedTask;
             };
-            _reconnectionManager.OnReconnectionFailed += async () =>
+            _reconnectionManager.OnReconnectionAttempt += _reconnectionAttemptHandler;
+
+            _reconnectionFailedHandler = async () =>
             {
                 await SetStateAsync(GatewayState.Failed).ConfigureAwait(false);
                 OnReconnectionFailed?.Invoke();
             };
+            _reconnectionManager.OnReconnectionFailed += _reconnectionFailedHandler;
 
-            _heartbeatManager.OnZombieConnection += async () =>
+            _zombieConnectionHandler = async () =>
             {
                 _logger.LogError("Zombie connection detected - reconnecting...");
                 await ReconnectAsync().ConfigureAwait(false);
             };
+            _heartbeatManager.OnZombieConnection += _zombieConnectionHandler;
         }
 
         /// <summary>
@@ -220,6 +230,8 @@ namespace PawSharp.Gateway
             }
 
             await SetStateAsync(GatewayState.Connecting).ConfigureAwait(false);
+            _rateLimitReleaseCts?.Dispose();
+            _rateLimitReleaseCts = new CancellationTokenSource();
             _cts = new CancellationTokenSource();
 
             // Discord requires using resume_gateway_url (from the most recent READY) when
@@ -323,8 +335,13 @@ namespace PawSharp.Gateway
 
             _logger.LogInformation("Disconnecting from Discord Gateway...");
             await _heartbeatManager.StopAsync().ConfigureAwait(false);
+            _rateLimitReleaseCts?.Cancel();
+            _rateLimitReleaseCts?.Dispose();
+            _rateLimitReleaseCts = null;
             _cts?.Cancel();
-            await _webSocket.DisconnectAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+            _cts?.Dispose();
+            _cts = null;
+            await _webSocket.DisconnectAsync(CancellationToken.None).ConfigureAwait(false);
             await SetStateAsync(GatewayState.Disconnected).ConfigureAwait(false);
             _logger.LogInformation("Disconnected from Discord Gateway.");
         }
@@ -767,13 +784,18 @@ namespace PawSharp.Gateway
                     int interval = intervalProp.GetInt32();
                     _logger.LogInformation("Received heartbeat interval: {Interval}ms", interval);
                     
+                    if (_zombieConnectionHandler != null)
+                        _heartbeatManager.OnZombieConnection -= _zombieConnectionHandler;
                     await _heartbeatManager.StopAsync().ConfigureAwait(false);
+                    _heartbeatManager.Dispose();
+
                     _heartbeatManager = new HeartbeatManager(interval, SendHeartbeatAsync, _logger, _options.MaxMissedHeartbeatAcks);
-                    _heartbeatManager.OnZombieConnection += async () =>
+                    _zombieConnectionHandler = async () =>
                     {
                         _logger.LogError("Zombie connection detected - reconnecting...");
                         await ReconnectAsync().ConfigureAwait(false);
                     };
+                    _heartbeatManager.OnZombieConnection += _zombieConnectionHandler;
                     _heartbeatManager.StartWithJitter();
                 }
             }
@@ -795,9 +817,7 @@ namespace PawSharp.Gateway
             if (!isHeartbeat)
             {
                 await _wsRateLimiter.WaitAsync(ct).ConfigureAwait(false);
-                // Return the token to the bucket after 60 s (sliding window).
-                // Use _cts token for cancellation so the delay stops on disconnect.
-                var releaseCt = _cts?.Token ?? CancellationToken.None;
+                var releaseCt = _rateLimitReleaseCts?.Token ?? CancellationToken.None;
                 _ = Task.Run(async () =>
                 {
                     try
@@ -807,8 +827,6 @@ namespace PawSharp.Gateway
                     }
                     catch (OperationCanceledException)
                     {
-                        // Connection was closed; release immediately so the semaphore
-                        // does not leak permits.
                         _wsRateLimiter.Release();
                     }
                     catch (Exception ex)
@@ -1186,6 +1204,28 @@ namespace PawSharp.Gateway
             }
 
             await SetStateAsync(GatewayState.Ready).ConfigureAwait(false);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            if (_reconnectionAttemptHandler != null)
+                _reconnectionManager.OnReconnectionAttempt -= _reconnectionAttemptHandler;
+            if (_reconnectionFailedHandler != null)
+                _reconnectionManager.OnReconnectionFailed -= _reconnectionFailedHandler;
+            if (_zombieConnectionHandler != null)
+                _heartbeatManager.OnZombieConnection -= _zombieConnectionHandler;
+
+            _rateLimitReleaseCts?.Cancel();
+            _rateLimitReleaseCts?.Dispose();
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _webSocket?.Dispose();
+            _wsRateLimiter?.Dispose();
+            _eventDispatcher?.Dispose();
+            _heartbeatManager?.Dispose();
         }
     }
 }

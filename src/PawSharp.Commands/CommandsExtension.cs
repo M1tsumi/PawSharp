@@ -428,6 +428,8 @@ public class CommandsExtension
     private readonly IServiceProvider? _serviceProvider;
     private readonly bool _caseSensitive;
     private IDiscordClient? _client;
+    private IDisposable? _messageSubscription;
+    private bool _subscriptionRegistered;
 
     /// <summary>
     /// Invoked when a command throws an unhandled exception.
@@ -487,9 +489,10 @@ public class CommandsExtension
 
         _client = client;
 
-        if (_client != null && !_commands.Any())
+        if (_client != null && !_commands.Any() && !_subscriptionRegistered)
         {
-            _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _messageSubscription = _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _subscriptionRegistered = true;
         }
 
         var type = module.GetType();
@@ -547,6 +550,13 @@ public class CommandsExtension
         {
             _commands.Remove(kvp.Key);
         }
+
+        if (_commands.Count == 0 && _subscriptionRegistered)
+        {
+            _messageSubscription?.Dispose();
+            _messageSubscription = null;
+            _subscriptionRegistered = false;
+        }
     }
 
     /// <summary>
@@ -563,9 +573,10 @@ public class CommandsExtension
 
         _client = client;
 
-        if (_client != null && !_commands.Any())
+        if (_client != null && !_commands.Any() && !_subscriptionRegistered)
         {
-            _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _messageSubscription = _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _subscriptionRegistered = true;
         }
 
         // Allow async initialization

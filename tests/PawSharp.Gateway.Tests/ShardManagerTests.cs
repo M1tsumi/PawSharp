@@ -116,4 +116,71 @@ public class ShardManagerTests
         // Assert
         count.Should().Be(0);
     }
+
+    [Fact]
+    public void Dispose_WhenNoShards_DoesNotThrow()
+    {
+        // Arrange
+        var shardManager = new ShardManager(_options, _loggerMock.Object);
+
+        // Act
+        var act = () => shardManager.Dispose();
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Dispose_CanBeCalledMultipleTimes()
+    {
+        // Arrange
+        var shardManager = new ShardManager(_options, _loggerMock.Object);
+
+        // Act
+        var act = () =>
+        {
+            shardManager.Dispose();
+            shardManager.Dispose();
+        };
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Dispose_ClearsShardsAndStatuses()
+    {
+        // Arrange
+        var shardManager = new ShardManager(_options, _loggerMock.Object);
+
+        // Act
+        shardManager.Dispose();
+
+        // Assert
+        shardManager.GetAllShardStatuses().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Dispose_DisposesEventDispatcher()
+    {
+        // Arrange
+        var shardManager = new ShardManager(_options, _loggerMock.Object);
+
+        // Act
+        shardManager.Dispose();
+        shardManager.Events.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DisconnectAllAsync_WhenNoShards_DoesNotThrow()
+    {
+        // Arrange
+        var shardManager = new ShardManager(_options, _loggerMock.Object);
+
+        // Act
+        var act = async () => await shardManager.DisconnectAllAsync();
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
 }

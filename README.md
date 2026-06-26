@@ -20,14 +20,14 @@
 
 We're building a Discord API wrapper for .NET that's modular, predictable, and actually pleasant to use. You can grab the full client and be running in a few lines, or pick just the pieces you need if you already have your own setup.
 
-We're currently at **`1.1.0-alpha.5`** — things are still taking shape, but all the core pieces work. Check the [changelog][changelog] and [migration guide][migration] if you're coming from an earlier version.
+We're currently at **`1.1.0-alpha.4`** — things are still taking shape, but all the core pieces work. Check the [changelog][changelog] and [migration guide][migration] if you're coming from an earlier version.
 
 ---
 
 ## Starting from scratch
 
 ```bash
-dotnet add package PawSharp.Client --version 1.1.0-alpha.5
+dotnet add package PawSharp.Client --version 1.1.0-alpha.4
 ```
 
 ```csharp

@@ -36,7 +36,7 @@ namespace PawSharp.Client
     /// Primary entry point for bots interacting with Discord.
     /// Composes the REST client, gateway, cache, and interaction handler.
     /// </summary>
-    public class DiscordClient : IDiscordClient
+    public class DiscordClient : IDiscordClient, IDisposable
     {
         private readonly PawSharpOptions _options;
         private readonly ILogger<DiscordClient> _logger;
@@ -47,6 +47,9 @@ namespace PawSharp.Client
         private readonly CacheManager _cacheManager;
         private readonly object _stateLock = new();
         private volatile ClientConnectionState _connectionState = ClientConnectionState.Disconnected;
+        private readonly List<IDisposable> _eventTokens = new();
+        private bool _disposed;
+        private static bool _globalExceptionHandlersRegistered;
 
         /// <summary>
         /// Gets the current connection state of the client.
@@ -95,7 +98,7 @@ namespace PawSharp.Client
             _cacheManager.SubscribeToGateway(_gatewayClient);
 
             // Cache CurrentUser from READY event
-            _gatewayClient.Events.On<ReadyEvent>("READY", e =>
+            _eventTokens.Add(_gatewayClient.Events.On<ReadyEvent>("READY", e =>
             {
                 CurrentUser = e.User;
                 // Apply initial presence if configured
@@ -107,10 +110,10 @@ namespace PawSharp.Client
                         presence.StreamUrl);
                 }
                 return Task.CompletedTask;
-            });
+            }));
 
             // Subscribe to interaction events
-            _gatewayClient.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", HandleInteractionAsync);
+            _eventTokens.Add(_gatewayClient.Events.On<InteractionCreateEvent>("INTERACTION_CREATE", HandleInteractionAsync));
         }
 
         // ── Public surface ────────────────────────────────────────────────────────
@@ -274,6 +277,9 @@ namespace PawSharp.Client
             ILogger? logger = null,
             Action<Exception, string>? onUnhandledException = null)
         {
+            if (_globalExceptionHandlersRegistered) return;
+            _globalExceptionHandlersRegistered = true;
+
             AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
             {
                 var ex = args.ExceptionObject as Exception;
@@ -288,6 +294,11 @@ namespace PawSharp.Client
                 onUnhandledException?.Invoke(args.Exception, "Unobserved task exception");
                 args.SetObserved();
             };
+        }
+
+        public static void RemoveGlobalExceptionHandlers()
+        {
+            _globalExceptionHandlersRegistered = false;
         }
 
         // ── Typed REST helpers ────────────────────────────────────────────────────
@@ -2107,6 +2118,27 @@ namespace PawSharp.Client
             {
                 _logger.LogError(ex, "Unhandled exception in interaction handler for interaction {InteractionId}", interaction.Id);
             }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            foreach (var token in _eventTokens)
+            {
+                token.Dispose();
+            }
+            _eventTokens.Clear();
+
+            _cacheManager?.Dispose();
+
+            if (_interactionHandler is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            RemoveGlobalExceptionHandlers();
         }
     }
 }

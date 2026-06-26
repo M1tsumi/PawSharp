@@ -9,11 +9,18 @@ namespace PawSharp.API.RateLimit;
 /// <summary>
 /// Advanced rate limiter with per-route bucket management.
 /// </summary>
-public class AdvancedRateLimiter : IAdvancedRateLimiter
+public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
 {
     private readonly ConcurrentDictionary<string, RateLimitBucket> _buckets = new();
     private readonly SemaphoreSlim _globalLimitSemaphore = new(1, 1);
     private DateTimeOffset _globalResetAt = DateTimeOffset.MinValue;
+    private readonly Timer? _cleanupTimer;
+    private bool _disposed;
+
+    public AdvancedRateLimiter()
+    {
+        _cleanupTimer = new Timer(_ => CleanupStaleBuckets(), null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+    }
 
     /// <summary>
     /// Wait for rate limit clearance before executing a request.
@@ -83,6 +90,14 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter
                 _buckets.TryRemove(kvp.Key, out _);
             }
         }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _cleanupTimer?.Dispose();
+        _globalLimitSemaphore.Dispose();
     }
 }
 

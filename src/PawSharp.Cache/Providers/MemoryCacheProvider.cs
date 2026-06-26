@@ -22,7 +22,8 @@ namespace PawSharp.Cache.Providers
         private readonly ConcurrentDictionary<string, GuildMember> _members; // Key: guildId:userId
         private readonly ConcurrentDictionary<string, Role> _roles; // Key: guildId:roleId
         private readonly ConcurrentDictionary<string, Emoji> _emojis; // Key: guildId:emojiId
-        private readonly ConcurrentDictionary<string, (object entity, DateTime timestamp)> _genericCache; // Generic cache with expiration
+        private readonly ConcurrentDictionary<string, (object entity, DateTime timestamp)> _genericCache;
+        private const int GenericCacheMaxSize = 10000;
 
         // Bounded caching configuration
         private readonly int _maxGuilds;
@@ -233,6 +234,18 @@ namespace PawSharp.Cache.Providers
         public void Add(string key, object entity)
         {
             _genericCache[key] = (entity, DateTime.UtcNow);
+            if (_genericCache.Count > GenericCacheMaxSize)
+            {
+                var keysToRemove = _genericCache
+                    .OrderBy(kvp => kvp.Value.timestamp)
+                    .Take(_genericCache.Count - GenericCacheMaxSize)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+                foreach (var k in keysToRemove)
+                {
+                    _genericCache.TryRemove(k, out _);
+                }
+            }
         }
 
         public object? Get(string key)
@@ -278,8 +291,7 @@ namespace PawSharp.Cache.Providers
                 var keysToRemove = keysWithAccess
                     .OrderBy(k => k.access)
                     .Take(cache.Count - maxSize)
-                    .Select(k => k.key)
-                    .ToList();
+                    .Select(k => k.key);
 
                 foreach (var key in keysToRemove)
                 {

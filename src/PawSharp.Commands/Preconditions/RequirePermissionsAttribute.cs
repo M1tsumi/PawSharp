@@ -106,7 +106,7 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
             _permissionCache[cacheKey] = (effectivePermissions, now.Add(CacheTtl));
             
             // Periodic cleanup of expired cache entries
-            if (_permissionCache.Count > 1000)
+            if (_permissionCache.Count > 1000 || (DateTime.UtcNow - _lastCacheCleanup) > CacheCleanupInterval)
             {
                 var expiredKeys = _permissionCache
                     .Where(kvp => kvp.Value.expiry <= now)
@@ -117,6 +117,7 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
                 {
                     _permissionCache.Remove(key);
                 }
+                _lastCacheCleanup = DateTime.UtcNow;
             }
         }
 
@@ -165,6 +166,8 @@ public sealed class RequirePermissionsAttribute : Attribute, IPrecondition
         _permissionCache = new();
     private static readonly object _cacheLock = new();
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan CacheCleanupInterval = TimeSpan.FromMinutes(10);
+    private static DateTime _lastCacheCleanup = DateTime.UtcNow;
 
     private static ulong? ComputeBasePermissions(Guild guild, GuildMember member, ulong userId)
     {
