@@ -126,7 +126,7 @@ public class EventReplayBufferTests
         buffer.RecordEvent("MESSAGE_CREATE", new MessageCreateEvent { Content = "World" });
 
         var replayCount = 0;
-        dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", _ => replayCount++);
+        dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", _ => { replayCount++; return Task.CompletedTask; });
 
         await buffer.ReplayAsync(dispatcher);
         replayCount.Should().Be(2);
@@ -142,7 +142,7 @@ public class EventReplayBufferTests
         buffer.RecordEvent("GUILD_CREATE", new GuildCreateEvent { Id = 1UL });
 
         var replayCount = 0;
-        dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", _ => replayCount++);
+        dispatcher.On<MessageCreateEvent>("MESSAGE_CREATE", _ => { replayCount++; return Task.CompletedTask; });
 
         await buffer.ReplayAsync(dispatcher, e => e.EventName == "MESSAGE_CREATE");
         replayCount.Should().Be(1);

@@ -220,6 +220,12 @@ namespace PawSharp.Gateway.Events
                         syncHandler(eventData);
                     else if (handler is Action<string> rawHandler && rawJson != null)
                         rawHandler(rawJson);
+                    else
+                    {
+                        var result = handler.DynamicInvoke(eventData);
+                        if (result is Task task)
+                            await task.ConfigureAwait(false);
+                    }
                 }
                 catch (Exception ex)
                 {

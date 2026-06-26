@@ -179,6 +179,7 @@ namespace PawSharp.Gateway.Events
         /// </summary>
         public void Dispose()
         {
+            if (_disposed) return;
             _channel.Writer.Complete();
             _disposed = true;
             // Fire-and-forget with timeout to avoid blocking the caller thread.
