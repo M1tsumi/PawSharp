@@ -3,7 +3,7 @@
 
   # PawSharp
 
-  **A Discord API wrapper for .NET that doesn't get in your way.**
+  **Build Discord bots without fighting your framework.**
 
   [![NuGet][nuget-badge]][nuget]
   [![Discord API][discord-api-badge]][discord-docs]
@@ -18,13 +18,24 @@
 
 ---
 
-We're building a Discord API wrapper for .NET that's modular, predictable, and actually pleasant to use. You can grab the full client and be running in a few lines, or pick just the pieces you need if you already have your own setup.
+We're at **`1.1.0-alpha.4`** — core pieces work, things are still settling.
 
-We're currently at **`1.1.0-alpha.4`** — things are still taking shape, but all the core pieces work. Check the [changelog][changelog] and [migration guide][migration] if you're coming from an earlier version.
+## Why PawSharp?
+
+Discord.NET and DSharpPlus are solid, but both started before .NET had things like `System.Text.Json`, nullable reference types, or native AOT. PawSharp is built for modern .NET from the ground up:
+
+- **Modular packages** — install only what you need
+- **async-first** — every API call returns `Task<T>`, no sync-over-async
+- **Typed events** — gateway events map to strongly-typed C# classes
+- **Automatic rate limiting** — built into the REST client
+- **Fluent builder** — configure with `.WithX()`, not a wall of constructor args
+- **Native AOT ready** — source-generated JSON, trimming safe
+
+[Why PawSharp vs Discord.NET?](#why-not-discordnet)
 
 ---
 
-## Starting from scratch
+## Quickstart
 
 ```bash
 dotnet add package PawSharp.Client --version 1.1.0-alpha.4
@@ -54,92 +65,107 @@ await client.ConnectAsync();
 await Task.Delay(Timeout.Infinite);
 ```
 
-```bash
-export DISCORD_TOKEN="your-bot-token-here"
-dotnet run
+```
+$ DISCORD_TOKEN="your-token" dotnet run
+> !ping
+< Pong!
 ```
 
-That's it. The builder connects the REST client, gateway, cache, and logging. One event handler. Your bot is online.
+This example shows: configuring a client, connecting to Discord, listening for events, sending a message.
 
 ---
 
-## What's here
+## Which package do I need?
 
-PawSharp is split into separate packages. You can install `PawSharp.Client` and get everything, or just what you need.
+| If you want to... | Install |
+|---|---|
+| Build a normal Discord bot | `PawSharp.Client` |
+| Use only the REST API | `PawSharp.API` |
+| Add slash commands | `PawSharp.Commands` + `PawSharp.Interactions` |
+| Add voice support | `PawSharp.Voice` |
+| Add caching | `PawSharp.Cache` |
 
-| Package | What's in it |
-|---------|-------------|
-| `PawSharp.Client` | Top-level `DiscordClient`, fluent builder, DI wiring, connection state, 130+ convenience methods |
-| `PawSharp.Core` | Entities, enums, builders, validation |
-| `PawSharp.API` | REST client with ~140 endpoints, auto rate limiting, telemetry |
-| `PawSharp.Gateway` | WebSocket, heartbeat, resume, reconnection, sharding, typed events |
-| `PawSharp.Commands` | Prefix commands via `[Command]`, preconditions, type conversion |
-| `PawSharp.Interactions` | Slash commands, buttons, modals, autocomplete, context menus |
-| `PawSharp.Interactivity` | Pagination, reaction/button waits, polls, confirmations |
-| `PawSharp.Voice` | Voice gateway, UDP audio, Opus, DAVE E2EE |
-| `PawSharp.Cache` | In-memory and Redis cache, per-entity TTL, health checks |
+`PawSharp.Client` already includes the packages most bots need — you're done with one `dotnet add package`.
 
 ---
 
-## The gist of each piece
+## What's in the box
 
-**REST API** covers messages, channels, guilds, members, roles, webhooks, threads, reactions, slash commands, audit logs, auto-moderation, scheduled events, stage instances, stickers, soundboard, polls, and entitlements. Everything's typed and rate limits are handled automatically.
+**REST API** — channels, messages, guilds, members, roles, webhooks, threads, slash commands, audit logs, auto-moderation, scheduled events, stage instances, stickers, soundboard, polls, and entitlements. Rate limits are handled automatically.
 
-**Gateway** gives you WebSocket lifecycle with resume, heartbeat monitoring, and backoff reconnection. There are ~40 typed events. Sharding is built-in for larger bots.
+**Gateway** — WebSocket client with resume, heartbeat monitoring, and backoff reconnection. Sharding is built-in. Events map to typed C# objects.
 
-**Commands** are attribute-based prefix commands. Has middleware, type conversion (14 built-in converters, plus you can write your own), and preconditions for permissions, roles, cooldowns, and the like. Module auto-discovery is one method call.
+**Commands** — attribute-based prefix commands with middleware, type conversion, and preconditions (permissions, roles, cooldowns). Module auto-discovery is one method call.
 
-**Interactions** handles slash commands, buttons, select menus, modals, and context menus. The `InteractionHandler` routes them with error recovery so users don't get the dreaded "This interaction failed" screen.
+**Interactions** — slash commands, buttons, select menus, modals, autocomplete, context menus. The interaction handler routes them with error recovery so users don't see "This interaction failed."
 
-**Interactivity** gives you paginated messages, confirmation dialogs, input prompts, and polls. Everything's async and timeout-based.
+**Interactivity** — pagination, confirmation dialogs, input prompts, polls. Async and timeout-based.
 
-**Voice** does UDP audio with Opus (pure .NET via Concentus, zero native code) and DAVE E2EE (MLS / RFC 9420 with DHKEM(P-256, HKDF-SHA256) ciphersuite and AES-128-GCM frame encryption). Multiple simultaneous connections work.
+**Voice** — join voice channels, play and receive audio. Pure .NET Opus via Concentus, no native dependencies. DAVE E2EE (MLS / RFC 9420) for encrypted voice. [See the voice guide][voice-guide].
 
-**Caching** can be in-memory or Redis, with per-entity TTL, eviction, and health checks. You can swap providers at runtime — if Redis goes down, it falls back gracefully.
+**Caching** — in-memory or Redis, per-entity TTL, eviction, health checks. Providers can be swapped at runtime.
+
+---
+
+## Why not Discord.NET?
+
+| Feature | PawSharp | Discord.NET | DSharpPlus |
+|---|---|---|---|
+| Modular packages | ✅ | ❌ | ❌ |
+| async-first API | ✅ | Partial | Partial |
+| Native AOT ready | ✅ | ❌ | ❌ |
+| Typed gateway events | ✅ | ✅ | ✅ |
+| Fluent builder | ✅ | Partial | ❌ |
+| Automatic rate limiting | ✅ | ✅ | ✅ |
+| Voice (no native deps) | ✅ | ❌ | ❌ |
+| Slash commands | ✅ | ✅ | ✅ |
+
+PawSharp isn't trying to replace every library — it's the option if you want modern .NET features, modularity, and clean APIs without fighting a framework that predates them.
 
 ---
 
 ## Working examples
 
-The [examples/][examples] directory has bots you can actually run:
+The [examples/][examples] directory has bots you can run:
 
-- **ModerationBot** — REST operations, gateway events, basic moderation. Uses the low-level API directly.
+- **ModerationBot** — REST operations, gateway events, basic moderation. Uses the low-level API.
 - **MusicBot** — DI setup, commands, voice. Shows the module pattern.
-- **DashboardBot** — ASP.NET integration, interaction handlers, webhook verification. HTTP interaction mode.
+- **DashboardBot** — ASP.NET integration, interaction handlers, webhook verification.
 
 Each has its own README.
 
 ---
 
-## Going further
+## Learn more
 
-- [Getting Started][dev-guide] — setup, your first bot, config
-- [REST API Guide][rest-guide] — endpoint reference
-- [Gateway Guide][gateway-guide] — events, lifecycle, sharding
-- [Caching Guide][caching-guide] — in-memory and Redis
-- [Voice Guide][voice-guide] — voice connections, Opus, DAVE
-- [Patterns Guide][patterns-guide] — moderation, logging, pagination
-- [Error Handling][error-handling] — exception hierarchy, recovery
-- [Migration Guide][migration] — breaking changes between versions
-- [Troubleshooting][troubleshooting] — common problems and fixes
+- [Getting Started][dev-guide]
+- [REST API][rest-guide]
+- [Gateway Events][gateway-guide]
+- [Commands & Interactions](docs/INTERACTIONS_GUIDE.md)
+- [Voice][voice-guide]
+- [Caching][caching-guide]
+- [Patterns & Best Practices][patterns-guide]
+- [Error Handling][error-handling]
+- [Migration Guide][migration]
+- [Troubleshooting][troubleshooting]
 
 ---
 
-## A note on versioning
+## Versioning
 
-We follow [Semantic Versioning](https://semver.org/). Until we reach 1.0.0 stable, minor bumps may include breaking changes. We keep a clean changelog and migration guide so you're not left guessing.
+We follow [SemVer](https://semver.org/). Until 1.0.0, minor bumps may include breaking changes. The [changelog][changelog] and [migration guide][migration] track everything.
 
 ---
 
 ## Contributing
 
-Pull requests are welcome. Read [CONTRIBUTING.md][contributing] first — it covers code style, testing, and how releases work.
+Pull requests welcome. Read [CONTRIBUTING.md][contributing] first.
 
 ---
 
 ## Community
 
-Got questions, ideas, or just want to hang out? [Join our Discord][discord].
+[Join our Discord][discord] — questions, ideas, or just to hang out.
 
 ---
 
@@ -173,6 +199,5 @@ MIT. See [LICENSE][license].
 [changelog]:         CHANGELOG.md
 [examples]:          examples/
 [contributing]:      CONTRIBUTING.md
-[versioning]:        docs/VERSIONING_POLICY.md
 [discord]:           https://discord.gg/6Z8X8cCHXs
 [discord-badge]:     https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white
