@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
 using PawSharp.Interactions.Builders;
-using PawSharp.Interactions.Models;
+using PawSharp.Core.Entities;
 using Xunit;
 
 namespace PawSharp.Interactions.Tests;

@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,8 +50,11 @@ namespace PawSharp.Client
         private readonly object _stateLock = new();
         private volatile ClientConnectionState _connectionState = ClientConnectionState.Disconnected;
         private readonly List<IDisposable> _eventTokens = new();
+        private readonly ConcurrentDictionary<ulong, VoiceState> _voiceStates = new();
         private bool _disposed;
         private static bool _globalExceptionHandlersRegistered;
+
+        public event Func<VoiceState, Task>? OnVoiceDisconnected;
 
         /// <summary>
         /// Gets the current connection state of the client.
@@ -109,6 +114,43 @@ namespace PawSharp.Client
                         presence.ActivityName,
                         presence.StreamUrl);
                 }
+                return Task.CompletedTask;
+            }));
+
+            // Track voice states and fire voice disconnect events
+            _eventTokens.Add(_gatewayClient.Events.On<VoiceStateUpdateEvent>("VOICE_STATE_UPDATE", e =>
+            {
+                var state = new VoiceState
+                {
+                    GuildId = e.GuildId,
+                    ChannelId = e.ChannelId,
+                    UserId = e.UserId,
+                    Member = e.Member,
+                    SessionId = e.SessionId,
+                    Deaf = e.Deaf,
+                    Mute = e.Mute,
+                    SelfDeaf = e.SelfDeaf,
+                    SelfMute = e.SelfMute,
+                    SelfStream = e.SelfStream,
+                    SelfVideo = e.SelfVideo,
+                    Suppress = e.Suppress,
+                    RequestToSpeakTimestamp = e.RequestToSpeakTimestamp,
+                };
+
+                if (e.ChannelId == null && e.GuildId.HasValue)
+                {
+                    _voiceStates.TryRemove(e.GuildId.Value, out _);
+                    var handlers = OnVoiceDisconnected;
+                    if (handlers != null)
+                    {
+                        return handlers.Invoke(state);
+                    }
+                }
+                else if (e.GuildId.HasValue)
+                {
+                    _voiceStates[e.GuildId.Value] = state;
+                }
+
                 return Task.CompletedTask;
             }));
 
@@ -1635,6 +1677,12 @@ namespace PawSharp.Client
         {
             return await _restClient.GetCurrentUserGuildMemberAsync(guildId).ConfigureAwait(false);
         }
+
+        // Voice state ───────────────────────────────────────────────────────────────────────
+
+        public IReadOnlyDictionary<ulong, VoiceState> VoiceStates => _voiceStates;
+
+        public VoiceState? GetVoiceState(ulong guildId) => _voiceStates.TryGetValue(guildId, out var state) ? state : null;
 
         // Voice state modification operations ────────────────────────────────────────────────
 
