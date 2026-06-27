@@ -11,16 +11,8 @@ namespace PawSharp.Voice.Extensions;
 /// </summary>
 public static class VoiceExtensions
 {
-    // One VoiceClient per DiscordClient instance — prevents duplicate gateway event subscriptions.
-    private static readonly ConditionalWeakTable<DiscordClient, VoiceClient> _instances = new();
+    private static readonly ConditionalWeakTable<IDiscordClient, VoiceClient> _instances = new();
 
-    /// <summary>
-    /// Enables voice support for the Discord client.
-    /// Returns the same <see cref="VoiceClient"/> on repeated calls for the same client instance.
-    /// </summary>
-    /// <param name="client">The Discord client.</param>
-    /// <param name="logger">Optional logger for voice diagnostics.</param>
-    /// <returns>The voice client.</returns>
-    public static VoiceClient UseVoice(this DiscordClient client, ILogger? logger = null)
-        => _instances.GetValue(client, c => new VoiceClient(c, logger));
+    public static VoiceClient UseVoice(this IDiscordClient client, ILogger? logger = null)
+        => _instances.GetValue(client, c => new VoiceClient((DiscordClient)c, logger));
 }

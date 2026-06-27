@@ -1,8 +1,10 @@
 #nullable enable
 using System;
 using System.Net.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PawSharp.API.Clients;
 using PawSharp.API.Interfaces;
 using PawSharp.API.RateLimit;
@@ -30,6 +32,83 @@ public static class PawSharpServiceCollectionExtensions
         this IServiceCollection services,
         PawSharpOptions options)
         => services.AddPawSharpWithMemoryCache(options);
+
+    /// <summary>
+    /// Sets up PawSharp using a bot token with optional fluent builder configuration.
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="token">The Discord bot token.</param>
+    /// <param name="configure">Optional delegate to configure the <see cref="PawSharpClientBuilder"/>.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
+    public static IServiceCollection SetupPawSharp(
+        this IServiceCollection services,
+        string token,
+        Action<PawSharpClientBuilder>? configure = null)
+    {
+        var builder = new PawSharpClientBuilder().WithToken(token);
+        configure?.Invoke(builder);
+        var client = builder.Build();
+        services.AddSingleton<IDiscordClient>(client);
+        services.AddSingleton((DiscordClient)client);
+        return services;
+    }
+
+    /// <summary>
+    /// Sets up PawSharp by binding <see cref="PawSharpOptions"/> from configuration and optionally
+    /// applying additional fluent builder configuration.
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="configuration">The configuration source to bind <see cref="PawSharpOptions"/> from.</param>
+    /// <param name="configure">Optional delegate to configure the <see cref="PawSharpClientBuilder"/>.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
+    public static IServiceCollection SetupPawSharp(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<PawSharpClientBuilder>? configure = null)
+    {
+        var options = new PawSharpOptions();
+        configuration.Bind(options);
+        var builder = new PawSharpClientBuilder();
+        ApplyOptions(builder, options);
+        configure?.Invoke(builder);
+        var client = builder.Build();
+        services.AddSingleton<IDiscordClient>(client);
+        services.AddSingleton((DiscordClient)client);
+        return services;
+    }
+
+    /// <summary>
+    /// Binds <see cref="PawSharpOptions"/> from the provided <see cref="IConfigurationSection"/>
+    /// using the standard <c>IOptions&lt;T&gt;</c> pattern.
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="section">The configuration section to bind options from.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
+    public static IServiceCollection ConfigurePawSharp(
+        this IServiceCollection services,
+        IConfigurationSection section)
+    {
+        services.Configure<PawSharpOptions>(section);
+        return services;
+    }
+
+    private static void ApplyOptions(PawSharpClientBuilder builder, PawSharpOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(options.Token))
+            builder.WithToken(options.Token);
+
+        builder.WithIntents(options.Intents);
+        builder.WithApiVersion(options.ApiVersion);
+
+        if (options.Shards != 1 || options.ShardCount != 1)
+            builder.WithSharding(options.Shards, options.ShardCount);
+
+        if (options.EnableCompression)
+            builder.UseCompression();
+
+        if (options.Presence != null)
+            builder.WithPresence(options.Presence.ActivityName, options.Presence.ActivityType, options.Presence.Status, options.Presence.StreamUrl);
+    }
 
     /// <summary>
     /// Registers all PawSharp services — REST client, gateway, cache, interaction handler, and <see cref="DiscordClient"/> —

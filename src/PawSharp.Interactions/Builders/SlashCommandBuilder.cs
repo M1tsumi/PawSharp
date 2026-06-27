@@ -1,6 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
-using PawSharp.Interactions.Models;
+using PawSharp.Core.Entities;
 using PawSharp.Core.Enums;
 
 namespace PawSharp.Interactions.Builders;

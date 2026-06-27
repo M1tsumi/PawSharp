@@ -46,6 +46,9 @@ public sealed class MessageBuilder
     /// <summary>Suppresses desktop push notifications.</summary>
     public const int FlagSuppressNotifications = 1 << 12;  // 4096
 
+    /// <summary>Required when the message uses Components v2 layout elements.</summary>
+    public const int FlagIsComponentsV2 = 1 << 15;  // 32768
+
     // ── State ──────────────────────────────────────────────────────────────────
 
     private string?              _content;
@@ -249,6 +252,36 @@ public sealed class MessageBuilder
         return this;
     }
 
+    // ── Components v2 detection ──────────────────────────────────────────────
+
+    private static bool IsComponentsV2(MessageComponent component)
+    {
+        if (component.Type == ComponentType.ActionRow)
+            return IsActionRowV2((ActionRow)component);
+
+        return component.Type is ComponentType.Section
+            or ComponentType.TextDisplay
+            or ComponentType.Thumbnail
+            or ComponentType.MediaGallery
+            or ComponentType.File
+            or ComponentType.Separator
+            or ComponentType.Container
+            or ComponentType.Label
+            or ComponentType.FileUpload
+            or ComponentType.RadioGroup
+            or ComponentType.CheckboxGroup
+            or ComponentType.Checkbox;
+    }
+
+    private static bool IsActionRowV2(ActionRow actionRow)
+    {
+        foreach (var child in actionRow.Components)
+            if (IsComponentsV2(child))
+                return true;
+
+        return false;
+    }
+
     // ── Build ──────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -269,11 +302,23 @@ public sealed class MessageBuilder
             throw new InvalidOperationException(
                 "A message must have at least one of: content, embeds, components, stickers, or a poll.");
 
+        var flags = _flags;
+
+        if (hasComponents)
+        {
+            foreach (var component in _components)
+                if (IsComponentsV2(component))
+                {
+                    flags |= FlagIsComponentsV2;
+                    break;
+                }
+        }
+
         return new CreateMessageRequest
         {
             Content          = _content,
             Tts              = _tts ? true : null,
-            Flags            = _flags != 0 ? _flags : null,
+            Flags            = flags != 0 ? flags : null,
             AllowedMentions  = _allowedMentions,
             MessageReference = _messageReference,
             Poll             = _poll,

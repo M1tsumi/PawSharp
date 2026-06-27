@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading.Tasks;
 using InteractionOption = PawSharp.Gateway.Events.ApplicationCommandInteractionDataOption;
 using PawSharp.Core.Enums;
 using PawSharp.Gateway.Events;
@@ -252,4 +253,16 @@ public static class InteractionExtensions
         try { return (T?)Convert.ChangeType(raw, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T)); }
         catch (Exception) { return default; }
     }
+
+    /// <summary>
+    /// Responds to an interaction with a text message.
+    /// </summary>
+    public static Task<bool> RespondAsync(this InteractionCreateEvent evt, InteractionHandler handler, string content, bool ephemeral = false)
+        => handler.RespondAsync(evt.Id, evt.Token, content, ephemeral);
+
+    /// <summary>
+    /// Responds to an interaction with an ephemeral text message.
+    /// </summary>
+    public static Task<bool> RespondEphemeralAsync(this InteractionCreateEvent evt, InteractionHandler handler, string content)
+        => handler.RespondEphemeralAsync(evt.Id, evt.Token, content);
 }

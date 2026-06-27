@@ -57,6 +57,9 @@ namespace PawSharp.Client
         /// <summary>Raised when rate-limit telemetry is emitted by the underlying REST client.</summary>
         event EventHandler<RateLimitTelemetryEvent>? RateLimitObserved;
 
+        /// <summary>Raised when the bot user disconnects from a voice channel.</summary>
+        event Func<VoiceState, Task>? OnVoiceDisconnected;
+
         // ── Connection ──────────────────────────────────────────────────────────
 
         /// <summary>Opens the WebSocket connection to Discord's gateway.</summary>
@@ -523,6 +526,10 @@ namespace PawSharp.Client
         Task<GuildMember?> GetCurrentUserGuildMemberAsync(ulong guildId);
 
         // ── Voice State ──────────────────────────────────────────────────────────
+
+        IReadOnlyDictionary<ulong, VoiceState> VoiceStates { get; }
+
+        VoiceState? GetVoiceState(ulong guildId);
 
         Task<bool> ModifyCurrentUserVoiceStateAsync(ulong guildId, ModifyCurrentUserVoiceStateRequest request);
 
