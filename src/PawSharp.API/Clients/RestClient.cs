@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -43,7 +44,9 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
         NumberHandling              = JsonNumberHandling.AllowReadingFromString,
         // Enable source generator for better AOT compatibility
-        TypeInfoResolver            = PawSharp.API.Serialization.PawSharpApiJsonContext.Default
+        TypeInfoResolver            = JsonTypeInfoResolver.Combine(
+            PawSharp.API.Serialization.PawSharpApiJsonContext.Default,
+            PawSharp.Core.Serialization.PawSharpJsonContext.Default)
     };
 
     /// <summary>Wraps an object as a UTF-8 JSON <see cref="StringContent"/> using Discord-compatible serializer options.</summary>
@@ -228,7 +231,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync(endpoint).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<Guild>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<Guild>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -274,7 +277,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"channels/{channelId}/messages", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -306,7 +309,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"channels/{channelId}/messages", content, null, cancellationToken).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -429,7 +432,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"channels/{channelId}/messages/{messageId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -852,7 +855,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/members{queryString}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<GuildMember>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<GuildMember>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -863,7 +866,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"guilds/{guildId}/members/{userId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildMember>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildMember>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -874,7 +877,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/members/{userId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildMember>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildMember>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -910,7 +913,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/bans{query}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<Ban>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<Ban>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -922,7 +925,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/bans/{userId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Ban>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Ban>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1033,7 +1036,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"webhooks/{applicationId}/{interactionToken}/messages/@original").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1078,7 +1081,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/commands").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1089,7 +1092,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"applications/{applicationId}/commands", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommand>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1099,7 +1102,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/commands/{commandId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommand>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1110,7 +1113,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"applications/{applicationId}/commands/{commandId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommand>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1126,7 +1129,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1137,7 +1140,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"applications/{applicationId}/guilds/{guildId}/commands", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommand>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1147,7 +1150,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommand>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1158,7 +1161,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommand>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommand>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1175,7 +1178,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"applications/{applicationId}/commands", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>(_jsonOptions).ConfigureAwait(false);
         }
         await LogSanitizedApiErrorAsync("BulkOverwriteGlobalApplicationCommands failed", response).ConfigureAwait(false);
         return null;
@@ -1187,7 +1190,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommand>>(_jsonOptions).ConfigureAwait(false);
         }
         await LogSanitizedApiErrorAsync("BulkOverwriteGuildApplicationCommands failed", response).ConfigureAwait(false);
         return null;
@@ -1199,7 +1202,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands/permissions").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationCommandPermissions>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommandPermissions>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1209,7 +1212,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}/permissions").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommandPermissions>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommandPermissions>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1220,7 +1223,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands/{commandId}/permissions", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<ApplicationCommandPermissions>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<ApplicationCommandPermissions>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1231,7 +1234,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"applications/{applicationId}/guilds/{guildId}/commands/permissions", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationCommandPermissions>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationCommandPermissions>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1244,7 +1247,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"channels/{channelId}/threads", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Channel>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Channel>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1255,7 +1258,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"channels/{channelId}/messages/{messageId}/threads", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Channel>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Channel>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1319,7 +1322,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"channels/{channelId}/thread-members{query}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ThreadMember>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ThreadMember>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1427,7 +1430,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/webhooks").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<Webhook>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<Webhook>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1444,7 +1447,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"webhooks/{webhookId}/{token}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Webhook>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Webhook>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1463,7 +1466,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"webhooks/{webhookId}/{token}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Webhook>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Webhook>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1504,7 +1507,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync(endpoint, content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1520,7 +1523,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync(endpoint).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1538,7 +1541,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync(endpoint, content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1591,7 +1594,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/{guildId}/scheduled-events", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1602,7 +1605,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/scheduled-events{query}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<GuildScheduledEvent>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<GuildScheduledEvent>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1613,7 +1616,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/scheduled-events/{eventId}{query}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1624,7 +1627,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/scheduled-events/{eventId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildScheduledEvent>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1663,7 +1666,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/scheduled-events/{eventId}/users{queryString}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<User>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<User>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1702,7 +1705,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/audit-logs{queryString}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<AuditLog>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<AuditLog>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1713,7 +1716,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/auto-moderation/rules").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<AutoModerationRule>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<AutoModerationRule>>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1723,7 +1726,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/auto-moderation/rules/{ruleId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<AutoModerationRule>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<AutoModerationRule>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1734,7 +1737,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/{guildId}/auto-moderation/rules", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<AutoModerationRule>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<AutoModerationRule>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1745,7 +1748,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/auto-moderation/rules/{ruleId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<AutoModerationRule>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<AutoModerationRule>(_jsonOptions).ConfigureAwait(false);
         }
         return null;
     }
@@ -1763,7 +1766,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync("stage-instances", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<StageInstance>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<StageInstance>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1801,7 +1804,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync("sticker-packs").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<StickerPack>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<StickerPack>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1812,7 +1815,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/stickers").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<Sticker>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<Sticker>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1823,7 +1826,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/stickers/{stickerId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Sticker>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Sticker>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1846,7 +1849,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/{guildId}/stickers", formContent).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Sticker>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Sticker>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1858,7 +1861,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/stickers/{stickerId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Sticker>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Sticker>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1878,7 +1881,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync("users/@me/channels", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Channel>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Channel>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1890,7 +1893,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync("gateway/bot").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GatewayBotInfo>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GatewayBotInfo>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1903,7 +1906,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await _httpClient.GetAsync("gateway").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GatewayInfo>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GatewayInfo>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1915,7 +1918,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync("voice/regions").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1926,7 +1929,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/regions").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<VoiceRegion>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1946,7 +1949,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"channels/{channelId}/messages/{messageId}/crosspost", null).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1966,7 +1969,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync("users/@me/connections").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<UserConnection>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<UserConnection>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -1986,7 +1989,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/members/search?{string.Join("&", queryParams)}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<GuildMember>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<GuildMember>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2000,7 +2003,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/members/@me", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildMember>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildMember>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2029,7 +2032,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync(endpoint).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            var result = await response.Content.ReadFromJsonAsync<PollVotersResponse>().ConfigureAwait(false);
+            var result = await response.Content.ReadFromJsonAsync<PollVotersResponse>(_jsonOptions).ConfigureAwait(false);
             return result?.Users;
         }
         return null;
@@ -2040,7 +2043,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"channels/{channelId}/polls/{messageId}/expire", new StringContent("{}", Encoding.UTF8, "application/json")).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Message>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Message>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2052,7 +2055,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/skus").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<Sku>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<Sku>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2106,7 +2109,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync(endpoint).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<Entitlement>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<Entitlement>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2117,7 +2120,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/entitlements/{entitlementId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Entitlement>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Entitlement>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2129,7 +2132,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"applications/{applicationId}/entitlements", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Entitlement>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Entitlement>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2180,7 +2183,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync(endpoint).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<Subscription>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<Subscription>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2191,7 +2194,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"skus/{skuId}/subscriptions/{subscriptionId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Subscription>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Subscription>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2203,7 +2206,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync("soundboard-default-sounds").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<SoundboardSound>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<SoundboardSound>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2214,7 +2217,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/soundboard-sounds").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            var result = await response.Content.ReadFromJsonAsync<GuildSoundboardSoundsResponse>().ConfigureAwait(false);
+            var result = await response.Content.ReadFromJsonAsync<GuildSoundboardSoundsResponse>(_jsonOptions).ConfigureAwait(false);
             return result?.Items;
         }
         return null;
@@ -2225,7 +2228,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/soundboard-sounds/{soundId}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<SoundboardSound>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<SoundboardSound>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2237,7 +2240,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/{guildId}/soundboard-sounds", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<SoundboardSound>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<SoundboardSound>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2249,7 +2252,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/soundboard-sounds/{soundId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<SoundboardSound>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<SoundboardSound>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2267,7 +2270,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/onboarding").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildOnboarding>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildOnboarding>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2279,7 +2282,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"guilds/{guildId}/onboarding", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildOnboarding>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildOnboarding>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2291,7 +2294,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"applications/{applicationId}/role-connections/metadata").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2303,7 +2306,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"applications/{applicationId}/role-connections/metadata", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<ApplicationRoleConnectionMetadata>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2339,7 +2342,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync(endpoint).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<User>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<User>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2353,7 +2356,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"channels/{channelId}/followers", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<FollowedChannel>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<FollowedChannel>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2365,7 +2368,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/preview").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildPreview>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildPreview>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2377,7 +2380,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/widget").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2401,7 +2404,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/widget", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildWidgetSettings>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2413,7 +2416,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/vanity-url").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<VanityUrl>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<VanityUrl>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2425,7 +2428,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/welcome-screen").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<WelcomeScreen>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<WelcomeScreen>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2437,7 +2440,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/welcome-screen", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<WelcomeScreen>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<WelcomeScreen>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2487,7 +2490,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync(endpoint).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Invite>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Invite>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2498,7 +2501,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await DeleteAsync($"invites/{Uri.EscapeDataString(inviteCode)}", reason).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Invite>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Invite>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2510,7 +2513,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/{guildId}/templates").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<List<GuildTemplate>>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<List<GuildTemplate>>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2521,7 +2524,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await GetAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2533,7 +2536,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/templates/{Uri.EscapeDataString(templateCode)}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<Guild>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<Guild>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2545,7 +2548,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PostAsync($"guilds/{guildId}/templates", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2556,7 +2559,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PutAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", null).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2568,7 +2571,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await PatchAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;
@@ -2579,7 +2582,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         var response = await DeleteAsync($"guilds/{guildId}/templates/{Uri.EscapeDataString(templateCode)}").ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadFromJsonAsync<GuildTemplate>().ConfigureAwait(false);
+            return await response.Content.ReadFromJsonAsync<GuildTemplate>(_jsonOptions).ConfigureAwait(false);
         }
 
         return null;

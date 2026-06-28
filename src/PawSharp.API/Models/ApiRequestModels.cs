@@ -400,6 +400,17 @@ public class CreateApplicationCommandRequest
     public int? Handler { get; set; }
 }
 
+// User Request Models
+public class ModifyCurrentUserRequest
+{
+    public string? Username { get; set; }
+    public string? Avatar { get; set; }
+    public string? Banner { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("avatar_decoration_data")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? AvatarDecorationData { get; set; }
+}
+
 // Thread/Forum Models
 public class CreateThreadRequest
 {

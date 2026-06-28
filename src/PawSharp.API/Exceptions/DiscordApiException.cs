@@ -116,7 +116,7 @@ public class DiscordApiException : DiscordException
         return new DiscordApiException(
             message,
             statusCode,
-            discordErrorCode != null ? int.Parse(discordErrorCode) : null,
+            discordErrorCode != null && int.TryParse(discordErrorCode, out var code) ? code : null,
             discordErrorMessage,
             requestMethod,
             requestEndpoint);

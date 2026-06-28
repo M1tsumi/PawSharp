@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using PawSharp.API.Models;
 using PawSharp.Core.Entities;
 using PawSharp.Core.Enums;
 
@@ -174,5 +175,24 @@ public class SlashCommandBuilder
     public ApplicationCommand Build()
     {
         return _command;
+    }
+
+    public CreateApplicationCommandRequest ToCreateApplicationCommandRequest()
+    {
+        return new CreateApplicationCommandRequest
+        {
+            Name = _command.Name,
+            Description = _command.Description,
+            Options = _command.Options,
+            Type = (int)_command.Type,
+            DefaultPermission = _command.DefaultPermission,
+            DefaultMemberPermissions = ((ulong?)_command.DefaultMemberPermissions)?.ToString(),
+            DmPermission = _command.DmPermission,
+            Nsfw = _command.Nsfw,
+            NameLocalizations = _command.NameLocalizations,
+            DescriptionLocalizations = _command.DescriptionLocalizations,
+            IntegrationTypes = _command.IntegrationTypes,
+            Contexts = _command.Contexts
+        };
     }
 }

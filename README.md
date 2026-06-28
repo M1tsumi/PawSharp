@@ -18,20 +18,19 @@
 
 ---
 
-We're at **`1.1.0-alpha.4`** — core pieces work, things are still settling.
+We're at **`1.1.0-alpha.4`** - core pieces work, things are still settling.
 
 ## Why PawSharp?
 
-Discord.NET and DSharpPlus are solid, but both started before .NET had things like `System.Text.Json`, nullable reference types, or native AOT. PawSharp is built for modern .NET from the ground up:
+PawSharp is built for modern .NET from the ground up - modular packages, async-first APIs, source-generated JSON for native AOT, and a fluent builder that's actually pleasant to configure.
 
-- **Modular packages** — install only what you need
-- **async-first** — every API call returns `Task<T>`, no sync-over-async
-- **Typed events** — gateway events map to strongly-typed C# classes
-- **Automatic rate limiting** — built into the REST client
-- **Fluent builder** — configure with `.WithX()`, not a wall of constructor args
-- **Native AOT ready** — source-generated JSON, trimming safe
-
-[Why PawSharp vs Discord.NET?](#why-not-discordnet)
+- **Modular packages** - install only what you need. Use the full client for traditional bots, or compose just `PawSharp.API` + `PawSharp.Cache` for a lightweight REST-only setup.
+- **async-first** - every public API returns `Task<T>` or `ValueTask<T>`. No `.Result`, no `.Wait()`, no sync-over-async footguns.
+- **Typed events** - gateway events map to strongly-typed C# classes with proper nullable annotations. No guessing what a `JToken` contains.
+- **Automatic rate limiting** - built into the REST client with bucket tracking, global rate limit detection, and configurable retry. Handled transparently.
+- **Fluent builder** - configure with `.WithToken()`, `.WithIntents()`, `.UseConsoleLogging()` instead of a wall of constructor arguments.
+- **Native AOT ready** - source-generated `JsonSerializerContext` for every serializable type. No runtime reflection for JSON. Trimming-safe.
+- **Pure .NET voice** - Opus via Concentus (no native DLLs). DAVE E2EE encrypted voice (MLS / RFC 9420).
 
 ---
 
@@ -85,42 +84,27 @@ This example shows: configuring a client, connecting to Discord, listening for e
 | Add voice support | `PawSharp.Voice` |
 | Add caching | `PawSharp.Cache` |
 
-`PawSharp.Client` already includes the packages most bots need — you're done with one `dotnet add package`.
+`PawSharp.Client` already includes the packages most bots need - you're done with one `dotnet add package`.
 
 ---
 
 ## What's in the box
 
-**REST API** — channels, messages, guilds, members, roles, webhooks, threads, slash commands, audit logs, auto-moderation, scheduled events, stage instances, stickers, soundboard, polls, and entitlements. Rate limits are handled automatically.
+**REST API** - channels, messages, guilds, members, roles, webhooks, threads, slash commands, audit logs, auto-moderation, scheduled events, stage instances, stickers, soundboard, polls, and entitlements. Rate limits are handled automatically.
 
-**Gateway** — WebSocket client with resume, heartbeat monitoring, and backoff reconnection. Sharding is built-in. Events map to typed C# objects.
+**Gateway** - WebSocket client with resume, heartbeat monitoring, and backoff reconnection. Sharding is built-in. Events map to typed C# objects.
 
-**Commands** — attribute-based prefix commands with middleware, type conversion, and preconditions (permissions, roles, cooldowns). Module auto-discovery is one method call.
+**Commands** - attribute-based prefix commands with middleware, type conversion, and preconditions (permissions, roles, cooldowns). Module auto-discovery is one method call.
 
-**Interactions** — slash commands, buttons, select menus, modals, autocomplete, context menus. The interaction handler routes them with error recovery so users don't see "This interaction failed."
+**Interactions** - slash commands, buttons, select menus, modals, autocomplete, context menus. The interaction handler routes them with error recovery so users don't see "This interaction failed."
 
-**Interactivity** — pagination, confirmation dialogs, input prompts, polls. Async and timeout-based.
+**Interactivity** - pagination, confirmation dialogs, input prompts, polls. Async and timeout-based.
 
-**Voice** — join voice channels, play and receive audio. Pure .NET Opus via Concentus, no native dependencies. DAVE E2EE (MLS / RFC 9420) for encrypted voice. [See the voice guide][voice-guide].
+**Voice** - join voice channels, play and receive audio. Pure .NET Opus via Concentus, no native dependencies. DAVE E2EE (MLS / RFC 9420) for encrypted voice. [See the voice guide][voice-guide].
 
-**Caching** — in-memory or Redis, per-entity TTL, eviction, health checks. Providers can be swapped at runtime.
+**Caching** - in-memory or Redis, per-entity TTL, eviction, health checks. Providers can be swapped at runtime.
 
----
 
-## Why not Discord.NET?
-
-| Feature | PawSharp | Discord.NET | DSharpPlus |
-|---|---|---|---|
-| Modular packages | ✅ | ❌ | ❌ |
-| async-first API | ✅ | Partial | Partial |
-| Native AOT ready | ✅ | ❌ | ❌ |
-| Typed gateway events | ✅ | ✅ | ✅ |
-| Fluent builder | ✅ | Partial | ❌ |
-| Automatic rate limiting | ✅ | ✅ | ✅ |
-| Voice (no native deps) | ✅ | ❌ | ❌ |
-| Slash commands | ✅ | ✅ | ✅ |
-
-PawSharp isn't trying to replace every library — it's the option if you want modern .NET features, modularity, and clean APIs without fighting a framework that predates them.
 
 ---
 
@@ -128,9 +112,9 @@ PawSharp isn't trying to replace every library — it's the option if you want m
 
 The [examples/][examples] directory has bots you can run:
 
-- **ModerationBot** — REST operations, gateway events, basic moderation. Uses the low-level API.
-- **MusicBot** — DI setup, commands, voice. Shows the module pattern.
-- **DashboardBot** — ASP.NET integration, interaction handlers, webhook verification.
+- **ModerationBot** - REST operations, gateway events, basic moderation. Uses the low-level API.
+- **MusicBot** - DI setup, commands, voice. Shows the module pattern.
+- **DashboardBot** - ASP.NET integration, interaction handlers, webhook verification.
 
 Each has its own README.
 
@@ -165,7 +149,7 @@ Pull requests welcome. Read [CONTRIBUTING.md][contributing] first.
 
 ## Community
 
-[Join our Discord][discord] — questions, ideas, or just to hang out.
+[Join our Discord][discord] - questions, ideas, or just to hang out.
 
 ---
 
