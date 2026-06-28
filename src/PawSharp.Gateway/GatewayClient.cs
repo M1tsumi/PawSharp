@@ -74,6 +74,8 @@ namespace PawSharp.Gateway
         private Func<Task>? _reconnectionFailedHandler;
         private Func<Task>? _zombieConnectionHandler;
         
+        private readonly int _shardId;
+        private readonly int _totalShards;
         private GatewayState _currentState = GatewayState.Disconnected;
         
         /// <summary>
@@ -150,12 +152,14 @@ namespace PawSharp.Gateway
         /// </summary>
         public event Func<string, Task>? OnResumeFailed;
 
-        public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics? metrics = null, IDiscordRestClient? restClient = null)
+        public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics? metrics = null, IDiscordRestClient? restClient = null, int shardId = 0, int totalShards = 1)
         {
             _options = options;
             _logger = logger;
             _metrics = metrics;
             _restClient = restClient;
+            _shardId = shardId;
+            _totalShards = totalShards;
             _webSocket = new WebSocketConnection(
                 options.EnableCompression,
                 options.EventDispatch.EnableArrayPooling,
@@ -518,7 +522,8 @@ namespace PawSharp.Gateway
                             os = "linux",
                             browser = "pawsharp",
                             device = "pawsharp"
-                        }
+                        },
+                        shard = new[] { _shardId, _totalShards }
                     }
                 };
 

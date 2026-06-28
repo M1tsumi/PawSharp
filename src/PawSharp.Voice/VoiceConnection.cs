@@ -570,7 +570,7 @@ public class VoiceConnection : IDisposable
                 await SendAudioAsync(buffer).ConfigureAwait(false);
 
                 // Pace delivery: one 20 ms frame every 20 ms to avoid flooding the UDP socket
-                await Task.Delay(18, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(20, cancellationToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* caller cancelled — normal exit */ }

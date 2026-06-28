@@ -163,9 +163,16 @@ public class SessionStartLimits
 
         for (int i = 0; i < _options.Shards; i++)
         {
-            var shard = new GatewayClient(_options, _logger, restClient: _restClient);
+            var shard = new GatewayClient(_options, _logger, restClient: _restClient, shardId: i, totalShards: _options.Shards);
             _shards[i] = shard;
             _shardStatuses[i] = ShardStatus.Disconnected;
+            
+            // Wire shard events to the manager's dispatcher via middleware
+            var shardId = i;
+            shard.Events.Use(async (eventName, eventData) =>
+            {
+                await _eventDispatcher.DispatchTypedAsync(eventName, (GatewayEvent)eventData).ConfigureAwait(false);
+            });
             
             // Subscribe to state changes
             Func<GatewayState, GatewayState, Task> handler = async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState).ConfigureAwait(false);

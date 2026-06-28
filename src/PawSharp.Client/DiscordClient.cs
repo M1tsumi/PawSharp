@@ -568,18 +568,28 @@ namespace PawSharp.Client
         /// </example>
         public async Task<Message?> ReplyAsync(MessageCreateEvent message, string content)
         {
-            return await SendMessageAsync(message.ChannelId, content).ConfigureAwait(false);
+            return await _restClient.CreateMessageAsync(message.ChannelId, new CreateMessageRequest
+            {
+                Content = content,
+                MessageReference = new MessageReference { MessageId = message.Id, ChannelId = message.ChannelId }
+            }).ConfigureAwait(false);
         }
 
         /// <summary>Replies to a message with an embed.</summary>
         public async Task<Message?> ReplyAsync(MessageCreateEvent message, string content, Embed embed)
         {
-            return await SendMessageAsync(message.ChannelId, content, embed).ConfigureAwait(false);
+            return await _restClient.CreateMessageAsync(message.ChannelId, new CreateMessageRequest
+            {
+                Content = content,
+                Embeds = new List<Embed> { embed },
+                MessageReference = new MessageReference { MessageId = message.Id, ChannelId = message.ChannelId }
+            }).ConfigureAwait(false);
         }
 
         /// <summary>Replies to a message with a full request.</summary>
         public async Task<Message?> ReplyAsync(MessageCreateEvent message, CreateMessageRequest request)
         {
+            request.MessageReference = new MessageReference { MessageId = message.Id, ChannelId = message.ChannelId };
             return await SendMessageAsync(message.ChannelId, request).ConfigureAwait(false);
         }
 
@@ -621,7 +631,19 @@ namespace PawSharp.Client
         /// <summary>Modifies the current bot user.</summary>
         public async Task ModifyCurrentUserAsync(string? username = null, string? avatar = null, string? banner = null, string? avatarDecorationData = null)
         {
-            await _restClient.ModifyCurrentUserAsync(username, avatar, banner, avatarDecorationData).ConfigureAwait(false);
+            await ModifyCurrentUserAsync(new ModifyCurrentUserRequest
+            {
+                Username = username,
+                Avatar = avatar,
+                Banner = banner,
+                AvatarDecorationData = avatarDecorationData
+            }).ConfigureAwait(false);
+        }
+
+        /// <summary>Modifies the current bot user using a request object.</summary>
+        public async Task ModifyCurrentUserAsync(ModifyCurrentUserRequest request, CancellationToken ct = default)
+        {
+            await _restClient.ModifyCurrentUserAsync(request.Username, request.Avatar, request.Banner, request.AvatarDecorationData).ConfigureAwait(false);
         }
 
         /// <summary>Gets the current bot's guilds.</summary>
