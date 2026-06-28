@@ -197,7 +197,7 @@ The implementation supports AEAD encryption modes as specified in the Discord Vo
 
 ## DAVE E2EE Support
 
-PawSharp.Voice includes a full MLS (RFC 9420) implementation for DAVE E2EE. The crypto stack uses P-256 (ECDH, ECDSA), AES-128-GCM, and HKDF-SHA256 — all implemented in pure .NET. No external native libraries required.
+PawSharp.Voice includes a full MLS (RFC 9420) implementation for DAVE E2EE. The crypto stack uses P-256 (ECDH, ECDSA), AES-128-GCM, and HKDF-SHA256 - all implemented in pure .NET. No external native libraries required.
 
 ## Typical Use Cases
 
