@@ -192,13 +192,6 @@ All notable changes to PawSharp are documented here.
 - **Suppressed CS0067 in test mock** — `MockCacheProvider` events required by interface contract but unused in tests.
 - **Fixed CS8602 in `CommandsExtensionTests`** — added null-forgiving operators in test assertions.
 
-### Housekeeping
-
-- Changed `#pragma warning disable IDE0011` (blanket file-level suppression) removed from `RestClient.cs`. EditorConfig brace rules now apply to all new code.
-- `Directory.Build.props` version bumped to `1.1.0-alpha.4`.
-
-## [1.1.0-alpha.5] - 2026-06-25
-
 ### Alpha 4 Audit Fixes
 
 - **Migration guide stale version** (`docs/MIGRATION.md`)
@@ -228,6 +221,11 @@ All notable changes to PawSharp are documented here.
 
 - **ModerationBot error notification** (`examples/ModerationBot`)
   - `BanUserByIdAsync` renamed to `TryBanUserByIdAsync` returning `bool`. The caller now notifies the user on failure instead of silently logging and sending a success message.
+
+### Housekeeping
+
+- Changed `#pragma warning disable IDE0011` (blanket file-level suppression) removed from `RestClient.cs`. EditorConfig brace rules now apply to all new code.
+- `Directory.Build.props` version bumped to `1.1.0-alpha.4`.
 
 ## [1.1.0-alpha.3] - 2026-06-15
 
