@@ -94,7 +94,7 @@ public static class BuiltInAutocompleteProviders
                 .Take(25)
                 .Select(r => new ApplicationCommandOptionChoice
                 {
-                    Name = r.Name?.Length > 100 ? r.Name.Substring(0, 100) : r.Name,
+                    Name = r.Name?.Length > 100 ? r.Name.Substring(0, 100) : r.Name ?? "@everyone",
                     Value = r.Id.ToString()
                 })
                 .ToList();
@@ -139,7 +139,7 @@ public static class BuiltInAutocompleteProviders
                 .Take(25)
                 .Select(c => new ApplicationCommandOptionChoice
                 {
-                    Name = c.Name?.Length > 100 ? c.Name.Substring(0, 100) : c.Name,
+                    Name = c.Name?.Length > 100 ? c.Name.Substring(0, 100) : c.Name ?? "unknown",
                     Value = c.Id.ToString()
                 })
                 .ToList();

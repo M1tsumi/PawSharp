@@ -37,10 +37,11 @@ namespace PawSharp.Gateway.Connection
         {
             if (IsEnabled) return;
 
-            // Create decompression context
+            _buffer.SetLength(0);
+            _buffer.Position = 0;
+
             _decompressor = new DeflateStream(_buffer, CompressionMode.Decompress, leaveOpen: true);
             
-            // Create compression context
             var compressBuffer = new MemoryStream();
             _compressor = new DeflateStream(compressBuffer, CompressionMode.Compress, leaveOpen: true);
             
@@ -71,17 +72,21 @@ namespace PawSharp.Gateway.Connection
             // Write chunk to buffer
             _buffer.Write(chunk, 0, chunk.Length);
 
-            // Decompress the entire buffer
-            _buffer.Position = 0;
-            using var decompressed = new MemoryStream();
-            _decompressor.CopyTo(decompressed);
-            
-            // Clear buffer for next message
-            _buffer.SetLength(0);
-            
-            // Return decompressed string
-            var decompressedBytes = decompressed.ToArray();
-            return System.Text.Encoding.UTF8.GetString(decompressedBytes);
+            try
+            {
+                // Decompress the entire buffer
+                _buffer.Position = 0;
+                using var decompressed = new MemoryStream();
+                _decompressor.CopyTo(decompressed);
+
+                var decompressedBytes = decompressed.ToArray();
+                return System.Text.Encoding.UTF8.GetString(decompressedBytes);
+            }
+            finally
+            {
+                _buffer.SetLength(0);
+                _buffer.Position = 0;
+            }
         }
 
         /// <summary>

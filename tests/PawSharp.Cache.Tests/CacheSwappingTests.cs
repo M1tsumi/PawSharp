@@ -19,8 +19,10 @@ public class CacheSwappingTests
         public bool IsHealthyValue { get; set; } = true;
         public ICacheTelemetry? Telemetry { get; set; } = new CacheTelemetry();
 
+#pragma warning disable CS0067 // Events required by interface contract, not raised in tests
         public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
         public event EventHandler? CacheCleared;
+#pragma warning restore CS0067
 
         public bool IsHealthy() => IsHealthyValue;
 

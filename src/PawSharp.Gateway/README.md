@@ -19,7 +19,7 @@ It handles the moving parts you do not want to rebuild repeatedly: identify/resu
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Gateway --version 1.1.0-alpha.3
+dotnet add package PawSharp.Gateway --version 1.1.0-alpha.4
 ```
 
 ## Quick Start

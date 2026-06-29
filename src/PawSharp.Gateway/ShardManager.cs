@@ -47,15 +47,17 @@ public class SessionStartLimits
 /// Manages multiple gateway shards for large bots.
 /// Provides automatic shard distribution, reconnection, status monitoring, and event aggregation.
 /// </summary>
-public class ShardManager
-{
-    private readonly Dictionary<int, GatewayClient> _shards = new();
-    private readonly Dictionary<int, ShardStatus> _shardStatuses = new();
-    private readonly PawSharpOptions _options;
-    private readonly ILogger _logger;
-    private readonly EventDispatcher _eventDispatcher;
-    private readonly IDiscordRestClient? _restClient;
-    private SessionStartLimits? _sessionStartLimits;
+    public class ShardManager : IDisposable
+    {
+        private readonly Dictionary<int, GatewayClient> _shards = new();
+        private readonly Dictionary<int, ShardStatus> _shardStatuses = new();
+        private readonly Dictionary<int, Func<GatewayState, GatewayState, Task>> _stateChangeHandlers = new();
+        private readonly PawSharpOptions _options;
+        private readonly ILogger _logger;
+        private readonly EventDispatcher _eventDispatcher;
+        private readonly IDiscordRestClient? _restClient;
+        private SessionStartLimits? _sessionStartLimits;
+        private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShardManager"/> class.
@@ -161,19 +163,28 @@ public class ShardManager
 
         for (int i = 0; i < _options.Shards; i++)
         {
-            var shard = new GatewayClient(_options, _logger, restClient: _restClient);
+            var shard = new GatewayClient(_options, _logger, restClient: _restClient, shardId: i, totalShards: _options.Shards);
             _shards[i] = shard;
             _shardStatuses[i] = ShardStatus.Disconnected;
             
-            // Subscribe to state changes
-            shard.OnStateChanged += async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState);
+            // Wire shard events to the manager's dispatcher via middleware
+            var shardId = i;
+            shard.Events.Use(async (eventName, eventData) =>
+            {
+                await _eventDispatcher.DispatchTypedAsync(eventName, (GatewayEvent)eventData).ConfigureAwait(false);
+            });
             
-            await shard.ConnectAsync();
+            // Subscribe to state changes
+            Func<GatewayState, GatewayState, Task> handler = async (oldState, newState) => await OnShardStateChangedAsync(i, oldState, newState).ConfigureAwait(false);
+            shard.OnStateChanged += handler;
+            _stateChangeHandlers[i] = handler;
+            
+            await shard.ConnectAsync().ConfigureAwait(false);
             
             // Rate limit: Wait calculated delay between shard connections
             if (i < _options.Shards - 1)
             {
-                await Task.Delay(effectiveDelay);
+                await Task.Delay(effectiveDelay).ConfigureAwait(false);
             }
         }
 
@@ -193,21 +204,21 @@ public class ShardManager
         // Dispatch shard events
         if (newState == GatewayState.Ready && oldState != GatewayState.Ready)
         {
-            await _eventDispatcher.DispatchAsync("SHARD_CONNECTED", new ShardConnectedEvent { ShardId = shardId });
+            await _eventDispatcher.DispatchAsync("SHARD_CONNECTED", new ShardConnectedEvent { ShardId = shardId }).ConfigureAwait(false);
         }
         else if (newState == GatewayState.Disconnected && oldState != GatewayState.Disconnected)
         {
-            await _eventDispatcher.DispatchAsync("SHARD_DISCONNECTED", new ShardDisconnectedEvent { ShardId = shardId });
+            await _eventDispatcher.DispatchAsync("SHARD_DISCONNECTED", new ShardDisconnectedEvent { ShardId = shardId }).ConfigureAwait(false);
         }
         else if (newState == GatewayState.Failed)
         {
-            await _eventDispatcher.DispatchAsync("SHARD_FAILED", new ShardFailedEvent { ShardId = shardId });
+            await _eventDispatcher.DispatchAsync("SHARD_FAILED", new ShardFailedEvent { ShardId = shardId }).ConfigureAwait(false);
         }
         
         if (newState == GatewayState.Failed)
         {
             _logger.LogWarning("Shard {ShardId} failed. Attempting reconnection...", shardId);
-            await ReconnectShardAsync(shardId);
+            await ReconnectShardAsync(shardId).ConfigureAwait(false);
         }
     }
 
@@ -250,8 +261,8 @@ public class ShardManager
 
         try
         {
-            await shard.DisconnectAsync();
-            await shard.ConnectAsync();
+            await shard.DisconnectAsync().ConfigureAwait(false);
+            await shard.ConnectAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -268,11 +279,37 @@ public class ShardManager
         _logger.LogInformation("Disconnecting all shards...");
 
         var tasks = _shards.Values.Select(shard => shard.DisconnectAsync());
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        foreach (var shard in _shards.Values)
+        {
+            shard.Dispose();
+        }
 
         _shards.Clear();
         _shardStatuses.Clear();
+        _stateChangeHandlers.Clear();
         _logger.LogInformation("All shards disconnected!");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        foreach (var kvp in _shards)
+        {
+            if (_stateChangeHandlers.TryGetValue(kvp.Key, out var handler))
+            {
+                kvp.Value.OnStateChanged -= handler;
+            }
+            kvp.Value.Dispose();
+        }
+
+        _shards.Clear();
+        _shardStatuses.Clear();
+        _stateChangeHandlers.Clear();
+        _eventDispatcher.Dispose();
     }
 
     /// <summary>
@@ -341,7 +378,7 @@ public class ShardManager
         {
             try
             {
-                var info = await _restClient.GetGatewayBotAsync();
+                var info = await _restClient.GetGatewayBotAsync().ConfigureAwait(false);
                 if (info != null)
                 {
                     // Store session start limits for validation

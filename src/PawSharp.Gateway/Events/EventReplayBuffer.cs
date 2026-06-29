@@ -145,7 +145,7 @@ public class EventReplayBuffer
             {
                 if (replayEvent.EventData != null)
                 {
-                    await dispatcher.DispatchAsync(replayEvent.EventName, replayEvent.EventData, replayEvent.RawJson);
+                    await dispatcher.DispatchAsync(replayEvent.EventName, replayEvent.EventData, replayEvent.RawJson).ConfigureAwait(false);
                 }
                 _logger?.LogDebug("Replayed event {EventName} from {Timestamp}", 
                     replayEvent.EventName, replayEvent.Timestamp);

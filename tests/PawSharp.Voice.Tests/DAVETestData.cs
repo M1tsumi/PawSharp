@@ -38,7 +38,7 @@ internal static class DAVETestData
         var groupSecrets = new GroupSecrets(joinerSecret);
         var plaintext = groupSecrets.Encode();
 
-        var encryptedSecrets = HpkeX25519.SealBase(
+        var encryptedSecrets = HpkeP256.SealBase(
             kp.InitKey,
             ReadOnlySpan<byte>.Empty,
             ReadOnlySpan<byte>.Empty,
@@ -71,7 +71,7 @@ internal static class DAVETestData
         Buffer.BlockCopy(tag, 0, encryptedGroupInfo, ciphertext.Length, tag.Length);
 
         var welcome = new WelcomeMessage(
-            CipherSuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
+            CipherSuite.MLS_128_DHKEMP256_AES128GCM_SHA256_P256,
             new List<EncryptedGroupSecrets> { entry },
             encryptedGroupInfo);
 
@@ -102,7 +102,7 @@ internal static class DAVETestData
             var kpBytes = state.GenerateKeyPackage(identity);
             var kp = KeyPackage.Decode(kpBytes);
 
-            var encryptedSecrets = HpkeX25519.SealBase(
+            var encryptedSecrets = HpkeP256.SealBase(
                 kp.InitKey,
                 ReadOnlySpan<byte>.Empty,
                 ReadOnlySpan<byte>.Empty,
@@ -136,7 +136,7 @@ internal static class DAVETestData
         Buffer.BlockCopy(tag, 0, encryptedGroupInfo, ciphertext.Length, tag.Length);
 
         var welcome = new WelcomeMessage(
-            CipherSuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
+            CipherSuite.MLS_128_DHKEMP256_AES128GCM_SHA256_P256,
             entries,
             encryptedGroupInfo);
 

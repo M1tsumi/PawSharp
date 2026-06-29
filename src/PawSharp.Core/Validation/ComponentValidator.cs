@@ -21,18 +21,18 @@ public static class ComponentValidator
         if (button.Label != null && button.Label.Length > DiscordLimits.MaxButtonLabelLength)
         {
             throw new ValidationException(
+                $"Button label must not exceed {DiscordLimits.MaxButtonLabelLength} characters.",
                 nameof(button.Label),
-                button.Label,
-                $"Button label must not exceed {DiscordLimits.MaxButtonLabelLength} characters."
+                button.Label
             );
         }
 
         if (button.CustomId != null && button.CustomId.Length > DiscordLimits.MaxButtonCustomIdLength)
         {
             throw new ValidationException(
+                $"Button custom ID must not exceed {DiscordLimits.MaxButtonCustomIdLength} characters.",
                 nameof(button.CustomId),
-                button.CustomId,
-                $"Button custom ID must not exceed {DiscordLimits.MaxButtonCustomIdLength} characters."
+                button.CustomId
             );
         }
 
@@ -42,9 +42,8 @@ public static class ComponentValidator
             if (string.IsNullOrEmpty(button.Url))
             {
                 throw new ValidationException(
-                    nameof(button.Url),
-                    null,
-                    "Link buttons must have a URL."
+                    "Link buttons must have a URL.",
+                    nameof(button.Url)
                 );
             }
         }
@@ -53,9 +52,8 @@ public static class ComponentValidator
             if (string.IsNullOrEmpty(button.CustomId))
             {
                 throw new ValidationException(
-                    nameof(button.CustomId),
-                    null,
-                    "Non-link and non-premium buttons must have a custom ID."
+                    "Non-link and non-premium buttons must have a custom ID.",
+                    nameof(button.CustomId)
                 );
             }
         }
@@ -71,18 +69,18 @@ public static class ComponentValidator
         if (selectMenu.CustomId != null && selectMenu.CustomId.Length > DiscordLimits.MaxSelectMenuCustomIdLength)
         {
             throw new ValidationException(
+                $"Select menu custom ID must not exceed {DiscordLimits.MaxSelectMenuCustomIdLength} characters.",
                 nameof(selectMenu.CustomId),
-                selectMenu.CustomId,
-                $"Select menu custom ID must not exceed {DiscordLimits.MaxSelectMenuCustomIdLength} characters."
+                selectMenu.CustomId
             );
         }
 
         if (selectMenu.Placeholder != null && selectMenu.Placeholder.Length > DiscordLimits.MaxSelectMenuPlaceholderLength)
         {
             throw new ValidationException(
+                $"Select menu placeholder must not exceed {DiscordLimits.MaxSelectMenuPlaceholderLength} characters.",
                 nameof(selectMenu.Placeholder),
-                selectMenu.Placeholder,
-                $"Select menu placeholder must not exceed {DiscordLimits.MaxSelectMenuPlaceholderLength} characters."
+                selectMenu.Placeholder
             );
         }
 
@@ -137,27 +135,27 @@ public static class ComponentValidator
         if (option.Label.Length > DiscordLimits.MaxSelectMenuOptionLabelLength)
         {
             throw new ValidationException(
+                $"Select option label must not exceed {DiscordLimits.MaxSelectMenuOptionLabelLength} characters.",
                 nameof(option.Label),
-                option.Label,
-                $"Select option label must not exceed {DiscordLimits.MaxSelectMenuOptionLabelLength} characters."
+                option.Label
             );
         }
 
         if (option.Value.Length > DiscordLimits.MaxSelectMenuOptionValueLength)
         {
             throw new ValidationException(
+                $"Select option value must not exceed {DiscordLimits.MaxSelectMenuOptionValueLength} characters.",
                 nameof(option.Value),
-                option.Value,
-                $"Select option value must not exceed {DiscordLimits.MaxSelectMenuOptionValueLength} characters."
+                option.Value
             );
         }
 
         if (option.Description != null && option.Description.Length > DiscordLimits.MaxSelectMenuOptionDescriptionLength)
         {
             throw new ValidationException(
+                $"Select option description must not exceed {DiscordLimits.MaxSelectMenuOptionDescriptionLength} characters.",
                 nameof(option.Description),
-                option.Description,
-                $"Select option description must not exceed {DiscordLimits.MaxSelectMenuOptionDescriptionLength} characters."
+                option.Description
             );
         }
     }
@@ -172,36 +170,36 @@ public static class ComponentValidator
         if (textInput.CustomId.Length > DiscordLimits.MaxTextInputCustomIdLength)
         {
             throw new ValidationException(
+                $"Text input custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters.",
                 nameof(textInput.CustomId),
-                textInput.CustomId,
-                $"Text input custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters."
+                textInput.CustomId
             );
         }
 
         if (textInput.Label.Length > DiscordLimits.MaxTextInputLabelLength)
         {
             throw new ValidationException(
+                $"Text input label must not exceed {DiscordLimits.MaxTextInputLabelLength} characters.",
                 nameof(textInput.Label),
-                textInput.Label,
-                $"Text input label must not exceed {DiscordLimits.MaxTextInputLabelLength} characters."
+                textInput.Label
             );
         }
 
         if (textInput.Placeholder != null && textInput.Placeholder.Length > DiscordLimits.MaxTextInputPlaceholderLength)
         {
             throw new ValidationException(
+                $"Text input placeholder must not exceed {DiscordLimits.MaxTextInputPlaceholderLength} characters.",
                 nameof(textInput.Placeholder),
-                textInput.Placeholder,
-                $"Text input placeholder must not exceed {DiscordLimits.MaxTextInputPlaceholderLength} characters."
+                textInput.Placeholder
             );
         }
 
         if (textInput.Value != null && textInput.Value.Length > DiscordLimits.MaxTextInputValueLength)
         {
             throw new ValidationException(
+                $"Text input value must not exceed {DiscordLimits.MaxTextInputValueLength} characters.",
                 nameof(textInput.Value),
-                textInput.Value,
-                $"Text input value must not exceed {DiscordLimits.MaxTextInputValueLength} characters."
+                textInput.Value
             );
         }
 
@@ -234,9 +232,9 @@ public static class ComponentValidator
         if (textDisplay.Content.Length > DiscordLimits.MaxTextDisplayContentLength)
         {
             throw new ValidationException(
+                $"Text display content must not exceed {DiscordLimits.MaxTextDisplayContentLength} characters.",
                 nameof(textDisplay.Content),
-                textDisplay.Content,
-                $"Text display content must not exceed {DiscordLimits.MaxTextDisplayContentLength} characters."
+                textDisplay.Content
             );
         }
     }
@@ -412,9 +410,9 @@ public static class ComponentValidator
         if (label.Text.Length > DiscordLimits.MaxLabelTextLength)
         {
             throw new ValidationException(
+                $"Label text must not exceed {DiscordLimits.MaxLabelTextLength} characters.",
                 nameof(label.Text),
-                label.Text,
-                $"Label text must not exceed {DiscordLimits.MaxLabelTextLength} characters."
+                label.Text
             );
         }
     }
@@ -447,27 +445,27 @@ public static class ComponentValidator
         if (fileUpload.CustomId.Length > DiscordLimits.MaxTextInputCustomIdLength)
         {
             throw new ValidationException(
+                $"FileUpload custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters.",
                 nameof(fileUpload.CustomId),
-                fileUpload.CustomId,
-                $"FileUpload custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters."
+                fileUpload.CustomId
             );
         }
 
         if (fileUpload.Label.Length > DiscordLimits.MaxFileUploadLabelLength)
         {
             throw new ValidationException(
+                $"FileUpload label must not exceed {DiscordLimits.MaxFileUploadLabelLength} characters.",
                 nameof(fileUpload.Label),
-                fileUpload.Label,
-                $"FileUpload label must not exceed {DiscordLimits.MaxFileUploadLabelLength} characters."
+                fileUpload.Label
             );
         }
 
         if (fileUpload.Placeholder != null && fileUpload.Placeholder.Length > DiscordLimits.MaxFileUploadPlaceholderLength)
         {
             throw new ValidationException(
+                $"FileUpload placeholder must not exceed {DiscordLimits.MaxFileUploadPlaceholderLength} characters.",
                 nameof(fileUpload.Placeholder),
-                fileUpload.Placeholder,
-                $"FileUpload placeholder must not exceed {DiscordLimits.MaxFileUploadPlaceholderLength} characters."
+                fileUpload.Placeholder
             );
         }
 
@@ -527,18 +525,18 @@ public static class ComponentValidator
         if (radioGroup.CustomId.Length > DiscordLimits.MaxTextInputCustomIdLength)
         {
             throw new ValidationException(
+                $"RadioGroup custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters.",
                 nameof(radioGroup.CustomId),
-                radioGroup.CustomId,
-                $"RadioGroup custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters."
+                radioGroup.CustomId
             );
         }
 
         if (radioGroup.Label.Length > DiscordLimits.MaxTextInputLabelLength)
         {
             throw new ValidationException(
+                $"RadioGroup label must not exceed {DiscordLimits.MaxTextInputLabelLength} characters.",
                 nameof(radioGroup.Label),
-                radioGroup.Label,
-                $"RadioGroup label must not exceed {DiscordLimits.MaxTextInputLabelLength} characters."
+                radioGroup.Label
             );
         }
 
@@ -594,27 +592,27 @@ public static class ComponentValidator
         if (option.Label.Length > DiscordLimits.MaxRadioGroupOptionLabelLength)
         {
             throw new ValidationException(
+                $"RadioOption label must not exceed {DiscordLimits.MaxRadioGroupOptionLabelLength} characters.",
                 nameof(option.Label),
-                option.Label,
-                $"RadioOption label must not exceed {DiscordLimits.MaxRadioGroupOptionLabelLength} characters."
+                option.Label
             );
         }
 
         if (option.Value.Length > DiscordLimits.MaxRadioGroupOptionValueLength)
         {
             throw new ValidationException(
+                $"RadioOption value must not exceed {DiscordLimits.MaxRadioGroupOptionValueLength} characters.",
                 nameof(option.Value),
-                option.Value,
-                $"RadioOption value must not exceed {DiscordLimits.MaxRadioGroupOptionValueLength} characters."
+                option.Value
             );
         }
 
         if (option.Description != null && option.Description.Length > DiscordLimits.MaxRadioGroupOptionDescriptionLength)
         {
             throw new ValidationException(
+                $"RadioOption description must not exceed {DiscordLimits.MaxRadioGroupOptionDescriptionLength} characters.",
                 nameof(option.Description),
-                option.Description,
-                $"RadioOption description must not exceed {DiscordLimits.MaxRadioGroupOptionDescriptionLength} characters."
+                option.Description
             );
         }
     }
@@ -647,18 +645,18 @@ public static class ComponentValidator
         if (checkboxGroup.CustomId.Length > DiscordLimits.MaxTextInputCustomIdLength)
         {
             throw new ValidationException(
+                $"CheckboxGroup custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters.",
                 nameof(checkboxGroup.CustomId),
-                checkboxGroup.CustomId,
-                $"CheckboxGroup custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters."
+                checkboxGroup.CustomId
             );
         }
 
         if (checkboxGroup.Label.Length > DiscordLimits.MaxTextInputLabelLength)
         {
             throw new ValidationException(
+                $"CheckboxGroup label must not exceed {DiscordLimits.MaxTextInputLabelLength} characters.",
                 nameof(checkboxGroup.Label),
-                checkboxGroup.Label,
-                $"CheckboxGroup label must not exceed {DiscordLimits.MaxTextInputLabelLength} characters."
+                checkboxGroup.Label
             );
         }
 
@@ -723,27 +721,27 @@ public static class ComponentValidator
         if (option.Label.Length > DiscordLimits.MaxCheckboxGroupOptionLabelLength)
         {
             throw new ValidationException(
+                $"CheckboxOption label must not exceed {DiscordLimits.MaxCheckboxGroupOptionLabelLength} characters.",
                 nameof(option.Label),
-                option.Label,
-                $"CheckboxOption label must not exceed {DiscordLimits.MaxCheckboxGroupOptionLabelLength} characters."
+                option.Label
             );
         }
 
         if (option.Value.Length > DiscordLimits.MaxCheckboxGroupOptionValueLength)
         {
             throw new ValidationException(
+                $"CheckboxOption value must not exceed {DiscordLimits.MaxCheckboxGroupOptionValueLength} characters.",
                 nameof(option.Value),
-                option.Value,
-                $"CheckboxOption value must not exceed {DiscordLimits.MaxCheckboxGroupOptionValueLength} characters."
+                option.Value
             );
         }
 
         if (option.Description != null && option.Description.Length > DiscordLimits.MaxCheckboxGroupOptionDescriptionLength)
         {
             throw new ValidationException(
+                $"CheckboxOption description must not exceed {DiscordLimits.MaxCheckboxGroupOptionDescriptionLength} characters.",
                 nameof(option.Description),
-                option.Description,
-                $"CheckboxOption description must not exceed {DiscordLimits.MaxCheckboxGroupOptionDescriptionLength} characters."
+                option.Description
             );
         }
     }
@@ -776,18 +774,18 @@ public static class ComponentValidator
         if (checkbox.CustomId.Length > DiscordLimits.MaxTextInputCustomIdLength)
         {
             throw new ValidationException(
+                $"Checkbox custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters.",
                 nameof(checkbox.CustomId),
-                checkbox.CustomId,
-                $"Checkbox custom ID must not exceed {DiscordLimits.MaxTextInputCustomIdLength} characters."
+                checkbox.CustomId
             );
         }
 
         if (checkbox.Label.Length > DiscordLimits.MaxCheckboxLabelLength)
         {
             throw new ValidationException(
+                $"Checkbox label must not exceed {DiscordLimits.MaxCheckboxLabelLength} characters.",
                 nameof(checkbox.Label),
-                checkbox.Label,
-                $"Checkbox label must not exceed {DiscordLimits.MaxCheckboxLabelLength} characters."
+                checkbox.Label
             );
         }
     }

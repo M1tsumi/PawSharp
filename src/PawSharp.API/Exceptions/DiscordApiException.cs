@@ -82,7 +82,7 @@ public class DiscordApiException : DiscordException
         string? requestMethod = null,
         string? requestEndpoint = null,
         Exception? innerException = null)
-        : base(message, innerException)
+        : base(message, innerException!)
     {
         StatusCode = statusCode;
         DiscordErrorCode = discordErrorCode;
@@ -116,7 +116,7 @@ public class DiscordApiException : DiscordException
         return new DiscordApiException(
             message,
             statusCode,
-            discordErrorCode != null ? int.Parse(discordErrorCode) : null,
+            discordErrorCode != null && int.TryParse(discordErrorCode, out var code) ? code : null,
             discordErrorMessage,
             requestMethod,
             requestEndpoint);

@@ -23,6 +23,8 @@ namespace PawSharp.Cache.Swapping
         private CacheProviderInfo? _activeProvider;
         private Timer? _healthCheckTimer;
         private bool _disposed;
+        private readonly Dictionary<string, EventHandler<CacheInvalidationEventArgs>> _evictedHandlers = new();
+        private readonly Dictionary<string, EventHandler> _clearedHandlers = new();
 
         public ICacheTelemetry? Telemetry
         {
@@ -94,8 +96,12 @@ namespace PawSharp.Cache.Swapping
                 _providers[name] = info;
 
                 // Wire up events
-                provider.EntityEvicted += (sender, args) => EntityEvicted?.Invoke(sender, args);
-                provider.CacheCleared += (sender, args) => CacheCleared?.Invoke(sender, args);
+                var evictedHandler = new EventHandler<CacheInvalidationEventArgs>((sender, args) => EntityEvicted?.Invoke(sender, args));
+                var clearedHandler = new EventHandler((sender, args) => CacheCleared?.Invoke(sender, args));
+                provider.EntityEvicted += evictedHandler;
+                provider.CacheCleared += clearedHandler;
+                _evictedHandlers[name] = evictedHandler;
+                _clearedHandlers[name] = clearedHandler;
 
                 // If this is the first provider, make it active
                 if (_activeProvider == null)
@@ -141,6 +147,17 @@ namespace PawSharp.Cache.Swapping
                 }
 
                 _providers.Remove(name);
+
+                if (_evictedHandlers.TryGetValue(name, out var evictedHandler))
+                {
+                    info.Provider.EntityEvicted -= evictedHandler;
+                    _evictedHandlers.Remove(name);
+                }
+                if (_clearedHandlers.TryGetValue(name, out var clearedHandler))
+                {
+                    info.Provider.CacheCleared -= clearedHandler;
+                    _clearedHandlers.Remove(name);
+                }
 
                 if (_options.EnableLogging)
                 {
@@ -219,7 +236,7 @@ namespace PawSharp.Cache.Swapping
             {
                 try
                 {
-                    var isHealthy = await Task.Run(() => provider.Provider.IsHealthy());
+                    var isHealthy = await Task.Run(() => provider.Provider.IsHealthy()).ConfigureAwait(false);
                     
                     lock (_lock)
                     {
@@ -268,7 +285,7 @@ namespace PawSharp.Cache.Swapping
                     // If active provider failed, try to fallback
                     if (_activeProvider?.Name == provider.Name && _options.AutoFallback)
                     {
-                        await TryFallbackAsync(provider.Name);
+                        await TryFallbackAsync(provider.Name).ConfigureAwait(false);
                     }
                 }
             }
@@ -291,7 +308,7 @@ namespace PawSharp.Cache.Swapping
                         SetActiveProvider(provider.Name);
                         return;
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // Try next provider
                         continue;
@@ -322,7 +339,7 @@ namespace PawSharp.Cache.Swapping
                     }
                 }
 
-                return _activeProvider.Provider;
+                return _activeProvider!.Provider;
             }
         }
 
@@ -341,7 +358,7 @@ namespace PawSharp.Cache.Swapping
                     {
                         foreach (var otherProvider in _providers.Values.Where(p => p.Name != _activeProvider?.Name))
                         {
-                            try { otherProvider.Provider.Add(key, entity); } catch (Exception ex) { /* Propagation to secondary providers is best-effort */ }
+                            try { otherProvider.Provider.Add(key, entity); } catch (Exception) { /* Propagation to secondary providers is best-effort */ }
                         }
                     }
                 }
@@ -386,7 +403,7 @@ namespace PawSharp.Cache.Swapping
                     {
                         foreach (var otherProvider in _providers.Values.Where(p => p.Name != _activeProvider?.Name))
                         {
-                            try { otherProvider.Provider.Remove(key); } catch (Exception ex) { /* Propagation to secondary providers is best-effort */ }
+                            try { otherProvider.Provider.Remove(key); } catch (Exception) { /* Propagation to secondary providers is best-effort */ }
                         }
                     }
                 }
@@ -415,7 +432,7 @@ namespace PawSharp.Cache.Swapping
                     {
                         foreach (var otherProvider in _providers.Values.Where(p => p.Name != _activeProvider?.Name))
                         {
-                            try { otherProvider.Provider.Clear(); } catch (Exception ex) { /* Propagation to secondary providers is best-effort */ }
+                            try { otherProvider.Provider.Clear(); } catch (Exception) { /* Propagation to secondary providers is best-effort */ }
                         }
                     }
                 }
@@ -513,7 +530,7 @@ namespace PawSharp.Cache.Swapping
                 return;
 
             _healthCheckTimer = new Timer(
-                async _ => await PerformHealthChecksAsync(),
+                async _ => await PerformHealthChecksAsync().ConfigureAwait(false),
                 null,
                 TimeSpan.Zero,
                 _options.HealthCheckInterval

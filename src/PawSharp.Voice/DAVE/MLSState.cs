@@ -13,7 +13,7 @@ namespace PawSharp.Voice.DAVE;
 /// MLS (Message Layer Security, RFC 9420) group state for DAVE.
 ///
 /// Implements the full RFC 9420 protocol for the DAVE ciphersuite:
-///   MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519
+///   MLS_128_DHKEMP256_AES128GCM_SHA256_P256
 ///
 /// This class is the public face of the MLS implementation.  All heavy lifting
 /// is delegated to <see cref="MLSGroupState"/> (the internal RFC 9420 engine).
@@ -47,6 +47,8 @@ public sealed class MLSState : IDisposable
 
     // Per-SSRC sender keys, derived lazily from the current epoch secret
     private readonly ConcurrentDictionary<uint, byte[]> _senderKeyCache = new();
+    private const int MaxSenderKeyCacheEntries = 100;
+    private readonly ConcurrentQueue<uint> _senderKeyEvictionQueue = new();
 
     // ── Key-package generation ────────────────────────────────────────────────
 
@@ -138,7 +140,14 @@ public sealed class MLSState : IDisposable
         if (epochSecret is null)
             throw new InvalidOperationException("MLS group has not been initialised yet (no epoch secret).");
 
-        return _senderKeyCache.GetOrAdd(ssrc, s => DAVEKeyDerivation.DeriveEncryptionKey(epochSecret, s));
+        if (!_senderKeyCache.ContainsKey(ssrc))
+        {
+            EvictSenderKeyCacheIfNeeded();
+            var key = DAVEKeyDerivation.DeriveEncryptionKey(epochSecret, ssrc);
+            _senderKeyCache[ssrc] = key;
+            _senderKeyEvictionQueue.Enqueue(ssrc);
+        }
+        return _senderKeyCache[ssrc];
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────
@@ -151,6 +160,15 @@ public sealed class MLSState : IDisposable
     {
         _group.Reset();
         _senderKeyCache.Clear();
+    }
+
+    private void EvictSenderKeyCacheIfNeeded()
+    {
+        while (_senderKeyCache.Count >= MaxSenderKeyCacheEntries && _senderKeyEvictionQueue.TryDequeue(out var oldest))
+        {
+            if (!_senderKeyCache.TryRemove(oldest, out _))
+                break;
+        }
     }
 
     public void Dispose()

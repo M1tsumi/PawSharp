@@ -116,7 +116,7 @@ public sealed class InteractionResponseBuilder
     /// <summary>
     /// Produces a <c>DeferredChannelMessageWithSource</c> (type 5) response.
     /// ACKs the interaction and shows a loading state to the user.
-    /// Use <see cref="InteractionHandler.EditOriginalResponseAsync"/> to edit the response later.
+    /// Use <see cref="PawSharp.API.Interfaces.IDiscordRestClient.EditOriginalInteractionResponseAsync"/> to edit the response later.
     /// </summary>
     public InteractionResponseBuilder AsDeferredChannelMessage(bool deferred = true)
     {
@@ -127,7 +127,7 @@ public sealed class InteractionResponseBuilder
     /// <summary>
     /// Produces a <c>DeferredUpdateMessage</c> (type 6) response.
     /// For component interactions: ACKs the interaction without showing a loading state.
-    /// Use <see cref="InteractionHandler.EditOriginalResponseAsync"/> to edit the message later.
+    /// Use <see cref="PawSharp.API.Interfaces.IDiscordRestClient.EditOriginalInteractionResponseAsync"/> to edit the message later.
     /// </summary>
     public InteractionResponseBuilder AsDeferredUpdateMessage(bool deferred = true)
     {

@@ -53,7 +53,7 @@ PawSharp.Commands is a comprehensive, attribute-based command framework for Disc
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Commands
+dotnet add package PawSharp.Commands --version 1.1.0-alpha.4
 ```
 
 ## Quick Start

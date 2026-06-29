@@ -23,7 +23,7 @@ internal sealed class TreeNode
 {
     // ── Constants ─────────────────────────────────────────────────────────────
 
-    public const int HpkeKeySize = 32; // X25519 key size
+    public const int HpkeKeySize = 32; // P-256 key size
 
     // ── Properties ───────────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ internal sealed class TreeNode
     /// <summary>The node's position in the in-order indexing scheme.</summary>
     public uint NodeIndex { get; }
 
-    /// <summary>HPKE public key for this node (32 bytes, X25519).</summary>
+    /// <summary>HPKE public key for this node (65 bytes, P-256).</summary>
     public byte[]? HpkePublicKey { get; private set; }
 
     /// <summary>HPKE private key (only set for the local leaf node, 32 bytes).</summary>
@@ -46,7 +46,7 @@ internal sealed class TreeNode
     public byte[]? Credential { get; private set; }
 
     /// <summary>
-    /// The signature public key (Ed25519, 32 bytes) for verifying leaf node signatures.
+    /// The signature public key (P-256 ECDSA, 65 bytes) for verifying leaf node signatures.
     /// Only meaningful for leaf nodes.
     /// </summary>
     public byte[]? SignatureKey { get; private set; }

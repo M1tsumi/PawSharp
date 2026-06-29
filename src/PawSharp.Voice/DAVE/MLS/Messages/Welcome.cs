@@ -27,7 +27,7 @@ internal sealed class GroupInfo
     /// <summary>The index of the signer leaf (the committer who produced this Welcome).</summary>
     public uint SignerLeafIndex { get; }
 
-    /// <summary>Ed25519 signature by the signer's leaf key over the GroupInfo TBS.</summary>
+    /// <summary>ECDSA P-256 signature by the signer's leaf key over the GroupInfo TBS.</summary>
     public byte[] Signature { get; }
 
     public GroupInfo(
@@ -184,7 +184,7 @@ internal sealed class WelcomeMessage
     /// Finds this client's EncryptedGroupSecrets entry and decrypts it using the
     /// provided HPKE init private key.
     /// </summary>
-    /// <param name="initPrivateKey">32-byte X25519 private key from the matching KeyPackage.</param>
+    /// <param name="initPrivateKey">32-byte P-256 private key from the matching KeyPackage.</param>
     /// <param name="keyPackageRef">
     ///   Hash of the KeyPackage used to find the right entry (RFC 9420 §12.4.3.1).
     /// </param>
@@ -200,7 +200,7 @@ internal sealed class WelcomeMessage
             // Match by KeyPackageRef hash
             if (!KeyPackageRefEqual(entry.KeyPackageRef, keyPackageRef)) continue;
 
-            var plain = HpkeX25519.OpenBase(
+            var plain = HpkeP256.OpenBase(
                 initPrivateKey,
                 entry.EncryptedSecret.Enc,
                 groupContext,

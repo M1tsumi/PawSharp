@@ -6,7 +6,7 @@ It covers the core building blocks needed for real voice features: voice gateway
 
 ## Why Use This Package
 
-- **Complete Discord Voice Protocol v8 Implementation**: WebSocket control channel + UDP audio transport
+- **Discord Voice Protocol**: WebSocket control channel + UDP audio transport (protocol version resolved at runtime)
 - **Opus Codec**: Built-in Opus encoding/decoding via Concentus (pure .NET, no native dependencies)
 - **Transport Encryption**: Support for AEAD_AES256_GCM and AEAD_XChaCha20_Poly1305 modes
 - **Connection Lifecycle**: Automatic reconnection with exponential backoff
@@ -23,7 +23,7 @@ It covers the core building blocks needed for real voice features: voice gateway
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice --version 1.1.0-alpha.3
+dotnet add package PawSharp.Voice --version 1.1.0-alpha.4
 ```
 
 ## Quick Start
@@ -176,28 +176,28 @@ var connection = await voice.ConnectAsync(channel, options);
 
 ## Protocol Implementation Details
 
-PawSharp.Voice implements the Discord Voice Protocol v8:
+PawSharp.Voice implements the Discord Voice Protocol:
 
 1. **WebSocket Control Channel**: Handles opcodes 0-20 for session management
 2. **UDP Audio Transport**: Sends/receives audio packets via UDP
 3. **IP Discovery**: Automatic external IP detection via UDP
 4. **Protocol Selection**: Negotiates encryption mode with server
 5. **Session Description**: Receives transport encryption keys
-6. **Heartbeating**: Maintains connection with periodic heartbeats (V8 includes seq_ack)
+6. **Heartbeating**: Maintains connection with periodic heartbeats (includes seq_ack for resume)
 7. **Keep-Alive**: Sends silence frames to prevent NAT timeout
 
 ### Transport Encryption
 
-The implementation supports AEAD encryption modes as specified in the Discord Voice Protocol v8:
+The implementation supports AEAD encryption modes as specified in the Discord Voice Protocol:
 
 - **AEAD_AES256_GCM_RTPSIZE**: AES-256-GCM with RTP-sized nonce
 - **AEAD_XChaCha20_Poly1305_RTPSIZE**: XChaCha20-Poly1305 with RTP-sized nonce
 
-**Note**: XChaCha20-Poly1305 is implemented using pure .NET cryptography primitives. AES-GCM is used as a fallback when available.
+**Note**: Both modes are available for non-DAVE transport encryption. DAVE E2EE uses AES-128-GCM with a deterministic nonce (`SSRC(4) || seq(2) || zeros(6)`).
 
 ## DAVE E2EE Support
 
-PawSharp.Voice includes a full MLS (RFC 9420) implementation for DAVE E2EE. The crypto stack uses X25519, Ed25519, AES-128-GCM, and HKDF-SHA256 — all implemented in pure .NET. No external native libraries required.
+PawSharp.Voice includes a full MLS (RFC 9420) implementation for DAVE E2EE. The crypto stack uses P-256 (ECDH, ECDSA), AES-128-GCM, and HKDF-SHA256 - all implemented in pure .NET. No external native libraries required.
 
 ## Typical Use Cases
 

@@ -32,7 +32,7 @@ namespace PawSharp.Gateway.Connection
         public int? DiscordCloseCode => CloseStatus.HasValue ? (int)CloseStatus.Value : null;
     }
 
-    public class WebSocketConnection
+    public class WebSocketConnection : IDisposable, IAsyncDisposable
     {
         private ClientWebSocket _webSocket;
         private ZlibStreamCompression? _compression;
@@ -284,6 +284,13 @@ namespace PawSharp.Gateway.Connection
                     _logger?.LogDebug("WebSocket dispose did not complete within {Timeout}", timeout.Value);
                 }
             }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            Dispose();
+            await WaitForDisposeAsync().ConfigureAwait(false);
+            GC.SuppressFinalize(this);
         }
     }
 }

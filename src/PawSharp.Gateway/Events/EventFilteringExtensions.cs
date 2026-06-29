@@ -30,7 +30,7 @@ public static class EventFilteringExtensions
         {
             if (predicate(evt))
             {
-                await handler(evt);
+                await handler(evt).ConfigureAwait(false);
             }
         });
     }

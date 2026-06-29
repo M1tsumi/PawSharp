@@ -386,7 +386,7 @@ public static class InteractionCreateEventExtensions
 public static class MessageFlagExtensions
 {
     /// <summary>
-    /// The Components V2 message flag value (1 << 15 = 32768).
+    /// The Components V2 message flag value (<c>1 &lt;&lt; 15 = 32768</c>).
     /// </summary>
     public const int IsComponentsV2 = 1 << 15; // 32768
 

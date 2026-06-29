@@ -428,6 +428,8 @@ public class CommandsExtension
     private readonly IServiceProvider? _serviceProvider;
     private readonly bool _caseSensitive;
     private IDiscordClient? _client;
+    private IDisposable? _messageSubscription;
+    private bool _subscriptionRegistered;
 
     /// <summary>
     /// Invoked when a command throws an unhandled exception.
@@ -487,9 +489,10 @@ public class CommandsExtension
 
         _client = client;
 
-        if (_client != null && !_commands.Any())
+        if (_client != null && !_commands.Any() && !_subscriptionRegistered)
         {
-            _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _messageSubscription = _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _subscriptionRegistered = true;
         }
 
         var type = module.GetType();
@@ -547,6 +550,13 @@ public class CommandsExtension
         {
             _commands.Remove(kvp.Key);
         }
+
+        if (_commands.Count == 0 && _subscriptionRegistered)
+        {
+            _messageSubscription?.Dispose();
+            _messageSubscription = null;
+            _subscriptionRegistered = false;
+        }
     }
 
     /// <summary>
@@ -563,9 +573,10 @@ public class CommandsExtension
 
         _client = client;
 
-        if (_client != null && !_commands.Any())
+        if (_client != null && !_commands.Any() && !_subscriptionRegistered)
         {
-            _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _messageSubscription = _client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", OnMessageCreate);
+            _subscriptionRegistered = true;
         }
 
         // Allow async initialization
@@ -621,14 +632,14 @@ public class CommandsExtension
         {
             try
             {
-                BaseCommandModule? module;
+                BaseCommandModule module;
                 if (_serviceProvider != null)
                 {
                     module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
                 }
                 else
                 {
-                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                    module = (BaseCommandModule)Activator.CreateInstance(type)!;
                 }
 
                 RegisterModule(client, module);
@@ -664,14 +675,14 @@ public class CommandsExtension
         {
             try
             {
-                BaseCommandModule? module;
+                BaseCommandModule module;
                 if (_serviceProvider != null)
                 {
                     module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
                 }
                 else
                 {
-                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                    module = (BaseCommandModule)Activator.CreateInstance(type)!;
                 }
 
                 await RegisterModuleAsync(client, module).ConfigureAwait(false);
@@ -710,14 +721,14 @@ public class CommandsExtension
         {
             try
             {
-                BaseCommandModule? module;
+                BaseCommandModule module;
                 if (_serviceProvider != null)
                 {
                     module = (BaseCommandModule)_serviceProvider.GetRequiredService(type);
                 }
                 else
                 {
-                    module = (BaseCommandModule)Activator.CreateInstance(type);
+                    module = (BaseCommandModule)Activator.CreateInstance(type)!;
                 }
 
                 await RegisterSlashModuleAsync(client, module, applicationId, guildId).ConfigureAwait(false);
@@ -1706,7 +1717,7 @@ public class CommandsExtension
             if (userMenuAttr == null && messageMenuAttr == null) continue;
 
             var isUserMenu = userMenuAttr != null;
-            var name = isUserMenu ? userMenuAttr.Name : messageMenuAttr!.Name;
+            var name = isUserMenu ? userMenuAttr!.Name : messageMenuAttr!.Name;
             var typeValue = isUserMenu ? 2 : 3; // 2 = USER, 3 = MESSAGE
 
             var request = new CreateApplicationCommandRequest
@@ -1824,7 +1835,7 @@ public class CommandsExtension
                 if (userMenuAttr == null && messageMenuAttr == null) continue;
 
                 var isUserMenu = userMenuAttr != null;
-                var name = isUserMenu ? userMenuAttr.Name : messageMenuAttr!.Name;
+                var name = isUserMenu ? userMenuAttr!.Name : messageMenuAttr!.Name;
                 var typeValue = isUserMenu ? 2 : 3;
 
                 requests.Add(new CreateApplicationCommandRequest

@@ -8,6 +8,10 @@ namespace PawSharp.Voice.DAVE;
 /// <summary>
 /// Discord voice gateway opcodes, including DAVE E2EE-specific opcodes (21–31).
 /// Standard voice opcodes are 0–20; DAVE opcodes are 21–31.
+///
+/// Mapping per Discord's official voice gateway specification.
+/// Ops 21–24, 31 are JSON text messages.
+/// Ops 25–30 are binary WebSocket messages.
 /// </summary>
 public enum DAVEVoiceOpcode
 {
@@ -51,39 +55,75 @@ public enum DAVEVoiceOpcode
     Platform = 20,
 
     // ── DAVE E2EE opcodes ─────────────────────────────────────────────────
+    // Ops 21–24, 31: JSON text messages
+    // Ops 25–30: Binary WebSocket messages
 
-    /// <summary>Client sends its MLS key package to the server.</summary>
-    DaveMlsKeyPackage = 21,
-    /// <summary>Server requests a new MLS key package from the client.</summary>
-    DaveMlsKeyPackageRequest = 22,
     /// <summary>
-    /// Server tells clients to prepare for an upcoming DAVE protocol transition
-    /// (e.g. switching DAVE version or establishing a new MLS group).
+    /// Server announces an upcoming DAVE protocol transition (e.g. downgrade).
+    /// JSON payload: dave_protocol_version, dave_transition_id, allowed_cipher_suites, allowed_versions.
+    /// If max_dave_protocol_version &lt; dave_protocol_version, the client must disconnect.
     /// </summary>
-    DaveProtocolPrepareTransition = 23,
+    DavePrepareTransition = 21,
+
     /// <summary>
-    /// Server signals that the DAVE protocol transition is now active.
-    /// Clients should switch to using DAVE encryption.
+    /// Server signals the DAVE transition is now executing.
+    /// After this op, binary DAVE messages follow.
     /// </summary>
-    DaveProtocolReady = 24,
-    /// <summary>Server distributes an MLS Welcome message to a new member.</summary>
-    DaveMlsWelcome = 25,
-    /// <summary>A member sends (or the server forwards) an MLS Commit message.</summary>
-    DaveMlsCommit = 26,
-    /// <summary>One or more MLS Proposal messages.</summary>
+    DaveExecuteTransition = 22,
+
+    /// <summary>
+    /// Client acknowledges DAVE transition readiness.
+    /// JSON payload: dave_transition_id, key_package (base64).
+    /// </summary>
+    DaveTransitionReady = 23,
+
+    /// <summary>
+    /// Server announces a new epoch (version/group change).
+    /// JSON payload: epoch, group_id.
+    /// </summary>
+    DavePrepareEpoch = 24,
+
+    /// <summary>
+    /// Server sends the MLS external sender credential and public key.
+    /// BINARY payload.
+    /// </summary>
+    DaveMlsExternalSender = 25,
+
+    /// <summary>
+    /// Client sends its MLS key package for group membership.
+    /// BINARY payload.
+    /// </summary>
+    DaveMlsKeyPackage = 26,
+
+    /// <summary>
+    /// Server sends MLS proposals (Add, Remove, Update).
+    /// BINARY payload.
+    /// </summary>
     DaveMlsProposals = 27,
-    /// <summary>Server tells clients to prepare for a new MLS epoch.</summary>
-    DaveProtocolPrepareEpoch = 28,
+
     /// <summary>
-    /// A member announces the most recently applied MLS commit transition,
-    /// so other members know which epoch they are on.
+    /// Client sends an MLS Commit message with an optional Welcome.
+    /// BINARY payload.
+    /// </summary>
+    DaveMlsCommitWelcome = 28,
+
+    /// <summary>
+    /// Server announces the most recently applied MLS commit transition,
+    /// confirming the epoch advancement.
+    /// BINARY payload.
     /// </summary>
     DaveMlsAnnounceCommitTransition = 29,
+
     /// <summary>
-    /// Server rejects an MLS commit and sends a new Welcome message instead,
-    /// forcing the client to rejoin.
+    /// Server distributes an MLS Welcome message to late-joining members
+    /// or for recovery after an invalid commit.
+    /// BINARY payload.
     /// </summary>
-    DaveMlsInvalidCommitWelcome = 30,
-    /// <summary>Server distributes the MLS external sender package.</summary>
-    DaveMlsExternalSenderPackage = 31,
+    DaveMlsWelcome = 30,
+
+    /// <summary>
+    /// Client signals that a received MLS commit or Welcome is invalid.
+    /// JSON payload with error details.
+    /// </summary>
+    DaveMlsInvalidCommitWelcome = 31,
 }

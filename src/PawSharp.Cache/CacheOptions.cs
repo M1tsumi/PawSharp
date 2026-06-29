@@ -80,4 +80,9 @@ public class CacheOptions
     /// Expiration time for emojis (overrides DefaultExpiration if set).
     /// </summary>
     public TimeSpan? EmojiExpiration { get; set; } = null;
+
+    /// <summary>
+    /// Expiration time for generic cache entries (default: 1 hour).
+    /// </summary>
+    public TimeSpan GenericCacheExpiration { get; set; } = TimeSpan.FromHours(1);
 }

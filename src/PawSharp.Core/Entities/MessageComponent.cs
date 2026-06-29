@@ -40,7 +40,8 @@ public enum ComponentType
 public enum SeparatorSpacing
 {
     Small = 1,
-    Large = 2,
+    Medium = 2,
+    Large = 3,
 }
 
 /// <summary>Visual style of a button component.</summary>

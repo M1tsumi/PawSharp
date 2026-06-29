@@ -9,11 +9,11 @@ end-to-end encryption layer works underneath.
 ## Installation
 
 ```bash
-dotnet add package PawSharp.Voice  # 1.1.0-alpha.3
+dotnet add package PawSharp.Voice  # 1.1.0-alpha.4
 ```
 
 This pulls in NAudio (audio device I/O) and Concentus (Opus codec). The entire
-crypto stack (AES-GCM, HKDF, X25519, Ed25519, MLS key schedule) comes from the
+crypto stack (AES-128-GCM, HKDF-SHA256, P-256 ECDH/ECDSA, MLS key schedule) comes from the
 .NET 10 BCL — no extra crypto NuGet packages needed.
 
 ---
@@ -184,12 +184,14 @@ DAVE (Discord's AV Encryption protocol) uses **MLS (RFC 9420)** to establish a
 shared key context among all participants. Here's the sequence:
 
 ```
-Server  →  op 22  →  "send me your key package"
-Client  →  op 21  →  KeyPackage (X25519 init key + Ed25519 sig key)
-Server  →  op 25  →  Welcome message (or op 26 Commit for existing members)
-Client             processes Welcome / Commit → MLS group is established
-Server  →  op 24  →  "encryption is now active"
-Client             _dave.IsActive = true  →  all frames are now encrypted/decrypted
+- Server sends JSON op 21 (DavePrepareTransition) with dave_protocol_version, dave_transition_id
+- Client responds with JSON op 23 (DaveTransitionReady) with dave_transition_id, key_package
+- Server sends JSON op 22 (DaveExecuteTransition) — binary DAVE messages follow from here
+- Server sends JSON op 24 (DavePrepareEpoch) — signals upcoming group state change
+- Server sends BINARY op 25 (DaveMlsExternalSender) — credential + public key
+- Client sends BINARY op 26 (DaveMlsKeyPackage) — MLS key package
+- Server sends BINARY op 30 (DaveMlsWelcome) — MLS Welcome message
+- Client processes Welcome and activates DAVE encryption
 ```
 
 ### Wire format of a single voice packet
@@ -199,8 +201,8 @@ Client             _dave.IsActive = true  →  all frames are now encrypted/decr
 │  12 bytes RTP fixed header  (version, PT=120, seq, ts, SSRC)        │
 │  ─── passed as Additional Authenticated Data (AAD) to AES-128-GCM ──│
 ├─────────────────────────────┬────────────────────┬───────────────────┤
-│  12 bytes DAVE nonce        │  N bytes ciphertext │  16 bytes GCM tag │
-│  (4B SSRC + 8B frame counter│  (encrypted Opus)   │  (auth tag)       │
+│  8-byte monotonic counter   │  N bytes ciphertext │  16 bytes auth tag │
+│  (frame sequence number)    │  (encrypted Opus)   │  (GCM tag)         │
 └─────────────────────────────┴────────────────────┴───────────────────┘
 ```
 
@@ -216,12 +218,12 @@ secret using HKDF-SHA256:
 ```
 HKDF-Expand(
     prk   = epoch_secret,
-    info  = "Discord DAVE 1.0 sender key\0" ++ ssrc_big_endian_4_bytes,
+    info  = "Discord Secure Frames v0 sender" ++ ssrc_big_endian_4_bytes,
     okm_len = 16
 )
 ```
 
-The label `"Discord DAVE 1.0 sender key\0"` is the null-terminated ASCII string
+The label `"Discord Secure Frames v0 sender"` is the ASCII string
 defined in Discord's DAVE spec. The four-byte SSRC suffix ensures each sender
 in the session has a unique key even within the same epoch.
 
@@ -230,8 +232,9 @@ transition (Welcome or Commit).
 
 ### Epoch transitions
 
-When someone joins or leaves a voice channel, the server sends a new MLS Commit
-(op 26). The client applies it, and the MLS key schedule derives a new epoch
+When someone joins or leaves a voice channel, the server sends MLS proposals
+(op 27) and the client submits a Commit+Welcome (op 28). The server confirms
+the epoch advancement (op 29, binary). The MLS key schedule derives a new epoch
 secret from the updated ratchet tree. All cached sender keys are immediately
 invalidated, and the outgoing frame counter resets to zero to keep nonce
 construction deterministic within each epoch.
@@ -245,8 +248,8 @@ in `PawSharp.Voice.DAVE` calls P/Invoke or loads a native crypto DLL.
 |-------|-----------|-----------|
 | Frame encryption | AES-128-GCM | `System.Security.Cryptography.AesGcm` |
 | Key derivation | HKDF-SHA256 | `System.Security.Cryptography.HKDF` |
-| DH key agreement | X25519 (RFC 7748) | Custom (5×51-bit limb arithmetic) |
-| Signing | Ed25519 (RFC 8032) | Custom (twisted Edwards GF(2²⁵⁵-19)) |
+| DH key agreement | P-256 ECDH (NIST SP 800-56A) | System.Security.Cryptography.ECDiffieHellman |
+| Signing | ECDSA P-256 (FIPS 186-4) | System.Security.Cryptography.ECDsa |
 | Symmetric encryption | AES-128-GCM (HPKE) | `System.Security.Cryptography.AesGcm` |
 | Ratchet tree | TreeKEM (RFC 9420) | `PawSharp.Voice.DAVE.MLS.Tree` |
 | Key schedule | RFC 9420 §8 | `PawSharp.Voice.DAVE.MLS.State.MLSKeySchedule` |

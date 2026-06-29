@@ -60,38 +60,32 @@ public sealed class RequireRoleAttribute : Attribute, IPrecondition
     {
         try
         {
-            // Try to get roles from cache
             var guild = ctx.Client.Cache.GetGuild(ctx.GuildId!.Value);
-            if (guild != null && member.Roles != null)
+
+            // Determine which role IDs to resolve: from the member or from a fresh API call
+            IReadOnlyList<ulong>? roleIds = member.Roles;
+
+            if (roleIds is null || roleIds.Count == 0)
             {
-                var roleList = new List<Role>();
-                foreach (var roleId in member.Roles)
-                {
-                    var role = guild.Roles?.FirstOrDefault(r => r.Id == roleId);
-                    if (role != null)
-                        roleList.Add(role);
-                }
-                return roleList;
+                if (member.User is null)
+                    return null;
+
+                var guildMember = await ctx.Client.Rest.GetGuildMemberAsync(ctx.GuildId.Value, member.User.Id);
+                roleIds = guildMember?.Roles;
             }
 
-            // Fallback to API call
-            var guildMember = await ctx.Client.Rest.GetGuildMemberAsync(ctx.GuildId.Value, member.User.Id);
-            if (guildMember == null)
+            if (roleIds is null || roleIds.Count == 0)
                 return null;
-            
-            // Reuse existing guild variable from cache
-            if (guild != null && guildMember.Roles != null)
+
+            // Resolve IDs to Role objects if possible; fall back to ID-only stubs
+            var roleList = new List<Role>(roleIds.Count);
+            foreach (var roleId in roleIds)
             {
-                var roleList = new List<Role>();
-                foreach (var roleId in guildMember.Roles)
-                {
-                    var role = guild.Roles?.FirstOrDefault(r => r.Id == roleId);
-                    if (role != null)
-                        roleList.Add(role);
-                }
-                return roleList;
+                var role = guild?.Roles?.FirstOrDefault(r => r.Id == roleId)
+                           ?? new Role { Id = roleId, Name = $"<@{roleId}>" };
+                roleList.Add(role);
             }
-            return null;
+            return roleList;
         }
         catch
         {

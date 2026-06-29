@@ -163,19 +163,17 @@ internal sealed class MLSKeySchedule
     /// using MLS-Export with the DAVE-specific label.
     ///
     /// RFC 9420 §8.5 — MLS-Exporter:
-    ///   exporter_value = DeriveSecret(
-    ///       ExpandWithLabel(exporter_secret, label, context, HashLen),
-    ///       "exporter")
+    ///   MLS-Exporter(Secret, Label, Context, Length) =
+    ///       ExpandWithLabel(Secret, Label, Context, Length)
     /// </summary>
     public byte[] DeriveDaveEpochSecret()
     {
         // DAVE label defined in the DAVE protocol specification
-        const string DaveLabel   = "DAVE sender";
-        var exportedSecret = MlsHkdf.ExpandWithLabel(
+        const string DaveLabel = "Discord Secure Frames v0";
+        return MlsHkdf.ExpandWithLabel(
             ExporterSecret,
             DaveLabel,
             ReadOnlySpan<byte>.Empty,
             MlsHkdf.HashLen);
-        return MlsHkdf.DeriveSecret(exportedSecret, "exporter");
     }
 }
