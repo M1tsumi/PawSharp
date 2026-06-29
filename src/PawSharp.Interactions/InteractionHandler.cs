@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PawSharp.API;
@@ -27,7 +28,7 @@ namespace PawSharp.Interactions;
 /// <summary>
 /// Handles Discord interactions (slash commands, components, autocomplete, context menus).
 /// </summary>
-public class InteractionHandler
+public class InteractionHandler : IDisposable
 {
     private readonly IDiscordRestClient _restClient;
     private readonly ILogger<InteractionHandler>? _logger;
@@ -38,6 +39,9 @@ public class InteractionHandler
     private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _userContextMenuHandlers = new();
     private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _messageContextMenuHandlers = new();
     private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _entryPointHandlers = new();
+    private readonly ConcurrentDictionary<string, Func<InteractionCreateEvent, Task>> _subCommandHandlers = new();
+    private readonly ConcurrentDictionary<Guid, (string Prefix, Func<InteractionCreateEvent, Task> Handler)> _componentPrefixHandlers = new();
+    private readonly ConcurrentDictionary<Guid, (Regex Regex, Func<InteractionCreateEvent, Task> Handler)> _componentPatternHandlers = new();
 
     /// <summary>
     /// Optional warning callback invoked when a registration overwrites an existing handler.
@@ -79,6 +83,26 @@ public class InteractionHandler
     {
         foreach (var (name, handler) in commands)
             RegisterCommand(name, handler);
+    }
+
+    /// <summary>
+    /// Registers a subcommand handler.
+    /// </summary>
+    public IDisposable OnSubCommand(string group, string subcommand, string commandName, Func<InteractionCreateEvent, Task> handler)
+    {
+        var key = $"{group}:{subcommand}:{commandName}";
+        _subCommandHandlers[key] = handler;
+        return new DisposableAction(() => _subCommandHandlers.TryRemove(key, out _));
+    }
+
+    /// <summary>
+    /// Registers a subcommand group handler.
+    /// </summary>
+    public IDisposable OnSubCommandGroup(string group, string subcommand, string commandName, Func<InteractionCreateEvent, Task> handler)
+    {
+        var key = $"{group}:{subcommand}:{commandName}";
+        _subCommandHandlers[key] = handler;
+        return new DisposableAction(() => _subCommandHandlers.TryRemove(key, out _));
     }
 
     /// <summary>
@@ -170,6 +194,9 @@ public class InteractionHandler
         _userContextMenuHandlers.Clear();
         _messageContextMenuHandlers.Clear();
         _entryPointHandlers.Clear();
+        _subCommandHandlers.Clear();
+        _componentPrefixHandlers.Clear();
+        _componentPatternHandlers.Clear();
     }
 
     /// <summary>
@@ -186,6 +213,28 @@ public class InteractionHandler
     public void RegisterComponent(string customId, Func<InteractionCreateEvent, Task> handler)
     {
         RegisterWithDiagnostics(_componentHandlers, customId, handler, "component");
+    }
+
+    /// <summary>
+    /// Registers a component handler by prefix matching on the custom ID.
+    /// When no exact match is found, prefix handlers are checked in registration order.
+    /// </summary>
+    public IDisposable OnComponentWithPrefix(string prefix, Func<InteractionCreateEvent, Task> handler)
+    {
+        var id = Guid.NewGuid();
+        _componentPrefixHandlers[id] = (prefix, handler);
+        return new DisposableAction(() => _componentPrefixHandlers.TryRemove(id, out _));
+    }
+
+    /// <summary>
+    /// Registers a component handler by regex pattern matching on the custom ID.
+    /// The pattern is compiled with <see cref="RegexOptions.Compiled"/>.
+    /// </summary>
+    public IDisposable OnComponentWithPattern(string pattern, Func<InteractionCreateEvent, Task> handler)
+    {
+        var id = Guid.NewGuid();
+        _componentPatternHandlers[id] = (new Regex(pattern, RegexOptions.Compiled), handler);
+        return new DisposableAction(() => _componentPatternHandlers.TryRemove(id, out _));
     }
 
     /// <summary>
@@ -273,18 +322,22 @@ public class InteractionHandler
             switch ((InteractionType)interaction.Type)
             {
                 case InteractionType.ApplicationCommand:
-                    await HandleApplicationCommandAsync(interaction);
+                    await HandleApplicationCommandAsync(interaction).ConfigureAwait(false);
                     break;
 
                 case InteractionType.MessageComponent:
                     if (interaction.Data?.CustomId != null &&
                         _componentHandlers.TryGetValue(interaction.Data.CustomId, out var componentHandler))
                     {
-                        await InvokeHandlerSafelyAsync(componentHandler, interaction, "component", interaction.Data.CustomId);
+                        await InvokeHandlerSafelyAsync(componentHandler, interaction, "component", interaction.Data.CustomId).ConfigureAwait(false);
+                    }
+                    else if (interaction.Data?.CustomId != null && TryGetComponentFallbackHandler(interaction.Data.CustomId, out var fallbackComponentHandler))
+                    {
+                        await InvokeHandlerSafelyAsync(fallbackComponentHandler, interaction, "component (prefix/pattern)", interaction.Data.CustomId).ConfigureAwait(false);
                     }
                     else
                     {
-                        _logger?.LogWarning("No component handler registered for custom_id: {CustomId}", interaction.Data.CustomId);
+                        _logger?.LogWarning("No component handler registered for custom_id: {CustomId}", interaction.Data?.CustomId);
                     }
                     break;
 
@@ -292,11 +345,11 @@ public class InteractionHandler
                     if (interaction.Data?.Name != null &&
                         _autocompleteHandlers.TryGetValue(interaction.Data.Name, out var autocompleteHandler))
                     {
-                        await HandleAutocompleteAsync(interaction, autocompleteHandler);
+                        await HandleAutocompleteAsync(interaction, autocompleteHandler).ConfigureAwait(false);
                     }
                     else
                     {
-                        _logger?.LogWarning("No autocomplete handler registered for command: {CommandName}", interaction.Data.Name);
+                        _logger?.LogWarning("No autocomplete handler registered for command: {CommandName}", interaction.Data?.Name);
                     }
                     break;
 
@@ -304,11 +357,11 @@ public class InteractionHandler
                     if (interaction.Data?.CustomId != null &&
                         _modalHandlers.TryGetValue(interaction.Data.CustomId, out var modalHandler))
                     {
-                        await InvokeHandlerSafelyAsync(modalHandler, interaction, "modal", interaction.Data.CustomId);
+                        await InvokeHandlerSafelyAsync(modalHandler, interaction, "modal", interaction.Data.CustomId).ConfigureAwait(false);
                     }
                     else
                     {
-                        _logger?.LogWarning("No modal handler registered for custom_id: {CustomId}", interaction.Data.CustomId);
+                        _logger?.LogWarning("No modal handler registered for custom_id: {CustomId}", interaction.Data?.CustomId);
                     }
                     break;
 
@@ -339,7 +392,7 @@ public class InteractionHandler
             case (int)ApplicationCommandType.User:
                 if (_userContextMenuHandlers.TryGetValue(interaction.Data.Name, out var userHandler))
                 {
-                    await InvokeHandlerSafelyAsync(userHandler, interaction, "user context menu", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(userHandler, interaction, "user context menu", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -347,10 +400,10 @@ public class InteractionHandler
                 }
                 break;
 
-            case (int)PawSharp.Interactions.Models.ApplicationCommandType.Message:
+            case (int)PawSharp.Core.Entities.ApplicationCommandType.Message:
                 if (_messageContextMenuHandlers.TryGetValue(interaction.Data.Name, out var messageHandler))
                 {
-                    await InvokeHandlerSafelyAsync(messageHandler, interaction, "message context menu", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(messageHandler, interaction, "message context menu", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -361,7 +414,7 @@ public class InteractionHandler
             case 4: // PRIMARY_ENTRY_POINT - Activity entry point
                 if (_entryPointHandlers.TryGetValue(interaction.Data.Name, out var entryHandler))
                 {
-                    await InvokeHandlerSafelyAsync(entryHandler, interaction, "entry point", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(entryHandler, interaction, "entry point", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -370,9 +423,39 @@ public class InteractionHandler
                 break;
 
             default: // CHAT_INPUT (1) or unrecognised — fall through to slash command handlers
+                var options = interaction.Data.Options;
+                if (options is { Count: > 0 } && options[0].Type is 1 or 2)
+                {
+                    string? group = null;
+                    string? subcommand = null;
+                    if (options[0].Type == 2)
+                    {
+                        group = options[0].Name;
+                        var nested = options[0].Options;
+                        if (nested is { Count: > 0 })
+                        {
+                            subcommand = nested[0].Name;
+                        }
+                    }
+                    else
+                    {
+                        subcommand = options[0].Name;
+                    }
+
+                    if (subcommand != null)
+                    {
+                        var key = $"{group ?? ""}:{subcommand}:{interaction.Data.Name}";
+                        if (_subCommandHandlers.TryGetValue(key, out var subHandler))
+                        {
+                            await InvokeHandlerSafelyAsync(subHandler, interaction, "subcommand", key).ConfigureAwait(false);
+                            break;
+                        }
+                    }
+                }
+
                 if (_commandHandlers.TryGetValue(interaction.Data.Name, out var slashHandler))
                 {
-                    await InvokeHandlerSafelyAsync(slashHandler, interaction, "slash command", interaction.Data.Name);
+                    await InvokeHandlerSafelyAsync(slashHandler, interaction, "slash command", interaction.Data.Name).ConfigureAwait(false);
                 }
                 else
                 {
@@ -386,13 +469,13 @@ public class InteractionHandler
     {
         try
         {
-            var choices = await handler(interaction);
+            var choices = await handler(interaction).ConfigureAwait(false);
             var response = new InteractionResponse
             {
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = choices }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
         catch (DiscordApiException ex)
         {
@@ -404,7 +487,7 @@ public class InteractionHandler
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
         catch (ValidationException ex)
         {
@@ -416,7 +499,7 @@ public class InteractionHandler
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -428,7 +511,7 @@ public class InteractionHandler
                 Type = (int)InteractionResponseType.ApplicationCommandAutocompleteResult,
                 Data = new InteractionCallbackData { Choices = new List<AutocompleteChoice>() }
             };
-            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response);
+            await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, response).ConfigureAwait(false);
         }
     }
 
@@ -442,7 +525,7 @@ public class InteractionHandler
 
         try
         {
-            await handler(interaction);
+            await handler(interaction).ConfigureAwait(false);
         }
         catch (DiscordApiException ex)
         {
@@ -455,7 +538,7 @@ public class InteractionHandler
                 {
                     Type = (int)InteractionResponseType.ChannelMessageWithSource,
                     Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception responseEx)
             {
@@ -472,7 +555,7 @@ public class InteractionHandler
                 {
                     Type = (int)InteractionResponseType.ChannelMessageWithSource,
                     Data = new InteractionCallbackData { Content = $"Invalid input: {ex.Message}", Flags = 64 }
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception responseEx)
             {
@@ -490,7 +573,7 @@ public class InteractionHandler
                 {
                     Type = (int)InteractionResponseType.ChannelMessageWithSource,
                     Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
-                });
+                }).ConfigureAwait(false);
             }
             catch (Exception responseEx)
             {
@@ -499,26 +582,56 @@ public class InteractionHandler
         }
     }
 
+    private bool TryGetComponentFallbackHandler(string customId, out Func<InteractionCreateEvent, Task> handler)
+    {
+        foreach (var kvp in _componentPrefixHandlers)
+        {
+            if (customId.StartsWith(kvp.Value.Prefix, StringComparison.Ordinal))
+            {
+                handler = kvp.Value.Handler;
+                return true;
+            }
+        }
+
+        foreach (var kvp in _componentPatternHandlers)
+        {
+            if (kvp.Value.Regex.IsMatch(customId))
+            {
+                handler = kvp.Value.Handler;
+                return true;
+            }
+        }
+
+        handler = null!;
+        return false;
+    }
+
     /// <summary>
     /// Responds to an interaction with a message.
     /// </summary>
     public async Task<bool> RespondAsync(ulong interactionId, string interactionToken, InteractionResponse response)
     {
-        return await _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
+        return await _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Responds to a slash command interaction with an ephemeral (only-visible-to-user) message.
+    /// Responds to an interaction with a text message.
     /// </summary>
-    public Task<bool> RespondEphemeralAsync(ulong interactionId, string interactionToken, string content)
+    public Task<bool> RespondAsync(ulong interactionId, string interactionToken, string content, bool ephemeral = false)
     {
         var response = new InteractionResponse
         {
             Type = (int)InteractionResponseType.ChannelMessageWithSource,
-            Data = new InteractionCallbackData { Content = content, Flags = 64 }
+            Data = new InteractionCallbackData { Content = content, Flags = ephemeral ? 64 : null }
         };
         return _restClient.CreateInteractionResponseAsync(interactionId, interactionToken, response);
     }
+
+    /// <summary>
+    /// Responds to a slash command interaction with an ephemeral message.
+    /// </summary>
+    public Task<bool> RespondEphemeralAsync(ulong interactionId, string interactionToken, string content)
+        => RespondAsync(interactionId, interactionToken, content, ephemeral: true);
 
     /// <summary>
     /// Responds to a slash command interaction with an ephemeral message and embeds.
@@ -607,7 +720,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<bool> EditResponseAsync(string applicationId, string interactionToken, EditMessageRequest request)
     {
-        var response = await _restClient.EditOriginalInteractionResponseAsync(applicationId, interactionToken, request);
+        var response = await _restClient.EditOriginalInteractionResponseAsync(applicationId, interactionToken, request).ConfigureAwait(false);
         return response.IsSuccessStatusCode;
     }
 
@@ -616,7 +729,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> GetOriginalResponseAsync(string applicationId, string interactionToken)
     {
-        return await _restClient.GetOriginalInteractionResponseAsync(applicationId, interactionToken);
+        return await _restClient.GetOriginalInteractionResponseAsync(applicationId, interactionToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -624,7 +737,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<bool> DeleteOriginalResponseAsync(string applicationId, string interactionToken)
     {
-        return await _restClient.DeleteOriginalInteractionResponseAsync(applicationId, interactionToken);
+        return await _restClient.DeleteOriginalInteractionResponseAsync(applicationId, interactionToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -632,7 +745,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> CreateFollowupAsync(string applicationId, string interactionToken, CreateMessageRequest request)
     {
-        return await _restClient.CreateFollowupMessageAsync(applicationId, interactionToken, request);
+        return await _restClient.CreateFollowupMessageAsync(applicationId, interactionToken, request).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -640,7 +753,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> GetFollowupAsync(string applicationId, string interactionToken, ulong messageId)
     {
-        return await _restClient.GetFollowupMessageAsync(applicationId, interactionToken, messageId);
+        return await _restClient.GetFollowupMessageAsync(applicationId, interactionToken, messageId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -648,7 +761,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<Message?> EditFollowupAsync(string applicationId, string interactionToken, ulong messageId, EditMessageRequest request)
     {
-        return await _restClient.EditFollowupMessageAsync(applicationId, interactionToken, messageId, request);
+        return await _restClient.EditFollowupMessageAsync(applicationId, interactionToken, messageId, request).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -656,7 +769,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<bool> DeleteFollowupAsync(string applicationId, string interactionToken, ulong messageId)
     {
-        return await _restClient.DeleteFollowupMessageAsync(applicationId, interactionToken, messageId);
+        return await _restClient.DeleteFollowupMessageAsync(applicationId, interactionToken, messageId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -693,7 +806,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<List<ApplicationCommandPermissions>?> GetGuildApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId)
     {
-        return await _restClient.GetGuildApplicationCommandPermissionsAsync(applicationId, guildId);
+        return await _restClient.GetGuildApplicationCommandPermissionsAsync(applicationId, guildId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -701,7 +814,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<ApplicationCommandPermissions?> GetApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId)
     {
-        return await _restClient.GetApplicationCommandPermissionsAsync(applicationId, guildId, commandId);
+        return await _restClient.GetApplicationCommandPermissionsAsync(applicationId, guildId, commandId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -709,7 +822,7 @@ public class InteractionHandler
     /// </summary>
     public async Task<ApplicationCommandPermissions?> EditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, ulong commandId, List<ApplicationCommandPermission> permissions)
     {
-        return await _restClient.EditApplicationCommandPermissionsAsync(applicationId, guildId, commandId, permissions);
+        return await _restClient.EditApplicationCommandPermissionsAsync(applicationId, guildId, commandId, permissions).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -717,7 +830,24 @@ public class InteractionHandler
     /// </summary>
     public async Task<List<ApplicationCommandPermissions>?> BatchEditApplicationCommandPermissionsAsync(ulong applicationId, ulong guildId, List<ApplicationCommandPermissions> permissions)
     {
-        return await _restClient.BatchEditApplicationCommandPermissionsAsync(applicationId, guildId, permissions);
+        return await _restClient.BatchEditApplicationCommandPermissionsAsync(applicationId, guildId, permissions).ConfigureAwait(false);
+    }
+
+    public void Dispose()
+    {
+        ClearAllHandlers();
+    }
+
+    private sealed class DisposableAction : IDisposable
+    {
+        private readonly Action _action;
+        private int _disposed;
+        public DisposableAction(Action action) => _action = action;
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+                _action();
+        }
     }
 }
 

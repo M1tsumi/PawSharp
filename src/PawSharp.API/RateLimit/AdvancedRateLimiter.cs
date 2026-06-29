@@ -9,11 +9,18 @@ namespace PawSharp.API.RateLimit;
 /// <summary>
 /// Advanced rate limiter with per-route bucket management.
 /// </summary>
-public class AdvancedRateLimiter : IAdvancedRateLimiter
+public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
 {
     private readonly ConcurrentDictionary<string, RateLimitBucket> _buckets = new();
     private readonly SemaphoreSlim _globalLimitSemaphore = new(1, 1);
     private DateTimeOffset _globalResetAt = DateTimeOffset.MinValue;
+    private readonly Timer? _cleanupTimer;
+    private bool _disposed;
+
+    public AdvancedRateLimiter()
+    {
+        _cleanupTimer = new Timer(_ => CleanupStaleBuckets(), null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+    }
 
     /// <summary>
     /// Wait for rate limit clearance before executing a request.
@@ -27,14 +34,14 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter
         if (DateTimeOffset.UtcNow < _globalResetAt)
         {
             var globalDelay = _globalResetAt - DateTimeOffset.UtcNow;
-            await Task.Delay(globalDelay, cancellationToken);
+            await Task.Delay(globalDelay, cancellationToken).ConfigureAwait(false);
         }
 
         // Get or create bucket for this route
         var bucketKey = bucketHash ?? route;
         var bucket = _buckets.GetOrAdd(bucketKey, _ => new RateLimitBucket());
 
-        await bucket.WaitAsync(cancellationToken);
+        await bucket.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -67,6 +74,31 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter
             bucket.Release();
         }
     }
+
+    /// <summary>
+    /// Removes buckets that have passed their reset time and are no longer in use.
+    /// Call periodically to prevent unbounded dictionary growth under long-running
+    /// operations with many unique API routes.
+    /// </summary>
+    public void CleanupStaleBuckets()
+    {
+        var cutoff = DateTimeOffset.UtcNow;
+        foreach (var kvp in _buckets)
+        {
+            if (kvp.Value.IsExpired(cutoff))
+            {
+                _buckets.TryRemove(kvp.Key, out _);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _cleanupTimer?.Dispose();
+        _globalLimitSemaphore.Dispose();
+    }
 }
 
 /// <summary>
@@ -81,7 +113,7 @@ public class RateLimitBucket
 
     public async Task WaitAsync(CancellationToken cancellationToken = default)
     {
-        await _semaphore.WaitAsync(cancellationToken);
+        await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         TimeSpan delay;
         lock (_lock)
@@ -104,17 +136,23 @@ public class RateLimitBucket
         // Yield outside the lock so we don't block threads while waiting
         if (delay > TimeSpan.Zero)
         {
-            await Task.Delay(delay, cancellationToken);
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
     }
 
     public void Release()
     {
-        // Only release if the semaphore was actually acquired (CurrentCount == 0).
-        // Calling Release() on an unacquired SemaphoreSlim(1,1) throws
-        // SemaphoreFullException because count would exceed the maximum of 1.
-        if (_semaphore.CurrentCount == 0)
+        // Only release if the semaphore was actually acquired.
+        // Using try-catch for SemaphoreFullException is the only reliable way
+        // since CurrentCount is subject to race conditions between check and release.
+        try
+        {
             _semaphore.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            // Already released — no action needed.
+        }
     }
 
     public void UpdateLimits(int remaining, DateTimeOffset resetAt)
@@ -123,6 +161,18 @@ public class RateLimitBucket
         {
             _remaining = remaining;
             _resetAt = resetAt;
+        }
+    }
+
+    /// <summary>
+    /// Returns true if this bucket has passed its reset time and is not actively
+    /// throttled, making it safe to remove from the rate limiter's dictionary.
+    /// </summary>
+    public bool IsExpired(DateTimeOffset cutoff)
+    {
+        lock (_lock)
+        {
+            return _remaining >= 1 && _resetAt < cutoff;
         }
     }
 }

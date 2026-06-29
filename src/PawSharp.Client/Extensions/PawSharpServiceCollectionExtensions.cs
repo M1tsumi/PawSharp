@@ -1,9 +1,10 @@
 #nullable enable
 using System;
-using System.Linq;
 using System.Net.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PawSharp.API.Clients;
 using PawSharp.API.Interfaces;
 using PawSharp.API.RateLimit;
@@ -31,6 +32,83 @@ public static class PawSharpServiceCollectionExtensions
         this IServiceCollection services,
         PawSharpOptions options)
         => services.AddPawSharpWithMemoryCache(options);
+
+    /// <summary>
+    /// Sets up PawSharp using a bot token with optional fluent builder configuration.
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="token">The Discord bot token.</param>
+    /// <param name="configure">Optional delegate to configure the <see cref="PawSharpClientBuilder"/>.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
+    public static IServiceCollection SetupPawSharp(
+        this IServiceCollection services,
+        string token,
+        Action<PawSharpClientBuilder>? configure = null)
+    {
+        var builder = new PawSharpClientBuilder().WithToken(token);
+        configure?.Invoke(builder);
+        var client = builder.Build();
+        services.AddSingleton<IDiscordClient>(client);
+        services.AddSingleton((DiscordClient)client);
+        return services;
+    }
+
+    /// <summary>
+    /// Sets up PawSharp by binding <see cref="PawSharpOptions"/> from configuration and optionally
+    /// applying additional fluent builder configuration.
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="configuration">The configuration source to bind <see cref="PawSharpOptions"/> from.</param>
+    /// <param name="configure">Optional delegate to configure the <see cref="PawSharpClientBuilder"/>.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
+    public static IServiceCollection SetupPawSharp(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<PawSharpClientBuilder>? configure = null)
+    {
+        var options = new PawSharpOptions();
+        configuration.Bind(options);
+        var builder = new PawSharpClientBuilder();
+        ApplyOptions(builder, options);
+        configure?.Invoke(builder);
+        var client = builder.Build();
+        services.AddSingleton<IDiscordClient>(client);
+        services.AddSingleton((DiscordClient)client);
+        return services;
+    }
+
+    /// <summary>
+    /// Binds <see cref="PawSharpOptions"/> from the provided <see cref="IConfigurationSection"/>
+    /// using the standard <c>IOptions&lt;T&gt;</c> pattern.
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="section">The configuration section to bind options from.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
+    public static IServiceCollection ConfigurePawSharp(
+        this IServiceCollection services,
+        IConfigurationSection section)
+    {
+        services.Configure<PawSharpOptions>(section);
+        return services;
+    }
+
+    private static void ApplyOptions(PawSharpClientBuilder builder, PawSharpOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(options.Token))
+            builder.WithToken(options.Token);
+
+        builder.WithIntents(options.Intents);
+        builder.WithApiVersion(options.ApiVersion);
+
+        if (options.Shards != 1 || options.ShardCount != 1)
+            builder.WithSharding(options.Shards, options.ShardCount);
+
+        if (options.EnableCompression)
+            builder.UseCompression();
+
+        if (options.Presence != null)
+            builder.WithPresence(options.Presence.ActivityName, options.Presence.ActivityType, options.Presence.Status, options.Presence.StreamUrl);
+    }
 
     /// <summary>
     /// Registers all PawSharp services — REST client, gateway, cache, interaction handler, and <see cref="DiscordClient"/> —
@@ -108,38 +186,4 @@ public static class PawSharpServiceCollectionExtensions
         this IServiceCollection services,
         PawSharpOptions options)
         => services.AddPawSharp(options, _ => new MemoryCacheProvider());
-
-    /// <summary>
-    /// Backward-compatible alias that registers PawSharp with in-memory cache.
-    /// </summary>
-    /// <param name="services">The service collection to register into.</param>
-    /// <param name="options">Bot configuration (token, intents, etc.).</param>
-    [Obsolete("AddPawSharpClient(options) is deprecated. Use SetupPawSharp(options) for a single-call setup, or AddPawSharp(options) for full control over cache configuration.")]
-    public static IServiceCollection AddPawSharpClient(
-        this IServiceCollection services,
-        PawSharpOptions options)
-        => services.SetupPawSharp(options);
-
-    /// <summary>
-    /// Backward-compatible overload that uses an already-registered <see cref="PawSharpOptions"/> instance.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when no concrete <see cref="PawSharpOptions"/> instance has been registered in the service collection.
-    /// </exception>
-    [Obsolete("AddPawSharpClient() is deprecated. Register PawSharpOptions first, then call SetupPawSharp(options) or AddPawSharpWithMemoryCache(options) instead.")]
-    public static IServiceCollection AddPawSharpClient(this IServiceCollection services)
-    {
-        var options = services
-            .LastOrDefault(d => d.ServiceType == typeof(PawSharpOptions))
-            ?.ImplementationInstance as PawSharpOptions;
-
-        if (options == null)
-        {
-            throw new InvalidOperationException(
-                "AddPawSharpClient() requires a concrete PawSharpOptions instance to be registered first. " +
-                "Call services.SetupPawSharp(options) or services.AddPawSharpWithMemoryCache(options) instead.");
-        }
-
-        return services.SetupPawSharp(options);
-    }
 }

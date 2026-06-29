@@ -1,4 +1,6 @@
 #nullable enable
+using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using PawSharp.Cache.Interfaces;
 using PawSharp.Core.Entities;
@@ -11,10 +13,12 @@ namespace PawSharp.Client;
 /// <summary>
 /// Automatically caches entities from gateway events.
 /// </summary>
-public class CacheManager
+public class CacheManager : IDisposable
 {
     private readonly IEntityCache _cache;
     private readonly ILogger<CacheManager>? _logger;
+    private readonly List<IDisposable> _subscriptions = new();
+    private bool _disposed;
 
     public CacheManager(IEntityCache cache, ILogger<CacheManager>? logger = null)
     {
@@ -28,49 +32,69 @@ public class CacheManager
     public void SubscribeToGateway(IGatewayClient gateway)
     {
         // READY event
-        gateway.Events.On<ReadyEvent>("READY", HandleReady);
+        _subscriptions.Add(gateway.Events.On<ReadyEvent>("READY", HandleReady));
         
         // Guild events
-        gateway.Events.On<GuildCreateEvent>("GUILD_CREATE", HandleGuildCreate);
-        gateway.Events.On<GuildUpdateEvent>("GUILD_UPDATE", HandleGuildUpdate);
-        gateway.Events.On<GuildDeleteEvent>("GUILD_DELETE", HandleGuildDelete);
-        gateway.Events.On<GuildEmojisUpdateEvent>("GUILD_EMOJIS_UPDATE", HandleGuildEmojisUpdate);
+        _subscriptions.Add(gateway.Events.On<GuildCreateEvent>("GUILD_CREATE", HandleGuildCreate));
+        _subscriptions.Add(gateway.Events.On<GuildUpdateEvent>("GUILD_UPDATE", HandleGuildUpdate));
+        _subscriptions.Add(gateway.Events.On<GuildDeleteEvent>("GUILD_DELETE", HandleGuildDelete));
+        _subscriptions.Add(gateway.Events.On<GuildEmojisUpdateEvent>("GUILD_EMOJIS_UPDATE", HandleGuildEmojisUpdate));
         
         // Channel events
-        gateway.Events.On<ChannelCreateEvent>("CHANNEL_CREATE", HandleChannelCreate);
-        gateway.Events.On<ChannelUpdateEvent>("CHANNEL_UPDATE", HandleChannelUpdate);
-        gateway.Events.On<ChannelDeleteEvent>("CHANNEL_DELETE", HandleChannelDelete);
+        _subscriptions.Add(gateway.Events.On<ChannelCreateEvent>("CHANNEL_CREATE", HandleChannelCreate));
+        _subscriptions.Add(gateway.Events.On<ChannelUpdateEvent>("CHANNEL_UPDATE", HandleChannelUpdate));
+        _subscriptions.Add(gateway.Events.On<ChannelDeleteEvent>("CHANNEL_DELETE", HandleChannelDelete));
         
         // Message events
-        gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", HandleMessageCreate);
-        gateway.Events.On<MessageUpdateEvent>("MESSAGE_UPDATE", HandleMessageUpdate);
-        gateway.Events.On<MessageDeleteEvent>("MESSAGE_DELETE", HandleMessageDelete);
+        _subscriptions.Add(gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", HandleMessageCreate));
+        _subscriptions.Add(gateway.Events.On<MessageUpdateEvent>("MESSAGE_UPDATE", HandleMessageUpdate));
+        _subscriptions.Add(gateway.Events.On<MessageDeleteEvent>("MESSAGE_DELETE", HandleMessageDelete));
         
         // Member events
-        gateway.Events.On<GuildMemberAddEvent>("GUILD_MEMBER_ADD", HandleGuildMemberAdd);
-        gateway.Events.On<GuildMemberUpdateEvent>("GUILD_MEMBER_UPDATE", HandleGuildMemberUpdate);
-        gateway.Events.On<GuildMemberRemoveEvent>("GUILD_MEMBER_REMOVE", HandleGuildMemberRemove);
+        _subscriptions.Add(gateway.Events.On<GuildMemberAddEvent>("GUILD_MEMBER_ADD", HandleGuildMemberAdd));
+        _subscriptions.Add(gateway.Events.On<GuildMemberUpdateEvent>("GUILD_MEMBER_UPDATE", HandleGuildMemberUpdate));
+        _subscriptions.Add(gateway.Events.On<GuildMemberRemoveEvent>("GUILD_MEMBER_REMOVE", HandleGuildMemberRemove));
 
         // Role events
-        gateway.Events.On<GuildRoleCreateEvent>("GUILD_ROLE_CREATE", HandleGuildRoleCreate);
-        gateway.Events.On<GuildRoleUpdateEvent>("GUILD_ROLE_UPDATE", HandleGuildRoleUpdate);
-        gateway.Events.On<GuildRoleDeleteEvent>("GUILD_ROLE_DELETE", HandleGuildRoleDelete);
+        _subscriptions.Add(gateway.Events.On<GuildRoleCreateEvent>("GUILD_ROLE_CREATE", HandleGuildRoleCreate));
+        _subscriptions.Add(gateway.Events.On<GuildRoleUpdateEvent>("GUILD_ROLE_UPDATE", HandleGuildRoleUpdate));
+        _subscriptions.Add(gateway.Events.On<GuildRoleDeleteEvent>("GUILD_ROLE_DELETE", HandleGuildRoleDelete));
 
         // Sticker events
-        gateway.Events.On<GuildStickersUpdateEvent>("GUILD_STICKERS_UPDATE", HandleGuildStickersUpdate);
+        _subscriptions.Add(gateway.Events.On<GuildStickersUpdateEvent>("GUILD_STICKERS_UPDATE", HandleGuildStickersUpdate));
 
         // Thread events (treated as channels in the cache)
-        gateway.Events.On<ThreadCreateEvent>("THREAD_CREATE", HandleThreadCreate);
-        gateway.Events.On<ThreadUpdateEvent>("THREAD_UPDATE", HandleThreadUpdate);
-        gateway.Events.On<ThreadDeleteEvent>("THREAD_DELETE", HandleThreadDelete);
+        _subscriptions.Add(gateway.Events.On<ThreadCreateEvent>("THREAD_CREATE", HandleThreadCreate));
+        _subscriptions.Add(gateway.Events.On<ThreadUpdateEvent>("THREAD_UPDATE", HandleThreadUpdate));
+        _subscriptions.Add(gateway.Events.On<ThreadDeleteEvent>("THREAD_DELETE", HandleThreadDelete));
 
         // User events
-        gateway.Events.On<UserUpdateEvent>("USER_UPDATE", HandleUserUpdate);
+        _subscriptions.Add(gateway.Events.On<UserUpdateEvent>("USER_UPDATE", HandleUserUpdate));
 
         // Bulk member chunk — response to opcode 8 (Request Guild Members)
-        gateway.Events.On<GuildMembersChunkEvent>("GUILD_MEMBERS_CHUNK", HandleGuildMembersChunk);
+        _subscriptions.Add(gateway.Events.On<GuildMembersChunkEvent>("GUILD_MEMBERS_CHUNK", HandleGuildMembersChunk));
         
         _logger?.LogInformation("Cache manager subscribed to gateway events");
+    }
+
+    /// <summary>
+    /// Unsubscribe from all gateway events and dispose subscriptions.
+    /// </summary>
+    public void UnsubscribeFromGateway()
+    {
+        foreach (var sub in _subscriptions)
+        {
+            sub.Dispose();
+        }
+        _subscriptions.Clear();
+        _logger?.LogInformation("Cache manager unsubscribed from gateway events");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        UnsubscribeFromGateway();
     }
 
     private void HandleReady(ReadyEvent e)

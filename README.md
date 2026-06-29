@@ -3,7 +3,7 @@
 
   # PawSharp
 
-  **A modular Discord API wrapper for .NET**
+  **Build Discord bots without fighting your framework.**
 
   [![NuGet][nuget-badge]][nuget]
   [![Discord API][discord-api-badge]][discord-docs]
@@ -12,31 +12,39 @@
   [![Build][build-badge]][build]
   [![Discord][discord-badge]][discord]
 
-  [Documentation][docs] &middot; [Changelog][changelog] &middot; [Examples][examples] &middot; [NuGet][nuget] &middot; [Support][discord]
+  [Docs][docs] &middot; [Examples][examples] &middot; [Changelog][changelog] &middot; [NuGet][nuget] &middot; [Discord][discord]
 
 </div>
 
 ---
 
-PawSharp is a Discord API wrapper for C#. It's split into independent packages — grab the full client for a bot, or pick just the pieces you need.
+We're at **`1.1.0-alpha.4`** - core pieces work, things are still settling.
 
-Current release: `1.1.0-alpha.3`. See the [versioning policy][versioning] and [MIGRATION.md][migration] if upgrading from an earlier alpha.
+## Why PawSharp?
+
+PawSharp is built for modern .NET from the ground up - modular packages, async-first APIs, source-generated JSON for native AOT, and a fluent builder that's actually pleasant to configure.
+
+- **Modular packages** - install only what you need. Use the full client for traditional bots, or compose just `PawSharp.API` + `PawSharp.Cache` for a lightweight REST-only setup.
+- **async-first** - every public API returns `Task<T>` or `ValueTask<T>`. No `.Result`, no `.Wait()`, no sync-over-async footguns.
+- **Typed events** - gateway events map to strongly-typed C# classes with proper nullable annotations. No guessing what a `JToken` contains.
+- **Automatic rate limiting** - built into the REST client with bucket tracking, global rate limit detection, and configurable retry. Handled transparently.
+- **Fluent builder** - configure with `.WithToken()`, `.WithIntents()`, `.UseConsoleLogging()` instead of a wall of constructor arguments.
+- **Native AOT ready** - source-generated `JsonSerializerContext` for every serializable type. No runtime reflection for JSON. Trimming-safe.
+- **Pure .NET voice** - Opus via Concentus (no native DLLs). DAVE E2EE encrypted voice (MLS / RFC 9420).
+
+---
 
 ## Quickstart
 
-### 1. Install the packages
-
 ```bash
-dotnet add package PawSharp.Client --version 1.1.0-alpha.3
+dotnet add package PawSharp.Client --version 1.1.0-alpha.4
 ```
-
-### 2. Write a minimal bot
 
 ```csharp
 using PawSharp.Client;
 using PawSharp.Core.Enums;
 
-string token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
+var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
     ?? throw new InvalidOperationException("Set DISCORD_TOKEN before running.");
 
 var client = new PawSharpClientBuilder()
@@ -56,88 +64,92 @@ await client.ConnectAsync();
 await Task.Delay(Timeout.Infinite);
 ```
 
-That's it. The builder wires up the REST client, gateway, cache, and logging with sensible defaults.
-
-### 3. Run it
-
-```bash
-export DISCORD_TOKEN="your-bot-token-here"
-dotnet run
+```
+$ DISCORD_TOKEN="your-token" dotnet run
+> !ping
+< Pong!
 ```
 
----
-
-## Packages
-
-PawSharp is modular by design. Install only what you need.
-
-| Package | Purpose | Depends on |
-|---------|---------|-----------|
-| `PawSharp.Client` | Top-level `DiscordClient` — fluent builder, DI, connection state, 130+ convenience methods | Core, API, Gateway, Cache |
-| `PawSharp.Core` | Shared entities, enums, builders, validation, serialization | — |
-| `PawSharp.API` | Raw REST client, 140+ endpoints, auto rate limiting, telemetry | Core |
-| `PawSharp.Gateway` | WebSocket, heartbeat, resume, reconnection, sharding, 40+ typed events | Core, API, Cache |
-| `PawSharp.Commands` | Prefix commands via `[Command]`, preconditions, type conversion, middleware | Core, API, Client |
-| `PawSharp.Interactions` | Slash commands, components, modals, autocomplete, context menus | Core, API, Gateway |
-| `PawSharp.Interactivity` | Pagination, wait-for-input, polls, confirmation dialogs | Core, Client |
-| `PawSharp.Voice` | Voice gateway, UDP audio, Opus encode/decode, DAVE E2EE | Core, API, Gateway, Client |
-| `PawSharp.Cache` | In-memory and Redis caching, per-entity TTL, LRU eviction, health checks | Core |
+This example shows: configuring a client, connecting to Discord, listening for events, sending a message.
 
 ---
 
-## What you can do
+## Which package do I need?
 
-**REST API** — 140+ endpoints covering messages, channels, guilds, members, roles, webhooks, threads, reactions, slash commands, audit logs, auto-moderation, scheduled events, stage instances, stickers, soundboard, polls, entitlements, and onboarding. All with typed models and automatic rate limiting.
+| If you want to... | Install |
+|---|---|
+| Build a normal Discord bot | `PawSharp.Client` |
+| Use only the REST API | `PawSharp.API` |
+| Add slash commands | `PawSharp.Commands` + `PawSharp.Interactions` |
+| Add voice support | `PawSharp.Voice` |
+| Add caching | `PawSharp.Cache` |
 
-**Gateway** — WebSocket lifecycle with automatic resume, heartbeat monitoring, and exponential-backoff reconnection. Over 40 typed events with intent filtering. Built-in sharding with auto-rebalancing for large bots.
-
-**Commands** — Attribute-based prefix commands with middleware, type conversion (14 built-in plus custom), and preconditions for permissions, ownership, roles, cooldowns, and scoping. Auto-discover modules with assembly scanning.
-
-**Interactions** — Slash command registration, buttons, select menus, modals, autocomplete, and context menus. The `InteractionHandler` routes interactions with error recovery so users get feedback instead of silent timeouts.
-
-**Interactivity** — Paginated messages (reactions or buttons), confirmations, input prompts, polls. Configurable timeouts.
-
-**Voice** — Discord Voice Protocol v8 with UDP audio, Opus codec (pure .NET via Concentus, no native DLLs), and DAVE E2EE (MLS / RFC 9420) with X25519 + Ed25519 + AES-128-GCM. Multiple simultaneous connections.
-
-**Caching** — Pluggable in-memory or Redis cache with per-entity TTL, LRU eviction, health checks, and telemetry. Dynamic provider swapping with circuit breaker fallback.
+`PawSharp.Client` already includes the packages most bots need - you're done with one `dotnet add package`.
 
 ---
 
-## Going further
+## What's in the box
 
-- [DEVELOPERS_GUIDE.md][dev-guide] — Setup, first bot, configuration, best practices
-- [REST_API_GUIDE.md][rest-guide] — Full REST endpoint reference with examples
-- [GATEWAY_GUIDE.md][gateway-guide] — Events, lifecycle, sharding, middleware
-- [CACHING_GUIDE.md][caching-guide] — In-memory and Redis caching strategies
-- [PATTERNS_GUIDE.md][patterns-guide] — Moderation, logging, pagination patterns
-- [VOICE_GUIDE.md][voice-guide] — Voice connections, Opus, DAVE E2EE
-- [ERROR_HANDLING.md][error-handling] — Exception hierarchy, recovery strategies
-- [MIGRATION.md][migration] — Breaking changes between alpha versions
-- [TROUBLESHOOTING.md][troubleshooting] — Common issues and fixes
+**REST API** - channels, messages, guilds, members, roles, webhooks, threads, slash commands, audit logs, auto-moderation, scheduled events, stage instances, stickers, soundboard, polls, and entitlements. Rate limits are handled automatically.
+
+**Gateway** - WebSocket client with resume, heartbeat monitoring, and backoff reconnection. Sharding is built-in. Events map to typed C# objects.
+
+**Commands** - attribute-based prefix commands with middleware, type conversion, and preconditions (permissions, roles, cooldowns). Module auto-discovery is one method call.
+
+**Interactions** - slash commands, buttons, select menus, modals, autocomplete, context menus. The interaction handler routes them with error recovery so users don't see "This interaction failed."
+
+**Interactivity** - pagination, confirmation dialogs, input prompts, polls. Async and timeout-based.
+
+**Voice** - join voice channels, play and receive audio. Pure .NET Opus via Concentus, no native dependencies. DAVE E2EE (MLS / RFC 9420) for encrypted voice. [See the voice guide][voice-guide].
+
+**Caching** - in-memory or Redis, per-entity TTL, eviction, health checks. Providers can be swapped at runtime.
+
+
 
 ---
 
-## Example bots
+## Working examples
 
-The [examples/][examples] directory has three working bots:
+The [examples/][examples] directory has bots you can run:
 
-- **ModerationBot** — Gateway events, REST operations, moderation logic. Uses the low-level API.
-- **MusicBot** — DI setup, commands, voice integration. Shows the module pattern.
-- **DashboardBot** — ASP.NET integration, interaction handlers, webhook verification. HTTP interaction mode.
+- **ModerationBot** - REST operations, gateway events, basic moderation. Uses the low-level API.
+- **MusicBot** - DI setup, commands, voice. Shows the module pattern.
+- **DashboardBot** - ASP.NET integration, interaction handlers, webhook verification.
 
-Each example has its own README with setup instructions.
+Each has its own README.
+
+---
+
+## Learn more
+
+- [Getting Started][dev-guide]
+- [REST API][rest-guide]
+- [Gateway Events][gateway-guide]
+- [Commands & Interactions](docs/INTERACTIONS_GUIDE.md)
+- [Voice][voice-guide]
+- [Caching][caching-guide]
+- [Patterns & Best Practices][patterns-guide]
+- [Error Handling][error-handling]
+- [Migration Guide][migration]
+- [Troubleshooting][troubleshooting]
 
 ---
 
 ## Versioning
 
-PawSharp follows [Semantic Versioning](https://semver.org/). Until 1.0.0, minor bumps may include breaking changes. See [VERSIONING_POLICY.md][versioning] for details.
+We follow [SemVer](https://semver.org/). Until 1.0.0, minor bumps may include breaking changes. The [changelog][changelog] and [migration guide][migration] track everything.
 
 ---
 
 ## Contributing
 
-Pull requests welcome. Read [CONTRIBUTING.md][contributing] first — it covers code style, testing, docs, and the release process.
+Pull requests welcome. Read [CONTRIBUTING.md][contributing] first.
+
+---
+
+## Community
+
+[Join our Discord][discord] - questions, ideas, or just to hang out.
 
 ---
 
@@ -159,7 +171,6 @@ MIT. See [LICENSE][license].
 [build-badge]:       https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml/badge.svg
 [build]:             https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml
 [docs]:              https://github.com/M1tsumi/PawSharp/tree/main/docs
-[docs-index]:        docs/INDEX.md
 [dev-guide]:         docs/DEVELOPERS_GUIDE.md
 [rest-guide]:        docs/REST_API_GUIDE.md
 [gateway-guide]:     docs/GATEWAY_GUIDE.md
@@ -172,6 +183,5 @@ MIT. See [LICENSE][license].
 [changelog]:         CHANGELOG.md
 [examples]:          examples/
 [contributing]:      CONTRIBUTING.md
-[versioning]:        docs/VERSIONING_POLICY.md
 [discord]:           https://discord.gg/6Z8X8cCHXs
 [discord-badge]:     https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white

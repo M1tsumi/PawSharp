@@ -28,7 +28,7 @@ namespace PawSharp.Core.Exceptions;
 /// <remarks>
 /// For more specific error handling, catch the derived exception types:
 /// <list type="bullet">
-/// <item><description><see cref="DiscordApiException"/> - REST API errors</description></item>
+/// <item><description><c>DiscordApiException</c> - REST API errors</description></item>
 /// <item><description><see cref="GatewayException"/> - WebSocket connection errors</description></item>
 /// <item><description><see cref="ValidationException"/> - Input validation errors</description></item>
 /// <item><description><see cref="RateLimitException"/> - Rate limiting errors</description></item>

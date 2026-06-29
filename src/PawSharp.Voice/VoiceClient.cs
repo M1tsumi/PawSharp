@@ -77,7 +77,7 @@ public class VoiceClient : IDisposable
 
         // Send op4 — Discord will reply with VOICE_STATE_UPDATE then VOICE_SERVER_UPDATE
         // For DMs (guildId=0), Discord still responds with the call's voice server info.
-        await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId, channel.Id, false, false);
+        await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId, channel.Id, false, false).ConfigureAwait(false);
 
         return connection;
     }
@@ -92,13 +92,13 @@ public class VoiceClient : IDisposable
         var guildId = channel.GuildId;
         if (_connections.TryRemove(channel.Id, out var connection))
         {
-            await connection.DisconnectAsync();
+            await connection.DisconnectAsync().ConfigureAwait(false);
             _reconnectionStates.TryRemove(channel.Id, out _);
         }
 
         // Send op4 with channel_id=null so Discord removes the bot from the voice channel
         if (guildId.HasValue)
-            await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId.Value, null, false, false);
+            await _discordClient.Gateway.SendVoiceStateUpdateAsync(guildId.Value, null, false, false).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -133,18 +133,19 @@ public class VoiceClient : IDisposable
         if (!shouldProceed)
         {
             _logger.LogWarning("Voice reconnection failed for channel {ChannelId} after {Attempts} attempts", channelId, state.Attempts);
-            await DisconnectAsync(connection.Channel);
+            _pendingSessions.TryRemove(connection.GuildId, out _);
+            await DisconnectAsync(connection.Channel).ConfigureAwait(false);
             return;
         }
 
         _logger.LogInformation("Attempting voice reconnection for channel {ChannelId}, attempt {Attempt}/{MaxAttempts}, backoff {Backoff}ms",
             channelId, state.Attempts, MaxReconnectionAttempts, state.CurrentBackoffMs);
 
-        await Task.Delay(state.CurrentBackoffMs);
+        await Task.Delay(state.CurrentBackoffMs).ConfigureAwait(false);
 
         try
         {
-            await connection.ReconnectAsync();
+            await connection.ReconnectAsync().ConfigureAwait(false);
             state = new ReconnectionState();
             _reconnectionStates[channelId] = state;
             _logger.LogInformation("Voice reconnection successful for channel {ChannelId}", channelId);
@@ -197,7 +198,7 @@ public class VoiceClient : IDisposable
         {
             connection.UpdateVoiceState(evt);
         }
-        await Task.CompletedTask;
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 
     private async Task OnVoiceServerUpdate(VoiceServerUpdateEvent evt)
@@ -231,7 +232,7 @@ public class VoiceClient : IDisposable
         if (target is null)
         {
             _logger.LogDebug("Received VOICE_SERVER_UPDATE for guild {GuildId} but no pending connection found", evt.GuildId);
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             return;
         }
 
@@ -242,12 +243,12 @@ public class VoiceClient : IDisposable
             const int retries = 5;
             const int retryDelayMs = 200;
             for (int i = 0; i < retries && !_pendingSessions.TryGetValue(evt.GuildId, out sessionId); i++)
-                await Task.Delay(retryDelayMs);
+                await Task.Delay(retryDelayMs).ConfigureAwait(false);
 
             if (sessionId is null)
             {
                 _logger.LogWarning("Received VOICE_SERVER_UPDATE for guild {GuildId} but no session_id is available yet", evt.GuildId);
-                await Task.CompletedTask;
+                await Task.CompletedTask.ConfigureAwait(false);
                 return;
             }
         }
@@ -258,7 +259,7 @@ public class VoiceClient : IDisposable
 
         try
         {
-            await target.ConnectAsync(evt.Endpoint, evt.GuildId, botUserId, sessionId, evt.Token);
+            await target.ConnectAsync(evt.Endpoint, evt.GuildId, botUserId, sessionId, evt.Token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

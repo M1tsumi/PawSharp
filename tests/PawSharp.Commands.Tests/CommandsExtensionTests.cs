@@ -453,19 +453,19 @@ public class CommandsExtensionTests
                     commands[0].Nsfw == true &&
                     commands[0].DmPermission == false &&
                     commands[0].Contexts != null &&
-                    commands[0].Contexts.Contains(0) &&
+                    commands[0].Contexts!.Contains(0) &&
                     commands[0].IntegrationTypes != null &&
-                    commands[0].IntegrationTypes.Contains(0) &&
+                    commands[0].IntegrationTypes!.Contains(0) &&
                     commands[0].DefaultMemberPermissions == "8" &&
                     commands[0].Options != null &&
-                    commands[0].Options.Count == 1 &&
-                    commands[0].Options[0].Autocomplete != true &&
-                    commands[0].Options[0].MinLength == 2 &&
-                    commands[0].Options[0].MaxLength == 32 &&
-                    commands[0].Options[0].Choices != null &&
-                    commands[0].Options[0].Choices.Count == 1 &&
-                    commands[0].Options[0].NameLocalizations != null &&
-                    commands[0].Options[0].DescriptionLocalizations != null)),
+                    commands[0].Options!.Count == 1 &&
+                    commands[0].Options![0].Autocomplete != true &&
+                    commands[0].Options![0].MinLength == 2 &&
+                    commands[0].Options![0].MaxLength == 32 &&
+                    commands[0].Options![0].Choices != null &&
+                    commands[0].Options![0].Choices!.Count == 1 &&
+                    commands[0].Options![0].NameLocalizations != null &&
+                    commands[0].Options![0].DescriptionLocalizations != null)),
             Times.Once);
     }
 
@@ -562,14 +562,14 @@ public class CommandsExtensionTests
     }
 
     [Fact]
-    public void CommandDelegateFactory_Supports_Void_Returning_Command_Methods()
+    public async Task CommandDelegateFactory_Supports_Void_Returning_Command_Methods()
     {
         var method = typeof(VoidMethodModule).GetMethod(nameof(VoidMethodModule.Increment))
             ?? throw new InvalidOperationException("Test method not found.");
         var compiled = CommandDelegateFactory.CreateDelegate(method);
         var module = new VoidMethodModule();
 
-        compiled(module, Array.Empty<object?>()).GetAwaiter().GetResult();
+        await compiled(module, Array.Empty<object?>());
 
         module.Counter.Should().Be(1);
     }

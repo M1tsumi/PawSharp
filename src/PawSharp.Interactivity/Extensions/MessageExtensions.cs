@@ -404,7 +404,7 @@ public static class MessageExtensions
                     // Poll cleanup failed — log and ignore
                     System.Diagnostics.Debug.WriteLine($"[MessageExtensions] Poll cleanup failed: {ex.Message}");
                 }
-            }, cancellationToken);
+            }, CancellationToken.None);
         }
     }
 
@@ -941,7 +941,7 @@ public static class MessageExtensions
                             var result = new List<string>();
                             foreach (var value in values.EnumerateArray())
                             {
-                                result.Add(value.GetString());
+                                result.Add(value.GetString()!);
                             }
                             return result;
                         }

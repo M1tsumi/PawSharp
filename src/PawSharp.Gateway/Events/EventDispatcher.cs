@@ -24,6 +24,7 @@ namespace PawSharp.Gateway.Events
         private readonly object _handlersLock = new();
         private readonly List<Func<string, object, Task>> _middleware = new();
         private readonly object _middlewareLock = new();
+        private volatile Func<string, object, Task>[] _middlewareSnapshot = Array.Empty<Func<string, object, Task>>();
         private readonly ILogger? _logger;
         private readonly IPerformanceMetrics? _metrics;
         private readonly EventDispatchQueue? _dispatchQueue;
@@ -128,6 +129,7 @@ namespace PawSharp.Gateway.Events
             lock (_middlewareLock)
             {
                 _middleware.Add(middleware);
+                _middlewareSnapshot = _middleware.ToArray();
             }
         }
 
@@ -164,10 +166,9 @@ namespace PawSharp.Gateway.Events
         {
             var sw = Stopwatch.StartNew();
             
-            // Run middleware
-            List<Func<string, object, Task>> middlewareCopy;
-            lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
-            foreach (var mw in middlewareCopy)
+            // Run middleware using snapshot for thread safety
+            var middlewareSnapshot = _middlewareSnapshot;
+            foreach (var mw in middlewareSnapshot)
             {
                 try
                 {
@@ -185,7 +186,6 @@ namespace PawSharp.Gateway.Events
                 }
             }
 
-            // Dispatch to handlers – snapshot copy ensures iteration is safe even if handlers mutate list
             if (!_eventHandlers.TryGetValue(eventName, out var handlers))
             {
                 sw.Stop();
@@ -220,6 +220,12 @@ namespace PawSharp.Gateway.Events
                         syncHandler(eventData);
                     else if (handler is Action<string> rawHandler && rawJson != null)
                         rawHandler(rawJson);
+                    else
+                    {
+                        var result = handler.DynamicInvoke(eventData);
+                        if (result is Task task)
+                            await task.ConfigureAwait(false);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -254,7 +260,7 @@ namespace PawSharp.Gateway.Events
                 _logger?.LogError(ex,
                     "Failed to deserialize {Event} event (JSON length: {Len}). Falling back to raw dispatch.",
                     eventName, json?.Length ?? 0);
-                await DispatchRawAsync(eventName, json).ConfigureAwait(false);
+                await DispatchRawAsync(eventName, json!).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -268,9 +274,8 @@ namespace PawSharp.Gateway.Events
         /// </summary>
         public async Task DispatchRawAsync(string eventName, string json)
         {
-            List<Func<string, object, Task>> middlewareCopy;
-            lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
-            foreach (var mw in middlewareCopy)
+            var middlewareSnapshot = _middlewareSnapshot;
+            foreach (var mw in middlewareSnapshot)
             {
                 try { await mw(eventName, json).ConfigureAwait(false); }
                 catch (Exception ex) { _logger?.LogError(ex, "Error in middleware for raw {Event}", eventName); }
@@ -300,14 +305,13 @@ namespace PawSharp.Gateway.Events
             
             if (rawJson != null) eventData.RawJson = rawJson;
 
-            // Run middleware
-            List<Func<string, object, Task>> middlewareCopy;
-            lock (_middlewareLock) middlewareCopy = new List<Func<string, object, Task>>(_middleware);
-            foreach (var mw in middlewareCopy)
+            // Run middleware using snapshot for thread safety
+            var middlewareSnapshot = _middlewareSnapshot;
+            foreach (var mw in middlewareSnapshot)
             {
                 try 
                 { 
-                    await mw(eventName, eventData); 
+                    await mw(eventName, eventData).ConfigureAwait(false); 
                 }
                 catch (EventFilteredException)
                 {
@@ -321,7 +325,6 @@ namespace PawSharp.Gateway.Events
                 }
             }
 
-            // Dispatch to handlers – snapshot copy ensures iteration is safe
             if (!_eventHandlers.TryGetValue(eventName, out var handlers))
             {
                 sw.Stop();

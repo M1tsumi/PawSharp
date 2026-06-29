@@ -11,8 +11,8 @@ namespace PawSharp.Voice.DAVE.MLS.Messages;
 /// <summary>MLS ciphersuite identifiers (RFC 9420 §5.1).</summary>
 internal enum CipherSuite : ushort
 {
-    /// <summary>DAVE profile: DHKEM(X25519,HKDF-SHA256) + AES-128-GCM + SHA-256 + Ed25519.</summary>
-    MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519 = 0x0001,
+    /// <summary>DAVE profile: DHKEM(P-256,HKDF-SHA256) + AES-128-GCM + SHA-256 + P256.</summary>
+    MLS_128_DHKEMP256_AES128GCM_SHA256_P256 = 0x0002,
 }
 
 /// <summary>MLS protocol version (RFC 9420 §5.1).</summary>

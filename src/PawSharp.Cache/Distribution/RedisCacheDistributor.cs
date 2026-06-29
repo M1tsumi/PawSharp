@@ -19,6 +19,7 @@ namespace PawSharp.Cache.Distribution
         private readonly ISubscriber? _subscriber;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private Task? _listenerTask;
+        private readonly SemaphoreSlim _reconnectLock = new(1, 1);
         private bool _disposed;
 
         /// <summary>
@@ -66,7 +67,7 @@ namespace PawSharp.Cache.Distribution
                 {
                     try
                     {
-                        await taskToWait.WaitAsync(TimeSpan.FromSeconds(5));
+                        await taskToWait.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                     }
                     catch (TimeoutException)
                     {
@@ -89,7 +90,7 @@ namespace PawSharp.Cache.Distribution
             try
             {
                 var channel = $"{_channelPrefix}:invalidations";
-                await _subscriber!.SubscribeAsync(channel, (channel, message) =>
+                await _subscriber!.SubscribeAsync(RedisChannel.Literal(channel), (channel, message) =>
                 {
                     try
                     {
@@ -103,9 +104,9 @@ namespace PawSharp.Cache.Distribution
                     {
                         Console.WriteLine($"[RedisCacheDistributor] Failed to deserialize invalidation message: {ex.Message}");
                     }
-                });
+                }).ConfigureAwait(false);
 
-                await Task.Delay(Timeout.Infinite, cancellationToken);
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -138,7 +139,7 @@ namespace PawSharp.Cache.Distribution
                 var json = JsonSerializer.Serialize(message);
                 var channel = $"{_channelPrefix}:invalidations";
                 
-                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget);
+                await _subscriber!.PublishAsync(RedisChannel.Literal(channel), json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -163,7 +164,7 @@ namespace PawSharp.Cache.Distribution
                 var json = JsonSerializer.Serialize(message);
                 var channel = $"{_channelPrefix}:invalidations";
                 
-                await _subscriber!.PublishAsync(channel, json, StackExchange.Redis.CommandFlags.FireAndForget);
+                await _subscriber!.PublishAsync(RedisChannel.Literal(channel), json, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -171,10 +172,35 @@ namespace PawSharp.Cache.Distribution
             }
         }
 
-        /// <summary>
-        /// Checks if the distributor is healthy (Redis connection is active).
-        /// </summary>
-        public bool IsHealthy()
+    /// <summary>
+    /// Attempts to reconnect the underlying Redis connection.
+    /// Uses a semaphore to prevent concurrent reconnection attempts.
+    /// </summary>
+    public async Task<bool> TryReconnectAsync()
+    {
+        if (!await _reconnectLock.WaitAsync(0).ConfigureAwait(false))
+            return false;
+
+        try
+        {
+            await _redis.GetDatabase().PingAsync().ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RedisCacheDistributor] Reconnect failed: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            _reconnectLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Checks if the distributor is healthy (Redis connection is active).
+    /// </summary>
+    public bool IsHealthy()
         {
             try
             {

@@ -244,19 +244,27 @@ public class ModerationSystem
             return;
         }
 
-        await BanUserByIdAsync(message.GuildId, userId, "Banned by moderator");
-        await _client.Rest.CreateMessageAsync(message.ChannelId, $"🚫 User <@{userId}> has been banned.");
+        if (await TryBanUserByIdAsync(message.GuildId, userId, "Banned by moderator"))
+        {
+            await _client.Rest.CreateMessageAsync(message.ChannelId, $"🚫 User <@{userId}> has been banned.");
+        }
+        else
+        {
+            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Failed to ban user. They may not be in the server or I lack permissions.");
+        }
     }
 
-    private async Task BanUserByIdAsync(ulong guildId, ulong userId, string reason)
+    private async Task<bool> TryBanUserByIdAsync(ulong guildId, ulong userId, string reason)
     {
         try
         {
             await _client.Rest.CreateGuildBanAsync(guildId, userId, reason: reason);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to ban user {UserId}", userId);
+            return false;
         }
     }
 

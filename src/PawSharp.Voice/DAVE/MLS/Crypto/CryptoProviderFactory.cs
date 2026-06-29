@@ -40,7 +40,7 @@ internal static class CryptoProviderFactory
     private static ICryptoProvider CreateProvider()
     {
         // BouncyCastle provides the best balance of:
-        // - Performance (optimized C# assembly for X25519/Ed25519)
+        // - Performance (optimized C# assembly for P-256 ECDH/ECDSA)
         // - Security (audited codebase)
         // - Portability (pure C#, no native dependencies)
         return new BouncyCastleCryptoProvider();

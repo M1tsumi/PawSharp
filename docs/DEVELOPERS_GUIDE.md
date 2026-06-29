@@ -74,17 +74,17 @@ using PawSharp.Core.Models;
 using PawSharp.Gateway.Events;
 
 // 1. Configure services
+var options = new PawSharpOptions
+{
+    Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN") 
+        ?? throw new InvalidOperationException("Set DISCORD_TOKEN env var"),
+    Intents = PawSharp.Core.Enums.GatewayIntents.AllNonPrivileged 
+        | PawSharp.Core.Enums.GatewayIntents.MessageContent,
+    ApiVersion = 10,
+};
 var services = new ServiceCollection()
     .AddLogging(builder => builder.AddConsole())
-    .AddSingleton(new PawSharpOptions
-    {
-        Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN") 
-            ?? throw new InvalidOperationException("Set DISCORD_TOKEN env var"),
-        Intents = PawSharp.Core.Enums.GatewayIntents.AllNonPrivileged 
-            | PawSharp.Core.Enums.GatewayIntents.MessageContent,
-        ApiVersion = 10,
-    })
-    .AddPawSharp(); // Registers all services
+    .SetupPawSharp(options); // Registers all services with in-memory cache
 
 // 2. Build and get client
 var provider = services.BuildServiceProvider();
@@ -230,17 +230,14 @@ services.AddLogging(builder =>
     builder.SetMinimumLevel(LogLevel.Information);
 });
 
-// Add PawSharp with default in-memory cache
-services.AddSingleton(options);
-services.AddPawSharp();  // Registers all services
+// Add PawSharp with default in-memory cache (recommended one-call setup)
+services.SetupPawSharp(options);
 
 // Or with custom cache
-services.AddSingleton(options);
-services.AddPawSharp(cache: new MemoryCacheProvider());
+services.AddPawSharp(options, _ => new MemoryCacheProvider());
 
 // Or with Redis
-services.AddSingleton(options);
-services.AddPawSharp(cache: new RedisCacheProvider("localhost:6379"));
+services.AddPawSharp(options, _ => new RedisCacheProvider("localhost:6379"));
 
 var provider = services.BuildServiceProvider();
 var client = provider.GetRequiredService<DiscordClient>();
@@ -961,7 +958,10 @@ var options = new PawSharpOptions
 With ShardManager:
 
 ```csharp
-var shardManager = provider.GetRequiredService<ShardManager>();
+var shardManager = new ShardManager(
+    provider.GetRequiredService<PawSharpOptions>(),
+    provider.GetRequiredService<ILogger<ShardManager>>(),
+    provider.GetRequiredService<IDiscordRestClient>());
 
 // Connect all shards
 await shardManager.ConnectAllAsync();
@@ -978,11 +978,8 @@ foreach (var (shardId, status) in statuses)
 
 ```csharp
 // In production with many bots/shards
-services.AddSingleton<IEntityCache>(sp =>
-    new RedisCacheProvider("redis.example.com:6379,password=secretkey")
-);
-
-services.AddPawSharp();
+services.AddPawSharp(options, _ =>
+    new RedisCacheProvider("redis.example.com:6379,password=secretkey"));
 ```
 
 ### 8. Proper Resource Cleanup
@@ -1110,7 +1107,7 @@ else
 
 ### Getting Help
 
-1. Check [ERROR_HANDLING.md](./docs/ERROR_HANDLING.md)
+1. Check [ERROR_HANDLING.md](./ERROR_HANDLING.md)
 2. Review the documentation index at [INDEX.md](./INDEX.md)
 3. Check examples in `examples/` folder
 4. Open GitHub issue with:

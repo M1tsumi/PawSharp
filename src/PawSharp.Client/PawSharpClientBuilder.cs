@@ -322,11 +322,15 @@ public sealed class PawSharpClientBuilder
             options,
             logFactory.CreateLogger<GatewayClient>());
 
+        var interactionHandler = new InteractionHandler(rest, logFactory.CreateLogger<InteractionHandler>());
+
         return new DiscordClient(
             options,
             cache,
             logFactory.CreateLogger<DiscordClient>(),
             rest,
-            gateway);
+            gateway,
+            interactionHandler,
+            logFactory);
     }
 }
