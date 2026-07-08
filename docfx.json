@@ -38,10 +38,12 @@
           "docs/**.md",
           "docs/**/toc.yml",
           "docs/guides/**.md",
+          "docs/contributing/**.md",
           "toc.yml",
           "index.md",
           "CHANGELOG.md",
-          "CONTRIBUTING.md"
+          "CONTRIBUTING.md",
+          "404.md"
         ]
       }
     ],

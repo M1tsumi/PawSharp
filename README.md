@@ -135,7 +135,7 @@ Each has its own README.
 - [Patterns & Best Practices][patterns-guide]
 - [Error Handling][error-handling]
 - [Migration Guide][migration]
-- [Troubleshooting][troubleshooting]
+- [FAQ][faq]
 
 ---
 
@@ -184,7 +184,7 @@ MIT. See [LICENSE][license].
 [voice-guide]:       docs/VOICE_GUIDE.md
 [error-handling]:    docs/ERROR_HANDLING.md
 [migration]:         docs/MIGRATION.md
-[troubleshooting]:   docs/TROUBLESHOOTING.md
+[faq]:              docs/faq.md
 [changelog]:         CHANGELOG.md
 [examples]:          examples/
 [contributing]:      CONTRIBUTING.md

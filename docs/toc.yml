@@ -1,34 +1,93 @@
 - name: Getting Started
   items:
-  - name: Overview
-    href: index.md
-  - name: Quickstart
-    href: getting-started.md
   - name: Installation
     href: installation.md
-  - name: FAQ
-    href: faq.md
-  - name: Changelog
-    href: changelog.md
+  - name: First Bot
+    href: guides/first-bot.md
+  - name: Configuration
+    href: getting-started.md
+  - name: Authentication
+    href: installation.md
+  - name: Dependency Injection
+    href: getting-started.md
 - name: Guides
   items:
-  - name: Your First Bot
-    href: guides/first-bot.md
-  - name: Gateway Connection
+  - name: Gateway
     href: guides/gateway.md
   - name: Events
     href: guides/events.md
+  - name: Sending Messages
+    href: guides/sending-messages.md
+  - name: Receiving Messages
+    href: guides/receiving-messages.md
   - name: Slash Commands
     href: guides/slash-commands.md
+  - name: Context Menus
+    href: guides/context-menus.md
   - name: Components
     href: guides/components.md
-  - name: Interactions
-    href: guides/interactions.md
+  - name: Modals
+    href: guides/modals.md
+  - name: Embeds
+    href: guides/embeds.md
+  - name: Attachments
+    href: guides/attachments.md
+  - name: Permissions
+    href: guides/permissions.md
+  - name: Threads
+    href: guides/threads.md
   - name: Webhooks
     href: guides/webhooks.md
   - name: Voice
     href: guides/voice.md
-  - name: Permissions
-    href: guides/permissions.md
-  - name: Advanced Topics
-    href: guides/advanced.md
+  - name: Auto Moderation
+    href: guides/auto-moderation.md
+  - name: Scheduled Events
+    href: guides/scheduled-events.md
+  - name: Polls
+    href: guides/polls.md
+  - name: Rate Limits
+    href: guides/rate-limits.md
+  - name: Caching
+    href: guides/caching.md
+  - name: Logging
+    href: guides/logging.md
+  - name: Error Handling
+    href: guides/error-handling.md
+- name: Advanced
+  items:
+  - name: Sharding
+    href: guides/sharding.md
+  - name: Performance
+    href: guides/performance.md
+  - name: Memory Usage
+    href: guides/memory-usage.md
+  - name: Extension System
+    href: guides/extension-system.md
+  - name: REST Pipeline
+    href: guides/rest-pipeline.md
+  - name: Gateway Pipeline
+    href: guides/gateway-pipeline.md
+  - name: Serialization
+    href: guides/serialization.md
+  - name: Benchmarks
+    href: guides/benchmarks.md
+- name: API Reference
+  href: ../api/
+  homepage: ../api/index.md
+- name: Contributing
+  items:
+  - name: Building from Source
+    href: contributing/building-from-source.md
+  - name: Repository Structure
+    href: contributing/repository-structure.md
+  - name: Coding Guidelines
+    href: contributing/coding-guidelines.md
+  - name: Running Tests
+    href: contributing/running-tests.md
+- name: FAQ
+  href: faq.md
+- name: Migration Guide
+  href: migration.md
+- name: Changelog
+  href: changelog.md

@@ -1,358 +1,213 @@
-# PawSharp Developer Documentation Index
+# PawSharp Developer Documentation
 
-Welcome to PawSharp! This is your complete guide to building Discord bots with .NET 10.0+.
+> Build Discord bots without fighting your framework.
 
-## 📚 Getting Started (Start Here!)
+Welcome to the PawSharp developer documentation. This site contains everything you need to build, deploy, and scale Discord bots using .NET 10. PawSharp is a modular, async-first Discord API wrapper with full REST and Gateway support, slash commands, components, voice with DAVE E2EE, and a pluggable caching layer.
 
-**New to PawSharp?** Start with these guides in order:
-
-1. **[DEVELOPERS_GUIDE.md](./DEVELOPERS_GUIDE.md)** ⭐ **START HERE**
-   - Installation & setup
-   - Your first bot (under 50 lines!)
-   - Core concepts
-   - Basic error handling
-   - Best practices
-
-2. **[REST_API_GUIDE.md](./REST_API_GUIDE.md)**
-   - Sending messages with embeds
-   - Managing guilds, members, roles
-   - Channels and threads
-   - Webhooks and reactions
-   - 140+ API endpoints documented
-
-3. **[GATEWAY_GUIDE.md](./GATEWAY_GUIDE.md)**
-   - Real-time event handling
-   - 40+ Discord events
-   - Connection management
-   - Sharding for large bots
-   - Event patterns and middleware
-
-4. **[CACHING_GUIDE.md](./CACHING_GUIDE.md)**
-   - In-memory caching
-   - Redis distributed caching
-   - Cache strategies
-   - Scaling for large bots
-   - Performance optimization
-
-5. **[PATTERNS_GUIDE.md](./PATTERNS_GUIDE.md)**
-   - Command handling
-   - Moderation systems
-   - Logging & monitoring
-   - User interactions
-   - Real-world examples
-
-6. **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
-   - Common issues & solutions
-   - Debugging tips
-   - Performance troubleshooting
-   - Getting help
+**Current version:** `1.1.0-alpha.5` &middot; **Discord API:** v10 &middot; **Target:** .NET 10.0
 
 ---
 
-## 🎯 Quick Links by Task
+## Getting Started
 
-### I want to...
+New to PawSharp? Work through these guides in order:
 
-**Send a message**
-→ [REST_API_GUIDE.md - Sending Messages](./REST_API_GUIDE.md#sending-messages)
-
-**Listen for events**
-→ [GATEWAY_GUIDE.md - Subscribing to Events](./GATEWAY_GUIDE.md#subscribing-to-events)
-
-**Create a command system**
-→ [PATTERNS_GUIDE.md - Command Handling](./PATTERNS_GUIDE.md#command-handling)
-
-**Moderate my server**
-→ [PATTERNS_GUIDE.md - Moderation](./PATTERNS_GUIDE.md#moderation)
-
-**Scale my bot**
-→ [CACHING_GUIDE.md - Scaling](./CACHING_GUIDE.md#scaling-for-large-bots)
-
-**Handle errors properly**
-→ [DEVELOPERS_GUIDE.md - Error Handling](./DEVELOPERS_GUIDE.md#error-handling)
-
-**Fix a problem**
-→ [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+| Guide | Description |
+|-------|-------------|
+| [Installation](./installation.md) | System requirements, NuGet packages, building from source |
+| [Getting Started](./getting-started.md) | What PawSharp is, architecture, and a "Hello, World!" bot |
+| [Your First Bot](./guides/first-bot.md) | Step-by-step tutorial: create, token, code, run, extend |
 
 ---
 
-## 📋 API Reference
+## Guides
 
-Detailed API documentation is embedded in the XML doc-comments in each source project.
-For a structured overview by module:
+### Core
 
-- **PawSharp.Core** — Base entities (`Guild`, `Channel`, `Message`, `User`, `Role`, `Embed`), enums, exceptions, `EmbedBuilder`
-- **PawSharp.API** — `IDiscordRestClient` with 140+ typed endpoints; `RestClient`, rate-limit layer
-- **PawSharp.Gateway** — `GatewayClient`, `EventDispatcher`, `HeartbeatManager`, `ReconnectionManager`, `ShardManager`
-- **PawSharp.Cache** — `IEntityCache`, `MemoryCacheProvider`, `RedisCacheProvider`
-- **PawSharp.Client** — `IDiscordClient` / `DiscordClient` (unified facade), `CacheManager`, `PawSharpClientBuilder`, DI extensions `AddPawSharp()` / `SetupPawSharp()`
-- **PawSharp.Commands** — `CommandsExtension`, `BaseCommandModule`, `[Command]`, `[Aliases]`, `[Description]`
-- **PawSharp.Interactions** — `InteractionHandler`, slash commands, components, autocomplete, context menus
-- **PawSharp.Interactivity** — Reaction pagination, `InteractivityExtension`
-- **PawSharp.Voice** — `VoiceClient`, `VoiceConnection` (alpha, DAVE E2EE)
+| Guide | Topics |
+|-------|--------|
+| [Gateway](guides/gateway.md) | WebSocket connection, heartbeat, resume, reconnection, event dispatch |
+| [Events](guides/events.md) | 60+ typed events, event filtering, middleware, interest filtering |
+| [Messages](guides/sending-messages.md) | Send, edit, delete, reply, forward, search, crosspost |
+| [Slash Commands](guides/slash-commands.md) | Application commands, options, permissions, groups, autocomplete |
+
+### Features
+
+| Guide | Topics |
+|-------|--------|
+| [Components](guides/components.md) | Buttons, select menus, action rows, component builders |
+| [Modals](guides/modals.md) | Modal dialogs, text inputs, submission handling |
+| [Embeds](guides/embeds.md) | EmbedBuilder, rich embeds, limits, templates |
+| [Attachments](guides/attachments.md) | File uploads, attachment metadata, download helpers |
+| [Permissions](guides/permissions.md) | Permission bits, role hierarchy, channel overwrites, computed permissions |
+
+### Advanced
+
+| Guide | Topics |
+|-------|--------|
+| [Voice](guides/voice.md) | Join/leave voice, Opus audio, DAVE E2EE, receive audio |
+| [Threads](guides/threads.md) | Create, join, archive, delete threads, thread member management |
+| [Webhooks](guides/webhooks.md) | Create webhooks, execute, edit, slash command webhooks |
+| [Auto Moderation](guides/auto-moderation.md) | Rules, triggers, actions, keyword and spam filtering |
+| [Scheduled Events](guides/scheduled-events.md) | Create, modify, cancel guild events, event users |
+
+### System
+
+| Guide | Topics |
+|-------|--------|
+| [Rate Limits](guides/rate-limits.md) | Bucket tracking, global limits, retry logic, telemetry |
+| [Caching](guides/caching.md) | In-memory and Redis cache, TTL, eviction, telemetry, health checks |
+| [Logging](guides/logging.md) | ILogger integration, structured logging, console/file/serilog |
+| [Error Handling](guides/error-handling.md) | Exception hierarchy, global handlers, graceful degradation |
+
+### Scaling
+
+| Guide | Topics |
+|-------|--------|
+| [Sharding](guides/sharding.md) | Auto-sharding, shard rebalancing, multi-process |
+| [Performance](guides/performance.md) | Memory optimization, cache strategies, connection pooling |
+| [Memory](guides/memory-usage.md) | LRU eviction, per-entity TTL, metrics |
 
 ---
 
-## 🚀 Common Scenarios
+## Architecture
 
-### Basic Bot in 5 Minutes
+PawSharp is organized into nine NuGet packages with a clear layered dependency graph:
 
-```csharp
-// 1. Add NuGet packages
-// dotnet add package PawSharp.Client
-// dotnet add package Microsoft.Extensions.Logging.Console
+```mermaid
+flowchart TB
+    Core[PawSharp.Core<br/>Entities, Enums, Exceptions, Builders]
+    API[PawSharp.API<br/>REST Client, Rate Limiter]
+    Cache[PawSharp.Cache<br/>Memory & Redis Providers]
+    Gateway[PawSharp.Gateway<br/>WebSocket, Sharding, Events]
+    Client[PawSharp.Client<br/>DiscordClient, DI, Builder]
+    Commands[PawSharp.Commands<br/>Prefix & Slash Command Modules]
+    Interactions[PawSharp.Interactions<br/>Slash Commands, Components, Modals]
+    Interactivity[PawSharp.Interactivity<br/>Pagination, Polls, Prompts]
+    Voice[PawSharp.Voice<br/>Opus, RTP, DAVE E2EE]
 
-// 2. Create bot with DI
-var services = new ServiceCollection()
-    .AddLogging(x => x.AddConsole().SetMinimumLevel(LogLevel.Information))
-    .SetupPawSharp(new PawSharpOptions
-    {
-        Token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")!,
-        Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
-    });
+    Core --> API
+    Core --> Cache
+    Core --> Gateway
+    Core --> Interactions
+    Core --> Interactivity
+    Core --> Commands
+    Core --> Voice
 
-var client = services.BuildServiceProvider()
-    .GetRequiredService<IDiscordClient>();
+    API --> Gateway
+    API --> Interactions
+    API --> Voice
+    
+    Cache --> Gateway
+    
+    API --> Client
+    Gateway --> Client
+    Cache --> Client
+    Interactions --> Client
 
-// 3. Handle messages
-client.OnMessageCreated(async evt =>
-{
-    if (evt.Author?.IsBot == true) return;
-
-    if (evt.Content == "!ping")
-        await client.SendMessageAsync(evt.ChannelId, "🏓 Pong!");
-});
-
-// 4. Run
-await client.ConnectAsync();
-await Task.Delay(Timeout.Infinite);
+    Client --> Commands
+    Client --> Interactivity
+    Client --> Voice
 ```
 
-→ More details: [DEVELOPERS_GUIDE.md - Your First Bot](./DEVELOPERS_GUIDE.md#your-first-bot)
+**Key relationships:**
 
-### Moderation Bot
-
-Kick, ban, and moderate members automatically.
-
-→ See: [PATTERNS_GUIDE.md - Moderation](./PATTERNS_GUIDE.md#moderation)
-
-### Large-Scale Bot (2500+ Guilds)
-
-Scale with sharding and Redis.
-
-→ See: [CACHING_GUIDE.md - Scaling](./CACHING_GUIDE.md#scaling-for-large-bots)
-
-### Real-Time Logging
-
-Log all events to database.
-
-→ See: [PATTERNS_GUIDE.md - Logging](./PATTERNS_GUIDE.md#logging--monitoring)
+- `PawSharp.Core` is the foundation — every package depends on it.
+- `PawSharp.Client` is the recommended all-in-one package; it aggregates the API, Gateway, Cache, and Interactions packages.
+- `PawSharp.Voice` builds on Client, API, and Gateway.
+- `PawSharp.Commands` builds on Client, API, and Core.
+- `PawSharp.Interactivity` builds on Client and Core.
 
 ---
 
-## 🔧 Configuration Reference
+## API Reference
 
-### PawSharpOptions
+Detailed API documentation is generated from XML doc-comments in each source project.
 
-```csharp
-var options = new PawSharpOptions
-{
-    // Authentication
-    Token = "your-bot-token",
-    ApiVersion = 10,
-
-    // Gateway
-    Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
-
-    // Sharding
-    Shards = ShardingStrategy.Auto,
-
-    // Reconnection
-    ReconnectTimeout = TimeSpan.FromSeconds(1),
-    MaxReconnectAttempts = 5,
-};
-```
-
-→ Full reference: [DEVELOPERS_GUIDE.md - Configuration](./DEVELOPERS_GUIDE.md#configuration)
+| Package | Namespace | Key Types |
+|---------|-----------|-----------|
+| **PawSharp.Core** | `PawSharp.Core` | `Guild`, `Channel`, `Message`, `User`, `Role`, `Embed`, `EmbedBuilder`, `GatewayIntents`, `SnowflakeUtils` |
+| **PawSharp.API** | `PawSharp.API` | `IDiscordRestClient`, `RestClient`, `AdvancedRateLimiter`, `RateLimitBucket` |
+| **PawSharp.Gateway** | `PawSharp.Gateway` | `GatewayClient`, `EventDispatcher`, `ShardManager`, `HeartbeatManager`, `ReconnectionManager` |
+| **PawSharp.Cache** | `PawSharp.Cache` | `IEntityCache`, `MemoryCacheProvider`, `RedisCacheProvider`, `CacheSwapper`, `CacheTelemetry` |
+| **PawSharp.Client** | `PawSharp.Client` | `IDiscordClient`, `DiscordClient`, `PawSharpClientBuilder`, `PawSharpOptions`, `CacheManager` |
+| **PawSharp.Commands** | `PawSharp.Commands` | `BaseCommandModule`, `CommandAttribute`, `CommandsExtension`, `CommandContext` |
+| **PawSharp.Interactions** | `PawSharp.Interactions` | `InteractionHandler`, `SlashCommandBuilder`, `ComponentBuilder`, `ModalBuilder` |
+| **PawSharp.Interactivity** | `PawSharp.Interactivity` | `InteractivityExtension`, `Paginator`, `PollManager` |
+| **PawSharp.Voice** | `PawSharp.Voice` | `VoiceClient`, `VoiceConnection`, `DAVEProtocol`, `DAVEEncryption` |
 
 ---
 
-## 📦 Installation
+## FAQ
 
-### Simple Installation
+**Q: What .NET version do I need?**  
+A: .NET 10.0 SDK or later. PawSharp targets `net10.0`.
 
-```bash
-# Just REST API
-dotnet add package PawSharp.API
+**Q: Can I use PawSharp with ASP.NET or a hosted service?**  
+A: Yes. PawSharp integrates with `Microsoft.Extensions.DependencyInjection`. Use `AddPawSharp()` in `ConfigureServices` for background service scenarios. See the DashboardBot example.
 
-# Just Gateway
-dotnet add package PawSharp.Gateway
+**Q: How do I test my bot logic?**  
+A: All major abstractions — `IDiscordClient`, `IDiscordRestClient`, `IGatewayClient`, `IEntityCache` — are interfaces, fully mockable with Moq, NSubstitute, or your mock framework of choice.
 
-# Everything (recommended)
-dotnet add package PawSharp.Client
+**Q: How many guilds can a single instance handle?**  
+A: Typically 2500+ guilds per shard. Use `PawSharp.Gateway.ShardManager` with auto-sharding for larger bots.
 
-# With commands
-dotnet add package PawSharp.Commands
+**Q: Do I need Redis?**  
+A: No. The default `MemoryCacheProvider` works well for most bots. For bots serving 500+ guilds or requiring cache persistence across restarts, use `RedisCacheProvider`.
 
-# With interactions (slash commands)
-dotnet add package PawSharp.Interactions
-```
+**Q: Does PawSharp support native AOT?**  
+A: Yes. PawSharp uses `JsonSerializerContext`-based source generation for all JSON serialization — no runtime reflection, trimming-safe.
 
-→ More: [DEVELOPERS_GUIDE.md - Installation](./DEVELOPERS_GUIDE.md#installation--setup)
-
----
-
-## ❓ FAQ
-
-**Q: Can I use PawSharp with .NET 9?**
-A: No, PawSharp requires .NET 10.0+. The library targets `net10.0` and uses APIs from the .NET 10 BCL.
-
-**Q: Can I use dependency injection?**
-A: Yes. PawSharp integrates with `Microsoft.Extensions.DependencyInjection` out of the box. Call `services.SetupPawSharp(options)` and everything is wired up.
-
-**Q: How do I test my bot logic?**
-A: PawSharp provides `IDiscordClient`, `IDiscordRestClient`, `IGatewayClient`, and `IEntityCache` interfaces — all mockable. See `docs/MIGRATION.md` for patterns.
-
-**Q: How do I auto-discover command modules?**
-A: Call `client.UseCommandsWithAutoDiscovery()` to scan the calling assembly for all `BaseCommandModule` subclasses and register them automatically.
-
-**Q: How many guilds can a single bot instance handle?**
-A: Typically 2500+ guilds per shard. Use sharding for larger bots.
-
-**Q: Do I need Redis?**
-A: For small bots (< 500 guilds), in-memory cache is fine. For larger bots, Redis recommended.
-
-**Q: How do I read message content?**
-A: Enable the `MessageContent` intent and request it in Developer Portal.
-
-**Q: Can I use voice?**
-A: Yes — PawSharp.Voice implements the Discord Voice Protocol with Opus audio and DAVE end-to-end encryption (MLS / RFC 9420). Voice is still alpha but functional for music bots and audio processing.
-
-**Q: Where's the source code?**
-A: Visit [GitHub](https://github.com/M1tsumi/PawSharp)
-
-→ More FAQs: [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+**Q: Is voice production-ready?**  
+A: Voice is functional (Opus encode/decode, RTP, DAVE E2EE) and used in music bots, but is still alpha — expect API changes.
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-Having issues? Check these first:
-
-1. **Connection problems** → [TROUBLESHOOTING.md - Gateway & Connection](./TROUBLESHOOTING.md#gateway--connection)
-2. **Rate limiting** → [TROUBLESHOOTING.md - REST API Errors](./TROUBLESHOOTING.md#rest-api-errors)
-3. **Events not firing** → [TROUBLESHOOTING.md - Event Handling](./TROUBLESHOOTING.md#event-handling-problems)
-4. **Memory usage high** → [TROUBLESHOOTING.md - Performance Issues](./TROUBLESHOOTING.md#performance-issues)
-5. **Still stuck?** → [TROUBLESHOOTING.md - Getting Help](./TROUBLESHOOTING.md#getting-help)
-
----
-
-## 📊 REST API Endpoint Coverage
-
-PawSharp implements **140+ Discord API endpoints**:
-
-### Completeness by Category
-
-| Category | Coverage | Notes |
-|----------|----------|-------|
-| **Messages** | ✅ 100% | All message operations |
-| **Channels** | ✅ 100% | All channel types |
-| **Guilds** | ✅ 100% | Full guild management |
-| **Members** | ✅ 100% | Member management |
-| **Roles** | ✅ 100% | Role CRUD and assignment |
-| **Webhooks** | ✅ 100% | Webhook creation and execution |
-| **Threads** | ✅ 100% | Thread management |
-| **Reactions** | ✅ 100% | Message reactions |
-| **Slash Commands** | ✅ 100% | Application commands |
-| **Interactions** | ✅ 100% | Interaction responses |
-| **Audit Logs** | ✅ 100% | Guild audit logs |
-| **Auto-Moderation** | ✅ 100% | Auto-moderation rules |
-| **Scheduled Events** | ✅ 100% | Guild events |
-| **Voice** | ⚠️ Partial | Experimental, see docs |
-
-→ Full endpoint list: [REST_API_GUIDE.md - Endpoints](./REST_API_GUIDE.md#core-concepts)
+| Issue | Guide |
+|-------|-------|
+| Bot won't connect | [FAQ - Gateway](faq.md#gateway) |
+| Events not firing | [FAQ - Events](faq.md#events) |
+| Rate limited / 429 errors | [Rate Limits Guide](guides/rate-limits.md) |
+| High memory usage | [Memory Usage Guide](guides/memory-usage.md) |
+| Slash commands not showing | [Slash Commands Guide](guides/slash-commands.md) |
+| Voice not working | [Voice Guide](guides/voice.md) |
+| Migration from another library | [Migration Guide](migration.md) |
+| Still stuck | [Open a GitHub issue](https://github.com/M1tsumi/PawSharp/issues) |
 
 ---
 
-## 🎓 Learning Path
+## Contributing
 
-**Beginner:**
-1. [DEVELOPERS_GUIDE.md - Installation](./DEVELOPERS_GUIDE.md#installation--setup)
-2. [DEVELOPERS_GUIDE.md - Your First Bot](./DEVELOPERS_GUIDE.md#your-first-bot)
-3. [REST_API_GUIDE.md - Messages](./REST_API_GUIDE.md#messages)
-4. [GATEWAY_GUIDE.md - Basic Events](./GATEWAY_GUIDE.md#connection-events)
+We welcome contributions! See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
 
-**Intermediate:**
-5. [PATTERNS_GUIDE.md - Command Handling](./PATTERNS_GUIDE.md#command-handling)
-6. [REST_API_GUIDE.md - Guild Management](./REST_API_GUIDE.md#guilds)
-7. [GATEWAY_GUIDE.md - Event Patterns](./GATEWAY_GUIDE.md#event-handling-patterns)
-8. [CACHING_GUIDE.md - In-Memory Cache](./CACHING_GUIDE.md#in-memory-cache)
+- **Report bugs** via [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues)
+- **Discuss ideas** on [GitHub Discussions](https://github.com/M1tsumi/PawSharp/discussions)
+- **Join the community** on [Discord](https://discord.gg/6Z8X8cCHXs)
 
-**Advanced:**
-9. [CACHING_GUIDE.md - Redis & Scaling](./CACHING_GUIDE.md#redis-distributed-cache)
-10. [PATTERNS_GUIDE.md - Real-World Patterns](./PATTERNS_GUIDE.md)
-11. [GATEWAY_GUIDE.md - Sharding](./GATEWAY_GUIDE.md#sharded-gateway)
-12. [DEVELOPERS_GUIDE.md - Best Practices](./DEVELOPERS_GUIDE.md#best-practices)
+### Quick contribution checklist
+
+1. Read [CONTRIBUTING.md](../CONTRIBUTING.md)
+2. Check existing issues and discussions
+3. Fork the repo and create a feature branch
+4. Run `dotnet build` to verify compilation
+5. Run `dotnet test` to verify tests pass
+6. Submit a pull request
 
 ---
 
-## 📞 Support
+## External Resources
 
-### Documentation
-- 📖 You're reading it! All guides above
-- 🔍 Use Ctrl+F to search for specific topics
-
-### Community
-- 💬 [GitHub Discussions](https://github.com/M1tsumi/PawSharp/discussions)
-- 🐛 [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues)
-
-### External Resources
-- 🔗 [Discord API Documentation](https://discord.com/developers/docs)
-- 💻 [Stack Overflow `discord-api` tag](https://stackoverflow.com/questions/tagged/discord-api)
+- [Discord Developer Portal](https://discord.com/developers/applications)
+- [Discord API Documentation](https://discord.com/developers/docs)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [NuGet: PawSharp.Client](https://www.nuget.org/packages/PawSharp.Client)
 
 ---
 
-## 📝 Documentation Versions
+## Documentation Version
 
-**Latest:** 1.1.0-alpha.4 (June 28, 2026)
+**Last updated:** July 8, 2026 &middot; **PawSharp version:** `1.1.0-alpha.5`
 
-Documentation covers:
-- ✅ 1.0.0-alpha.1 and later
-- ⚠️ May contain breaking changes in alpha versions
-- 🎯 Preparing for 1.0.0 stable release
-
----
-
-## 🤝 Contributing
-
-Want to improve the docs?
-
-1. **Report issues** - Found an error? [Open an issue](https://github.com/M1tsumi/PawSharp/issues)
-2. **Suggest changes** - Have an idea? [Start a discussion](https://github.com/M1tsumi/PawSharp/discussions)
-3. **Submit PRs** - Fix typos or improve guides directly
-4. **Add examples** - Create real-world examples for other developers
-
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
-
----
-
-## 📄 License
-
-PawSharp documentation is available under the MIT License.
-
----
-
-## 🎉 Next Steps
-
-1. Read [DEVELOPERS_GUIDE.md](./DEVELOPERS_GUIDE.md)
-2. Create your first bot
-3. Join the community
-4. Build something awesome!
-
-**Happy coding!** 🚀
-
----
-
-*Last updated: June 28, 2026*  
-*PawSharp Version: 1.1.0-alpha.4*  
-*For the latest documentation, visit [github.com/M1tsumi/PawSharp](https://github.com/M1tsumi/PawSharp)*
+Documentation covers all releases from `1.0.0-alpha.1` onward. Breaking changes between alpha releases are documented in [migration.md](migration.md) and [../CHANGELOG.md](../../CHANGELOG.md).

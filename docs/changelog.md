@@ -1,3 +1,3 @@
 # Changelog
 
-View the [full changelog](../CHANGELOG.md).
+View the [full changelog](../../CHANGELOG.md).
