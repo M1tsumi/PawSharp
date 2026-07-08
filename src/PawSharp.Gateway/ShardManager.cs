@@ -52,6 +52,7 @@ public class SessionStartLimits
         private readonly Dictionary<int, GatewayClient> _shards = new();
         private readonly Dictionary<int, ShardStatus> _shardStatuses = new();
         private readonly Dictionary<int, Func<GatewayState, GatewayState, Task>> _stateChangeHandlers = new();
+        private readonly object _lock = new();
         private readonly PawSharpOptions _options;
         private readonly ILogger _logger;
         private readonly EventDispatcher _eventDispatcher;
@@ -412,7 +413,7 @@ public class SessionStartLimits
         }
 
         // Fallback: use local guild-count heuristic from options
-        return CalculateRecommendedShardCount(_options.Shards);
+        return CalculateRecommendedShardCount(_options.ShardCount);
     }
     
     /// <summary>

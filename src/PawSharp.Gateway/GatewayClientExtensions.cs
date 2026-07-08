@@ -49,6 +49,7 @@ public static class GatewayClientExtensions
     /// </summary>
     public static Task SetPlayingAsync(this IGatewayClient client, string game)
     {
+        ArgumentNullException.ThrowIfNull(client);
         return client.UpdatePresenceAsync("online", game);
     }
 
@@ -57,6 +58,7 @@ public static class GatewayClientExtensions
     /// </summary>
     public static Task SetWatchingAsync(this IGatewayClient client, string activity)
     {
+        ArgumentNullException.ThrowIfNull(client);
         return client.UpdatePresenceAsync("online", activity);
     }
 
@@ -65,6 +67,7 @@ public static class GatewayClientExtensions
     /// </summary>
     public static Task SetListeningAsync(this IGatewayClient client, string activity)
     {
+        ArgumentNullException.ThrowIfNull(client);
         return client.UpdatePresenceAsync("online", activity);
     }
 
@@ -73,6 +76,7 @@ public static class GatewayClientExtensions
     /// </summary>
     public static Task SetStreamingAsync(this IGatewayClient client, string game, string streamUrl)
     {
+        ArgumentNullException.ThrowIfNull(client);
         return client.UpdatePresenceAsync("online", game, streamUrl);
     }
 
@@ -81,6 +85,7 @@ public static class GatewayClientExtensions
     /// </summary>
     public static Task SetCompetingAsync(this IGatewayClient client, string activity)
     {
+        ArgumentNullException.ThrowIfNull(client);
         return client.UpdatePresenceAsync("online", activity);
     }
 
@@ -149,7 +154,7 @@ public static class GatewayClientExtensions
                 return false;
             }
 
-            await Task.Delay(100).ConfigureAwait(false);
+            await Task.Delay(10).ConfigureAwait(false);
         }
 
         return true;

@@ -76,7 +76,7 @@ namespace PawSharp.Gateway
         
         private readonly int _shardId;
         private readonly int _totalShards;
-        private GatewayState _currentState = GatewayState.Disconnected;
+        private volatile GatewayState _currentState = GatewayState.Disconnected;
         
         /// <summary>
         /// Gets the diagnostics instance for detailed connection information.
@@ -107,15 +107,7 @@ namespace PawSharp.Gateway
         // Heartbeat opcodes are exempt from this limit.
         // SemaphoreSlim token-bucket: each acquired token is returned after 60 s.
         private readonly SemaphoreSlim _wsRateLimiter = new(120, 120);
-
-        // Options shared by any manual deserialisation that happens outside EventDispatcher
-        // (e.g. VoiceStateUpdate / VoiceServerUpdate mirror-events).
-        private static readonly JsonSerializerOptions _snowflakeOptions = new()
-        {
-            Converters = { new SnowflakeJsonConverter(), new NullableSnowflakeJsonConverter() },
-            // Enable source generator for better AOT compatibility
-            TypeInfoResolver = PawSharp.Core.Serialization.PawSharpJsonContext.Default
-        };
+        private readonly SemaphoreSlim _connectLock = new(1, 1);
 
         /// <summary>
         /// Fired when the gateway state changes.
@@ -154,6 +146,9 @@ namespace PawSharp.Gateway
 
         public GatewayClient(PawSharpOptions options, ILogger logger, IPerformanceMetrics? metrics = null, IDiscordRestClient? restClient = null, int shardId = 0, int totalShards = 1)
         {
+            ArgumentNullException.ThrowIfNull(options);
+            ArgumentNullException.ThrowIfNull(logger);
+
             _options = options;
             _logger = logger;
             _metrics = metrics;
@@ -216,117 +211,131 @@ namespace PawSharp.Gateway
 
         public async Task ConnectAsync()
         {
-            if (_currentState != GatewayState.Disconnected)
+            // Ensure only one connection attempt proceeds at a time
+            if (!await _connectLock.WaitAsync(0).ConfigureAwait(false))
             {
-                _logger.LogWarning("Cannot connect - already in state {State}", _currentState);
+                _logger.LogWarning("Cannot connect - another connection attempt is already in progress");
                 return;
             }
 
-            // Validate API version before attempting connection
             try
             {
-                _options.ValidateApiVersion();
-            }
-            catch (ArgumentOutOfRangeException ex)
-            {
-                _logger.LogError(ex, "Invalid API version configuration");
-                throw;
-            }
+                if (_currentState != GatewayState.Disconnected)
+                {
+                    _logger.LogWarning("Cannot connect - already in state {State}", _currentState);
+                    return;
+                }
 
-            await SetStateAsync(GatewayState.Connecting).ConfigureAwait(false);
-            _rateLimitReleaseCts?.Dispose();
-            _rateLimitReleaseCts = new CancellationTokenSource();
-            _cts = new CancellationTokenSource();
+                // Validate API version before attempting connection
+                try
+                {
+                    _options.ValidateApiVersion();
+                }
+                catch (ArgumentOutOfRangeException ex)
+                {
+                    _logger.LogError(ex, "Invalid API version configuration");
+                    throw;
+                }
 
-            // Discord requires using resume_gateway_url (from the most recent READY) when
-            // reconnecting to resume a session.  Fall back to the canonical gateway URL for
-            // fresh connections.
-            string gatewayHost;
+                await SetStateAsync(GatewayState.Connecting).ConfigureAwait(false);
+                _rateLimitReleaseCts?.Dispose();
+                _rateLimitReleaseCts = new CancellationTokenSource();
+                _cts = new CancellationTokenSource();
+
+                // Discord requires using resume_gateway_url (from the most recent READY) when
+                // reconnecting to resume a session.  Fall back to the canonical gateway URL for
+                // fresh connections.
+                string gatewayHost;
             
-            // Check for custom gateway URL first (for testing/staging)
-            if (!string.IsNullOrWhiteSpace(_options.CustomGatewayUrl))
-            {
-                gatewayHost = _options.CustomGatewayUrl.Trim();
-                _logger.LogInformation("Using custom gateway URL: {Url}", gatewayHost);
-            }
-            else if (_resumeSessionId is not null && _resumeGatewayUrl is not null)
-            {
-                gatewayHost = _resumeGatewayUrl;
-            }
-            else if (_gatewayUrl is not null && _gatewayUrlFetchedAt.HasValue && 
-                     DateTimeOffset.UtcNow - _gatewayUrlFetchedAt.Value < GatewayUrlCacheTtl)
-            {
-                // Use cached gateway URL if still valid (within TTL)
-                _logger.LogDebug("Using cached gateway URL (fetched {Hours:N1} hours ago)", 
-                    (DateTimeOffset.UtcNow - _gatewayUrlFetchedAt.Value).TotalHours);
-                gatewayHost = _gatewayUrl;
-            }
-            else if (_restClient is not null)
-            {
-                // Fetch gateway URL from Discord API (cache expired or not present)
-                if (_gatewayUrl != null)
+                // Check for custom gateway URL first (for testing/staging)
+                if (!string.IsNullOrWhiteSpace(_options.CustomGatewayUrl))
                 {
-                    _logger.LogDebug("Gateway URL cache expired, fetching fresh URL from Discord API...");
+                    gatewayHost = _options.CustomGatewayUrl.Trim();
+                    _logger.LogInformation("Using custom gateway URL: {Url}", gatewayHost);
                 }
-                else
+                else if (_resumeSessionId is not null && _resumeGatewayUrl is not null)
                 {
-                    _logger.LogDebug("Fetching gateway URL from Discord API...");
+                    gatewayHost = _resumeGatewayUrl;
                 }
-                
-                var gatewayInfo = await _restClient.GetGatewayAsync().ConfigureAwait(false);
-                if (gatewayInfo?.Url is not null)
+                else if (_gatewayUrl is not null && _gatewayUrlFetchedAt.HasValue && 
+                         DateTimeOffset.UtcNow - _gatewayUrlFetchedAt.Value < GatewayUrlCacheTtl)
                 {
-                    _gatewayUrl = gatewayInfo.Url;
-                    _gatewayUrlFetchedAt = DateTimeOffset.UtcNow;
+                    // Use cached gateway URL if still valid (within TTL)
+                    _logger.LogDebug("Using cached gateway URL (fetched {Hours:N1} hours ago)", 
+                        (DateTimeOffset.UtcNow - _gatewayUrlFetchedAt.Value).TotalHours);
                     gatewayHost = _gatewayUrl;
-                    _logger.LogDebug("Fetched gateway URL: {Url} (cached for {TtlHours} hours)", gatewayHost, GatewayUrlCacheTtl.TotalHours);
+                }
+                else if (_restClient is not null)
+                {
+                    // Fetch gateway URL from Discord API (cache expired or not present)
+                    if (_gatewayUrl != null)
+                    {
+                        _logger.LogDebug("Gateway URL cache expired, fetching fresh URL from Discord API...");
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Fetching gateway URL from Discord API...");
+                    }
+                
+                    var gatewayInfo = await _restClient.GetGatewayAsync().ConfigureAwait(false);
+                    if (gatewayInfo?.Url is not null)
+                    {
+                        _gatewayUrl = gatewayInfo.Url;
+                        _gatewayUrlFetchedAt = DateTimeOffset.UtcNow;
+                        gatewayHost = _gatewayUrl;
+                        _logger.LogDebug("Fetched gateway URL: {Url} (cached for {TtlHours} hours)", gatewayHost, GatewayUrlCacheTtl.TotalHours);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Failed to fetch gateway URL from API, falling back to default wss://gateway.discord.gg. " +
+                            "This may cause connection issues if Discord has changed their gateway URL. " +
+                            "Ensure your REST client is properly configured.");
+                        gatewayHost = "wss://gateway.discord.gg";
+                    }
                 }
                 else
                 {
-                    _logger.LogWarning(
-                        "Failed to fetch gateway URL from API, falling back to default wss://gateway.discord.gg. " +
-                        "This may cause connection issues if Discord has changed their gateway URL. " +
-                        "Ensure your REST client is properly configured.");
+                    // Fallback to default when no REST client available
                     gatewayHost = "wss://gateway.discord.gg";
                 }
-            }
-            else
-            {
-                // Fallback to default when no REST client available
-                gatewayHost = "wss://gateway.discord.gg";
-            }
             
-            // Add compression parameter to URI if enabled
-            var compressionParam = _options.EnableCompression ? "&compress=zlib-stream" : "";
-            var uri = new Uri($"{gatewayHost}?v={_options.ApiVersion}&encoding=json{compressionParam}");
+                // Add compression parameter to URI if enabled
+                var compressionParam = _options.EnableCompression ? "&compress=zlib-stream" : "";
+                var uri = new Uri($"{gatewayHost}?v={_options.ApiVersion}&encoding=json{compressionParam}");
 
-            try
-            {
-                _logger.LogInformation("Connecting to Discord Gateway...");
-                await _webSocket.ConnectAsync(uri, _cts.Token).ConfigureAwait(false);
-                await SetStateAsync(GatewayState.Connected).ConfigureAwait(false);
-
-                // Start receiving messages
-                _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token));
-
-                // Try to resume if we have a session, otherwise identify
-                if (_resumeSessionId is not null && _resumeSequence.HasValue)
+                try
                 {
-                    await SendResumeAsync().ConfigureAwait(false);
-                }
-                else
-                {
-                    await SendIdentifyAsync().ConfigureAwait(false);
-                }
+                    _logger.LogInformation("Connecting to Discord Gateway...");
+                    await _webSocket.ConnectAsync(uri, _cts.Token).ConfigureAwait(false);
+                    await SetStateAsync(GatewayState.Connected).ConfigureAwait(false);
 
-                _logger.LogInformation("Connected to Discord Gateway.");
+                    // Start receiving messages
+                    _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token));
+
+                    // Try to resume if we have a session, otherwise identify
+                    if (_resumeSessionId is not null && _resumeSequence.HasValue)
+                    {
+                        await SendResumeAsync().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await SendIdentifyAsync().ConfigureAwait(false);
+                    }
+
+                    _logger.LogInformation("Connected to Discord Gateway.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to connect to Gateway. Error: {MessageType} - {Message}. Check your network connection and Discord service status.", 
+                        ex.GetType().Name, ex.Message);
+                    await SetStateAsync(GatewayState.Disconnected).ConfigureAwait(false);
+                    throw;
+                }
             }
-            catch (Exception ex)
+            finally
             {
-                _logger.LogError(ex, "Failed to connect to Gateway. Error: {MessageType} - {Message}. Check your network connection and Discord service status.", 
-                    ex.GetType().Name, ex.Message);
-                await SetStateAsync(GatewayState.Disconnected).ConfigureAwait(false);
-                throw;
+                _connectLock.Release();
             }
         }
 
@@ -519,7 +528,7 @@ namespace PawSharp.Gateway
                         intents = (int)_options.Intents,
                         properties = new
                         {
-                            os = "linux",
+                            os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
                             browser = "pawsharp",
                             device = "pawsharp"
                         },
@@ -792,7 +801,6 @@ namespace PawSharp.Gateway
                     if (_zombieConnectionHandler != null)
                         _heartbeatManager.OnZombieConnection -= _zombieConnectionHandler;
                     await _heartbeatManager.StopAsync().ConfigureAwait(false);
-                    _heartbeatManager.Dispose();
 
                     _heartbeatManager = new HeartbeatManager(interval, SendHeartbeatAsync, _logger, _options.MaxMissedHeartbeatAcks);
                     _zombieConnectionHandler = async () =>
@@ -832,7 +840,8 @@ namespace PawSharp.Gateway
                     }
                     catch (OperationCanceledException)
                     {
-                        _wsRateLimiter.Release();
+                        // CTS cancelled (reconnect/disconnect) — do NOT release the token;
+                        // it was already consumed and the window will be reset on reconnection.
                     }
                     catch (Exception ex)
                     {
@@ -1008,25 +1017,9 @@ namespace PawSharp.Gateway
                         break;
                     case "VOICE_STATE_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceStateUpdateEvent>(eventType, eventData).ConfigureAwait(false);
-                        if (VoiceStateUpdate != null)
-                        {
-                            var voiceStateEvent = JsonSerializer.Deserialize(eventData, PawSharp.Gateway.Serialization.PawSharpGatewayJsonContext.Default.VoiceStateUpdateEvent);
-                            if (voiceStateEvent != null)
-                            {
-                                await VoiceStateUpdate.Invoke(voiceStateEvent).ConfigureAwait(false);
-                            }
-                        }
                         break;
                     case "VOICE_SERVER_UPDATE":
                         await _eventDispatcher.DispatchFromJsonAsync<VoiceServerUpdateEvent>(eventType, eventData).ConfigureAwait(false);
-                        if (VoiceServerUpdate != null)
-                        {
-                            var voiceServerEvent = JsonSerializer.Deserialize(eventData, PawSharp.Gateway.Serialization.PawSharpGatewayJsonContext.Default.VoiceServerUpdateEvent);
-                            if (voiceServerEvent != null)
-                            {
-                                await VoiceServerUpdate.Invoke(voiceServerEvent).ConfigureAwait(false);
-                            }
-                        }
                         break;
                     case "THREAD_CREATE":
                         await _eventDispatcher.DispatchFromJsonAsync<ThreadCreateEvent>(eventType, eventData).ConfigureAwait(false);
@@ -1229,6 +1222,7 @@ namespace PawSharp.Gateway
             _cts?.Dispose();
             _webSocket?.Dispose();
             _wsRateLimiter?.Dispose();
+            _connectLock?.Dispose();
             _eventDispatcher?.Dispose();
             _heartbeatManager?.Dispose();
         }

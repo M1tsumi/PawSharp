@@ -862,6 +862,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
 
     public async Task<GuildMember?> AddGuildMemberAsync(ulong guildId, ulong userId, AddGuildMemberRequest request)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(userId, nameof(userId));
         var content = JsonContent(request);
         var response = await PutAsync($"guilds/{guildId}/members/{userId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
@@ -873,6 +875,8 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
     
     public async Task<GuildMember?> ModifyGuildMemberAsync(ulong guildId, ulong userId, ModifyGuildMemberRequest request)
     {
+        ValidateSnowflake(guildId, nameof(guildId));
+        ValidateSnowflake(userId, nameof(userId));
         var content = JsonContent(request);
         var response = await PatchAsync($"guilds/{guildId}/members/{userId}", content).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
@@ -2997,7 +3001,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         string clientSecret,
         string redirectUri)
     {
-        var form = new FormUrlEncodedContent(new[]
+        using var form = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("grant_type",    "authorization_code"),
             new KeyValuePair<string, string>("code",          code),
@@ -3025,7 +3029,7 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         string clientId,
         string clientSecret)
     {
-        var form = new FormUrlEncodedContent(new[]
+        using var form = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("grant_type",    "refresh_token"),
             new KeyValuePair<string, string>("refresh_token", refreshToken),
@@ -3114,7 +3118,10 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
         {
             try
             {
-                var result = await response.Content.ReadFromJsonAsync<T>(_jsonOptions).ConfigureAwait(false);
+                // Buffer the response body first to avoid reading the stream twice
+                // (ReadFromJsonAsync consumes the stream, making a second ReadAsStringAsync fail).
+                var rawJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var result = JsonSerializer.Deserialize<T>(rawJson, _jsonOptions);
                 if (result == null)
                 {
                     _logger.LogWarning("Deserialization returned null for {Operation}: response body was empty or null", operation);
@@ -3123,11 +3130,12 @@ public class DiscordRestClient : IDiscordRestClient, IRateLimitTelemetrySource
             }
             catch (JsonException ex)
             {
-                var rawJson = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                _logger.LogError(ex, "Failed to deserialize JSON response for {Operation}. Raw JSON: {RawJson}", operation, LogSanitizer.SanitizeHttpErrorBody(rawJson));
+                // rawJson was already read above — it's captured in the try block scope
+                var errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                _logger.LogError(ex, "Failed to deserialize JSON response for {Operation}. Raw JSON: {RawJson}", operation, LogSanitizer.SanitizeHttpErrorBody(errorBody));
                 throw new DeserializationException(
                     $"Failed to deserialize response for {operation}. This may indicate an API schema mismatch.",
-                    rawJson,
+                    errorBody,
                     typeof(T),
                     ex);
             }

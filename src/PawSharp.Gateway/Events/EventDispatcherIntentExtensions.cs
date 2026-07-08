@@ -25,7 +25,8 @@ public static class EventDispatcherIntentExtensions
         }
         else
         {
-            Console.WriteLine($"[WARN] {message}");
+            // No logger available — use Debug output so the warning is not silently lost
+            System.Diagnostics.Debug.WriteLine($"[PawSharp WARNING] {message}");
         }
     }
 

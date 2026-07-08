@@ -14,7 +14,7 @@ public static class UrlValidator
     /// Regular expression for validating URLs.
     /// </summary>
     private static readonly Regex UrlRegex = new Regex(
-        @"^https?://[^\s/$.?#].[^\s]*$",
+        @"^https?://[^\s/$.?#]+\.[^\s]*$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>

@@ -92,12 +92,12 @@ public static class ChannelExtensions
                 // Reaction cleanup failed — safe to ignore
             }
 
-            var previousPage = currentPage;
+            var previousPage = Interlocked.CompareExchange(ref currentPage, 0, 0); // atomic read
 
-            if (emojiName == emojis.Left       && currentPage > 0)                        currentPage--;
-            else if (emojiName == emojis.Right  && currentPage < pageList.Count - 1)      currentPage++;
-            else if (emojiName == emojis.SkipLeft  && currentPage != 0)                   currentPage = 0;
-            else if (emojiName == emojis.SkipRight && currentPage != pageList.Count - 1)  currentPage = pageList.Count - 1;
+            if (emojiName == emojis.Left       && previousPage > 0)                        Interlocked.Decrement(ref currentPage);
+            else if (emojiName == emojis.Right  && previousPage < pageList.Count - 1)      Interlocked.Increment(ref currentPage);
+            else if (emojiName == emojis.SkipLeft  && previousPage != 0)                   Interlocked.Exchange(ref currentPage, 0);
+            else if (emojiName == emojis.SkipRight && previousPage != pageList.Count - 1)  Interlocked.Exchange(ref currentPage, pageList.Count - 1);
             else if (emojiName == emojis.Stop)  { tcs.TrySetResult(true); return; }
             else
             {
@@ -105,7 +105,8 @@ public static class ChannelExtensions
                 return;
             }
 
-            if (currentPage == previousPage) return; // no-op (already at boundary)
+            var newPage = Interlocked.CompareExchange(ref currentPage, 0, 0); // atomic read after mutation
+            if (newPage == previousPage) return; // no-op (already at boundary)
 
             try
             {

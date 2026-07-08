@@ -993,7 +993,7 @@ namespace PawSharp.Cache.Providers
             }
         }
 
-        public async Task ClearAsync()
+        public Task ClearAsync()
         {
             var endpoints = _redis.GetEndPoints();
             foreach (var endpoint in endpoints)
@@ -1002,6 +1002,7 @@ namespace PawSharp.Cache.Providers
                 server.FlushDatabase(_options.Database);
             }
             CacheCleared?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
         }
 
         public async Task RemoveChannelAsync(ulong channelId)

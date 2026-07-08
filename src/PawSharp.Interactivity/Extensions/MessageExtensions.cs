@@ -96,7 +96,7 @@ public static class MessageExtensions
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
 
-        var reactionCounts = new Dictionary<string, int>();
+        var reactionCounts = new System.Collections.Concurrent.ConcurrentDictionary<string, int>();
 
         var tcs = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -113,8 +113,7 @@ public static class MessageExtensions
                 var emojiName = evt.Emoji.Name ?? string.Empty;
                 if (!string.IsNullOrEmpty(emojiName))
                 {
-                    reactionCounts.TryGetValue(emojiName, out var count);
-                    reactionCounts[emojiName] = count + 1;
+                    reactionCounts.AddOrUpdate(emojiName, 1, (_, count) => count + 1);
                 }
             }
         }
@@ -130,7 +129,7 @@ public static class MessageExtensions
             subscription.Dispose(); // Unregister handler to prevent unbounded list growth
         }
 
-        return reactionCounts;
+        return new Dictionary<string, int>(reactionCounts);
     }
 
     /// <summary>
@@ -228,7 +227,8 @@ public static class MessageExtensions
         var userList = users.ToList();
 
         var userIds = userList.Select(u => u.Id).ToHashSet();
-        var reactedUsers = new List<User>();
+        var reactedUsers = new System.Collections.Concurrent.ConcurrentBag<User>();
+        var reactedUserIds = new System.Collections.Concurrent.ConcurrentDictionary<ulong, bool>();
 
         var interactivity = InteractivityExtensions.GetExtension(client) ?? new InteractivityExtension();
         timeout ??= interactivity.Timeout;
@@ -247,14 +247,17 @@ public static class MessageExtensions
                 userIds.Contains(evt.UserId) &&
                 evt.Emoji.Name == emoji)
             {
-                var user = userList.FirstOrDefault(u => u.Id == evt.UserId);
-                if (user != null && !reactedUsers.Contains(user))
+                if (reactedUserIds.TryAdd(evt.UserId, true))
                 {
-                    reactedUsers.Add(user);
-
-                    if (reactedUsers.Count == userList.Count)
+                    var user = userList.FirstOrDefault(u => u.Id == evt.UserId);
+                    if (user != null)
                     {
-                        tcs.TrySetResult(reactedUsers);
+                        reactedUsers.Add(user);
+
+                        if (reactedUsers.Count == userList.Count)
+                        {
+                            tcs.TrySetResult(reactedUsers.ToList());
+                        }
                     }
                 }
             }
@@ -420,6 +423,10 @@ public static class MessageExtensions
         DiscordClient client,
         IEnumerable<string> options)
     {
+        InteractivityValidation.RequireNotNull(message, nameof(message));
+        InteractivityValidation.RequireNotNull(client, nameof(client));
+        InteractivityValidation.RequireNotNull(options, nameof(options));
+
         var optionList = options.ToList();
         var pollEmojis = new[] { "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟" };
         var results = new Dictionary<string, int>();
@@ -446,9 +453,10 @@ public static class MessageExtensions
                 results[optionList[i]] = reaction?.Count ?? 0;
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Return empty results on error
+            // Log and return empty results on error
+            System.Diagnostics.Debug.WriteLine($"GetPollResultsAsync failed: {ex.Message}");
             foreach (var option in optionList)
             {
                 results[option] = 0;
