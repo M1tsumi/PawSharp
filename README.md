@@ -10,6 +10,7 @@
   [![.NET][dotnet-badge]][dotnet-link]
   [![License][license-badge]][license]
   [![Build][build-badge]][build]
+  [![Docs][docs-badge]][docs]
   [![Discord][discord-badge]][discord]
 
   [Docs][docs] &middot; [Examples][examples] &middot; [Changelog][changelog] &middot; [NuGet][nuget] &middot; [Discord][discord]
@@ -18,7 +19,10 @@
 
 ---
 
-We're at **`1.1.0-alpha.4`** - core pieces work, things are still settling.
+## Documentation
+Full API reference, guides, and examples at **[pawsharp.dev](https://M1tsumi.github.io/PawSharp/)**.
+
+We're at **`1.1.0-alpha.5`** - core pieces work, things are still settling.
 
 ## Why PawSharp?
 
@@ -37,7 +41,7 @@ PawSharp is built for modern .NET from the ground up - modular packages, async-f
 ## Quickstart
 
 ```bash
-dotnet add package PawSharp.Client --version 1.1.0-alpha.4
+dotnet add package PawSharp.Client --version 1.1.0-alpha.5
 ```
 
 ```csharp
@@ -170,7 +174,8 @@ MIT. See [LICENSE][license].
 [license]:           LICENSE
 [build-badge]:       https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml/badge.svg
 [build]:             https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml
-[docs]:              https://github.com/M1tsumi/PawSharp/tree/main/docs
+[docs]:              https://M1tsumi.github.io/PawSharp/
+[docs-badge]:        https://img.shields.io/badge/docs-pawsharp-5865F2?style=flat-square
 [dev-guide]:         docs/DEVELOPERS_GUIDE.md
 [rest-guide]:        docs/REST_API_GUIDE.md
 [gateway-guide]:     docs/GATEWAY_GUIDE.md

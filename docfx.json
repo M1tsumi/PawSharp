@@ -4,15 +4,15 @@
       "src": [
         {
           "files": [
-            "src/PawSharp.Core/PawSharp.Core.csproj",
-            "src/PawSharp.API/PawSharp.API.csproj",
-            "src/PawSharp.Gateway/PawSharp.Gateway.csproj",
-            "src/PawSharp.Cache/PawSharp.Cache.csproj",
-            "src/PawSharp.Client/PawSharp.Client.csproj",
-            "src/PawSharp.Commands/PawSharp.Commands.csproj",
-            "src/PawSharp.Interactions/PawSharp.Interactions.csproj",
-            "src/PawSharp.Interactivity/PawSharp.Interactivity.csproj",
-            "src/PawSharp.Voice/PawSharp.Voice.csproj"
+            "src/PawSharp.Core/bin/Release/net10.0/PawSharp.Core.dll",
+            "src/PawSharp.API/bin/Release/net10.0/PawSharp.API.dll",
+            "src/PawSharp.Gateway/bin/Release/net10.0/PawSharp.Gateway.dll",
+            "src/PawSharp.Cache/bin/Release/net10.0/PawSharp.Cache.dll",
+            "src/PawSharp.Client/bin/Release/net10.0/PawSharp.Client.dll",
+            "src/PawSharp.Commands/bin/Release/net10.0/PawSharp.Commands.dll",
+            "src/PawSharp.Interactions/bin/Release/net10.0/PawSharp.Interactions.dll",
+            "src/PawSharp.Interactivity/bin/Release/net10.0/PawSharp.Interactivity.dll",
+            "src/PawSharp.Voice/bin/Release/net10.0/PawSharp.Voice.dll"
           ],
           "src": "."
         }
@@ -37,8 +37,11 @@
         "files": [
           "docs/**.md",
           "docs/**/toc.yml",
+          "docs/guides/**.md",
           "toc.yml",
-          "index.md"
+          "index.md",
+          "CHANGELOG.md",
+          "CONTRIBUTING.md"
         ]
       }
     ],
@@ -53,12 +56,13 @@
     "globalMetadata": {
       "_appTitle": "PawSharp",
       "_appName": "PawSharp",
-      "_appFooter": "PawSharp 1.1.0-alpha.4 &mdash; MIT License &mdash; <a href='https://github.com/M1tsumi/PawSharp'>GitHub</a>",
+      "_appFooter": "PawSharp 1.1.0-alpha.5 &mdash; MIT License &mdash; <a href='https://github.com/M1tsumi/PawSharp'>GitHub</a>",
       "_enableSearch": true,
       "_disableContribution": false,
+      "_favicon": "assets/pawsharp-logo.svg",
       "_gitContribute": {
         "repo": "https://github.com/M1tsumi/PawSharp",
-        "branch": "main"
+        "branch": "develop"
       }
     },
     "globalMetadataFiles": [],
@@ -66,7 +70,7 @@
     "template": [
       "modern"
     ],
-    "postProcessors": [],
+    "postProcessors": ["ExtractSearchIndex"],
     "markdownEngineName": "markdig",
     "noDryRun": false
   }

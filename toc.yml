@@ -1,7 +1,5 @@
-- name: Introduction
-  href: index.md
-- name: Guides
-  href: docs/toc.yml
+- name: Documentation
+  href: docs/index.md
 - name: API Reference
   href: api/
   homepage: api/index.md

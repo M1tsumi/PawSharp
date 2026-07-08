@@ -7,7 +7,7 @@ _disableToc: false
 A modular Discord API wrapper for **.NET 10** — REST, Gateway, caching, slash
 commands, prefix commands, interactivity, and voice with full DAVE E2EE.
 
-**Current version:** `1.1.0-alpha.4` | **Discord API:** v10
+**Current version:** `1.1.0-alpha.5` | **Discord API:** v10
 
 ---
 
@@ -69,6 +69,6 @@ await Task.Delay(Timeout.Infinite);
 
 ## Next steps
 
-- New here? Start with the [Getting Started guide](docs/DEVELOPERS_GUIDE.md).
-- Building voice features? See the [Voice & DAVE guide](docs/VOICE_GUIDE.md).
+- New here? Start with the [Getting Started guide](docs/getting-started.md).
+- Building voice features? See the [Voice guide](docs/guides/voice.md).
 - Looking for a specific type? Browse the [API Reference](api/index.md).

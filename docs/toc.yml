@@ -1,22 +1,34 @@
 - name: Getting Started
-  href: DEVELOPERS_GUIDE.md
-- name: REST API
-  href: REST_API_GUIDE.md
-- name: Gateway & Events
-  href: GATEWAY_GUIDE.md
-- name: Caching
-  href: CACHING_GUIDE.md
-- name: Voice & DAVE E2EE
-  href: VOICE_GUIDE.md
-- name: Patterns & Examples
-  href: PATTERNS_GUIDE.md
-- name: Versioning Policy
-  href: VERSIONING_POLICY.md
-- name: Error Handling
-  href: ERROR_HANDLING.md
-- name: Event Interest Filtering
-  href: EVENT_INTEREST_FILTERING_GUIDE.md
-- name: Migration Guide
-  href: MIGRATION.md
-- name: Troubleshooting
-  href: TROUBLESHOOTING.md
+  items:
+  - name: Overview
+    href: index.md
+  - name: Quickstart
+    href: getting-started.md
+  - name: Installation
+    href: installation.md
+  - name: FAQ
+    href: faq.md
+  - name: Changelog
+    href: changelog.md
+- name: Guides
+  items:
+  - name: Your First Bot
+    href: guides/first-bot.md
+  - name: Gateway Connection
+    href: guides/gateway.md
+  - name: Events
+    href: guides/events.md
+  - name: Slash Commands
+    href: guides/slash-commands.md
+  - name: Components
+    href: guides/components.md
+  - name: Interactions
+    href: guides/interactions.md
+  - name: Webhooks
+    href: guides/webhooks.md
+  - name: Voice
+    href: guides/voice.md
+  - name: Permissions
+    href: guides/permissions.md
+  - name: Advanced Topics
+    href: guides/advanced.md
