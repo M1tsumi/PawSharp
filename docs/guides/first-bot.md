@@ -26,7 +26,7 @@ dotnet add package PawSharp.Client --version 1.1.0-alpha.5
 dotnet add package Microsoft.Extensions.Logging.Console
 ```
 
-> 💡 `PawSharp.Client` is the all-in-one package. It includes Core (entities), API (REST), Gateway (WebSocket), Cache (in-memory), and Interactions (slash commands). You don't need separate packages for common bot scenarios.
+>  `PawSharp.Client` is the all-in-one package. It includes Core (entities), API (REST), Gateway (WebSocket), Cache (in-memory), and Interactions (slash commands). You don't need separate packages for common bot scenarios.
 
 Verify the project builds:
 
@@ -38,8 +38,8 @@ Expected output:
 
 ```
 Build succeeded.
-    0 Warning(s)
-    0 Error(s)
+ 0 Warning(s)
+ 0 Error(s)
 ```
 
 ---
@@ -50,14 +50,14 @@ Build succeeded.
 2. Click **New Application** and give it a name
 3. Navigate to **Bot** in the left sidebar
 4. Click **Reset Token** (or copy the existing token)
-5. Copy the token — you'll need it in the next step
+5. Copy the token - you'll need it in the next step
 6. Under **Privileged Gateway Intents**, enable:
-   - **Message Content Intent** (required for reading message content)
-   - **Server Members Intent** (optional, for member events)
-   - **Presence Intent** (optional, for presence events)
+ - **Message Content Intent** (required for reading message content)
+ - **Server Members Intent** (optional, for member events)
+ - **Presence Intent** (optional, for presence events)
 7. Invite the bot to a server using the **OAuth2 > URL Generator** with `bot` and `applications.commands` scopes
 
-> ⚠️ **Keep your token secret.** Never commit it to source control, share it, or expose it in client-side code. This tutorial uses an environment variable to keep it safe.
+>  **Keep your token secret.** Never commit it to source control, share it, or expose it in client-side code. This tutorial uses an environment variable to keep it safe.
 
 ---
 
@@ -70,28 +70,28 @@ using PawSharp.Client;
 using PawSharp.Core.Enums;
 
 var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
-    ?? throw new InvalidOperationException(
-        "Set the DISCORD_TOKEN environment variable before running.");
+ ?? throw new InvalidOperationException(
+ "Set the DISCORD_TOKEN environment variable before running.");
 
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .UseConsoleLogging()
-    .Build();
+ .WithToken(token)
+ .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+ .UseConsoleLogging()
+ .Build();
 
 client.OnReady(ready =>
 {
-    Console.WriteLine($"Logged in as {ready.User.Username}");
-    return Task.CompletedTask;
+ Console.WriteLine($"Logged in as {ready.User.Username}");
+ return Task.CompletedTask;
 });
 
 client.OnMessageCreated(async evt =>
 {
-    if (evt.Author?.IsBot == true)
-        return;
+ if (evt.Author?.IsBot == true)
+ return;
 
-    if (evt.Content == "!ping")
-        await client.SendMessageAsync(evt.ChannelId, "Pong!");
+ if (evt.Content == "!ping")
+ await client.SendMessageAsync(evt.ChannelId, "Pong!");
 });
 
 await client.ConnectAsync();
@@ -134,9 +134,9 @@ Expected console output:
 
 ```
 info: PawSharp.Gateway.GatewayClient[0]
-      Connected to gateway (session_id: abc123, shard: 0/1)
+ Connected to gateway (session_id: abc123, shard: 0/1)
 info: PawSharp.Client.DiscordClient[0]
-      Client connected as MyBot#1234
+ Client connected as MyBot#1234
 Logged in as MyBot#1234
 ```
 
@@ -149,7 +149,7 @@ Now type `!ping` in any channel the bot can see:
 
 To stop the bot, press `Ctrl+C`.
 
-> ✅ **The bot is working.** You have a functional Discord bot in under 20 lines of code.
+>  **The bot is working.** You have a functional Discord bot in under 20 lines of code.
 
 ---
 
@@ -169,19 +169,19 @@ using PawSharp.Commands.Attributes;
 
 public sealed class GreetingModule : BaseCommandModule
 {
-    [Command("hello")]
-    [Description("Says hello to you!")]
-    public async Task HelloAsync(CommandContext ctx)
-    {
-        await ctx.RespondAsync($"Hello, {ctx.Author.Username}! 👋");
-    }
+ [Command("hello")]
+ [Description("Says hello to you!")]
+ public async Task HelloAsync(CommandContext ctx)
+ {
+ await ctx.RespondAsync($"Hello, {ctx.Author.Username}! ");
+ }
 
-    [Command("echo")]
-    [Description("Repeats what you say")]
-    public async Task EchoAsync(CommandContext ctx, [RemainingText] string text)
-    {
-        await ctx.RespondAsync($"You said: {text}");
-    }
+ [Command("echo")]
+ [Description("Repeats what you say")]
+ public async Task EchoAsync(CommandContext ctx, [RemainingText] string text)
+ {
+ await ctx.RespondAsync($"You said: {text}");
+ }
 }
 ```
 
@@ -192,22 +192,22 @@ using PawSharp.Client;
 using PawSharp.Core.Enums;
 
 var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
-    ?? throw new InvalidOperationException(
-        "Set the DISCORD_TOKEN environment variable before running.");
+ ?? throw new InvalidOperationException(
+ "Set the DISCORD_TOKEN environment variable before running.");
 
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .UseConsoleLogging()
-    .Build();
+ .WithToken(token)
+ .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+ .UseConsoleLogging()
+ .Build();
 
 // Register commands with auto-discovery
 client.UseCommandsWithAutoDiscovery();
 
 client.OnReady(ready =>
 {
-    Console.WriteLine($"Logged in as {ready.User.Username}");
-    return Task.CompletedTask;
+ Console.WriteLine($"Logged in as {ready.User.Username}");
+ return Task.CompletedTask;
 });
 
 await client.ConnectAsync();
@@ -218,13 +218,13 @@ Run the bot again:
 
 ```
 > !hello
-< Hello, User! 👋
+< Hello, User! 
 
 > !echo Hello world
 < You said: Hello world
 ```
 
-> 💡 `UseCommandsWithAutoDiscovery()` scans the calling assembly for all classes inheriting `BaseCommandModule` and registers them automatically. You can also register modules manually with `.RegisterModulesInAssembly()`.
+>  `UseCommandsWithAutoDiscovery()` scans the calling assembly for all classes inheriting `BaseCommandModule` and registers them automatically. You can also register modules manually with `.RegisterModulesInAssembly()`.
 
 ---
 
@@ -235,21 +235,21 @@ Let's log when a user joins the server. Add a member-greeting handler before `Co
 ```csharp
 client.OnGuildMemberAdded(async evt =>
 {
-    var welcomeChannelId = 123456789012345678ul; // Replace with your welcome channel ID
-    await client.SendMessageAsync(
-        welcomeChannelId,
-        $"Welcome to the server, {evt.Member.User.Username}!");
+ var welcomeChannelId = 123456789012345678ul; // Replace with your welcome channel ID
+ await client.SendMessageAsync(
+ welcomeChannelId,
+ $"Welcome to the server, {evt.Member.User.Username}!");
 });
 ```
 
-> ⚠️ Replace `123456789012345678` with the actual channel ID from your Discord server (enable Developer Mode in Discord settings, right-click the channel, and copy ID).
+>  Replace `123456789012345678` with the actual channel ID from your Discord server (enable Developer Mode in Discord settings, right-click the channel, and copy ID).
 
 You also need the `GuildMembers` intent:
 
 ```csharp
 .WithIntents(GatewayIntents.AllNonPrivileged
-    | GatewayIntents.MessageContent
-    | GatewayIntents.GuildMembers)
+ | GatewayIntents.MessageContent
+ | GatewayIntents.GuildMembers)
 ```
 
 And enable **Server Members Intent** in the Discord Developer Portal under your bot's settings.
@@ -265,17 +265,17 @@ using PawSharp.Client;
 using PawSharp.Core.Enums;
 
 var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
-    ?? throw new InvalidOperationException(
-        "Set the DISCORD_TOKEN environment variable before running.");
+ ?? throw new InvalidOperationException(
+ "Set the DISCORD_TOKEN environment variable before running.");
 
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .WithIntents(
-        GatewayIntents.AllNonPrivileged
-        | GatewayIntents.MessageContent
-        | GatewayIntents.GuildMembers)
-    .UseConsoleLogging()
-    .Build();
+ .WithToken(token)
+ .WithIntents(
+ GatewayIntents.AllNonPrivileged
+ | GatewayIntents.MessageContent
+ | GatewayIntents.GuildMembers)
+ .UseConsoleLogging()
+ .Build();
 
 // Register prefix commands
 client.UseCommandsWithAutoDiscovery();
@@ -283,25 +283,25 @@ client.UseCommandsWithAutoDiscovery();
 // On ready
 client.OnReady(ready =>
 {
-    Console.WriteLine($"Logged in as {ready.User.Username}");
-    return Task.CompletedTask;
+ Console.WriteLine($"Logged in as {ready.User.Username}");
+ return Task.CompletedTask;
 });
 
 // Message handler
 client.OnMessageCreated(async evt =>
 {
-    if (evt.Author?.IsBot == true)
-        return;
+ if (evt.Author?.IsBot == true)
+ return;
 
-    if (evt.Content == "!ping")
-        await client.SendMessageAsync(evt.ChannelId, "Pong!");
+ if (evt.Content == "!ping")
+ await client.SendMessageAsync(evt.ChannelId, "Pong!");
 });
 
 // Member join handler
 client.OnGuildMemberAdded(async evt =>
 {
-    Console.WriteLine(
-        $"{evt.Member.User.Username} joined {evt.GuildId}");
+ Console.WriteLine(
+ $"{evt.Member.User.Username} joined {evt.GuildId}");
 });
 
 await client.ConnectAsync();
@@ -316,26 +316,26 @@ using PawSharp.Commands.Attributes;
 
 public sealed class GreetingModule : BaseCommandModule
 {
-    [Command("hello")]
-    [Description("Says hello to you!")]
-    public async Task HelloAsync(CommandContext ctx)
-    {
-        await ctx.RespondAsync($"Hello, {ctx.Author.Username}! 👋");
-    }
+ [Command("hello")]
+ [Description("Says hello to you!")]
+ public async Task HelloAsync(CommandContext ctx)
+ {
+ await ctx.RespondAsync($"Hello, {ctx.Author.Username}! ");
+ }
 
-    [Command("echo")]
-    [Description("Repeats what you say")]
-    public async Task EchoAsync(CommandContext ctx, [RemainingText] string text)
-    {
-        await ctx.RespondAsync($"You said: {text}");
-    }
+ [Command("echo")]
+ [Description("Repeats what you say")]
+ public async Task EchoAsync(CommandContext ctx, [RemainingText] string text)
+ {
+ await ctx.RespondAsync($"You said: {text}");
+ }
 
-    [Command("ping")]
-    [Description("Check if the bot is responsive")]
-    public async Task PingAsync(CommandContext ctx)
-    {
-        await ctx.RespondAsync("Pong! 🏓");
-    }
+ [Command("ping")]
+ [Description("Check if the bot is responsive")]
+ public async Task PingAsync(CommandContext ctx)
+ {
+ await ctx.RespondAsync("Pong! ");
+ }
 }
 ```
 

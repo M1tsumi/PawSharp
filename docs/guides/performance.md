@@ -26,10 +26,10 @@ public partial class PawSharpJsonContext : JsonSerializerContext { }
 ```csharp
 private static readonly JsonSerializerOptions _jsonOptions = new()
 {
-    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-    TypeInfoResolver = JsonTypeInfoResolver.Combine(
-        PawSharpApiJsonContext.Default,
-        PawSharpJsonContext.Default)
+ PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+ TypeInfoResolver = JsonTypeInfoResolver.Combine(
+ PawSharpApiJsonContext.Default,
+ PawSharpJsonContext.Default)
 };
 ```
 
@@ -43,12 +43,12 @@ The `WebSocketConnection` uses `System.Buffers.ArrayPool<byte>` for WebSocket re
 var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
 try
 {
-    var result = await webSocket.ReceiveAsync(buffer, ct);
-    // process buffer
+ var result = await webSocket.ReceiveAsync(buffer, ct);
+ // process buffer
 }
 finally
 {
-    ArrayPool<byte>.Shared.Return(buffer);
+ ArrayPool<byte>.Shared.Return(buffer);
 }
 ```
 
@@ -60,12 +60,12 @@ finally
 
 ```csharp
 _eventDispatcher = new EventDispatcher(
-    logger,
-    options.EventDispatch.MaxQueueSize,
-    options.EventDispatch.EnableParallelDispatch,
-    options.EventDispatch.MaxDegreeOfParallelism,  // default: Environment.ProcessorCount
-    metrics,
-    options.EventDispatch.HandlerTimeoutMs);
+ logger,
+ options.EventDispatch.MaxQueueSize,
+ options.EventDispatch.EnableParallelDispatch,
+ options.EventDispatch.MaxDegreeOfParallelism, // default: Environment.ProcessorCount
+ metrics,
+ options.EventDispatch.HandlerTimeoutMs);
 ```
 
 ---
@@ -94,16 +94,16 @@ var qs = new System.Text.StringBuilder();
 
 ```mermaid
 flowchart LR
-    A[Performance\nOptimizations] --> B[Source-generated\nJSON Contexts]
-    A --> C[ArrayPool\nWebSocket Buffers]
-    A --> D[Parallel Event\nDispatch]
-    A --> E[Concurrent\nDictionaries]
-    A --> F[Interlocked\nMetrics]
-    A --> G[SemaphoreSlim\nRate Limiters]
-    A --> H[SnakeCaseLower\nNaming Policy]
-    B --> I[Zero\nReflection]
-    C --> J[Borrow/Rent\nBuffers]
-    D --> K[Configurable\nDOP]
+ A[Performance\nOptimizations] --> B[Source-generated\nJSON Contexts]
+ A --> C[ArrayPool\nWebSocket Buffers]
+ A --> D[Parallel Event\nDispatch]
+ A --> E[Concurrent\nDictionaries]
+ A --> F[Interlocked\nMetrics]
+ A --> G[SemaphoreSlim\nRate Limiters]
+ A --> H[SnakeCaseLower\nNaming Policy]
+ B --> I[Zero\nReflection]
+ C --> J[Borrow/Rent\nBuffers]
+ D --> K[Configurable\nDOP]
 ```
 
 ---
@@ -129,15 +129,15 @@ Key metrics:
 ```csharp
 var options = new PawSharpOptions
 {
-    EventDispatch = new PawSharpOptions.EventDispatchOptions
-    {
-        EnableParallelDispatch = true,
-        MaxDegreeOfParallelism = 4,
-        MaxQueueSize = 100_000,
-        HandlerTimeoutMs = 5000
-    },
-    WebSocketBufferSizeKb = 16,
-    EnableCompression = true
+ EventDispatch = new PawSharpOptions.EventDispatchOptions
+ {
+ EnableParallelDispatch = true,
+ MaxDegreeOfParallelism = 4,
+ MaxQueueSize = 100_000,
+ HandlerTimeoutMs = 5000
+ },
+ WebSocketBufferSizeKb = 16,
+ EnableCompression = true
 };
 ```
 

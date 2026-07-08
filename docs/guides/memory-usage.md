@@ -25,13 +25,13 @@ Each entity type is stored in a `ConcurrentDictionary` with estimated per-entity
 ```csharp
 public long GetMemoryUsage()
 {
-    return (_users.Count * 1024L) +
-           (_guilds.Count * 2048L) +
-           (_channels.Count * 1024L) +
-           (_messages.Count * 2048L) +
-           (_members.Count * 1024L) +
-           (_roles.Count * 512L) +
-           (_emojis.Count * 512L);
+ return (_users.Count * 1024L) +
+ (_guilds.Count * 2048L) +
+ (_channels.Count * 1024L) +
+ (_messages.Count * 2048L) +
+ (_members.Count * 1024L) +
+ (_roles.Count * 512L) +
+ (_emojis.Count * 512L);
 }
 ```
 
@@ -47,8 +47,8 @@ Triggered when any per-type dictionary exceeds its `Max*` limit:
 
 ```csharp
 var keysToRemove = keysWithAccess
-    .OrderBy(k => k.access)
-    .Take(cache.Count - maxSize);
+ .OrderBy(k => k.access)
+ .Take(cache.Count - maxSize);
 // Least recently accessed entries evicted first
 ```
 
@@ -58,7 +58,7 @@ Background timer (`CleanupExpiredEntries`) runs every 60 seconds:
 
 ```csharp
 var expired = _users.Where(kvp =>
-    (now - _lastAccess[kvp.Key]) > _userExpiration.Value);
+ (now - _lastAccess[kvp.Key]) > _userExpiration.Value);
 ```
 
 ---
@@ -102,10 +102,10 @@ byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
 ```csharp
 public interface IPerformanceMetrics
 {
-    MetricsSummary GetSummary();
-    void RecordCacheOperation(string entityType, bool isHit);
-    void RecordEventDispatch(string eventName, long durationMs);
-    void RecordQueueDepth(int depth);
+ MetricsSummary GetSummary();
+ void RecordCacheOperation(string entityType, bool isHit);
+ void RecordEventDispatch(string eventName, long durationMs);
+ void RecordQueueDepth(int depth);
 }
 ```
 
@@ -135,9 +135,9 @@ Console.WriteLine($"Messages: {stats.MessageCount}");
 ```csharp
 var cacheOptions = new CacheOptions
 {
-    MaxMessages = 1000,
-    MaxUsers = 5000,
-    MaxMembers = 10000
+ MaxMessages = 1000,
+ MaxUsers = 5000,
+ MaxMembers = 10000
 };
 ```
 
@@ -147,7 +147,7 @@ cacheOptions.MessageExpiration = TimeSpan.FromMinutes(5);
 cacheOptions.UserExpiration = TimeSpan.FromHours(1);
 ```
 
-3. **Use Redis for persistence** — offload memory to external store.
+3. **Use Redis for persistence** - offload memory to external store.
 
 4. **Disable message caching** if not needed:
 ```csharp

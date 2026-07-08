@@ -48,17 +48,17 @@ How to migrate between PawSharp versions and from other Discord libraries.
 // DSharpPlus
 var config = new DiscordConfiguration
 {
-    Token = token,
-    TokenType = TokenType.Bot,
-    Intents = DiscordIntents.AllUnprivileged
+ Token = token,
+ TokenType = TokenType.Bot,
+ Intents = DiscordIntents.AllUnprivileged
 };
 var client = new DiscordClient(config);
 
 // PawSharp
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .WithIntents(GatewayIntents.AllNonPrivileged)
-    .Build();
+ .WithToken(token)
+ .WithIntents(GatewayIntents.AllNonPrivileged)
+ .Build();
 ```
 
 **Typed events instead of socket handlers:**
@@ -67,14 +67,14 @@ var client = new PawSharpClientBuilder()
 // DSharpPlus
 client.MessageCreated += (s, e) =>
 {
-    Console.WriteLine(e.Message.Content);
-    return Task.CompletedTask;
+ Console.WriteLine(e.Message.Content);
+ return Task.CompletedTask;
 };
 
 // PawSharp
 client.OnMessageCreated(async evt =>
 {
-    Console.WriteLine(evt.Content);
+ Console.WriteLine(evt.Content);
 });
 ```
 
@@ -84,44 +84,44 @@ client.OnMessageCreated(async evt =>
 // DSharpPlus
 await client.SendMessageAsync(channelId, "Hello");
 
-// PawSharp — via the Rest property
+// PawSharp - via the Rest property
 await client.Rest.CreateMessageAsync(channelId, new CreateMessageRequest { Content = "Hello" });
 // Or via the convenience method on DiscordClient
 await client.SendMessageAsync(channelId, "Hello");
 ```
 
-**Commands — attribute-based, not command-next:**
+**Commands - attribute-based, not command-next:**
 
 ```csharp
 // DSharpPlus
 public class MyModule : BaseCommandModule
 {
-    [Command("ping")]
-    public async Task PingAsync(CommandContext ctx)
-    {
-        await ctx.RespondAsync("Pong!");
-    }
+ [Command("ping")]
+ public async Task PingAsync(CommandContext ctx)
+ {
+ await ctx.RespondAsync("Pong!");
+ }
 }
 
 // PawSharp
 public class MyModule : BaseCommandModule
 {
-    [Command("ping")]
-    public async Task PingAsync(CommandContext ctx)
-    {
-        await ctx.RespondAsync("Pong!");
-    }
+ [Command("ping")]
+ public async Task PingAsync(CommandContext ctx)
+ {
+ await ctx.RespondAsync("Pong!");
+ }
 }
 ```
 
 The API surface is intentionally similar for commands, but wiring differs:
 
 ```csharp
-// DSharpPlus — separate registration
+// DSharpPlus - separate registration
 var commands = client.UseCommandsNext(config);
 commands.RegisterCommands<MyModule>();
 
-// PawSharp — extensions on the client
+// PawSharp - extensions on the client
 var commands = client.GetCommandsExtension();
 await commands.RegisterModulesInAssembly(typeof(MyModule).Assembly);
 ```
@@ -161,18 +161,18 @@ await commands.RegisterModulesInAssembly(typeof(MyModule).Assembly);
 
 ### Key differences
 
-**No socket/generic entity model** — PawSharp uses concrete typed entities instead of socket/rest discrimination:
+**No socket/generic entity model** - PawSharp uses concrete typed entities instead of socket/rest discrimination:
 
 ```csharp
-// Discord.Net — socket vs rest duality
+// Discord.Net - socket vs rest duality
 SocketGuild guild = client.GetGuild(id); // socket variant
 RestGuild restGuild = await restClient.GetGuildAsync(id); // rest variant
 
-// PawSharp — single entity type
+// PawSharp - single entity type
 Guild guild = await client.Rest.GetGuildAsync(guildId);
 ```
 
-**No `IMessageChannel` abstraction** — methods take `ulong` channel IDs:
+**No `IMessageChannel` abstraction** - methods take `ulong` channel IDs:
 
 ```csharp
 // Discord.Net
@@ -186,27 +186,27 @@ await client.SendMessageAsync(channelId, "Hello");
 **Logger setup is standard `Microsoft.Extensions.Logging`:**
 
 ```csharp
-// Discord.Net — custom LogSeverity
+// Discord.Net - custom LogSeverity
 client.Log += (msg) => { Console.WriteLine(msg.Message); };
 
-// PawSharp — standard .NET logging
+// PawSharp - standard .NET logging
 services.AddLogging(builder =>
 {
-    builder.AddConsole();
-    builder.SetMinimumLevel(LogLevel.Debug);
+ builder.AddConsole();
+ builder.SetMinimumLevel(LogLevel.Debug);
 });
 ```
 
 **Gateway events use subscription pattern, not C# events:**
 
 ```csharp
-// Discord.Net — C# event handler
+// Discord.Net - C# event handler
 client.MessageReceived += HandleMessage;
 
-// PawSharp — subscription pattern
+// PawSharp - subscription pattern
 client.OnMessageCreated(HandleMessage);
 
-// PawSharp — unsubscribe via disposable
+// PawSharp - unsubscribe via disposable
 var disposable = client.OnMessageCreated(HandleMessage);
 disposable.Dispose();
 ```
@@ -214,10 +214,10 @@ disposable.Dispose();
 **Intents are flags, not strings:**
 
 ```csharp
-// Discord.Net — string-based
+// Discord.Net - string-based
 client.MessageReceived += handler; // implicit intent
 
-// PawSharp — explicit flags
+// PawSharp - explicit flags
 .WithIntents(GatewayIntents.GuildMessages | GatewayIntents.MessageContent)
 ```
 
@@ -230,12 +230,12 @@ client.MessageReceived += handler; // implicit intent
 PawSharp follows [SemVer 2.0](https://semver.org/). Pre-release versions use dot notation:
 
 ```
-1.1.0-alpha.5   ← current (APIs may change)
-1.0.0-alpha.x   ← previous series
-0.11.0-alpha.x  ← legacy (.NET 8)
+1.1.0-alpha.5 ← current (APIs may change)
+1.0.0-alpha.x ← previous series
+0.11.0-alpha.x ← legacy (.NET 8)
 ```
 
-⚠️ **We are in alpha** — breaking changes are expected between minor versions. The `../CHANGELOG.md` and this guide track all breaking changes.
+ **We are in alpha** - breaking changes are expected between minor versions. The `../CHANGELOG.md` and this guide track all breaking changes.
 
 ### Release timeline
 
@@ -285,11 +285,11 @@ Affects `.Users`, `.Members`, `.Roles`, `.Channels`, `.Messages`, `.Attachments`
 **REST methods now throw exceptions instead of returning null**
 
 ```csharp
-// Before — null check
+// Before - null check
 var msg = await client.Rest.CreateMessageAsync(id, req);
 if (msg == null) { /* unknown failure */ }
 
-// After — typed exceptions
+// After - typed exceptions
 try { var msg = await client.Rest.CreateMessageAsync(id, req); }
 catch (ValidationException ex) { /* input error */ }
 catch (RateLimitException ex) { /* rate limited */ }
@@ -338,11 +338,11 @@ No breaking changes.
 - `PawSharp.Core.Exceptions.DiscordApiException` now inherits from `PawSharp.API.Exceptions.DiscordApiException`
 - `PawSharp.Cache.Exceptions.CacheException` now inherits from `DiscordException` instead of `Exception`
 
-**`ConfigureAwait(false)` added project-wide** — every `await` in library code now uses `.ConfigureAwait(false)`. If you capture `SynchronizationContext` inside event handlers, wrap continuations in `Task.Run()`.
+**`ConfigureAwait(false)` added project-wide** - every `await` in library code now uses `.ConfigureAwait(false)`. If you capture `SynchronizationContext` inside event handlers, wrap continuations in `Task.Run()`.
 
 **`HeartbeatManager.maxMissedAcks` default: 2 → 3** (matches `PawSharpOptions.MaxMissedHeartbeatAcks`)
 
-**`VoiceConnection` no longer hardcodes `?v=8`** — protocol version resolved at runtime via `VoiceProtocolVersion` constant.
+**`VoiceConnection` no longer hardcodes `?v=8`** - protocol version resolved at runtime via `VoiceProtocolVersion` constant.
 
 **Voice `PlayAudioAsync()` / `PlayAudioFromPcmAsync()` now throw `ObjectDisposedException` on disposed connections.**
 

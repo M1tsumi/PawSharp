@@ -76,43 +76,43 @@ PawSharp is organized into nine NuGet packages with a clear layered dependency g
 
 ```mermaid
 flowchart TB
-    Core[PawSharp.Core<br/>Entities, Enums, Exceptions, Builders]
-    API[PawSharp.API<br/>REST Client, Rate Limiter]
-    Cache[PawSharp.Cache<br/>Memory & Redis Providers]
-    Gateway[PawSharp.Gateway<br/>WebSocket, Sharding, Events]
-    Client[PawSharp.Client<br/>DiscordClient, DI, Builder]
-    Commands[PawSharp.Commands<br/>Prefix & Slash Command Modules]
-    Interactions[PawSharp.Interactions<br/>Slash Commands, Components, Modals]
-    Interactivity[PawSharp.Interactivity<br/>Pagination, Polls, Prompts]
-    Voice[PawSharp.Voice<br/>Opus, RTP, DAVE E2EE]
+ Core[PawSharp.Core<br/>Entities, Enums, Exceptions, Builders]
+ API[PawSharp.API<br/>REST Client, Rate Limiter]
+ Cache[PawSharp.Cache<br/>Memory & Redis Providers]
+ Gateway[PawSharp.Gateway<br/>WebSocket, Sharding, Events]
+ Client[PawSharp.Client<br/>DiscordClient, DI, Builder]
+ Commands[PawSharp.Commands<br/>Prefix & Slash Command Modules]
+ Interactions[PawSharp.Interactions<br/>Slash Commands, Components, Modals]
+ Interactivity[PawSharp.Interactivity<br/>Pagination, Polls, Prompts]
+ Voice[PawSharp.Voice<br/>Opus, RTP, DAVE E2EE]
 
-    Core --> API
-    Core --> Cache
-    Core --> Gateway
-    Core --> Interactions
-    Core --> Interactivity
-    Core --> Commands
-    Core --> Voice
+ Core --> API
+ Core --> Cache
+ Core --> Gateway
+ Core --> Interactions
+ Core --> Interactivity
+ Core --> Commands
+ Core --> Voice
 
-    API --> Gateway
-    API --> Interactions
-    API --> Voice
-    
-    Cache --> Gateway
-    
-    API --> Client
-    Gateway --> Client
-    Cache --> Client
-    Interactions --> Client
+ API --> Gateway
+ API --> Interactions
+ API --> Voice
 
-    Client --> Commands
-    Client --> Interactivity
-    Client --> Voice
+ Cache --> Gateway
+
+ API --> Client
+ Gateway --> Client
+ Cache --> Client
+ Interactions --> Client
+
+ Client --> Commands
+ Client --> Interactivity
+ Client --> Voice
 ```
 
 **Key relationships:**
 
-- `PawSharp.Core` is the foundation — every package depends on it.
+- `PawSharp.Core` is the foundation - every package depends on it.
 - `PawSharp.Client` is the recommended all-in-one package; it aggregates the API, Gateway, Cache, and Interactions packages.
 - `PawSharp.Voice` builds on Client, API, and Gateway.
 - `PawSharp.Commands` builds on Client, API, and Core.
@@ -140,26 +140,26 @@ Detailed API documentation is generated from XML doc-comments in each source pro
 
 ## FAQ
 
-**Q: What .NET version do I need?**  
+**Q: What .NET version do I need?**
 A: .NET 10.0 SDK or later. PawSharp targets `net10.0`.
 
-**Q: Can I use PawSharp with ASP.NET or a hosted service?**  
+**Q: Can I use PawSharp with ASP.NET or a hosted service?**
 A: Yes. PawSharp integrates with `Microsoft.Extensions.DependencyInjection`. Use `AddPawSharp()` in `ConfigureServices` for background service scenarios. See the DashboardBot example.
 
-**Q: How do I test my bot logic?**  
-A: All major abstractions — `IDiscordClient`, `IDiscordRestClient`, `IGatewayClient`, `IEntityCache` — are interfaces, fully mockable with Moq, NSubstitute, or your mock framework of choice.
+**Q: How do I test my bot logic?**
+A: All major abstractions - `IDiscordClient`, `IDiscordRestClient`, `IGatewayClient`, `IEntityCache` - are interfaces, fully mockable with Moq, NSubstitute, or your mock framework of choice.
 
-**Q: How many guilds can a single instance handle?**  
+**Q: How many guilds can a single instance handle?**
 A: Typically 2500+ guilds per shard. Use `PawSharp.Gateway.ShardManager` with auto-sharding for larger bots.
 
-**Q: Do I need Redis?**  
+**Q: Do I need Redis?**
 A: No. The default `MemoryCacheProvider` works well for most bots. For bots serving 500+ guilds or requiring cache persistence across restarts, use `RedisCacheProvider`.
 
-**Q: Does PawSharp support native AOT?**  
-A: Yes. PawSharp uses `JsonSerializerContext`-based source generation for all JSON serialization — no runtime reflection, trimming-safe.
+**Q: Does PawSharp support native AOT?**
+A: Yes. PawSharp uses `JsonSerializerContext`-based source generation for all JSON serialization - no runtime reflection, trimming-safe.
 
-**Q: Is voice production-ready?**  
-A: Voice is functional (Opus encode/decode, RTP, DAVE E2EE) and used in music bots, but is still alpha — expect API changes.
+**Q: Is voice production-ready?**
+A: Voice is functional (Opus encode/decode, RTP, DAVE E2EE) and used in music bots, but is still alpha - expect API changes.
 
 ---
 

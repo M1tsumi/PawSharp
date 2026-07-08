@@ -35,12 +35,12 @@ Polls are created via `CreateMessageRequest.Poll` and managed through dedicated 
 ```csharp
 public class Poll
 {
-    public PollMedia Question { get; set; } = null!;
-    public List<PollAnswer> Answers { get; set; } = new();
-    public DateTimeOffset? Expiry { get; set; }
-    public bool AllowMultiselect { get; set; }
-    public PollLayoutType LayoutType { get; set; }
-    public PollResults? Results { get; set; }
+ public PollMedia Question { get; set; } = null!;
+ public List<PollAnswer> Answers { get; set; } = new();
+ public DateTimeOffset? Expiry { get; set; }
+ public bool AllowMultiselect { get; set; }
+ public PollLayoutType LayoutType { get; set; }
+ public PollResults? Results { get; set; }
 }
 ```
 
@@ -49,27 +49,27 @@ public class Poll
 ```csharp
 public class PollMedia
 {
-    public string? Text { get; set; }      // question: max 300 chars, answer: max 55 chars
-    public Emoji? Emoji { get; set; }
+ public string? Text { get; set; } // question: max 300 chars, answer: max 55 chars
+ public Emoji? Emoji { get; set; }
 }
 
 public class PollAnswer
 {
-    public int? AnswerId { get; set; }     // server-assigned
-    public PollMedia PollMedia { get; set; } = null!;
+ public int? AnswerId { get; set; } // server-assigned
+ public PollMedia PollMedia { get; set; } = null!;
 }
 
 public class PollResults
 {
-    public bool IsFinalized { get; set; }
-    public List<PollAnswerCount> AnswerCounts { get; set; } = new();
+ public bool IsFinalized { get; set; }
+ public List<PollAnswerCount> AnswerCounts { get; set; } = new();
 }
 
 public class PollAnswerCount
 {
-    public int Id { get; set; }
-    public int Count { get; set; }
-    public bool MeVoted { get; set; }
+ public int Id { get; set; }
+ public int Count { get; set; }
+ public bool MeVoted { get; set; }
 }
 ```
 
@@ -84,14 +84,14 @@ using PawSharp.API.Builders;
 
 var createRequest = new CreateMessageRequest
 {
-    Poll = new PollBuilder()
-        .WithQuestion("What is your favourite colour?")
-        .AddAnswer("Red", emojiName: "❤️")
-        .AddAnswer("Blue", emojiName: "💙")
-        .AddAnswer("Green", emojiName: "💚")
-        .WithDuration(24)   // hours
-        .AllowMultiselect(false)
-        .Build()
+ Poll = new PollBuilder()
+ .WithQuestion("What is your favourite colour?")
+ .AddAnswer("Red", emojiName: "")
+ .AddAnswer("Blue", emojiName: "")
+ .AddAnswer("Green", emojiName: "")
+ .WithDuration(24) // hours
+ .AllowMultiselect(false)
+ .Build()
 };
 
 var msg = await client.Rest.CreateMessageAsync(channelId, createRequest);
@@ -103,22 +103,22 @@ Console.WriteLine($"Poll created in message {msg?.Id}");
 ```csharp
 var pollRequest = new CreatePollRequest
 {
-    Question = new PollMediaRequest { Text = "Best programming language?" },
-    Answers = new List<PollAnswerRequest>
-    {
-        new() { PollMedia = new() { Text = "C#" } },
-        new() { PollMedia = new() { Text = "Python" } },
-        new() { PollMedia = new() { Text = "Rust", Emoji = new { name = "🦀" } } },
-    },
-    Duration = 48,
-    AllowMultiselect = true,
-    LayoutType = 1,
+ Question = new PollMediaRequest { Text = "Best programming language?" },
+ Answers = new List<PollAnswerRequest>
+ {
+ new() { PollMedia = new() { Text = "C#" } },
+ new() { PollMedia = new() { Text = "Python" } },
+ new() { PollMedia = new() { Text = "Rust", Emoji = new { name = "" } } },
+ },
+ Duration = 48,
+ AllowMultiselect = true,
+ LayoutType = 1,
 };
 
 var msg = await client.Rest.CreateMessageAsync(channelId, new()
 {
-    Content = "Cast your votes!",
-    Poll = pollRequest,
+ Content = "Cast your votes!",
+ Poll = pollRequest,
 });
 ```
 
@@ -135,7 +135,7 @@ var msg = await client.Rest.CreateMessageAsync(channelId, new()
 | `WithLayoutType(int)` | Sets layout type (default 1) |
 | `Build()` | Returns the `CreatePollRequest` |
 
-⚠️ Validation enforced by the builder:
+ Validation enforced by the builder:
 
 | Rule | Limit |
 |------|-------|
@@ -151,7 +151,7 @@ var msg = await client.Rest.CreateMessageAsync(channelId, new()
 ```csharp
 public enum PollLayoutType
 {
-    Default = 1
+ Default = 1
 }
 ```
 
@@ -171,23 +171,23 @@ var msg = await client.Rest.GetMessageAsync(channelId, messageId);
 
 if (msg?.Poll?.Results?.IsFinalized == true)
 {
-    Console.WriteLine($"Question: {msg.Poll.Question.Text}");
-    foreach (var answerCount in msg.Poll.Results.AnswerCounts)
-    {
-        var answer = msg.Poll.Answers.FirstOrDefault(a => a.AnswerId == answerCount.Id);
-        var text = answer?.PollMedia.Text ?? "(unknown)";
-        Console.WriteLine($"  {text}: {answerCount.Count} votes {(answerCount.MeVoted ? "(you)" : "")}");
-    }
+ Console.WriteLine($"Question: {msg.Poll.Question.Text}");
+ foreach (var answerCount in msg.Poll.Results.AnswerCounts)
+ {
+ var answer = msg.Poll.Answers.FirstOrDefault(a => a.AnswerId == answerCount.Id);
+ var text = answer?.PollMedia.Text ?? "(unknown)";
+ Console.WriteLine($" {text}: {answerCount.Count} votes {(answerCount.MeVoted ? "(you)" : "")}");
+ }
 }
 ```
 
-⚠️ `Results` is only present when the poll has **finalized** (expired). Active polls have `Results = null`.
+ `Results` is only present when the poll has **finalized** (expired). Active polls have `Results = null`.
 
 ---
 
 ## Ending Polls Early
 
-You can prematurely end a poll — this immediately finalizes it and makes results available:
+You can prematurely end a poll - this immediately finalizes it and makes results available:
 
 ```csharp
 // Via DiscordClient convenience method
@@ -203,7 +203,7 @@ When a poll is ended early:
 - `Results` becomes available with `IsFinalized = true`
 - No further votes are accepted
 
-💡 Only the bot that created the poll can end it early.
+ Only the bot that created the poll can end it early.
 
 ---
 
@@ -213,19 +213,19 @@ Get a list of users who voted for a specific answer:
 
 ```csharp
 var voters = await client.Rest.GetAnswerVotersAsync(
-    channelId,
-    messageId,
-    answerId: 1,         // the answer_id from the poll
-    limit: 25,
-    after: null);
+ channelId,
+ messageId,
+ answerId: 1, // the answer_id from the poll
+ limit: 25,
+ after: null);
 
 foreach (var user in voters ?? new())
 {
-    Console.WriteLine($"{user.Username} voted for answer 1");
+ Console.WriteLine($"{user.Username} voted for answer 1");
 }
 ```
 
-⚠️ This endpoint is not available in all scenarios:
+ This endpoint is not available in all scenarios:
 
 - It returns at most 100 voters per answer
 - Pagination via `after` (user ID cursor)
@@ -240,16 +240,16 @@ Listen for poll-related events via the low-level dispatcher:
 ```csharp
 // Poll vote added
 client.Gateway.Events.On<MessagePollVoteAddEvent>(
-    "MESSAGE_POLL_VOTE_ADD", evt =>
+ "MESSAGE_POLL_VOTE_ADD", evt =>
 {
-    Console.WriteLine($"User {evt.UserId} voted on poll {evt.MessageId} answer {evt.AnswerId}");
+ Console.WriteLine($"User {evt.UserId} voted on poll {evt.MessageId} answer {evt.AnswerId}");
 });
 
 // Poll vote removed
 client.Gateway.Events.On<MessagePollVoteRemoveEvent>(
-    "MESSAGE_POLL_VOTE_REMOVE", evt =>
+ "MESSAGE_POLL_VOTE_REMOVE", evt =>
 {
-    Console.WriteLine($"User {evt.UserId} removed vote on poll {evt.MessageId} answer {evt.AnswerId}");
+ Console.WriteLine($"User {evt.UserId} removed vote on poll {evt.MessageId} answer {evt.AnswerId}");
 });
 ```
 
@@ -263,36 +263,36 @@ using PawSharp.API.Builders;
 using PawSharp.API.Models;
 
 var client = new PawSharpClientBuilder()
-    .WithToken("Bot YOUR_TOKEN")
-    .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .Build();
+ .WithToken("Bot YOUR_TOKEN")
+ .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+ .Build();
 
 client.OnMessageCreated(async msg =>
 {
-    if (msg.Content != "!poll") return;
+ if (msg.Content != "!poll") return;
 
-    // Create a poll
-    var pollRequest = new CreateMessageRequest
-    {
-        Content = "🗳️ Please vote!",
-        Poll = new PollBuilder()
-            .WithQuestion("Which pet is best?")
-            .AddAnswer("Dog", emojiName: "🐶")
-            .AddAnswer("Cat", emojiName: "🐱")
-            .AddAnswer("Hamster", emojiName: "🐹")
-            .WithDuration(1)  // expires in 1 hour
-            .Build()
-    };
+ // Create a poll
+ var pollRequest = new CreateMessageRequest
+ {
+ Content = " Please vote!",
+ Poll = new PollBuilder()
+ .WithQuestion("Which pet is best?")
+ .AddAnswer("Dog", emojiName: "")
+ .AddAnswer("Cat", emojiName: "")
+ .AddAnswer("Hamster", emojiName: "")
+ .WithDuration(1) // expires in 1 hour
+ .Build()
+ };
 
-    var pollMsg = await client.Rest.CreateMessageAsync(msg.ChannelId, pollRequest);
-    Console.WriteLine($"Poll created: {pollMsg?.Id}");
+ var pollMsg = await client.Rest.CreateMessageAsync(msg.ChannelId, pollRequest);
+ Console.WriteLine($"Poll created: {pollMsg?.Id}");
 });
 
 // Track votes in real time
 client.Gateway.Events.On<MessagePollVoteAddEvent>(
-    "MESSAGE_POLL_VOTE_ADD", evt =>
+ "MESSAGE_POLL_VOTE_ADD", evt =>
 {
-    Console.WriteLine($"Vote: user {evt.UserId} answered {evt.AnswerId} on {evt.MessageId}");
+ Console.WriteLine($"Vote: user {evt.UserId} answered {evt.AnswerId} on {evt.MessageId}");
 });
 
 await client.ConnectAsync();

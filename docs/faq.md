@@ -17,12 +17,12 @@ PawSharp targets **.NET 10 only**, not net6.0/8.0. This lets it use the latest B
 | Feature | PawSharp | Discord.Net | DSharpPlus |
 |---|---|---|---|
 | Target framework | .NET 10 | .NET 8+ | .NET 8+ |
-| Native AOT / trimming | ✅ Full | ❌ | ❌ |
-| Source-gen JSON | ✅ All types | ❌ Newtonsoft | ❌ Newtonsoft |
-| Pure .NET voice | ✅ Opus via Concentus | ❌ libopus native | ❌ libopus native |
-| DAVE E2EE | ✅ MLS (RFC 9420) | ❌ | ❌ |
-| Modular packages | ✅ 9 packages | ❌ monolithic | ⚠️ partial |
-| Fluent builder | ✅ `PawSharpClientBuilder` | ❌ | ⚠️ |
+| Native AOT / trimming |  Full |  |  |
+| Source-gen JSON |  All types |  Newtonsoft |  Newtonsoft |
+| Pure .NET voice |  Opus via Concentus |  libopus native |  libopus native |
+| DAVE E2EE |  MLS (RFC 9420) |  |  |
+| Modular packages |  9 packages |  monolithic |  partial |
+| Fluent builder |  `PawSharpClientBuilder` |  |  |
 | Request | `PawSharp.Gateway` | `Socket/WebSocket` | `DiscordClient` |
 | Gateway events | Typed C# classes | `SocketMessage` | `DiscordMessage` |
 
@@ -44,11 +44,11 @@ Yes. All PawSharp packages target `net10.0`. You cannot use them from older runt
 | `PawSharp.Interactivity` | Pagination, polls, confirmation dialogs |
 | `PawSharp.Voice` | Opus encode/decode, RTP, DAVE E2EE |
 
-`PawSharp.Client` is the recommended starting point — it includes everything most bots need.
+`PawSharp.Client` is the recommended starting point - it includes everything most bots need.
 
 ### Q: Is PawSharp production-ready?
 
-We're at **1.1.0-alpha.5** — core pieces work, APIs are settling, breaking changes still happen. Follow the [migration guide](migration.md) when updating. Production use is possible but expect occasional breaking changes until 1.0.0 stable.
+We're at **1.1.0-alpha.5** - core pieces work, APIs are settling, breaking changes still happen. Follow the [migration guide](migration.md) when updating. Production use is possible but expect occasional breaking changes until 1.0.0 stable.
 
 ---
 
@@ -59,11 +59,11 @@ We're at **1.1.0-alpha.5** — core pieces work, APIs are settling, breaking cha
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
 2. Create an application, then go to the **Bot** tab
 3. Click **Reset Token** (or copy the existing one)
-4. Never commit it to source control — use environment variables:
+4. Never commit it to source control - use environment variables:
 
 ```csharp
 var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
-    ?? throw new InvalidOperationException("DISCORD_TOKEN not set");
+ ?? throw new InvalidOperationException("DISCORD_TOKEN not set");
 ```
 
 ### Q: What intents do I need?
@@ -72,14 +72,14 @@ At minimum you need `GatewayIntents.Guilds` to receive basic guild events. Enabl
 
 ```csharp
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .Build();
+ .WithToken(token)
+ .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+ .Build();
 ```
 
-💡 Use `GatewayIntents.AllNonPrivileged` during development, then trim down for production.
+ Use `GatewayIntents.AllNonPrivileged` during development, then trim down for production.
 
-⚠️ `MessageContent`, `GuildMembers`, and `GuildPresences` are **privileged** — you must enable them in the Developer Portal AND pass them to `.WithIntents()`.
+ `MessageContent`, `GuildMembers`, and `GuildPresences` are **privileged** - you must enable them in the Developer Portal AND pass them to `.WithIntents()`.
 
 ### Q: How do I use dependency injection?
 
@@ -90,14 +90,14 @@ var services = new ServiceCollection();
 
 services.SetupPawSharp(options =>
 {
-    options.Token = token;
-    options.Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent;
+ options.Token = token;
+ options.Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent;
 });
 
 services.AddLogging(builder =>
 {
-    builder.AddConsole();
-    builder.SetMinimumLevel(LogLevel.Information);
+ builder.AddConsole();
+ builder.SetMinimumLevel(LogLevel.Information);
 });
 
 var provider = services.BuildServiceProvider();
@@ -115,9 +115,9 @@ PawSharp uses `Microsoft.Extensions.Logging`. Use the builder for quick setup:
 
 ```csharp
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .UseConsoleLogging(LogLevel.Debug)  // Quick console logging
-    .Build();
+ .WithToken(token)
+ .UseConsoleLogging(LogLevel.Debug) // Quick console logging
+ .Build();
 ```
 
 Or with DI for custom configuration:
@@ -125,10 +125,10 @@ Or with DI for custom configuration:
 ```csharp
 services.AddLogging(builder =>
 {
-    builder.AddConsole();
-    builder.AddDebug();
-    builder.AddEventLog();
-    builder.SetMinimumLevel(LogLevel.Debug);
+ builder.AddConsole();
+ builder.AddDebug();
+ builder.AddEventLog();
+ builder.SetMinimumLevel(LogLevel.Debug);
 });
 services.SetupPawSharp(options => { /* ... */ });
 ```
@@ -143,9 +143,9 @@ Common causes:
 
 | Symptom | Likely cause |
 |---|---|
-| Disconnects every ~60s | Missing or invalid intents — check Developer Portal |
-| Disconnects after resume | Heartbeat ack timeout — check network stability |
-| Random disconnects under load | Rate limit on gateway commands — reduce command frequency |
+| Disconnects every ~60s | Missing or invalid intents - check Developer Portal |
+| Disconnects after resume | Heartbeat ack timeout - check network stability |
+| Random disconnects under load | Rate limit on gateway commands - reduce command frequency |
 | Disconnects at startup | Firewall blocking port 443 WebSocket |
 
 Enable debug logging to diagnose:
@@ -159,8 +159,8 @@ Check gateway state in your ready handler:
 ```csharp
 client.OnReady(evt =>
 {
-    Console.WriteLine($"Connected as {evt.User?.Username}, shard {evt.ShardId}");
-    return Task.CompletedTask;
+ Console.WriteLine($"Connected as {evt.User?.Username}, shard {evt.ShardId}");
+ return Task.CompletedTask;
 });
 ```
 
@@ -172,7 +172,7 @@ Resumption is best-effort. After ~15 seconds or a gateway reconnect, Discord inv
 
 ### Q: What's a zombie connection?
 
-A zombie connection is one where the WebSocket appears open but no heartbeats are being acknowledged. The library detects this via `HeartbeatManager` — if 3 consecutive heartbeats go unacknowledged, it terminates and reconnects. This is normal and handled automatically.
+A zombie connection is one where the WebSocket appears open but no heartbeats are being acknowledged. The library detects this via `HeartbeatManager` - if 3 consecutive heartbeats go unacknowledged, it terminates and reconnects. This is normal and handled automatically.
 
 Monitor missed acks in logs by setting log level to `Debug`:
 
@@ -187,10 +187,10 @@ Sharding is built-in. Configure shard count or use automatic recommendation:
 ```csharp
 // Automatic shard count (recommended)
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .WithIntents(GatewayIntents.AllNonPrivileged)
-    .WithSharding(auto: true)
-    .Build();
+ .WithToken(token)
+ .WithIntents(GatewayIntents.AllNonPrivileged)
+ .WithSharding(auto: true)
+ .Build();
 
 // Or manual shard count
 .WithSharding(shardCount: 16)
@@ -221,7 +221,7 @@ client.OnShardDisconnected((shardId, ex) => { /* ... */ });
 | `OnReactionAdded` | `GatewayIntents.GuildMessageReactions` |
 | `OnTypingStarted` | `GatewayIntents.GuildMessageTyping` |
 
-⚠️ `MessageContent` intent is **privileged** — if enabled in code but not in the Developer Portal, `msg.Content` will be empty.
+ `MessageContent` intent is **privileged** - if enabled in code but not in the Developer Portal, `msg.Content` will be empty.
 
 Use `ValidateIntents()` to check before connecting:
 
@@ -229,8 +229,8 @@ Use `ValidateIntents()` to check before connecting:
 var result = client.ValidateIntents();
 if (!result.IsValid)
 {
-    foreach (var (evt, req, missing) in result.Issues)
-        Console.WriteLine($"{evt} requires {missing}");
+ foreach (var (evt, req, missing) in result.Issues)
+ Console.WriteLine($"{evt} requires {missing}");
 }
 ```
 
@@ -243,10 +243,10 @@ Use convenience methods (`OnMessageCreated`, `OnGuildUpdated`, etc.) unless you 
 - Event filtering / replay
 
 ```csharp
-// Preferred — strongly typed
+// Preferred - strongly typed
 client.OnMessageCreated(async evt => { /* ... */ });
 
-// Low-level — for dynamic scenarios
+// Low-level - for dynamic scenarios
 client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", evt => { /* ... */ });
 ```
 
@@ -272,12 +272,12 @@ Use `PawSharp.Commands` with the module pattern:
 ```csharp
 public class MyModule : BaseCommandModule
 {
-    [Command("ping")]
-    [Description("Responds with pong")]
-    public async Task PingAsync(CommandContext ctx)
-    {
-        await ctx.RespondAsync("Pong!");
-    }
+ [Command("ping")]
+ [Description("Responds with pong")]
+ public async Task PingAsync(CommandContext ctx)
+ {
+ await ctx.RespondAsync("Pong!");
+ }
 }
 
 // Register during setup:
@@ -295,22 +295,22 @@ Add an `AutocompleteHandler` for your slash command option:
 ```csharp
 [SlashCommand("search", "Search for something")]
 public async Task SearchAsync(
-    CommandContext ctx,
-    [Autocomplete(typeof(MyAutocompleteProvider))]
-    string query)
+ CommandContext ctx,
+ [Autocomplete(typeof(MyAutocompleteProvider))]
+ string query)
 {
-    // ...
+ // ...
 }
 
 public class MyAutocompleteProvider : IAutocompleteProvider
 {
-    public async ValueTask<IEnumerable<AutocompleteChoice>> GetChoicesAsync(
-        AutocompleteContext context)
-    {
-        var input = context.FocusedOption.Value?.ToString() ?? "";
-        return Enumerable.Range(1, 5)
-            .Select(i => new AutocompleteChoice($"{input} result {i}", $"{input}-{i}"));
-    }
+ public async ValueTask<IEnumerable<AutocompleteChoice>> GetChoicesAsync(
+ AutocompleteContext context)
+ {
+ var input = context.FocusedOption.Value?.ToString() ?? "";
+ return Enumerable.Range(1, 5)
+ .Select(i => new AutocompleteChoice($"{input} result {i}", $"{input}-{i}"));
+ }
 }
 ```
 
@@ -322,15 +322,15 @@ These are handled by `PawSharp.Interactions`. Create a component interaction han
 [ComponentInteraction("confirm:*")]
 public async Task HandleConfirmAsync(string id, ComponentInteractionContext ctx)
 {
-    await ctx.UpdateAsync(new MessageProperties()
-        .WithContent($"Confirmed: {id}"));
+ await ctx.UpdateAsync(new MessageProperties()
+ .WithContent($"Confirmed: {id}"));
 }
 
 // Or listen globally:
 client.OnButtonExecuted(async ctx =>
 {
-    if (ctx.CustomId == "my_button")
-        await ctx.RespondAsync("Button clicked!");
+ if (ctx.CustomId == "my_button")
+ await ctx.RespondAsync("Button clicked!");
 });
 ```
 
@@ -346,7 +346,7 @@ var member = await client.Rest.GetGuildMemberAsync(guildId, userId);
 
 if (member.Permissions.HasFlag(Permissions.KickMembers))
 {
-    // User can kick members
+ // User can kick members
 }
 ```
 
@@ -357,16 +357,16 @@ For commands, use the `[RequirePermissions]` precondition:
 [RequirePermissions(Permissions.KickMembers)]
 public async Task KickAsync(CommandContext ctx, IGuildMember member)
 {
-    // The framework checks permissions before invoking
+ // The framework checks permissions before invoking
 }
 ```
 
 ### Q: What's the permission hierarchy?
 
-1. Owner (guild owner) — bypasses all permission checks
-2. Administrator permission — bypasses all permission checks
-3. Role hierarchy — a member cannot act on anyone with a higher role position
-4. Specific permissions — KickMembers, BanMembers, ManageMessages, etc.
+1. Owner (guild owner) - bypasses all permission checks
+2. Administrator permission - bypasses all permission checks
+3. Role hierarchy - a member cannot act on anyone with a higher role position
+4. Specific permissions - KickMembers, BanMembers, ManageMessages, etc.
 
 The library enforces **Discord-side checks**. Some operations (like banning a member with a higher role) will fail at the API level with a 403 error regardless of permissions.
 
@@ -377,15 +377,15 @@ var botMember = await client.Rest.GetGuildMemberAsync(guildId, client.CurrentUse
 var targetMember = await client.Rest.GetGuildMemberAsync(guildId, targetUserId);
 
 var botHighestRole = guild.Roles
-    .Where(r => botMember.RoleIds.Contains(r.Id))
-    .MaxBy(r => r.Position);
+ .Where(r => botMember.RoleIds.Contains(r.Id))
+ .MaxBy(r => r.Position);
 
 var targetHighestRole = guild.Roles
-    .Where(r => targetMember.RoleIds.Contains(r.Id))
-    .MaxBy(r => r.Position);
+ .Where(r => targetMember.RoleIds.Contains(r.Id))
+ .MaxBy(r => r.Position);
 
 if (botHighestRole?.Position <= targetHighestRole?.Position)
-    throw new InvalidOperationException("Cannot moderate a user with equal or higher role.");
+ throw new InvalidOperationException("Cannot moderate a user with equal or higher role.");
 ```
 
 ---
@@ -394,45 +394,45 @@ if (botHighestRole?.Position <= targetHighestRole?.Position)
 
 ### Q: How do I optimize my bot?
 
-1. **Use intents sparingly** — only enable the intents you actually need. Each extra intent increases gateway traffic.
-2. **Avoid blocking in event handlers** — always use async:
+1. **Use intents sparingly** - only enable the intents you actually need. Each extra intent increases gateway traffic.
+2. **Avoid blocking in event handlers** - always use async:
 
-    ```csharp
-    // ❌ Bad
-    client.OnMessageCreated(msg => {
-        var result = client.Rest.GetChannelAsync(msg.ChannelId).Result;
-    });
+ ```csharp
+ //  Bad
+ client.OnMessageCreated(msg => {
+ var result = client.Rest.GetChannelAsync(msg.ChannelId).Result;
+ });
 
-    // ✅ Good
-    client.OnMessageCreated(async msg => {
-        var channel = await client.Rest.GetChannelAsync(msg.ChannelId);
-    });
-    ```
+ //  Good
+ client.OnMessageCreated(async msg => {
+ var channel = await client.Rest.GetChannelAsync(msg.ChannelId);
+ });
+ ```
 
 3. **Offload expensive work**:
 
-    ```csharp
-    client.OnMessageCreated(async msg =>
-    {
-        // Quick reply
-        await msg.RespondAsync("Processing...");
-        // Heavy work in background
-        _ = Task.Run(() => AnalyzeMessageAsync(msg));
-    });
-    ```
+ ```csharp
+ client.OnMessageCreated(async msg =>
+ {
+ // Quick reply
+ await msg.RespondAsync("Processing...");
+ // Heavy work in background
+ _ = Task.Run(() => AnalyzeMessageAsync(msg));
+ });
+ ```
 
-4. **Use caching** — `PawSharp.Cache` avoids redundant API calls:
+4. **Use caching** - `PawSharp.Cache` avoids redundant API calls:
 
-    ```csharp
-    // First call fetches from API, subsequent calls use cache
-    var guild = await client.Rest.GetGuildAsync(guildId);
-    ```
+ ```csharp
+ // First call fetches from API, subsequent calls use cache
+ var guild = await client.Rest.GetGuildAsync(guildId);
+ ```
 
-5. **Configure logging level** — `Information` or `Warning` for production:
+5. **Configure logging level** - `Information` or `Warning` for production:
 
-    ```csharp
-    .UseConsoleLogging(LogLevel.Warning)
-    ```
+ ```csharp
+ .UseConsoleLogging(LogLevel.Warning)
+ ```
 
 ### Q: When should I shard?
 
@@ -463,7 +463,7 @@ services.AddPawSharpWithMemoryCache(options => { /* ... */ });
 // Redis
 services.SetupPawSharp(options => { /* ... */ });
 services.AddSingleton<IEntityCache>(
-    new RedisCacheProvider("localhost:6379"));
+ new RedisCacheProvider("localhost:6379"));
 ```
 
 ---
@@ -479,7 +479,7 @@ Voice is **functional but experimental**. The library supports:
 - DAVE E2EE (MLS / RFC 9420) for encrypted voice
 
 Known limitations:
-- DAVE E2EE is a new specification — Discord's implementation is still evolving
+- DAVE E2EE is a new specification - Discord's implementation is still evolving
 - Voice receive may have higher latency than native alternatives
 - Not all voice regions are equally stable
 
@@ -491,9 +491,9 @@ PawSharp implements the full DAVE v1.1 specification:
 - HPKE (RFC 9180) for key encapsulation
 - MLS key schedule for epoch management
 - AES-128-GCM frame encryption with per-sender keys
-- Binary WebSocket message protocol (ops 21–31)
+- Binary WebSocket message protocol (ops 21 - 31)
 
-You don't need to do anything special — DAVE is handled transparently by `VoiceConnection` when available.
+You don't need to do anything special - DAVE is handled transparently by `VoiceConnection` when available.
 
 ```csharp
 var voice = client.GetVoiceClient();
@@ -512,7 +512,7 @@ await voice.PlayAudioAsync(audioStream);
 |---|---|---|
 | `GatewayException: Invalid token` | Wrong or malformed token | Re-copy token from Developer Portal, trim whitespace |
 | `DiscordApiException: 401 Unauthorized` | Token expired or invalid | Reset token in Developer Portal |
-| `DiscordApiException: 429 Too Many Requests` | Rate limit hit | Implement backoff — the library handles this automatically, but burst sends can still trigger it |
+| `DiscordApiException: 429 Too Many Requests` | Rate limit hit | Implement backoff - the library handles this automatically, but burst sends can still trigger it |
 | `DiscordApiException: 403 Forbidden` | Missing permissions | Check bot role position and permissions |
 | `ValidationException` | Invalid input (content too long, etc.) | Validate inputs before sending |
 | Events not firing | Missing intents | Enable required intents in Portal AND code |
@@ -524,9 +524,9 @@ await voice.PlayAudioAsync(audioStream);
 
 ```csharp
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .UseConsoleLogging(LogLevel.Trace)
-    .Build();
+ .WithToken(token)
+ .UseConsoleLogging(LogLevel.Trace)
+ .Build();
 ```
 
 Or with DI:
@@ -534,9 +534,9 @@ Or with DI:
 ```csharp
 services.AddLogging(builder =>
 {
-    builder.AddConsole();
-    builder.AddDebug();
-    builder.SetMinimumLevel(LogLevel.Trace);
+ builder.AddConsole();
+ builder.AddDebug();
+ builder.SetMinimumLevel(LogLevel.Trace);
 });
 ```
 
@@ -553,9 +553,9 @@ Open an issue at [github.com/M1tsumi/PawSharp/issues](https://github.com/M1tsumi
 
 ### Q: Where can I get help?
 
-- [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues) — bug reports and feature requests
-- [Discord Server](https://discord.gg/6Z8X8cCHXs) — community chat
-- [Documentation](https://M1tsumi.github.io/PawSharp/) — full API reference
+- [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues) - bug reports and feature requests
+- [Discord Server](https://discord.gg/6Z8X8cCHXs) - community chat
+- [Documentation](https://M1tsumi.github.io/PawSharp/) - full API reference
 
 ---
 

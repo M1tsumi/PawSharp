@@ -15,8 +15,8 @@ Sharding splits your bot's gateway connection across multiple connections to dis
 var guildCount = 3000;
 if (guildCount > 2500)
 {
-    var shardCount = ShardManager.CalculateRecommendedShardCount(guildCount);
-    // ~1000 guilds per shard → 3 shards
+ var shardCount = ShardManager.CalculateRecommendedShardCount(guildCount);
+ // ~1000 guilds per shard → 3 shards
 }
 ```
 
@@ -29,12 +29,12 @@ if (guildCount > 2500)
 ```csharp
 public class ShardManager : IDisposable
 {
-    private readonly Dictionary<int, GatewayClient> _shards = new();
-    private SessionStartLimits? _sessionStartLimits;
+ private readonly Dictionary<int, GatewayClient> _shards = new();
+ private SessionStartLimits? _sessionStartLimits;
 
-    public EventDispatcher Events { get; }
-    public int ShardCount { get; }
-    public int ConnectedShardCount { get; }
+ public EventDispatcher Events { get; }
+ public int ShardCount { get; }
+ public int ConnectedShardCount { get; }
 }
 ```
 
@@ -42,16 +42,16 @@ public class ShardManager : IDisposable
 
 ```mermaid
 flowchart TD
-    A[ShardManager] --> B[Shard 0\nGatewayClient]
-    A --> C[Shard 1\nGatewayClient]
-    A --> D[Shard 2\nGatewayClient]
-    B --> E[Discord\nGateway]
-    C --> E
-    D --> E
-    B --> F[EventDispatcher\n(aggregated)]
-    C --> F
-    D --> F
-    F --> G[User Handlers]
+ A[ShardManager] --> B[Shard 0\nGatewayClient]
+ A --> C[Shard 1\nGatewayClient]
+ A --> D[Shard 2\nGatewayClient]
+ B --> E[Discord\nGateway]
+ C --> E
+ D --> E
+ B --> F[EventDispatcher\n(aggregated)]
+ C --> F
+ D --> F
+ F --> G[User Handlers]
 ```
 
 ---
@@ -70,11 +70,11 @@ await shardManager.ConnectAllAsync();
 ```csharp
 for (int i = 0; i < options.Shards; i++)
 {
-    var shard = new GatewayClient(options, logger, restClient: restClient, shardId: i, totalShards: options.Shards);
-    _shards[i] = shard;
-    await shard.ConnectAsync();
-    if (i < options.Shards - 1)
-        await Task.Delay(effectiveDelay);
+ var shard = new GatewayClient(options, logger, restClient: restClient, shardId: i, totalShards: options.Shards);
+ _shards[i] = shard;
+ await shard.ConnectAsync();
+ if (i < options.Shards - 1)
+ await Task.Delay(effectiveDelay);
 }
 ```
 
@@ -85,10 +85,10 @@ for (int i = 0; i < options.Shards; i++)
 ```csharp
 public class SessionStartLimits
 {
-    public int Total { get; set; }
-    public int Remaining { get; set; }
-    public int ResetAfter { get; set; }
-    public int MaxConcurrency { get; set; }
+ public int Total { get; set; }
+ public int Remaining { get; set; }
+ public int ResetAfter { get; set; }
+ public int MaxConcurrency { get; set; }
 }
 ```
 
@@ -108,7 +108,7 @@ Shard events are forwarded to a shared `EventDispatcher` via middleware:
 ```csharp
 shard.Events.Use(async (eventName, eventData) =>
 {
-    await _eventDispatcher.DispatchTypedAsync(eventName, (GatewayEvent)eventData);
+ await _eventDispatcher.DispatchTypedAsync(eventName, (GatewayEvent)eventData);
 });
 ```
 
@@ -117,7 +117,7 @@ Multi-shard events:
 ```csharp
 shardManager.Events.On<MessageCreateEvent>("MESSAGE_CREATE", msg =>
 {
-    Console.WriteLine($"Shard {GetShardForGuild(msg.GuildId)}: {msg.Content}");
+ Console.WriteLine($"Shard {GetShardForGuild(msg.GuildId)}: {msg.Content}");
 });
 ```
 
@@ -136,7 +136,7 @@ var info = await restClient.GetGatewayBotAsync();
 
 ```csharp
 if (!ValidateSessionStartLimits(options.Shards))
-    throw new InvalidOperationException("Insufficient session start limits");
+ throw new InvalidOperationException("Insufficient session start limits");
 ```
 
 ---
@@ -148,7 +148,7 @@ Use `GetShardIdForGuild` to determine which shard owns a guild:
 ```csharp
 public int GetShardIdForGuild(ulong guildId)
 {
-    return (int)((guildId >> 22) % (ulong)_options.ShardCount);
+ return (int)((guildId >> 22) % (ulong)_options.ShardCount);
 }
 ```
 
@@ -165,13 +165,13 @@ await shardManager.ReconnectShardAsync(2); // Reconnect shard 2 only
 ```csharp
 public void AutoConfigureSharding(int guildCount)
 {
-    var recommended = CalculateRecommendedShardCount(guildCount);
-    options.ShardCount = recommended;
+ var recommended = CalculateRecommendedShardCount(guildCount);
+ options.ShardCount = recommended;
 }
 
 public static int CalculateRecommendedShardCount(int guildCount)
 {
-    return Math.Max(1, (int)Math.Ceiling(guildCount / 1000.0));
+ return Math.Max(1, (int)Math.Ceiling(guildCount / 1000.0));
 }
 ```
 
@@ -182,10 +182,10 @@ public static int CalculateRecommendedShardCount(int guildCount)
 ```csharp
 var options = new PawSharpOptions
 {
-    Token = token,
-    Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
-    Shards = 3,  // Or use AutoConfigureSharding
-    ShardConnectionDelayMs = 5000
+ Token = token,
+ Intents = GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent,
+ Shards = 3, // Or use AutoConfigureSharding
+ ShardConnectionDelayMs = 5000
 };
 
 var restClient = new DiscordRestClient(httpClient, options, logger);
@@ -201,12 +201,12 @@ await shardManager.ConnectAllAsync();
 // Subscribe to aggregated events
 shardManager.Events.On<MessageCreateEvent>("MESSAGE_CREATE", msg =>
 {
-    Console.WriteLine($"[Shard {shardManager.GetShardIdForGuild(msg.GuildId ?? 0)}] {msg.Content}");
+ Console.WriteLine($"[Shard {shardManager.GetShardIdForGuild(msg.GuildId ?? 0)}] {msg.Content}");
 });
 
 // Monitor shard status
 foreach (var (id, status) in shardManager.GetAllShardStatuses())
-    Console.WriteLine($"Shard {id}: {status}");
+ Console.WriteLine($"Shard {id}: {status}");
 
 await Task.Delay(-1);
 await shardManager.DisconnectAllAsync();

@@ -11,7 +11,7 @@ All major components accept `ILogger<T>` or `ILogger` via constructor injection:
 ```csharp
 public class DiscordRestClient
 {
-    private readonly ILogger<DiscordRestClient> _logger;
+ private readonly ILogger<DiscordRestClient> _logger;
 }
 ```
 
@@ -35,10 +35,10 @@ public class DiscordRestClient
 ```csharp
 services.AddLogging(builder =>
 {
-    builder.AddConsole();
-    builder.SetMinimumLevel(LogLevel.Information);
-    builder.AddFilter("PawSharp.API", LogLevel.Warning);
-    builder.AddFilter("PawSharp.Gateway", LogLevel.Information);
+ builder.AddConsole();
+ builder.SetMinimumLevel(LogLevel.Information);
+ builder.AddFilter("PawSharp.API", LogLevel.Warning);
+ builder.AddFilter("PawSharp.Gateway", LogLevel.Information);
 });
 ```
 
@@ -50,16 +50,16 @@ services.AddLogging(builder =>
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/pawsharp-.log", rollingInterval: RollingInterval.Day)
-    .CreateLogger();
+ .MinimumLevel.Information()
+ .Enrich.FromLogContext()
+ .WriteTo.Console()
+ .WriteTo.File("logs/pawsharp-.log", rollingInterval: RollingInterval.Day)
+ .CreateLogger();
 
 services.AddLogging(builder =>
 {
-    builder.ClearProviders();
-    builder.AddSerilog();
+ builder.ClearProviders();
+ builder.AddSerilog();
 });
 ```
 
@@ -70,13 +70,13 @@ services.AddLogging(builder =>
 ```csharp
 public class DatabaseLoggerProvider : ILoggerProvider
 {
-    public ILogger CreateLogger(string categoryName)
-        => new DatabaseLogger(categoryName);
+ public ILogger CreateLogger(string categoryName)
+ => new DatabaseLogger(categoryName);
 }
 
 services.AddLogging(builder =>
 {
-    builder.AddProvider(new DatabaseLoggerProvider());
+ builder.AddProvider(new DatabaseLoggerProvider());
 });
 ```
 
@@ -89,12 +89,12 @@ PawSharp defines reusable event IDs in `PawSharpLogEvents`:
 ```csharp
 public static class PawSharpLogEvents
 {
-    public static readonly EventId ApiRequestStarted = new(1001, "ApiRequestStarted");
-    public static readonly EventId ApiRequestCompleted = new(1002, "ApiRequestCompleted");
-    public static readonly EventId ApiRequestFailed = new(1003, "ApiRequestFailed");
-    public static readonly EventId CacheHit = new(2001, "CacheHit");
-    public static readonly EventId CacheMiss = new(2002, "CacheMiss");
-    public static readonly EventId CacheEviction = new(2003, "CacheEviction");
+ public static readonly EventId ApiRequestStarted = new(1001, "ApiRequestStarted");
+ public static readonly EventId ApiRequestCompleted = new(1002, "ApiRequestCompleted");
+ public static readonly EventId ApiRequestFailed = new(1003, "ApiRequestFailed");
+ public static readonly EventId CacheHit = new(2001, "CacheHit");
+ public static readonly EventId CacheMiss = new(2002, "CacheMiss");
+ public static readonly EventId CacheEviction = new(2003, "CacheEviction");
 }
 ```
 
@@ -113,10 +113,10 @@ builder.AddFilter("PawSharp", ev => ev < 2000 || ev > 3000);
 - Structured logging with named placeholders (`{UserId}`) avoids allocation until the message is actually emitted
 
 ```csharp
-// ✅ Good — structured, no allocation if level not enabled
+//  Good - structured, no allocation if level not enabled
 _logger.LogDebug(PawSharpLogEvents.CacheHit, "Cache hit for {EntityType} {EntityId}", "Guild", guildId);
 
-// ❌ Bad — string interpolation allocates regardless
+//  Bad - string interpolation allocates regardless
 _logger.LogDebug($"Cache hit for Guild {guildId}");
 ```
 
@@ -132,11 +132,11 @@ var services = new ServiceCollection();
 
 services.AddLogging(builder =>
 {
-    builder.AddConsole();
-    builder.AddDebug();
-    builder.SetMinimumLevel(LogLevel.Information);
-    builder.AddFilter("PawSharp.Gateway", LogLevel.Debug);
-    builder.AddFilter("PawSharp.API", LogLevel.Warning);
+ builder.AddConsole();
+ builder.AddDebug();
+ builder.SetMinimumLevel(LogLevel.Information);
+ builder.AddFilter("PawSharp.Gateway", LogLevel.Debug);
+ builder.AddFilter("PawSharp.API", LogLevel.Warning);
 });
 
 services.AddSingleton(options);
@@ -147,11 +147,11 @@ var client = provider.GetRequiredService<DiscordClient>();
 
 // Output:
 // info: PawSharp.Gateway.GatewayClient[0]
-//       Connected to Discord Gateway.
+// Connected to Discord Gateway.
 // dbug: PawSharp.Gateway.GatewayClient[0]
-//       Received Gateway message: op=0, t=MESSAGE_CREATE, seq=42
+// Received Gateway message: op=0, t=MESSAGE_CREATE, seq=42
 // warn: PawSharp.API.Clients.DiscordRestClient[1003]
-//       API request failed: POST /channels/123/messages 429
+// API request failed: POST /channels/123/messages 429
 ```
 
 ---

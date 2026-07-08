@@ -17,7 +17,7 @@ Learn how to create and handle Discord context menu commands (right-click menus)
 
 ## What Are Context Menu Commands?
 
-Context menu commands appear when a user right-clicks on a **user** or a **message** in Discord. They are a type of application command, similar to slash commands, but without argument options — the target (user or message) is implicit.
+Context menu commands appear when a user right-clicks on a **user** or a **message** in Discord. They are a type of application command, similar to slash commands, but without argument options - the target (user or message) is implicit.
 
 | Type | `ApplicationCommandType` | Trigger |
 |------|--------------------------|---------|
@@ -35,14 +35,14 @@ User context menu commands operate on a **user** target. The interaction contain
 ```csharp
 handler.RegisterUserContextMenu("View Profile", async interaction =>
 {
-    var targetUserId = interaction.Data?.TargetId;
-    var user = await client.Rest.GetUserAsync(targetUserId!.Value);
+ var targetUserId = interaction.Data?.TargetId;
+ var user = await client.Rest.GetUserAsync(targetUserId!.Value);
 
-    if (user != null)
-    {
-        await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
-            $"**{user.Username}**\nID: {user.Id}\nCreated: {user.CreatedAt:yyyy-MM-dd}");
-    }
+ if (user != null)
+ {
+ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
+ $"**{user.Username}**\nID: {user.Id}\nCreated: {user.CreatedAt:yyyy-MM-dd}");
+ }
 });
 ```
 
@@ -51,26 +51,26 @@ handler.RegisterUserContextMenu("View Profile", async interaction =>
 Inside a user context menu handler, the target user is available via:
 
 ```csharp
-interaction.Data.TargetId          // ulong — the target user's ID
-interaction.Data.Resolved?.Users   // Dictionary<ulong, User>? — resolved users
-interaction.Data.Resolved?.Members // Dictionary<ulong, GuildMember>? — resolved members
+interaction.Data.TargetId // ulong - the target user's ID
+interaction.Data.Resolved?.Users // Dictionary<ulong, User>? - resolved users
+interaction.Data.Resolved?.Members // Dictionary<ulong, GuildMember>? - resolved members
 ```
 
 ```csharp
 handler.RegisterUserContextMenu("Member Info", async interaction =>
 {
-    var userId = interaction.Data!.TargetId!.Value;
-    var guildId = interaction.GuildId!.Value;
+ var userId = interaction.Data!.TargetId!.Value;
+ var guildId = interaction.GuildId!.Value;
 
-    var member = interaction.Data.Resolved?.Members?.GetValueOrDefault(userId)
-                 ?? await client.Rest.GetGuildMemberAsync(guildId, userId);
+ var member = interaction.Data.Resolved?.Members?.GetValueOrDefault(userId)
+ ?? await client.Rest.GetGuildMemberAsync(guildId, userId);
 
-    if (member != null)
-    {
-        var roles = string.Join(", ", member.Roles);
-        await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
-            $"**{member.User?.Username}**\nRoles: {roles}\nJoined: {member.JoinedAt:yyyy-MM-dd}");
-    }
+ if (member != null)
+ {
+ var roles = string.Join(", ", member.Roles);
+ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
+ $"**{member.User?.Username}**\nRoles: {roles}\nJoined: {member.JoinedAt:yyyy-MM-dd}");
+ }
 });
 ```
 
@@ -85,27 +85,27 @@ Message context menu commands operate on a **message** target. The interaction c
 ```csharp
 handler.RegisterMessageContextMenu("Report Message", async interaction =>
 {
-    var messageId = interaction.Data?.TargetId!.Value;
-    var channelId = interaction.ChannelId;
+ var messageId = interaction.Data?.TargetId!.Value;
+ var channelId = interaction.ChannelId;
 
-    var msg = await client.Rest.GetMessageAsync(channelId, messageId!.Value);
+ var msg = await client.Rest.GetMessageAsync(channelId, messageId!.Value);
 
-    if (msg != null)
-    {
-        // Log the report
-        Console.WriteLine($"Reported by {interaction.Member?.User.Username}: {msg.Content}");
+ if (msg != null)
+ {
+ // Log the report
+ Console.WriteLine($"Reported by {interaction.Member?.User.Username}: {msg.Content}");
 
-        await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
-            "✅ Message reported to moderators.");
-    }
+ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
+ " Message reported to moderators.");
+ }
 });
 ```
 
 ### Accessing Target Message
 
 ```csharp
-interaction.Data.TargetId                 // ulong — the target message's ID
-interaction.Data.Resolved?.Messages       // Dictionary<ulong, Message>? — resolved messages
+interaction.Data.TargetId // ulong - the target message's ID
+interaction.Data.Resolved?.Messages // Dictionary<ulong, Message>? - resolved messages
 ```
 
 ---
@@ -119,8 +119,8 @@ Before a context menu command works, you must **register it** with Discord via t
 ```csharp
 await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, new()
 {
-    Name = "View Profile",
-    Type = 2,  // ApplicationCommandType.User
+ Name = "View Profile",
+ Type = 2, // ApplicationCommandType.User
 });
 ```
 
@@ -129,8 +129,8 @@ await client.Rest.CreateGlobalApplicationCommandAsync(applicationId, new()
 ```csharp
 await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId, new()
 {
-    Name = "View Profile",
-    Type = 3,  // ApplicationCommandType.Message
+ Name = "View Profile",
+ Type = 3, // ApplicationCommandType.Message
 });
 ```
 
@@ -141,7 +141,7 @@ await client.Rest.CreateGuildApplicationCommandAsync(applicationId, guildId, new
 | Message Context Menu | 3 |
 | Primary Entry Point | 4 |
 
-⚠️ Global commands may take **up to 1 hour** to propagate. Guild commands update instantly — use them during development.
+ Global commands may take **up to 1 hour** to propagate. Guild commands update instantly - use them during development.
 
 ---
 
@@ -161,28 +161,28 @@ handler.RegisterMessageContextMenu("Report Message", HandleReport);
 // Wire the gateway event
 client.OnInteractionCreated(async interaction =>
 {
-    await handler.HandleInteractionAsync(interaction);
+ await handler.HandleInteractionAsync(interaction);
 });
 
 async Task HandleUserProfile(InteractionCreateEvent interaction)
 {
-    var userId = interaction.Data!.TargetId!.Value;
-    var user = await client.Rest.GetUserAsync(userId);
-    var embed = new EmbedBuilder()
-        .WithTitle(user?.Username ?? "Unknown")
-        .WithDescription($"ID: {userId}")
-        .Build();
+ var userId = interaction.Data!.TargetId!.Value;
+ var user = await client.Rest.GetUserAsync(userId);
+ var embed = new EmbedBuilder()
+ .WithTitle(user?.Username ?? "Unknown")
+ .WithDescription($"ID: {userId}")
+ .Build();
 
-    await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
-        embeds: new List<Embed> { embed });
+ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
+ embeds: new List<Embed> { embed });
 }
 
 async Task HandleReport(InteractionCreateEvent interaction)
 {
-    var msg = interaction.Data?.Resolved?.Messages?.FirstOrDefault();
-    // ... report logic ...
+ var msg = interaction.Data?.Resolved?.Messages?.FirstOrDefault();
+ // ... report logic ...
 
-    await handler.RespondEphemeralAsync(interaction.Id, interaction.Token, "Reported!");
+ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token, "Reported!");
 }
 ```
 
@@ -197,7 +197,7 @@ await handler.RespondDeferredEphemeralAsync(interaction.Id, interaction.Token);
 // ... do work ...
 await handler.EditOriginalResponseAsync(applicationId, interaction.Token, new()
 {
-    Content = "Finished processing!",
+ Content = "Finished processing!",
 });
 ```
 
@@ -214,13 +214,13 @@ using PawSharp.Commands.Attributes;
 
 public class ModerationModule : BaseCommandModule
 {
-    [UserContextMenu("View Profile")]
-    public async Task ViewProfileAsync(InteractionCreateEvent interaction)
-    {
-        var userId = interaction.Data!.TargetId!.Value;
-        // ...
-        await interaction.RespondAsync(/* ... */);
-    }
+ [UserContextMenu("View Profile")]
+ public async Task ViewProfileAsync(InteractionCreateEvent interaction)
+ {
+ var userId = interaction.Data!.TargetId!.Value;
+ // ...
+ await interaction.RespondAsync(/* ... */);
+ }
 }
 ```
 
@@ -229,15 +229,15 @@ public class ModerationModule : BaseCommandModule
 ```csharp
 public class ModerationModule : BaseCommandModule
 {
-    [MessageContextMenu("Copy to Clipboard")]
-    public async Task CopyMessageAsync(InteractionCreateEvent interaction)
-    {
-        var msg = interaction.Data?.Resolved?.Messages?.FirstOrDefault().Value;
-        if (msg != null)
-        {
-            await interaction.RespondAsync($"```\n{msg.Content}\n```");
-        }
-    }
+ [MessageContextMenu("Copy to Clipboard")]
+ public async Task CopyMessageAsync(InteractionCreateEvent interaction)
+ {
+ var msg = interaction.Data?.Resolved?.Messages?.FirstOrDefault().Value;
+ if (msg != null)
+ {
+ await interaction.RespondAsync($"```\n{msg.Content}\n```");
+ }
+ }
 }
 ```
 
@@ -247,10 +247,10 @@ public class ModerationModule : BaseCommandModule
 var commands = client.UseCommands(new CommandsConfiguration());
 
 await commands.RegisterContextMenuModuleAsync(
-    client,
-    new ModerationModule(),
-    applicationId,
-    guildId: null);  // null = global, or provide guildId for guild-scoped
+ client,
+ new ModerationModule(),
+ applicationId,
+ guildId: null); // null = global, or provide guildId for guild-scoped
 ```
 
 This method:
@@ -267,20 +267,20 @@ Register multiple context menu modules in a single API call:
 ```csharp
 var modules = new BaseCommandModule[]
 {
-    new ModerationModule(),
-    new UtilityModule(),
+ new ModerationModule(),
+ new UtilityModule(),
 };
 
 await commands.BulkRegisterContextMenuModulesAsync(
-    client,
-    modules,
-    applicationId,
-    guildId: testGuildId);
+ client,
+ modules,
+ applicationId,
+ guildId: testGuildId);
 ```
 
-This uses `BulkOverwriteGuildApplicationCommandsAsync` / `BulkOverwriteGlobalApplicationCommandsAsync` — all existing commands are replaced with the provided set.
+This uses `BulkOverwriteGuildApplicationCommandsAsync` / `BulkOverwriteGlobalApplicationCommandsAsync` - all existing commands are replaced with the provided set.
 
-⚠️ **Bulk overwrite replaces ALL commands** for the scope (guild or global). Make sure to include all slash commands in the bulk registration or register them separately.
+ **Bulk overwrite replaces ALL commands** for the scope (guild or global). Make sure to include all slash commands in the bulk registration or register them separately.
 
 ---
 
@@ -288,25 +288,25 @@ This uses `BulkOverwriteGuildApplicationCommandsAsync` / `BulkOverwriteGlobalApp
 
 ```
 User right-clicks → Selects command → Discord sends INTERACTION_CREATE
-                                            │
-                                            ▼
-                              client.OnInteractionCreated fires
-                                            │
-                                            ▼
-                            InteractionHandler.HandleInteractionAsync
-                                            │
-                                   ┌────────┴────────┐
-                                   ▼                  ▼
-                        User (Type=2)           Message (Type=3)
-                                   │                  │
-                                   ▼                  ▼
-                     _userContextMenuHandlers   _messageContextMenuHandlers
-                                   │                  │
-                                   ▼                  ▼
-                         Your handler runs     Your handler runs
-                                   │                  │
-                                   ▼                  ▼
-                     Respond via interaction token  (ephemeral or not)
+ │
+ ▼
+ client.OnInteractionCreated fires
+ │
+ ▼
+ InteractionHandler.HandleInteractionAsync
+ │
+ ┌────────┴────────┐
+ ▼ ▼
+ User (Type=2) Message (Type=3)
+ │ │
+ ▼ ▼
+ _userContextMenuHandlers _messageContextMenuHandlers
+ │ │
+ ▼ ▼
+ Your handler runs Your handler runs
+ │ │
+ ▼ ▼
+ Respond via interaction token (ephemeral or not)
 ```
 
 ---
@@ -323,9 +323,9 @@ using PawSharp.Core.Entities;
 // ─── Programmatic Approach ─────────────────────────────────────────────
 
 var client = new PawSharpClientBuilder()
-    .WithToken("Bot YOUR_TOKEN")
-    .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .Build();
+ .WithToken("Bot YOUR_TOKEN")
+ .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+ .Build();
 
 const ulong applicationId = 123456789;
 const ulong testGuildId = 987654321;
@@ -335,45 +335,45 @@ var handler = new InteractionHandler(client.Rest);
 // Register the commands with Discord (guild-scoped for instant updates)
 await client.Rest.CreateGuildApplicationCommandAsync(applicationId, testGuildId, new()
 {
-    Name = "User Info",
-    Type = 2, // USER
+ Name = "User Info",
+ Type = 2, // USER
 });
 
 await client.Rest.CreateGuildApplicationCommandAsync(applicationId, testGuildId, new()
 {
-    Name = "Get Message Link",
-    Type = 3, // MESSAGE
+ Name = "Get Message Link",
+ Type = 3, // MESSAGE
 });
 
 // Wire handlers
 handler.RegisterUserContextMenu("User Info", async interaction =>
 {
-    var userId = interaction.Data!.TargetId!.Value;
-    var guildId = interaction.GuildId!.Value;
-    var member = await client.Rest.GetGuildMemberAsync(guildId, userId);
+ var userId = interaction.Data!.TargetId!.Value;
+ var guildId = interaction.GuildId!.Value;
+ var member = await client.Rest.GetGuildMemberAsync(guildId, userId);
 
-    if (member != null)
-    {
-        await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
-            $"**{member.User?.Username}** | Joined: {member.JoinedAt:d}\n" +
-            $"Roles: {member.Roles.Count}");
-    }
+ if (member != null)
+ {
+ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token,
+ $"**{member.User?.Username}** | Joined: {member.JoinedAt:d}\n" +
+ $"Roles: {member.Roles.Count}");
+ }
 });
 
 handler.RegisterMessageContextMenu("Get Message Link", async interaction =>
 {
-    var msgId = interaction.Data!.TargetId!.Value;
-    var channelId = interaction.ChannelId;
-    var guildId = interaction.GuildId!.Value;
+ var msgId = interaction.Data!.TargetId!.Value;
+ var channelId = interaction.ChannelId;
+ var guildId = interaction.GuildId!.Value;
 
-    var link = $"https://discord.com/channels/{guildId}/{channelId}/{msgId}";
-    await handler.RespondEphemeralAsync(interaction.Id, interaction.Token, link);
+ var link = $"https://discord.com/channels/{guildId}/{channelId}/{msgId}";
+ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token, link);
 });
 
 // Wire gateway
 client.OnInteractionCreated(async interaction =>
 {
-    await handler.HandleInteractionAsync(interaction);
+ await handler.HandleInteractionAsync(interaction);
 });
 
 // ─── Attribute-Based Alternative ───────────────────────────────────────
@@ -381,7 +381,7 @@ client.OnInteractionCreated(async interaction =>
 
 // var commands = client.UseCommands(new CommandsConfiguration());
 // await commands.RegisterContextMenuModuleAsync(
-//     client, new ModerationModule(), applicationId, testGuildId);
+// client, new ModerationModule(), applicationId, testGuildId);
 
 await client.ConnectAsync();
 await Task.Delay(Timeout.Infinite);

@@ -6,7 +6,7 @@
 - A Discord bot token ([create one here](https://discord.com/developers/applications))
 - Windows, macOS, or Linux
 
-> ⚠️ **.NET 10 is required.** PawSharp targets `net10.0` and uses APIs from the .NET 10 Base Class Library. Older framework versions are not supported.
+>  **.NET 10 is required.** PawSharp targets `net10.0` and uses APIs from the .NET 10 Base Class Library. Older framework versions are not supported.
 
 ## Create a New Project
 
@@ -40,21 +40,21 @@ dotnet add package PawSharp.Client --version 1.1.0-alpha.5
 ### Package Dependency Tree
 
 ```
-PawSharp.Core                        (foundation — none depend on it)
-├── PawSharp.API                     (REST)
-├── PawSharp.Cache                   (caching)
-├── PawSharp.Interactions            (slash commands, components)
-├── PawSharp.Interactivity           (pagination, polls)
-├── PawSharp.Commands                (prefix commands)
-└── PawSharp.Voice                   (voice)
+PawSharp.Core (foundation - none depend on it)
+├── PawSharp.API (REST)
+├── PawSharp.Cache (caching)
+├── PawSharp.Interactions (slash commands, components)
+├── PawSharp.Interactivity (pagination, polls)
+├── PawSharp.Commands (prefix commands)
+└── PawSharp.Voice (voice)
 
 PawSharp.API + PawSharp.Cache + PawSharp.Gateway
-    └── PawSharp.Client              (unified facade)
+ └── PawSharp.Client (unified facade)
 
 PawSharp.Client + PawSharp.API + PawSharp.Core
-    ├── PawSharp.Commands            (depends on Client)
-    ├── PawSharp.Interactivity       (depends on Client)
-    └── PawSharp.Voice               (depends on Client, Gateway, API)
+ ├── PawSharp.Commands (depends on Client)
+ ├── PawSharp.Interactivity (depends on Client)
+ └── PawSharp.Voice (depends on Client, Gateway, API)
 ```
 
 ### When to Install Which Package
@@ -71,7 +71,7 @@ PawSharp.Client + PawSharp.API + PawSharp.Core
 | Listen to gateway events only | `PawSharp.Gateway` |
 | Build a lightweight REST-only service | `PawSharp.API` + `PawSharp.Cache` |
 
-> 💡 **`PawSharp.Client` is the right starting point for 90% of bots.** It includes Core, API, Gateway, Cache, and Interactions in one package reference. You only need additional packages for Commands, Interactivity, or Voice.
+>  **`PawSharp.Client` is the right starting point for 90% of bots.** It includes Core, API, Gateway, Cache, and Interactions in one package reference. You only need additional packages for Commands, Interactivity, or Voice.
 
 ## Add Logging (Recommended)
 
@@ -83,9 +83,9 @@ All PawSharp packages log through `Microsoft.Extensions.Logging`. With `UseConso
 
 ```
 info: PawSharp.Gateway.GatewayClient[0]
-      Connected to gateway (session_id: abc123, shard: 0/1)
+ Connected to gateway (session_id: abc123, shard: 0/1)
 info: PawSharp.Client.DiscordClient[0]
-      Client connected as MyBot#1234
+ Client connected as MyBot#1234
 ```
 
 ## Nightly / Pre-release Versions
@@ -102,7 +102,7 @@ Or specify the exact version:
 dotnet add package PawSharp.Client --version 1.1.0-alpha.5
 ```
 
-> ⚠️ **Alpha caveats:** Breaking changes may occur between alpha releases. Always pin your version and review [../CHANGELOG.md](../../CHANGELOG.md) before upgrading.
+>  **Alpha caveats:** Breaking changes may occur between alpha releases. Always pin your version and review [../CHANGELOG.md](../../CHANGELOG.md) before upgrading.
 
 ## Building from Source
 
@@ -124,11 +124,11 @@ The built NuGet packages will be placed in the `nupkgs/` directory. To reference
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
-  <packageSources>
-    <clear />
-    <add key="local" value="..\path\to\PawSharp\nupkgs" />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
-  </packageSources>
+ <packageSources>
+ <clear />
+ <add key="local" value="..\path\to\PawSharp\nupkgs" />
+ <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+ </packageSources>
 </configuration>
 ```
 
@@ -188,8 +188,8 @@ Expected output:
 
 ```
 Build succeeded.
-    0 Warning(s)
-    0 Error(s)
+ 0 Warning(s)
+ 0 Error(s)
 ```
 
 ---

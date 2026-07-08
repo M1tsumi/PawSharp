@@ -28,14 +28,14 @@ The `.editorconfig` file at the repository root defines all style rules. Key con
 ### var usage
 
 ```csharp
-// ❌ Avoid when type is not obvious
-var result = GetSomething();  // What's the type?
+//  Avoid when type is not obvious
+var result = GetSomething(); // What's the type?
 
-// ✅ Preferred when type is obvious
+//  Preferred when type is obvious
 var client = new PawSharpClientBuilder();
 var message = await client.Rest.CreateMessageAsync(id, req);
 
-// ✅ Use explicit type for built-in numeric types
+//  Use explicit type for built-in numeric types
 int count = 42;
 bool enabled = true;
 ```
@@ -51,25 +51,25 @@ required, volatile, async
 ### Modern C# idioms
 
 ```csharp
-// ✅ Pattern matching
+//  Pattern matching
 if (obj is Message msg) { /* use msg */ }
 
-// ✅ Null propagation
+//  Null propagation
 var content = message?.Content ?? "empty";
 
-// ✅ Switch expressions
+//  Switch expressions
 var type = channel.Type switch
 {
-    ChannelType.GuildText => "text",
-    ChannelType.GuildVoice => "voice",
-    _ => "other"
+ ChannelType.GuildText => "text",
+ ChannelType.GuildVoice => "voice",
+ _ => "other"
 };
 
-// ✅ Target-typed new
+//  Target-typed new
 List<Message> messages = [];
 Dictionary<ulong, string> dict = [];
 
-// ✅ Collection expressions
+//  Collection expressions
 var items = new[] { 1, 2, 3 };
 ```
 
@@ -80,18 +80,18 @@ var items = new[] { 1, 2, 3 };
 ### All I/O must be async
 
 ```csharp
-// ✅ Correct
+//  Correct
 public async Task<Message> SendMessageAsync(ulong channelId, CreateMessageRequest req)
 {
-    var response = await _httpClient.PostAsync(...);
-    return await DeserializeAsync<Message>(response);
+ var response = await _httpClient.PostAsync(...);
+ return await DeserializeAsync<Message>(response);
 }
 
-// ❌ Wrong — blocks the thread
+//  Wrong - blocks the thread
 public Message SendMessage(ulong channelId, CreateMessageRequest req)
 {
-    var response = _httpClient.PostAsync(...).Result;
-    return Deserialize<Message>(response.Result);
+ var response = _httpClient.PostAsync(...).Result;
+ return Deserialize<Message>(response.Result);
 }
 ```
 
@@ -112,19 +112,19 @@ Exception: test projects should NOT use `ConfigureAwait(false)` unless explicitl
 
 - All async public methods should accept `CancellationToken cancellationToken = default`
 - Pass it through to all downstream async calls
-- Do not create `CancellationTokenSource` inside hot paths — prefer passing it from the caller
+- Do not create `CancellationTokenSource` inside hot paths - prefer passing it from the caller
 
 ```csharp
 public async Task<Message> CreateMessageAsync(
-    ulong channelId,
-    CreateMessageRequest request,
-    CancellationToken ct = default)
+ ulong channelId,
+ CreateMessageRequest request,
+ CancellationToken ct = default)
 {
-    ct.ThrowIfCancellationRequested();
-    var response = await _httpClient.PostAsync(endpoint, content, ct)
-        .ConfigureAwait(false);
-    return await DeserializeAsync<Message>(response, ct)
-        .ConfigureAwait(false);
+ ct.ThrowIfCancellationRequested();
+ var response = await _httpClient.PostAsync(endpoint, content, ct)
+ .ConfigureAwait(false);
+ return await DeserializeAsync<Message>(response, ct)
+ .ConfigureAwait(false);
 }
 ```
 
@@ -149,8 +149,8 @@ The entire codebase uses `#nullable enable` (set project-wide in `Directory.Buil
 ```csharp
 public class User
 {
-    public string Name { get; set; }   // Required — compiler warns if null
-    public string? Bio { get; set; }   // Optional — may be null
+ public string Name { get; set; } // Required - compiler warns if null
+ public string? Bio { get; set; } // Optional - may be null
 }
 ```
 
@@ -161,8 +161,8 @@ public class User
 ```csharp
 public async Task SendMessageAsync(ulong channelId, string content)
 {
-    ArgumentNullException.ThrowIfNull(content);
-    // ...
+ ArgumentNullException.ThrowIfNull(content);
+ // ...
 }
 ```
 
@@ -173,12 +173,12 @@ public async Task SendMessageAsync(ulong channelId, string content)
 ### Exception handling for null
 
 ```csharp
-// ✅ Good
+//  Good
 if (member.User is null) return;
 
-// ✅ Good — throw typed exceptions
+//  Good - throw typed exceptions
 if (string.IsNullOrWhiteSpace(content))
-    throw new ValidationException("Content cannot be empty");
+ throw new ValidationException("Content cannot be empty");
 ```
 
 ---
@@ -205,16 +205,16 @@ All **public** APIs must have XML doc comments. Internal/private APIs are encour
 /// </code>
 /// </example>
 public async Task<Message> SendMessageAsync(
-    ulong channelId,
-    string content,
-    CancellationToken ct = default)
+ ulong channelId,
+ string content,
+ CancellationToken ct = default)
 ```
 
 ### Patterns
 
 | Element | When to use |
 |---|---|
-| `<summary>` | Always — describes what the method/property does |
+| `<summary>` | Always - describes what the method/property does |
 | `<param>` | Every parameter |
 | `<returns>` | Every non-void method |
 | `<exception>` | Every documented exception the caller should handle |
@@ -236,15 +236,15 @@ public async Task<Message> SendMessageAsync(
 [Fact]
 public async Task CreateMessageAsync_ValidRequest_ReturnsMessage()
 {
-    // Arrange
-    var request = new CreateMessageRequest { Content = "Test" };
+ // Arrange
+ var request = new CreateMessageRequest { Content = "Test" };
 
-    // Act
-    var result = await _client.CreateMessageAsync(channelId, request);
+ // Act
+ var result = await _client.CreateMessageAsync(channelId, request);
 
-    // Assert
-    result.Should().NotBeNull();
-    result.Content.Should().Be("Test");
+ // Assert
+ result.Should().NotBeNull();
+ result.Content.Should().Be("Test");
 }
 ```
 
@@ -266,32 +266,32 @@ See [running-tests.md](running-tests.md) for detailed guidance.
 
 1. **Create a feature/fix branch** from `main`:
 
-   ```
-   feat/your-feature
-   fix/your-bug-fix
-   docs/your-doc-update
-   ```
+ ```
+ feat/your-feature
+ fix/your-bug-fix
+ docs/your-doc-update
+ ```
 
 2. **Commit** using [Conventional Commits](https://www.conventionalcommits.org/):
 
-   ```
-   feat(api): add GetGuildPreviewAsync endpoint
-   fix(gateway): handle WebSocket reconnect race
-   docs: update migration guide for alpha.5
-   ```
+ ```
+ feat(api): add GetGuildPreviewAsync endpoint
+ fix(gateway): handle WebSocket reconnect race
+ docs: update migration guide for alpha.5
+ ```
 
 3. **Open a pull request** targeting `main`:
 
-   - Descriptive title matching the commit format
-   - Summary of changes and motivation
-   - Reference related issues: `Closes #42`
-   - Checklist of verification steps
+ - Descriptive title matching the commit format
+ - Summary of changes and motivation
+ - Reference related issues: `Closes #42`
+ - Checklist of verification steps
 
-4. **CI must pass** — builds, tests, and hygiene checks
+4. **CI must pass** - builds, tests, and hygiene checks
 
-5. **Code review** — at least one maintainer must approve
+5. **Code review** - at least one maintainer must approve
 
-6. **Merge** — squash or merge commit (maintainer's choice)
+6. **Merge** - squash or merge commit (maintainer's choice)
 
 ---
 

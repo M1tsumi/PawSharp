@@ -10,7 +10,7 @@ Two source-generated contexts provide compile-time metadata:
 
 ### PawSharpJsonContext (Core Entities)
 
-`src/PawSharp.Core/Serialization/PawSharpJsonContext.cs` — 80+ types:
+`src/PawSharp.Core/Serialization/PawSharpJsonContext.cs` - 80+ types:
 
 ```csharp
 [JsonSerializable(typeof(Guild))]
@@ -24,7 +24,7 @@ public partial class PawSharpJsonContext : JsonSerializerContext { }
 
 ### PawSharpApiJsonContext (API Models)
 
-`src/PawSharp.API/Serialization/PawSharpApiJsonContext.cs` — request/response types:
+`src/PawSharp.API/Serialization/PawSharpApiJsonContext.cs` - request/response types:
 
 ```csharp
 [JsonSerializable(typeof(CreateMessageRequest))]
@@ -38,8 +38,8 @@ Both are combined in the shared options:
 
 ```csharp
 TypeInfoResolver = JsonTypeInfoResolver.Combine(
-    PawSharpApiJsonContext.Default,
-    PawSharpJsonContext.Default)
+ PawSharpApiJsonContext.Default,
+ PawSharpJsonContext.Default)
 ```
 
 ---
@@ -51,15 +51,15 @@ Discord snowflake IDs are serialized as strings in JSON (to preserve precision) 
 ```csharp
 public class SnowflakeJsonConverter : JsonConverter<ulong>
 {
-    public override ulong Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        if (reader.TokenType == JsonTokenType.String)
-            return ulong.Parse(reader.GetString()!);
-        return reader.GetUInt64();
-    }
+ public override ulong Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+ {
+ if (reader.TokenType == JsonTokenType.String)
+ return ulong.Parse(reader.GetString()!);
+ return reader.GetUInt64();
+ }
 
-    public override void Write(Utf8JsonWriter writer, ulong value, JsonSerializerOptions options)
-        => writer.WriteStringValue(value.ToString());
+ public override void Write(Utf8JsonWriter writer, ulong value, JsonSerializerOptions options)
+ => writer.WriteStringValue(value.ToString());
 }
 ```
 
@@ -96,9 +96,9 @@ Add custom converters to `_jsonOptions.Converters`:
 ```csharp
 private static readonly JsonSerializerOptions _jsonOptions = new()
 {
-    Converters = { new SnowflakeJsonConverter() },
-    NumberHandling = JsonNumberHandling.AllowReadingFromString,
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+ Converters = { new SnowflakeJsonConverter() },
+ NumberHandling = JsonNumberHandling.AllowReadingFromString,
+ DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
 };
 ```
 
@@ -116,8 +116,8 @@ form.Add(fileContent, "files[0]", fileName);
 
 if (messageRequest is not null)
 {
-    var json = JsonSerializer.Serialize(messageRequest, _jsonOptions);
-    form.Add(new StringContent(json, Encoding.UTF8, "application/json"), "payload_json");
+ var json = JsonSerializer.Serialize(messageRequest, _jsonOptions);
+ form.Add(new StringContent(json, Encoding.UTF8, "application/json"), "payload_json");
 }
 
 var response = await PostAsync($"channels/{channelId}/messages", form, ct);

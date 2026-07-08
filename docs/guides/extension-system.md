@@ -13,7 +13,7 @@ Registers all core services:
 ```csharp
 services.AddPawSharp();
 // Registers: DiscordClient, DiscordRestClient, IEntityCache (MemoryCacheProvider),
-//            IAdvancedRateLimiter, CacheManager, IPerformanceMetrics
+// IAdvancedRateLimiter, CacheManager, IPerformanceMetrics
 ```
 
 ### SetupPawSharp
@@ -22,7 +22,7 @@ Configure with custom registrations:
 
 ```csharp
 services.AddPawSharp()
-    .AddSingleton<IEntityCache>(new RedisCacheProvider("localhost:6379"));
+ .AddSingleton<IEntityCache>(new RedisCacheProvider("localhost:6379"));
 ```
 
 ---
@@ -35,8 +35,8 @@ The gateway event dispatcher supports middleware for cross-cutting concerns:
 // Log all events
 client.Gateway.Events.Use(async (eventName, eventData) =>
 {
-    _logger.LogInformation("Event: {EventName}", eventName);
-    // No next() call — all middleware and handlers always fire
+ _logger.LogInformation("Event: {EventName}", eventName);
+ // No next() call - all middleware and handlers always fire
 });
 ```
 
@@ -56,15 +56,15 @@ PawSharp uses `SnowflakeJsonConverter` for Discord snowflakes:
 ```csharp
 public class SnowflakeJsonConverter : JsonConverter<ulong>
 {
-    public override ulong Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        if (reader.TokenType == JsonTokenType.String)
-            return ulong.Parse(reader.GetString()!);
-        return reader.GetUInt64();
-    }
+ public override ulong Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+ {
+ if (reader.TokenType == JsonTokenType.String)
+ return ulong.Parse(reader.GetString()!);
+ return reader.GetUInt64();
+ }
 
-    public override void Write(Utf8JsonWriter writer, ulong value, JsonSerializerOptions options)
-        => writer.WriteStringValue(value.ToString());
+ public override void Write(Utf8JsonWriter writer, ulong value, JsonSerializerOptions options)
+ => writer.WriteStringValue(value.ToString());
 }
 ```
 
@@ -73,7 +73,7 @@ Register custom converters with the `JsonSerializerOptions`:
 ```csharp
 private static readonly JsonSerializerOptions _jsonOptions = new()
 {
-    Converters = { new SnowflakeJsonConverter() }
+ Converters = { new SnowflakeJsonConverter() }
 };
 ```
 
@@ -86,17 +86,17 @@ Implement `IEntityCache` to create your own storage backend:
 ```csharp
 public class MyCustomCacheProvider : IEntityCache
 {
-    private readonly ConcurrentDictionary<ulong, User> _users = new();
+ private readonly ConcurrentDictionary<ulong, User> _users = new();
 
-    public void CacheUser(User user) => _users[user.Id] = user;
-    public User? GetUser(ulong userId) =>
-        _users.TryGetValue(userId, out var u) ? u : null;
+ public void CacheUser(User user) => _users[user.Id] = user;
+ public User? GetUser(ulong userId) =>
+ _users.TryGetValue(userId, out var u) ? u : null;
 
-    // ... implement remaining methods
+ // ... implement remaining methods
 
-    public bool IsHealthy() => true;
-    public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
-    public event EventHandler? CacheCleared;
+ public bool IsHealthy() => true;
+ public event EventHandler<CacheInvalidationEventArgs>? EntityEvicted;
+ public event EventHandler? CacheCleared;
 }
 
 // Register
@@ -110,15 +110,15 @@ services.AddSingleton<IEntityCache, MyCustomCacheProvider>();
 ```csharp
 public class MessageContentFilter : IEventFilter<MessageCreateEvent>
 {
-    public bool ShouldProcess(MessageCreateEvent ev)
-        => !ev.Author.IsBot;
+ public bool ShouldProcess(MessageCreateEvent ev)
+ => !ev.Author.IsBot;
 }
 
 // Apply via middleware
 client.Gateway.Events.Use(async (name, data) =>
 {
-    if (data is MessageCreateEvent msg && !msg.Author.IsBot)
-        await dispatcher.DispatchTypedAsync(name, msg);
+ if (data is MessageCreateEvent msg && !msg.Author.IsBot)
+ await dispatcher.DispatchTypedAsync(name, msg);
 });
 ```
 
@@ -136,11 +136,11 @@ public class MongoCacheProvider : IEntityCache { /* ... */ }
 // 3. Define a custom metrics sink
 public class PrometheusMetricsSink
 {
-    public void Report(IPerformanceMetrics metrics)
-    {
-        var summary = metrics.GetSummary();
-        // Push to Prometheus
-    }
+ public void Report(IPerformanceMetrics metrics)
+ {
+ var summary = metrics.GetSummary();
+ // Push to Prometheus
+ }
 }
 
 // 4. Wire everything together
@@ -148,7 +148,7 @@ var services = new ServiceCollection();
 
 services.AddLogging(builder =>
 {
-    builder.AddProvider(new CustomLoggerProvider());
+ builder.AddProvider(new CustomLoggerProvider());
 });
 
 services.AddSingleton(options);
@@ -160,10 +160,10 @@ services.AddSingleton<IEntityCache>(new MongoCacheProvider("mongodb://..."));
 services.AddSingleton<PrometheusMetricsSink>();
 services.AddSingleton<IPerformanceMetrics>(sp =>
 {
-    var metrics = new PerformanceMetrics();
-    var sink = sp.GetRequiredService<PrometheusMetricsSink>();
-    var timer = new Timer(_ => sink.Report(metrics), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
-    return metrics;
+ var metrics = new PerformanceMetrics();
+ var sink = sp.GetRequiredService<PrometheusMetricsSink>();
+ var timer = new Timer(_ => sink.Report(metrics), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+ return metrics;
 });
 
 services.AddPawSharp();

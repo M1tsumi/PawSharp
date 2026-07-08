@@ -1,6 +1,6 @@
 # Events
 
-PawSharp's event system processes real-time events from the Discord Gateway. Every event flows through a dispatch pipeline — from raw JSON deserialization through middleware to your registered handlers.
+PawSharp's event system processes real-time events from the Discord Gateway. Every event flows through a dispatch pipeline - from raw JSON deserialization through middleware to your registered handlers.
 
 ---
 
@@ -8,26 +8,26 @@ PawSharp's event system processes real-time events from the Discord Gateway. Eve
 
 ```mermaid
 flowchart LR
-    WS[WebSocket<br/>Receive Loop] -->|Raw JSON| Parser[JSON Parser]
-    Parser -->|op 0 + event type| Router[Event Router]
-    
-    subgraph Dispatch Pipeline
-        Router -->|MESSAGE_CREATE| Deser[Deserialize<br/>MessageCreateEvent]
-        Router -->|GUILD_CREATE| Deser2[Deserialize<br/>GuildCreateEvent]
-        Router -->|...60+ events| DeserN[Deserialize<br/>Specific Event]
-        
-        Deser --> Middleware{EventDispatcher<br/>Middleware Chain}
-        Deser2 --> Middleware
-        DeserN --> Middleware
-        
-        Middleware -->|Middleware 1| Middleware2[Mid. 2 ... N]
-        Middleware2 -->|Pass through| Handlers[Registered Handlers]
-        
-        Handlers -->|Handler 1| Handler2[H 2 ... N]
-    end
-    
-    Handlers -->|Optional| Queue[EventDispatchQueue<br/>Backpressure]
-    Queue -->|Parallel| Process[Process Handlers]
+ WS[WebSocket<br/>Receive Loop] -->|Raw JSON| Parser[JSON Parser]
+ Parser -->|op 0 + event type| Router[Event Router]
+
+ subgraph Dispatch Pipeline
+ Router -->|MESSAGE_CREATE| Deser[Deserialize<br/>MessageCreateEvent]
+ Router -->|GUILD_CREATE| Deser2[Deserialize<br/>GuildCreateEvent]
+ Router -->|...60+ events| DeserN[Deserialize<br/>Specific Event]
+
+ Deser --> Middleware{EventDispatcher<br/>Middleware Chain}
+ Deser2 --> Middleware
+ DeserN --> Middleware
+
+ Middleware -->|Middleware 1| Middleware2[Mid. 2 ... N]
+ Middleware2 -->|Pass through| Handlers[Registered Handlers]
+
+ Handlers -->|Handler 1| Handler2[H 2 ... N]
+ end
+
+ Handlers -->|Optional| Queue[EventDispatchQueue<br/>Backpressure]
+ Queue -->|Parallel| Process[Process Handlers]
 ```
 
 ### How Events Flow
@@ -36,8 +36,8 @@ flowchart LR
 2. **Parser** extracts opcode, event type (e.g., `"MESSAGE_CREATE"`), and JSON data
 3. **Router** dispatches by event type string to the correct deserializer
 4. **Deserializer** converts JSON to a typed event object (e.g., `MessageCreateEvent`)
-5. **Middleware chain** runs — can log, filter, or transform events
-6. **Handlers** execute — your code runs here
+5. **Middleware chain** runs - can log, filter, or transform events
+6. **Handlers** execute - your code runs here
 
 ---
 
@@ -50,10 +50,10 @@ PawSharp offers three subscription levels, from most convenient to most flexible
 Strongly typed, no magic strings, returns `IDisposable` for clean unsubscription.
 
 ```csharp
-// Simple — returns IDisposable, dispose to unsubscribe
+// Simple - returns IDisposable, dispose to unsubscribe
 client.OnMessageCreated(async msg =>
 {
-    Console.WriteLine($"{msg.Author}: {msg.Content}");
+ Console.WriteLine($"{msg.Author}: {msg.Content}");
 });
 
 // Named method
@@ -64,13 +64,13 @@ IDisposable sub = client.OnGuildMemberJoined(WelcomeMemberAsync);
 
 private async Task HandleMessageReceived(MessageCreateEvent msg)
 {
-    if (msg.Content.StartsWith("!"))
-        await ProcessCommandAsync(msg);
+ if (msg.Content.StartsWith("!"))
+ await ProcessCommandAsync(msg);
 }
 
 private async Task WelcomeMemberAsync(GuildMemberAddEvent member)
 {
-    Console.WriteLine($"Welcome {member.User?.Username}!");
+ Console.WriteLine($"Welcome {member.User?.Username}!");
 }
 ```
 
@@ -81,22 +81,22 @@ Use `client.Gateway.Events` for fine-grained control or events without convenien
 ```csharp
 var dispatcher = client.Gateway.Events;
 
-// Async handler — requires both type AND Discord event name string
+// Async handler - requires both type AND Discord event name string
 dispatcher.On<ResumedEvent>("RESUMED", async resumed =>
 {
-    Console.WriteLine("Session resumed after reconnect");
+ Console.WriteLine("Session resumed after reconnect");
 });
 
 // Sync handler
 dispatcher.On<ResumedEvent>("RESUMED", resumed =>
 {
-    Console.WriteLine("Session resumed");
+ Console.WriteLine("Session resumed");
 });
 
 // Raw JSON handler (no deserialization)
 dispatcher.OnRaw("MESSAGE_CREATE", json =>
 {
-    Console.WriteLine($"Raw JSON: {json}");
+ Console.WriteLine($"Raw JSON: {json}");
 });
 
 // Named method
@@ -104,8 +104,8 @@ dispatcher.On<ReadyEvent>("READY", OnReady);
 
 private async Task OnReady(ReadyEvent ready)
 {
-    Console.WriteLine($"Ready as {ready.User.Username}");
-    Console.WriteLine($"Session: {ready.SessionId}");
+ Console.WriteLine($"Ready as {ready.User.Username}");
+ Console.WriteLine($"Session: {ready.SessionId}");
 }
 ```
 
@@ -121,13 +121,13 @@ sub.Dispose();
 // Using statement for scoped subscriptions
 using (client.OnMessageCreated(OnMessage))
 {
-    // Handler active only within this scope
-    await Task.Delay(10000);
+ // Handler active only within this scope
+ await Task.Delay(10000);
 }
 // Handler automatically unsubscribed here
 ```
 
-> ❌ **Common mistake:** Forgetting to store the `IDisposable` or never calling `Dispose()`. This causes **handler leaks** — your handler keeps running even after the bot disconnects.
+>  **Common mistake:** Forgetting to store the `IDisposable` or never calling `Dispose()`. This causes **handler leaks** - your handler keeps running even after the bot disconnects.
 
 ---
 
@@ -139,18 +139,18 @@ Discord requires you to declare which events you want to receive via **gateway i
 // All non-privileged intents
 var options = new PawSharpOptions
 {
-    Token = token,
-    Intents = GatewayIntents.AllNonPrivileged,
+ Token = token,
+ Intents = GatewayIntents.AllNonPrivileged,
 };
 
 // Specific intents
 var options = new PawSharpOptions
 {
-    Token = token,
-    Intents = GatewayIntents.Guilds
-            | GatewayIntents.GuildMessages
-            | GatewayIntents.MessageContent  // PRIVILEGED
-            | GatewayIntents.GuildMembers,   // PRIVILEGED
+ Token = token,
+ Intents = GatewayIntents.Guilds
+ | GatewayIntents.GuildMessages
+ | GatewayIntents.MessageContent // PRIVILEGED
+ | GatewayIntents.GuildMembers, // PRIVILEGED
 };
 ```
 
@@ -178,7 +178,7 @@ var options = new PawSharpOptions
 | Message polls | `GuildMessagePolls` | No |
 | Direct message polls | `DirectMessagePolls` | No |
 
-> ⚠️ **Warning:** Privileged intents (`GuildMembers`, `GuildPresences`, `MessageContent`) must be **enabled in the Discord Developer Portal** under "Bot > Privileged Gateway Intents". Setting them in code is not enough.
+>  **Warning:** Privileged intents (`GuildMembers`, `GuildPresences`, `MessageContent`) must be **enabled in the Discord Developer Portal** under "Bot > Privileged Gateway Intents". Setting them in code is not enough.
 
 ### Intent Validation
 
@@ -187,9 +187,9 @@ PawSharp validates that registered event handlers have their required intents en
 ```csharp
 var options = new PawSharpOptions
 {
-    Token = token,
-    Intents = GatewayIntents.Guilds,  // Missing GuildMessages!
-    IntentValidation = IntentValidationMode.Strict,
+ Token = token,
+ Intents = GatewayIntents.Guilds, // Missing GuildMessages!
+ IntentValidation = IntentValidationMode.Strict,
 };
 
 // client.ConnectAsync() will throw:
@@ -198,7 +198,7 @@ var options = new PawSharpOptions
 
 | Mode | Behavior |
 |------|----------|
-| `Off` | No validation — you get empty events instead of errors |
+| `Off` | No validation - you get empty events instead of errors |
 | `Warning` | Logs a warning (default) |
 | `Strict` | Throws `InvalidOperationException` at connect time |
 
@@ -208,25 +208,25 @@ var options = new PawSharpOptions
 
 ```mermaid
 flowchart LR
-    subgraph Subscribe
-        A[client.OnMessageCreated<br/>handler] --> B[EventDispatcher.AddHandler]
-        B --> C[Copy-on-write adds delegate]
-        C --> D[Returns EventSubscription]
-    end
-    
-    subgraph Handle
-        E[Gateway message arrives] --> F[DispatchFromJsonAsync]
-        F --> G[Deserialize]
-        G --> H[Middleware chain]
-        H --> I[Copy handlers list]
-        I --> J[Invoke each handler]
-    end
-    
-    subgraph Unsubscribe
-        K[sub.Dispose()] --> L[EventSubscription.Dispose]
-        L --> M[RemoveHandler]
-        M --> N[Copy-on-write removes delegate]
-    end
+ subgraph Subscribe
+ A[client.OnMessageCreated<br/>handler] --> B[EventDispatcher.AddHandler]
+ B --> C[Copy-on-write adds delegate]
+ C --> D[Returns EventSubscription]
+ end
+
+ subgraph Handle
+ E[Gateway message arrives] --> F[DispatchFromJsonAsync]
+ F --> G[Deserialize]
+ G --> H[Middleware chain]
+ H --> I[Copy handlers list]
+ I --> J[Invoke each handler]
+ end
+
+ subgraph Unsubscribe
+ K[sub.Dispose()] --> L[EventSubscription.Dispose]
+ L --> M[RemoveHandler]
+ M --> N[Copy-on-write removes delegate]
+ end
 ```
 
 ```csharp
@@ -257,29 +257,29 @@ var dispatcher = client.Gateway.Events;
 // Log every event
 dispatcher.Use(async (eventName, eventData) =>
 {
-    Console.WriteLine($"[{DateTime.UtcNow:O}] {eventName}");
+ Console.WriteLine($"[{DateTime.UtcNow:O}] {eventName}");
 });
 
 // Filter: skip bot messages entirely
 dispatcher.Use(async (eventName, eventData) =>
 {
-    if (eventData is MessageCreateEvent msg && msg.Author?.IsBot == true)
-    {
-        throw new EventFilteredException();  // Stops dispatch silently
-    }
+ if (eventData is MessageCreateEvent msg && msg.Author?.IsBot == true)
+ {
+ throw new EventFilteredException(); // Stops dispatch silently
+ }
 });
 
 // Audit: record specific events to a database
 dispatcher.Use(async (eventName, eventData) =>
 {
-    if (eventName is "GUILD_BAN_ADD" or "GUILD_BAN_REMOVE")
-    {
-        await _auditDb.RecordAsync(eventName, eventData);
-    }
+ if (eventName is "GUILD_BAN_ADD" or "GUILD_BAN_REMOVE")
+ {
+ await _auditDb.RecordAsync(eventName, eventData);
+ }
 });
 ```
 
-> 💡 **Tip:** Throwing `EventFilteredException` stops the event from reaching handlers. Other middleware still runs — use early middleware for filtering.
+>  **Tip:** Throwing `EventFilteredException` stops the event from reaching handlers. Other middleware still runs - use early middleware for filtering.
 
 ---
 
@@ -292,14 +292,14 @@ Enable parallel dispatch for high-event-volume bots:
 ```csharp
 var options = new PawSharpOptions
 {
-    Token = token,
-    EventDispatch = new EventDispatchOptions
-    {
-        EnableParallelDispatch = true,
-        MaxDegreeOfParallelism = 4,
-        MaxQueueSize = 10000,  // Enables backpressure queue
-        HandlerTimeoutMs = 5000,  // Kill slow handlers
-    },
+ Token = token,
+ EventDispatch = new EventDispatchOptions
+ {
+ EnableParallelDispatch = true,
+ MaxDegreeOfParallelism = 4,
+ MaxQueueSize = 10000, // Enables backpressure queue
+ HandlerTimeoutMs = 5000, // Kill slow handlers
+ },
 };
 ```
 
@@ -312,13 +312,13 @@ var options = new PawSharpOptions
 
 ### Backpressure
 
-When `MaxQueueSize > 0`, events are queued instead of dispatched inline. If the queue fills up, the gateway receive loop slows down naturally — preventing memory overflow.
+When `MaxQueueSize > 0`, events are queued instead of dispatched inline. If the queue fills up, the gateway receive loop slows down naturally - preventing memory overflow.
 
 ```csharp
 // Monitor queue depth
 var depth = client.Gateway.Events.QueueDepth;
 if (depth > 5000)
-    _logger.LogWarning("Event queue depth critical: {Depth}", depth);
+ _logger.LogWarning("Event queue depth critical: {Depth}", depth);
 ```
 
 ---
@@ -533,70 +533,70 @@ All events can be subscribed via `client.OnXxx()` convenience methods. Events ma
 
 ## Common Mistakes
 
-### ❌ Missing Intents
+###  Missing Intents
 
 ```csharp
 // Message content will always be empty!
 var options = new PawSharpOptions
 {
-    Token = token,
-    Intents = GatewayIntents.Guilds | GatewayIntents.GuildMessages,
-    // Missing: GatewayIntents.MessageContent
+ Token = token,
+ Intents = GatewayIntents.Guilds | GatewayIntents.GuildMessages,
+ // Missing: GatewayIntents.MessageContent
 };
 
 // msg.Content will be "" even with GuildMessages intent
 client.OnMessageCreated(msg =>
 {
-    Console.WriteLine(msg.Content);  // Always empty!
+ Console.WriteLine(msg.Content); // Always empty!
 });
 ```
 
-### ❌ Blocking in Handlers
+###  Blocking in Handlers
 
 ```csharp
 // BAD: Blocks the gateway receive loop
 client.OnMessageCreated(msg =>
 {
-    Task.Delay(1000).Wait();  // Blocks thread!
-    Thread.Sleep(500);        // Blocks thread!
+ Task.Delay(1000).Wait(); // Blocks thread!
+ Thread.Sleep(500); // Blocks thread!
 });
 
 // GOOD: Use async all the way
 client.OnMessageCreated(async msg =>
 {
-    await Task.Delay(1000);
-    await ProcessAsync(msg);
+ await Task.Delay(1000);
+ await ProcessAsync(msg);
 });
 ```
 
-### ❌ Forgetting to Acknowledge Interactions
+###  Forgetting to Acknowledge Interactions
 
 ```csharp
 // BAD: 3-second timeout, Discord shows "interaction failed"
 client.OnInteractionCreated(async interaction =>
 {
-    await DoLongWorkAsync();  // Takes 10 seconds
+ await DoLongWorkAsync(); // Takes 10 seconds
 });
 
 // GOOD: Defer first, then edit later
 client.Interactions.RegisterCommand("slow", async interaction =>
 {
-    await client.Interactions.DeferAsync(interaction.Id, interaction.Token);
-    var result = await DoLongWorkAsync();
-    await client.Interactions.EditResponseAsync(appId, interaction.Token, new EditMessageRequest
-    {
-        Content = result,
-    });
+ await client.Interactions.DeferAsync(interaction.Id, interaction.Token);
+ var result = await DoLongWorkAsync();
+ await client.Interactions.EditResponseAsync(appId, interaction.Token, new EditMessageRequest
+ {
+ Content = result,
+ });
 });
 ```
 
-### ❌ Subscribing After Connect
+###  Subscribing After Connect
 
 ```csharp
 // BAD: You may miss the READY event
 await client.ConnectAsync();
 
-// READY already fired — handler never runs
+// READY already fired - handler never runs
 client.OnReady(ready => { ... });
 
 // GOOD: Subscribe before connecting
@@ -610,22 +610,22 @@ await client.ConnectAsync();
 
 | Practice | Benefit |
 |----------|---------|
-| ✅ Subscribe to events **before** `ConnectAsync()` | Catches early events like READY |
-| ✅ Use async handlers, never `.Result` or `.Wait()` | Prevents deadlocks and thread pool starvation |
-| ✅ Store and dispose `IDisposable` subscriptions | Prevents handler leaks on reconnect |
-| ✅ Offload heavy work to a background channel | Keeps dispatch pipeline fast |
-| ✅ Wrap handlers in try/catch | Prevents one handler from crashing others |
-| ✅ Enable only intents you actually use | Lower memory, faster dispatch |
-| ✅ Use middleware for cross-cutting concerns | Avoids duplicating logic in every handler |
-| ✅ Monitor `QueueDepth` in production | Early warning for processing bottlenecks |
-| ❌ Don't subscribe to `MessageContent` unless needed | Privileged intent — must be enabled in portal |
-| ❌ Don't block or do synchronous I/O in handlers | Blocks the gateway receive loop |
+|  Subscribe to events **before** `ConnectAsync()` | Catches early events like READY |
+|  Use async handlers, never `.Result` or `.Wait()` | Prevents deadlocks and thread pool starvation |
+|  Store and dispose `IDisposable` subscriptions | Prevents handler leaks on reconnect |
+|  Offload heavy work to a background channel | Keeps dispatch pipeline fast |
+|  Wrap handlers in try/catch | Prevents one handler from crashing others |
+|  Enable only intents you actually use | Lower memory, faster dispatch |
+|  Use middleware for cross-cutting concerns | Avoids duplicating logic in every handler |
+|  Monitor `QueueDepth` in production | Early warning for processing bottlenecks |
+|  Don't subscribe to `MessageContent` unless needed | Privileged intent - must be enabled in portal |
+|  Don't block or do synchronous I/O in handlers | Blocks the gateway receive loop |
 
 ---
 
 ## Related Guides
 
-- [Gateway Connection](./gateway.md) — Connection lifecycle, sharding, heartbeat
-- [Receiving Messages](./receiving-messages.md) — Working with message events
-- [Sending Messages](./sending-messages.md) — REST API message operations
-- [Slash Commands](./slash-commands.md) — Interaction handling
+- [Gateway Connection](./gateway.md) - Connection lifecycle, sharding, heartbeat
+- [Receiving Messages](./receiving-messages.md) - Working with message events
+- [Sending Messages](./sending-messages.md) - REST API message operations
+- [Slash Commands](./slash-commands.md) - Interaction handling

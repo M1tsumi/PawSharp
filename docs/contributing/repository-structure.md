@@ -8,46 +8,46 @@ Overview of the PawSharp codebase layout.
 
 ```
 PawSharp/
-├── .editorconfig              # Code style configuration
+├── .editorconfig # Code style configuration
 ├── .github/
-│   └── workflows/
-│       └── ci.yml             # CI pipeline (build, test, pack, docs)
-├── Directory.Packages.props   # Central NuGet package versions
-├── PawSharp.sln               # Solution file (9 library + 9 test + 1 benchmark projects)
+│ └── workflows/
+│ └── ci.yml # CI pipeline (build, test, pack, docs)
+├── Directory.Packages.props # Central NuGet package versions
+├── PawSharp.sln # Solution file (9 library + 9 test + 1 benchmark projects)
 ├── README.md
 ├── ../../CHANGELOG.md
 ├── CONTRIBUTING.md
-├── assets/                    # Logos, banners
-├── docs/                      # Documentation (guides, FAQ, migration)
-├── examples/                  # Runnable example bots
-│   ├── ModerationBot/
-│   ├── MusicBot/
-│   └── DashboardBot/
-├── src/                       # Library source code (9 projects)
-│   ├── Directory.Build.props  # Shared package metadata, version, compiler settings
-│   ├── Directory.Build.targets# SourceLink, deterministic builds
-│   ├── PawSharp.Core/
-│   ├── PawSharp.API/
-│   ├── PawSharp.Gateway/
-│   ├── PawSharp.Cache/
-│   ├── PawSharp.Client/
-│   ├── PawSharp.Interactions/
-│   ├── PawSharp.Commands/
-│   ├── PawSharp.Interactivity/
-│   └── PawSharp.Voice/
-├── tests/                     # Test projects (9 unit + 1 benchmark)
-│   ├── PawSharp.Core.Tests/
-│   ├── PawSharp.API.Tests/
-│   ├── PawSharp.Gateway.Tests/
-│   ├── PawSharp.Cache.Tests/
-│   ├── PawSharp.Client.Tests/
-│   ├── PawSharp.Interactions.Tests/
-│   ├── PawSharp.Commands.Tests/
-│   ├── PawSharp.Interactivity.Tests/
-│   ├── PawSharp.Voice.Tests/
-│   └── PawSharp.Benchmarks/
-└── tools/                     # Build/CI scripts
-    └── check-release-hygiene.ps1
+├── assets/ # Logos, banners
+├── docs/ # Documentation (guides, FAQ, migration)
+├── examples/ # Runnable example bots
+│ ├── ModerationBot/
+│ ├── MusicBot/
+│ └── DashboardBot/
+├── src/ # Library source code (9 projects)
+│ ├── Directory.Build.props # Shared package metadata, version, compiler settings
+│ ├── Directory.Build.targets# SourceLink, deterministic builds
+│ ├── PawSharp.Core/
+│ ├── PawSharp.API/
+│ ├── PawSharp.Gateway/
+│ ├── PawSharp.Cache/
+│ ├── PawSharp.Client/
+│ ├── PawSharp.Interactions/
+│ ├── PawSharp.Commands/
+│ ├── PawSharp.Interactivity/
+│ └── PawSharp.Voice/
+├── tests/ # Test projects (9 unit + 1 benchmark)
+│ ├── PawSharp.Core.Tests/
+│ ├── PawSharp.API.Tests/
+│ ├── PawSharp.Gateway.Tests/
+│ ├── PawSharp.Cache.Tests/
+│ ├── PawSharp.Client.Tests/
+│ ├── PawSharp.Interactions.Tests/
+│ ├── PawSharp.Commands.Tests/
+│ ├── PawSharp.Interactivity.Tests/
+│ ├── PawSharp.Voice.Tests/
+│ └── PawSharp.Benchmarks/
+└── tools/ # Build/CI scripts
+ └── check-release-hygiene.ps1
 ```
 
 ---
@@ -56,39 +56,39 @@ PawSharp/
 
 ```mermaid
 graph TD
-    Core[PawSharp.Core] --> API[PawSharp.API]
-    Core --> Cache[PawSharp.Cache]
-    Core --> Gateway[PawSharp.Gateway]
-    Core --> Interactions[PawSharp.Interactions]
-    Core --> Commands[PawSharp.Commands]
-    Core --> Interactivity[PawSharp.Interactivity]
-    Core --> Voice[PawSharp.Voice]
+ Core[PawSharp.Core] --> API[PawSharp.API]
+ Core --> Cache[PawSharp.Cache]
+ Core --> Gateway[PawSharp.Gateway]
+ Core --> Interactions[PawSharp.Interactions]
+ Core --> Commands[PawSharp.Commands]
+ Core --> Interactivity[PawSharp.Interactivity]
+ Core --> Voice[PawSharp.Voice]
 
-    API --> Gateway
-    API --> Client[PawSharp.Client]
-    API --> Interactions
-    API --> Voice
+ API --> Gateway
+ API --> Client[PawSharp.Client]
+ API --> Interactions
+ API --> Voice
 
-    Cache --> Gateway
-    Cache --> Client
+ Cache --> Gateway
+ Cache --> Client
 
-    Gateway --> Client
-    Gateway --> Interactions
-    Gateway --> Voice
+ Gateway --> Client
+ Gateway --> Interactions
+ Gateway --> Voice
 
-    Client --> Commands
-    Client --> Interactivity
-    Client --> Voice
+ Client --> Commands
+ Client --> Interactivity
+ Client --> Voice
 
-    Interactions --> Client
+ Interactions --> Client
 
-    style Core fill:#e1f5fe
-    style Client fill:#e8f5e9
-    style Voice fill:#fff3e0
+ style Core fill:#e1f5fe
+ style Client fill:#e8f5e9
+ style Voice fill:#fff3e0
 ```
 
 **Layering rules:**
-- `PawSharp.Core` has zero project dependencies — it's the foundation
+- `PawSharp.Core` has zero project dependencies - it's the foundation
 - `PawSharp.API` depends only on Core
 - `PawSharp.Client` is the high-level integration package that wires everything together
 - Packages never depend on test projects
@@ -98,7 +98,7 @@ graph TD
 
 ## Key directories
 
-### `src/` — Library source code
+### `src/` - Library source code
 
 | Project | Description | Depends on |
 |---|---|---|
@@ -112,7 +112,7 @@ graph TD
 | `PawSharp.Interactivity` | Pagination, polls, confirmation dialogs, input prompts | Core, Client |
 | `PawSharp.Voice` | Opus (Concentus), RTP, UDP, DAVE E2EE (MLS/HKDF) | Core, API, Gateway, Client |
 
-### `tests/` — Test suite
+### `tests/` - Test suite
 
 Each library project has a corresponding test project plus a benchmarks project:
 
@@ -121,7 +121,7 @@ Each library project has a corresponding test project plus a benchmarks project:
 | `*.Tests` | xUnit + FluentAssertions + Moq | Unit + integration tests |
 | `PawSharp.Benchmarks` | BenchmarkDotNet | Performance benchmarks |
 
-### `examples/` — Runnable bots
+### `examples/` - Runnable bots
 
 | Example | Demonstrates |
 |---|---|
@@ -129,48 +129,48 @@ Each library project has a corresponding test project plus a benchmarks project:
 | `MusicBot` | DI setup, commands, voice |
 | `DashboardBot` | ASP.NET integration, interaction handlers, webhook verification |
 
-### `docs/` — Documentation
+### `docs/` - Documentation
 
 ```
 docs/
-├── faq.md                        # Frequently asked questions
-├── migration.md                  # Migration guide
-├── getting-started.md            # Quick start guide
-├── getting-started.md           # Development guide
-├── guides/gateway.md              # Gateway walkthrough
-├── guides/sending-messages.md             # REST API usage
-├── guides/voice.md                # Voice / DAVE E2EE
-├── guides/caching.md              # Caching strategies
-├── guides/advanced.md             # Best practices
-├── guides/error-handling.md             # Error handling patterns
-├── guides/events.md  # Intent validation
-├── slash-commands.md         # (referenced but not present)
-├── guides/                       # Topic-based mini-guides
-│   ├── first-bot.md
-│   ├── sending-messages.md
-│   ├── slash-commands.md
-│   ├── permissions.md
-│   ├── voice.md
-│   └── ... (15 guides)
-├── images/                       # Screenshots, diagrams
-├── contributing/                 # Contributor docs
-│   ├── building-from-source.md
-│   ├── repository-structure.md
-│   ├── coding-guidelines.md
-│   └── running-tests.md
-├── index.md                      # Documentation index
-├── toc.yml                       # DocFX table of contents
-└── ../../CHANGELOG.md                  # Copy of root ../../CHANGELOG.md
+├── faq.md # Frequently asked questions
+├── migration.md # Migration guide
+├── getting-started.md # Quick start guide
+├── getting-started.md # Development guide
+├── guides/gateway.md # Gateway walkthrough
+├── guides/sending-messages.md # REST API usage
+├── guides/voice.md # Voice / DAVE E2EE
+├── guides/caching.md # Caching strategies
+├── guides/advanced.md # Best practices
+├── guides/error-handling.md # Error handling patterns
+├── guides/events.md # Intent validation
+├── slash-commands.md # (referenced but not present)
+├── guides/ # Topic-based mini-guides
+│ ├── first-bot.md
+│ ├── sending-messages.md
+│ ├── slash-commands.md
+│ ├── permissions.md
+│ ├── voice.md
+│ └── ... (15 guides)
+├── images/ # Screenshots, diagrams
+├── contributing/ # Contributor docs
+│ ├── building-from-source.md
+│ ├── repository-structure.md
+│ ├── coding-guidelines.md
+│ └── running-tests.md
+├── index.md # Documentation index
+├── toc.yml # DocFX table of contents
+└── ../../CHANGELOG.md # Copy of root ../../CHANGELOG.md
 ```
 
-### `tools/` — Build scripts
+### `tools/` - Build scripts
 
-- `check-release-hygiene.ps1` — validates version alignment in docs, examples, and assets
+- `check-release-hygiene.ps1` - validates version alignment in docs, examples, and assets
 
-### `assets/` — Branding
+### `assets/` - Branding
 
-- `pawsharp-logo.svg` — project logo
-- `pawsharp-banner.svg` — banner image
+- `pawsharp-logo.svg` - project logo
+- `pawsharp-banner.svg` - banner image
 
 ---
 
@@ -198,8 +198,8 @@ All packages share the same version via `src/Directory.Build.props`. Each projec
 
 See `.github/workflows/ci.yml`. The pipeline runs on push/PR to `main`:
 
-1. **Release hygiene** — validates version alignment with `check-release-hygiene.ps1`
-2. **Build** — `dotnet build -c Release`
-3. **Test** — `dotnet test -c Release` across all test projects
-4. **Pack preview** — creates NuGet preview packages on `main` pushes
-5. **Documentation** — builds DocFX site and deploys to GitHub Pages
+1. **Release hygiene** - validates version alignment with `check-release-hygiene.ps1`
+2. **Build** - `dotnet build -c Release`
+3. **Test** - `dotnet test -c Release` across all test projects
+4. **Pack preview** - creates NuGet preview packages on `main` pushes
+5. **Documentation** - builds DocFX site and deploys to GitHub Pages

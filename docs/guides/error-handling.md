@@ -9,11 +9,11 @@ PawSharp provides a structured exception hierarchy, configurable throw behavior,
 ```
 Exception
 └── DiscordException (base)
-    ├── DiscordApiException (REST API errors)
-    ├── GatewayException (WebSocket connection errors)
-    ├── ValidationException (Input validation errors)
-    ├── RateLimitException (Rate limiting errors)
-    └── DeserializationException (JSON parsing errors)
+ ├── DiscordApiException (REST API errors)
+ ├── GatewayException (WebSocket connection errors)
+ ├── ValidationException (Input validation errors)
+ ├── RateLimitException (Rate limiting errors)
+ └── DeserializationException (JSON parsing errors)
 ```
 
 ### DiscordException
@@ -32,19 +32,19 @@ Thrown when Discord returns an error HTTP response. Includes:
 ```csharp
 public class DiscordApiException : DiscordException
 {
-    public HttpStatusCode? StatusCode { get; }
-    public int? DiscordErrorCode { get; }
-    public string? DiscordErrorMessage { get; }
-    public string RequestMethod { get; }
-    public string RequestEndpoint { get; }
+ public HttpStatusCode? StatusCode { get; }
+ public int? DiscordErrorCode { get; }
+ public string? DiscordErrorMessage { get; }
+ public string RequestMethod { get; }
+ public string RequestEndpoint { get; }
 }
 ```
 
 ```csharp
 catch (DiscordApiException ex)
 {
-    // StatusCode: 403, DiscordErrorCode: 50013, DiscordErrorMessage: "Missing Permissions"
-    // RequestMethod: "POST", RequestEndpoint: "/channels/123/messages"
+ // StatusCode: 403, DiscordErrorCode: 50013, DiscordErrorMessage: "Missing Permissions"
+ // RequestMethod: "POST", RequestEndpoint: "/channels/123/messages"
 }
 ```
 
@@ -55,9 +55,9 @@ WebSocket connection issues with recovery info:
 ```csharp
 public class GatewayException : DiscordException
 {
-    public int? Opcode { get; }
-    public string? EventType { get; }
-    public bool IsRecoverable { get; }
+ public int? Opcode { get; }
+ public string? EventType { get; }
+ public bool IsRecoverable { get; }
 }
 ```
 
@@ -68,8 +68,8 @@ Input validation that fails before the API call:
 ```csharp
 catch (ValidationException ex)
 {
-    // ParameterName: "limit", InvalidValue: 500
-    // Message: "Limit must be between 1 and 100"
+ // ParameterName: "limit", InvalidValue: 500
+ // Message: "Limit must be between 1 and 100"
 }
 ```
 
@@ -80,7 +80,7 @@ Discord rate limit hit:
 ```csharp
 catch (RateLimitException ex)
 {
-    // RetryAfter: 5s, IsGlobal: false, Bucket: "abc123"
+ // RetryAfter: 5s, IsGlobal: false, Bucket: "abc123"
 }
 ```
 
@@ -91,7 +91,7 @@ JSON parsing failures (API schema mismatch):
 ```csharp
 catch (DeserializationException ex)
 {
-    // TargetType: typeof(Guild), RawJson: "{...}"
+ // TargetType: typeof(Guild), RawJson: "{...}"
 }
 ```
 
@@ -102,10 +102,10 @@ catch (DeserializationException ex)
 ```csharp
 var options = new PawSharpOptions
 {
-    RestApi = new PawSharpOptions.RestApiOptions
-    {
-        ThrowOnApiError = true  // Default: true
-    }
+ RestApi = new PawSharpOptions.RestApiOptions
+ {
+ ThrowOnApiError = true // Default: true
+ }
 };
 ```
 
@@ -129,8 +129,8 @@ var message = await rest.CreateMessageAsync(channelId, request);
 ```csharp
 client.Gateway.OnStateChanged += async (oldState, newState) =>
 {
-    if (newState == GatewayState.Failed)
-        _logger.LogCritical("Gateway entered failed state");
+ if (newState == GatewayState.Failed)
+ _logger.LogCritical("Gateway entered failed state");
 };
 ```
 
@@ -139,11 +139,11 @@ Hook into `ReconnectionManager` events:
 ```csharp
 client.Gateway.Events.Use(async (eventName, eventData) =>
 {
-    try { /* process event */ }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Event handler failed for {Event}", eventName);
-    }
+ try { /* process event */ }
+ catch (Exception ex)
+ {
+ _logger.LogError(ex, "Event handler failed for {Event}", eventName);
+ }
 });
 ```
 
@@ -155,9 +155,9 @@ client.Gateway.Events.Use(async (eventName, eventData) =>
 
 ```csharp
 private readonly int _maxReconnectionAttempts;
-private readonly int _initialBackoffMs;  // default: 1000
-private readonly int _maxBackoffMs;      // default: 30000
-private readonly double _jitterFactor;   // default: 0.2
+private readonly int _initialBackoffMs; // default: 1000
+private readonly int _maxBackoffMs; // default: 30000
+private readonly double _jitterFactor; // default: 0.2
 ```
 
 ```csharp
@@ -213,7 +213,7 @@ From `GatewayCloseCode` enum in `src/PawSharp.Gateway/GatewayClient.cs`:
 ## Best Practices
 
 ```csharp
-// ✅ Specific exceptions first
+//  Specific exceptions first
 try { await rest.CreateMessageAsync(channelId, request); }
 catch (ValidationException ex) { /* fix input */ }
 catch (RateLimitException ex) { /* handle backoff */ }
@@ -222,7 +222,7 @@ catch (DiscordApiException ex) { /* general API error */ }
 catch (GatewayException ex) when (ex.IsRecoverable) { /* reconnect */ }
 catch (DiscordException ex) { /* all library errors */ }
 
-// ❌ Catching Exception broadly
+//  Catching Exception broadly
 catch (Exception ex) { /* hides library-specific context */ }
 ```
 
@@ -235,5 +235,5 @@ catch (Exception ex) { /* hides library-specific context */ }
 | Not checking `ex.IsRecoverable` on gateway errors | Auth failures (4004) should not auto-retry |
 | Ignoring `ValidationException` | Fix inputs rather than retrying |
 | Not handling `RateLimitException` externally | PawSharp retries internally, but you may want custom backoff |
-| Forgetting `DeserializationException` | Indicates API schema change — log raw JSON |
+| Forgetting `DeserializationException` | Indicates API schema change - log raw JSON |
 | Catching `Exception` and returning null | Swallows programming errors |

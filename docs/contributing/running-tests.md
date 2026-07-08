@@ -21,7 +21,7 @@ Each library project has a corresponding test project. All tests use **xUnit** w
 | `PawSharp.Voice.Tests` | Opus, RTP, DAVE E2EE, MLS | Unit + Integration |
 
 Additional project:
-- `PawSharp.Benchmarks` — performance benchmarks (BenchmarkDotNet)
+- `PawSharp.Benchmarks` - performance benchmarks (BenchmarkDotNet)
 
 ---
 
@@ -75,7 +75,7 @@ Or create a `test-settings.json` file (gitignored):
 
 ```json
 {
-  "DiscordToken": "your-bot-token"
+ "DiscordToken": "your-bot-token"
 }
 ```
 
@@ -93,7 +93,7 @@ dotnet test --filter "Category=Integration"
 | `PawSharp.Voice.Tests` (DAVE integration) | Discord token + voice channel |
 | `PawSharp.Gateway.Tests` (live tests) | Discord token |
 
-⚠️ Integration tests are excluded from the default CI run unless the token is present.
+ Integration tests are excluded from the default CI run unless the token is present.
 
 ---
 
@@ -105,13 +105,13 @@ Tests are categorized using `[TestCategory]` or `[Trait]` attributes:
 [Fact, TestCategory("Unit")]
 public void ParsesValidSnowflake()
 {
-    // No network or external dependencies
+ // No network or external dependencies
 }
 
 [Fact, TestCategory("Integration")]
 public async Task ConnectsAndDisconnects()
 {
-    // Requires a real Discord connection
+ // Requires a real Discord connection
 }
 ```
 
@@ -145,27 +145,27 @@ namespace PawSharp.Core.Tests.Validation;
 
 public class SnowflakeValidatorTests
 {
-    [Fact, TestCategory("Unit")]
-    public void Validate_ValidSnowflake_ReturnsTrue()
-    {
-        // Arrange
-        var sut = new SnowflakeValidator();
+ [Fact, TestCategory("Unit")]
+ public void Validate_ValidSnowflake_ReturnsTrue()
+ {
+ // Arrange
+ var sut = new SnowflakeValidator();
 
-        // Act
-        var result = sut.Validate(123456789012345678ul);
+ // Act
+ var result = sut.Validate(123456789012345678ul);
 
-        // Assert
-        result.Should().BeTrue();
-    }
+ // Assert
+ result.Should().BeTrue();
+ }
 
-    [Theory, TestCategory("Unit")]
-    [InlineData(0)]
-    [InlineData(1)]
-    public void Validate_ReservedIds_ReturnsFalse(ulong id)
-    {
-        var sut = new SnowflakeValidator();
-        sut.Validate(id).Should().BeFalse();
-    }
+ [Theory, TestCategory("Unit")]
+ [InlineData(0)]
+ [InlineData(1)]
+ public void Validate_ReservedIds_ReturnsFalse(ulong id)
+ {
+ var sut = new SnowflakeValidator();
+ sut.Validate(id).Should().BeFalse();
+ }
 }
 ```
 
@@ -177,17 +177,17 @@ Use Moq for interfaces:
 [Fact, TestCategory("Unit")]
 public async Task CreateMessageAsync_ApiFails_ThrowsDiscordApiException()
 {
-    var mockRest = new Mock<IDiscordRestClient>();
-    mockRest.Setup(x => x.CreateMessageAsync(
-            It.IsAny<ulong>(),
-            It.IsAny<CreateMessageRequest>(),
-            It.IsAny<CancellationToken>()))
-        .ThrowsAsync(new DiscordApiException("Bad request"));
+ var mockRest = new Mock<IDiscordRestClient>();
+ mockRest.Setup(x => x.CreateMessageAsync(
+ It.IsAny<ulong>(),
+ It.IsAny<CreateMessageRequest>(),
+ It.IsAny<CancellationToken>()))
+ .ThrowsAsync(new DiscordApiException("Bad request"));
 
-    var client = new DiscordClient(mockRest.Object);
-    var act = () => client.SendMessageAsync(1, "test");
+ var client = new DiscordClient(mockRest.Object);
+ var act = () => client.SendMessageAsync(1, "test");
 
-    await act.Should().ThrowAsync<DiscordApiException>();
+ await act.Should().ThrowAsync<DiscordApiException>();
 }
 ```
 
@@ -218,27 +218,27 @@ dotnet run -c Release --project tests/PawSharp.Benchmarks/PawSharp.Benchmarks.cs
 [MemoryDiagnoser]
 public class JsonSerializationBenchmarks
 {
-    private Message _message = null!;
-    private byte[] _json = null!;
+ private Message _message = null!;
+ private byte[] _json = null!;
 
-    [GlobalSetup]
-    public void Setup()
-    {
-        _message = new Message { Id = 1, Content = "Hello" };
-        _json = JsonSerializer.SerializeToUtf8Bytes(_message);
-    }
+ [GlobalSetup]
+ public void Setup()
+ {
+ _message = new Message { Id = 1, Content = "Hello" };
+ _json = JsonSerializer.SerializeToUtf8Bytes(_message);
+ }
 
-    [Benchmark]
-    public byte[] Serialize()
-    {
-        return JsonSerializer.SerializeToUtf8Bytes(_message);
-    }
+ [Benchmark]
+ public byte[] Serialize()
+ {
+ return JsonSerializer.SerializeToUtf8Bytes(_message);
+ }
 
-    [Benchmark]
-    public Message? Deserialize()
-    {
-        return JsonSerializer.Deserialize<Message>(_json);
-    }
+ [Benchmark]
+ public Message? Deserialize()
+ {
+ return JsonSerializer.Deserialize<Message>(_json);
+ }
 }
 ```
 
@@ -246,9 +246,9 @@ public class JsonSerializationBenchmarks
 
 ## Tips
 
-- **Run unit tests before pushing** — they should complete in under 30 seconds
+- **Run unit tests before pushing** - they should complete in under 30 seconds
 - **Use `dotnet test --no-build`** after the first build to skip recompilation
 - **Add `[Collection("Non-Parallel")]`** to integration tests that share state
-- **Keep tests deterministic** — no sleeps, no network calls in unit tests
+- **Keep tests deterministic** - no sleeps, no network calls in unit tests
 - **Clean up** disposal and database state in `Dispose` or `IAsyncLifetime`
 - **Use `Should().ThrowExactly<T>()`** from FluentAssertions for precise exception type checks

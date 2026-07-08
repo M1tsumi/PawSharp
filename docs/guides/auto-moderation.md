@@ -35,16 +35,16 @@ PawSharp exposes the full Auto Moderation API through REST endpoints and Gateway
 ```csharp
 public class AutoModerationRule : DiscordEntity
 {
-    public ulong GuildId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public ulong CreatorId { get; set; }
-    public AutoModerationEventType EventType { get; set; }
-    public AutoModerationTriggerType TriggerType { get; set; }
-    public AutoModerationTriggerMetadata TriggerMetadata { get; set; } = null!;
-    public List<AutoModerationAction> Actions { get; set; } = new();
-    public bool Enabled { get; set; }
-    public List<ulong> ExemptRoles { get; set; } = new();       // max 20
-    public List<ulong> ExemptChannels { get; set; } = new();     // max 50
+ public ulong GuildId { get; set; }
+ public string Name { get; set; } = string.Empty;
+ public ulong CreatorId { get; set; }
+ public AutoModerationEventType EventType { get; set; }
+ public AutoModerationTriggerType TriggerType { get; set; }
+ public AutoModerationTriggerMetadata TriggerMetadata { get; set; } = null!;
+ public List<AutoModerationAction> Actions { get; set; } = new();
+ public bool Enabled { get; set; }
+ public List<ulong> ExemptRoles { get; set; } = new(); // max 20
+ public List<ulong> ExemptChannels { get; set; } = new(); // max 50
 }
 ```
 
@@ -53,11 +53,11 @@ public class AutoModerationRule : DiscordEntity
 ```csharp
 public enum AutoModerationEventType
 {
-    MessageSend = 1  // triggers when a member sends or edits a message
+ MessageSend = 1 // triggers when a member sends or edits a message
 }
 ```
 
-⚠️ Currently Discord only supports `MessageSend` as the event type. This may expand in the future.
+ Currently Discord only supports `MessageSend` as the event type. This may expand in the future.
 
 ---
 
@@ -75,12 +75,12 @@ public enum AutoModerationEventType
 ```csharp
 public class AutoModerationTriggerMetadata
 {
-    public List<string>? KeywordFilter { get; set; }      // max 1000 keywords
-    public List<string>? RegexPatterns { get; set; }       // max 10 regex patterns
-    public List<AutoModerationKeywordPresetType>? Presets { get; set; }
-    public List<string>? AllowList { get; set; }           // max 100 (or 1000) allow words
-    public int? MentionTotalLimit { get; set; }            // max 50 mentions
-    public bool? MentionRaidProtectionEnabled { get; set; }
+ public List<string>? KeywordFilter { get; set; } // max 1000 keywords
+ public List<string>? RegexPatterns { get; set; } // max 10 regex patterns
+ public List<AutoModerationKeywordPresetType>? Presets { get; set; }
+ public List<string>? AllowList { get; set; } // max 100 (or 1000) allow words
+ public int? MentionTotalLimit { get; set; } // max 50 mentions
+ public bool? MentionRaidProtectionEnabled { get; set; }
 }
 ```
 
@@ -89,9 +89,9 @@ public class AutoModerationTriggerMetadata
 ```csharp
 public enum AutoModerationKeywordPresetType
 {
-    Profanity = 1,     // swearing and cursing
-    SexualContent = 2, // sexually explicit behavior
-    Slurs = 3          // hate speech and personal insults
+ Profanity = 1, // swearing and cursing
+ SexualContent = 2, // sexually explicit behavior
+ Slurs = 3 // hate speech and personal insults
 }
 ```
 
@@ -112,31 +112,31 @@ Each rule can have **up to 3 actions** that execute in order when a trigger fire
 ```csharp
 public class AutoModerationActionMetadata
 {
-    public ulong? ChannelId { get; set; }        // alert destination
-    public int? DurationSeconds { get; set; }    // timeout duration
-    public string? CustomMessage { get; set; }   // shown to user on block
+ public ulong? ChannelId { get; set; } // alert destination
+ public int? DurationSeconds { get; set; } // timeout duration
+ public string? CustomMessage { get; set; } // shown to user on block
 }
 ```
 
-✅ **Recommended:** Always include a `BlockMessage` + `SendAlertMessage` pair so users know their message was blocked and moderators can review.
+ **Recommended:** Always include a `BlockMessage` + `SendAlertMessage` pair so users know their message was blocked and moderators can review.
 
 ```csharp
 var blockAction = new AutoModerationAction
 {
-    Type = AutoModerationActionType.BlockMessage,
-    Metadata = new AutoModerationActionMetadata
-    {
-        CustomMessage = "Your message was blocked by server rules."
-    }
+ Type = AutoModerationActionType.BlockMessage,
+ Metadata = new AutoModerationActionMetadata
+ {
+ CustomMessage = "Your message was blocked by server rules."
+ }
 };
 
 var alertAction = new AutoModerationAction
 {
-    Type = AutoModerationActionType.SendAlertMessage,
-    Metadata = new AutoModerationActionMetadata
-    {
-        ChannelId = logChannelId
-    }
+ Type = AutoModerationActionType.SendAlertMessage,
+ Metadata = new AutoModerationActionMetadata
+ {
+ ChannelId = logChannelId
+ }
 };
 ```
 
@@ -151,31 +151,31 @@ Requires `MANAGE_GUILD` permission.
 ```csharp
 var rule = await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
 {
-    Name = "Block Bad Words",
-    EventType = AutoModerationEventType.MessageSend,
-    TriggerType = AutoModerationTriggerType.Keyword,
-    TriggerMetadata = new AutoModerationTriggerMetadata
-    {
-        KeywordFilter = new List<string>
-        {
-            "badword1", "badword2", "spam_link.*"
-        },
-        RegexPatterns = new List<string>
-        {
-            @"(discord\.gg|dsc\.gg)\/\S+"
-        },
-        AllowList = new List<string>
-        {
-            "badword1_is_actually_ok"
-        }
-    },
-    Actions = new List<AutoModerationAction>
-    {
-        new() { Type = AutoModerationActionType.BlockMessage },
-        new() { Type = AutoModerationActionType.SendAlertMessage,
-                Metadata = new() { ChannelId = modLogChannelId } }
-    },
-    Enabled = true,
+ Name = "Block Bad Words",
+ EventType = AutoModerationEventType.MessageSend,
+ TriggerType = AutoModerationTriggerType.Keyword,
+ TriggerMetadata = new AutoModerationTriggerMetadata
+ {
+ KeywordFilter = new List<string>
+ {
+ "badword1", "badword2", "spam_link.*"
+ },
+ RegexPatterns = new List<string>
+ {
+ @"(discord\.gg|dsc\.gg)\/\S+"
+ },
+ AllowList = new List<string>
+ {
+ "badword1_is_actually_ok"
+ }
+ },
+ Actions = new List<AutoModerationAction>
+ {
+ new() { Type = AutoModerationActionType.BlockMessage },
+ new() { Type = AutoModerationActionType.SendAlertMessage,
+ Metadata = new() { ChannelId = modLogChannelId } }
+ },
+ Enabled = true,
 });
 ```
 
@@ -184,42 +184,42 @@ var rule = await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
 ```csharp
 var rule = await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
 {
-    Name = "Anti-Spam",
-    EventType = AutoModerationEventType.MessageSend,
-    TriggerType = AutoModerationTriggerType.Spam,
-    Actions = new List<AutoModerationAction>
-    {
-        new() { Type = AutoModerationActionType.BlockMessage },
-        new() { Type = AutoModerationActionType.Timeout,
-                Metadata = new() { DurationSeconds = 600 } } // 10 min
-    },
-    Enabled = true,
+ Name = "Anti-Spam",
+ EventType = AutoModerationEventType.MessageSend,
+ TriggerType = AutoModerationTriggerType.Spam,
+ Actions = new List<AutoModerationAction>
+ {
+ new() { Type = AutoModerationActionType.BlockMessage },
+ new() { Type = AutoModerationActionType.Timeout,
+ Metadata = new() { DurationSeconds = 600 } } // 10 min
+ },
+ Enabled = true,
 });
 ```
 
-⚠️ Spam trigger type requires no `TriggerMetadata`. Discord's ML model handles detection.
+ Spam trigger type requires no `TriggerMetadata`. Discord's ML model handles detection.
 
 ### Keyword Preset Rule
 
 ```csharp
 var rule = await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
 {
-    Name = "Block Hate Speech",
-    EventType = AutoModerationEventType.MessageSend,
-    TriggerType = AutoModerationTriggerType.KeywordPreset,
-    TriggerMetadata = new AutoModerationTriggerMetadata
-    {
-        Presets = new List<AutoModerationKeywordPresetType>
-        {
-            AutoModerationKeywordPresetType.Profanity,
-            AutoModerationKeywordPresetType.Slurs
-        }
-    },
-    Actions = new List<AutoModerationAction>
-    {
-        new() { Type = AutoModerationActionType.BlockMessage },
-    },
-    Enabled = true,
+ Name = "Block Hate Speech",
+ EventType = AutoModerationEventType.MessageSend,
+ TriggerType = AutoModerationTriggerType.KeywordPreset,
+ TriggerMetadata = new AutoModerationTriggerMetadata
+ {
+ Presets = new List<AutoModerationKeywordPresetType>
+ {
+ AutoModerationKeywordPresetType.Profanity,
+ AutoModerationKeywordPresetType.Slurs
+ }
+ },
+ Actions = new List<AutoModerationAction>
+ {
+ new() { Type = AutoModerationActionType.BlockMessage },
+ },
+ Enabled = true,
 });
 ```
 
@@ -228,21 +228,21 @@ var rule = await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
 ```csharp
 var rule = await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
 {
-    Name = "Mention Limit",
-    EventType = AutoModerationEventType.MessageSend,
-    TriggerType = AutoModerationTriggerType.MentionSpam,
-    TriggerMetadata = new AutoModerationTriggerMetadata
-    {
-        MentionTotalLimit = 10,
-        MentionRaidProtectionEnabled = true,
-    },
-    Actions = new List<AutoModerationAction>
-    {
-        new() { Type = AutoModerationActionType.BlockMessage },
-        new() { Type = AutoModerationActionType.Timeout,
-                Metadata = new() { DurationSeconds = 3600 } }
-    },
-    Enabled = true,
+ Name = "Mention Limit",
+ EventType = AutoModerationEventType.MessageSend,
+ TriggerType = AutoModerationTriggerType.MentionSpam,
+ TriggerMetadata = new AutoModerationTriggerMetadata
+ {
+ MentionTotalLimit = 10,
+ MentionRaidProtectionEnabled = true,
+ },
+ Actions = new List<AutoModerationAction>
+ {
+ new() { Type = AutoModerationActionType.BlockMessage },
+ new() { Type = AutoModerationActionType.Timeout,
+ Metadata = new() { DurationSeconds = 3600 } }
+ },
+ Enabled = true,
 });
 ```
 
@@ -267,8 +267,8 @@ var rule = await client.Rest.GetAutoModerationRuleAsync(guildId, ruleId);
 ```csharp
 var updated = await client.Rest.ModifyAutoModerationRuleAsync(guildId, ruleId, new()
 {
-    Name = "Updated Rule Name",
-    Enabled = false,                 // disable temporarily
+ Name = "Updated Rule Name",
+ Enabled = false, // disable temporarily
 });
 ```
 
@@ -292,10 +292,10 @@ Both `CreateAutoModerationRuleRequest` and `ModifyAutoModerationRuleRequest` sup
 ```csharp
 new CreateAutoModerationRuleRequest
 {
-    Name = "Strict for @everyone, lenient for mods",
-    // ...
-    ExemptRoles = new List<ulong> { moderatorRoleId, adminRoleId },
-    ExemptChannels = new List<ulong> { staffChannelId },
+ Name = "Strict for @everyone, lenient for mods",
+ // ...
+ ExemptRoles = new List<ulong> { moderatorRoleId, adminRoleId },
+ ExemptChannels = new List<ulong> { staffChannelId },
 };
 ```
 
@@ -307,23 +307,23 @@ When a rule triggers, Discord sends an `AUTO_MODERATION_ACTION_EXECUTION` event.
 
 ```csharp
 client.Gateway.Events.On<AutoModerationActionExecutionEvent>(
-    "AUTO_MODERATION_ACTION_EXECUTION", async action =>
+ "AUTO_MODERATION_ACTION_EXECUTION", async action =>
 {
-    Console.WriteLine($"[AutoMod] Rule {action.RuleId} triggered in {action.GuildId}");
-    Console.WriteLine($"  Action: {action.Action.Type}");
-    Console.WriteLine($"  Content: {action.Content}");
-    Console.WriteLine($"  User: {action.UserId}");
-    Console.WriteLine($"  Channel: {action.ChannelId}");
+ Console.WriteLine($"[AutoMod] Rule {action.RuleId} triggered in {action.GuildId}");
+ Console.WriteLine($" Action: {action.Action.Type}");
+ Console.WriteLine($" Content: {action.Content}");
+ Console.WriteLine($" User: {action.UserId}");
+ Console.WriteLine($" Channel: {action.ChannelId}");
 
-    if (action.Action.Type == AutoModerationActionType.BlockMessage)
-    {
-        // Optionally DM the user explaining why
-        await NotifyUserAsync(action.UserId, action.RuleTriggerReason);
-    }
+ if (action.Action.Type == AutoModerationActionType.BlockMessage)
+ {
+ // Optionally DM the user explaining why
+ await NotifyUserAsync(action.UserId, action.RuleTriggerReason);
+ }
 });
 ```
 
-💡 The auto moderation event is **not** sent via a convenience method on `DiscordClient`. You must use `client.Gateway.Events.On<T>("EVENT_NAME", handler)`.
+ The auto moderation event is **not** sent via a convenience method on `DiscordClient`. You must use `client.Gateway.Events.On<T>("EVENT_NAME", handler)`.
 
 ---
 
@@ -335,71 +335,71 @@ using PawSharp.Core.Entities;
 using PawSharp.API.Models;
 
 var client = new PawSharpClientBuilder()
-    .WithToken("Bot YOUR_TOKEN")
-    .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .Build();
+ .WithToken("Bot YOUR_TOKEN")
+ .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+ .Build();
 
 const ulong guildId = 123456789;
 const ulong modLogChannelId = 987654321;
 
 client.OnReady(async _ =>
 {
-    Console.WriteLine("Creating auto-moderation rules...");
+ Console.WriteLine("Creating auto-moderation rules...");
 
-    // Keyword rule
-    await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
-    {
-        Name = "Block Links",
-        EventType = AutoModerationEventType.MessageSend,
-        TriggerType = AutoModerationTriggerType.Keyword,
-        TriggerMetadata = new AutoModerationTriggerMetadata
-        {
-            KeywordFilter = new List<string>
-            {
-                "discord.gg/", "dsc.gg/", "invite.gg/"
-            },
-        },
-        Actions = new List<AutoModerationAction>
-        {
-            new() { Type = AutoModerationActionType.BlockMessage,
-                    Metadata = new() { CustomMessage = "No invite links!" } },
-            new() { Type = AutoModerationActionType.SendAlertMessage,
-                    Metadata = new() { ChannelId = modLogChannelId } },
-        },
-        Enabled = true,
-    });
+ // Keyword rule
+ await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
+ {
+ Name = "Block Links",
+ EventType = AutoModerationEventType.MessageSend,
+ TriggerType = AutoModerationTriggerType.Keyword,
+ TriggerMetadata = new AutoModerationTriggerMetadata
+ {
+ KeywordFilter = new List<string>
+ {
+ "discord.gg/", "dsc.gg/", "invite.gg/"
+ },
+ },
+ Actions = new List<AutoModerationAction>
+ {
+ new() { Type = AutoModerationActionType.BlockMessage,
+ Metadata = new() { CustomMessage = "No invite links!" } },
+ new() { Type = AutoModerationActionType.SendAlertMessage,
+ Metadata = new() { ChannelId = modLogChannelId } },
+ },
+ Enabled = true,
+ });
 
-    // Mention spam rule
-    await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
-    {
-        Name = "Mention Protection",
-        EventType = AutoModerationEventType.MessageSend,
-        TriggerType = AutoModerationTriggerType.MentionSpam,
-        TriggerMetadata = new AutoModerationTriggerMetadata
-        {
-            MentionTotalLimit = 5,
-            MentionRaidProtectionEnabled = true,
-        },
-        Actions = new List<AutoModerationAction>
-        {
-            new() { Type = AutoModerationActionType.BlockMessage },
-            new() { Type = AutoModerationActionType.Timeout,
-                    Metadata = new() { DurationSeconds = 300 } }, // 5 min
-        },
-        Enabled = true,
-    });
+ // Mention spam rule
+ await client.Rest.CreateAutoModerationRuleAsync(guildId, new()
+ {
+ Name = "Mention Protection",
+ EventType = AutoModerationEventType.MessageSend,
+ TriggerType = AutoModerationTriggerType.MentionSpam,
+ TriggerMetadata = new AutoModerationTriggerMetadata
+ {
+ MentionTotalLimit = 5,
+ MentionRaidProtectionEnabled = true,
+ },
+ Actions = new List<AutoModerationAction>
+ {
+ new() { Type = AutoModerationActionType.BlockMessage },
+ new() { Type = AutoModerationActionType.Timeout,
+ Metadata = new() { DurationSeconds = 300 } }, // 5 min
+ },
+ Enabled = true,
+ });
 });
 
 // Listen for auto-mod actions
 client.Gateway.Events.On<AutoModerationActionExecutionEvent>(
-    "AUTO_MODERATION_ACTION_EXECUTION", async action =>
+ "AUTO_MODERATION_ACTION_EXECUTION", async action =>
 {
-    Console.WriteLine($"[AutoMod] Rule {action.RuleId} triggered on user {action.UserId}");
+ Console.WriteLine($"[AutoMod] Rule {action.RuleId} triggered on user {action.UserId}");
 
-    if (action.Action.Type == AutoModerationActionType.BlockMessage)
-    {
-        Console.WriteLine($"  Blocked content: {action.Content}");
-    }
+ if (action.Action.Type == AutoModerationActionType.BlockMessage)
+ {
+ Console.WriteLine($" Blocked content: {action.Content}");
+ }
 });
 
 await client.ConnectAsync();

@@ -18,26 +18,26 @@ BenchmarkDotNet v0.14.0
 // * Summary *
 
 BenchmarkDotNet: serialization/deserialization of Discord entities
-| Method                    | Mean     | Error    | Allocated |
+| Method | Mean | Error | Allocated |
 |---------------------------|----------|----------|-----------|
-| SerializeGuild            | 1.234 us | 0.012 us | 2.45 KB   |
-| DeserializeGuild          | 2.345 us | 0.023 us | 3.12 KB   |
-| SerializeMessage          | 0.987 us | 0.009 us | 1.89 KB   |
-| DeserializeMessage        | 1.876 us | 0.018 us | 2.56 KB   |
+| SerializeGuild | 1.234 us | 0.012 us | 2.45 KB |
+| DeserializeGuild | 2.345 us | 0.023 us | 3.12 KB |
+| SerializeMessage | 0.987 us | 0.009 us | 1.89 KB |
+| DeserializeMessage | 1.876 us | 0.018 us | 2.56 KB |
 
 Cache throughput:
-| Method                    | Mean     | Error    | Allocated |
+| Method | Mean | Error | Allocated |
 |---------------------------|----------|----------|-----------|
-| MemoryCacheGetGuild       | 0.045 us | 0.001 us | 0 B       |
-| MemoryCacheSetGuild       | 0.067 us | 0.002 us | 0 B       |
-| RedisCacheGetUser         | 1.234 us | 0.015 us | 1.2 KB    |
-| RedisCacheSetUser         | 1.567 us | 0.021 us | 1.5 KB    |
+| MemoryCacheGetGuild | 0.045 us | 0.001 us | 0 B |
+| MemoryCacheSetGuild | 0.067 us | 0.002 us | 0 B |
+| RedisCacheGetUser | 1.234 us | 0.015 us | 1.2 KB |
+| RedisCacheSetUser | 1.567 us | 0.021 us | 1.5 KB |
 
 REST client throughput:
-| Method                    | Mean     | Error    | Allocated |
+| Method | Mean | Error | Allocated |
 |---------------------------|----------|----------|-----------|
-| BuildAndSerializeRequest  | 0.567 us | 0.008 us | 1.2 KB    |
-| ParseResponseHeaders      | 0.123 us | 0.002 us | 0 B       |
+| BuildAndSerializeRequest | 0.567 us | 0.008 us | 1.2 KB |
+| ParseResponseHeaders | 0.123 us | 0.002 us | 0 B |
 ```
 
 ---
@@ -58,9 +58,9 @@ REST client throughput:
 
 ## Interpreting Results
 
-- **Mean** — average execution time in microseconds
-- **Error** — statistical error margin
-- **Allocated** — memory allocated per operation
+- **Mean** - average execution time in microseconds
+- **Error** - statistical error margin
+- **Allocated** - memory allocated per operation
 
 Track these across commits to catch performance regressions.
 
