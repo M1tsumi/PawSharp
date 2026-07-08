@@ -386,5 +386,5 @@ handler.RegisterCommand("join", async interaction =>
 ## Related Guides
 
 - [Gateway Events](./gateway.md) — Voice state updates over the gateway
-- [Patterns Guide](../guides/advanced.md) — Integration patterns
+- [Patterns Guide](extension-system.md) — Integration patterns
 - [Voice Guide (detailed)](../guides/voice.md) — Full DAVE internals and protocol details

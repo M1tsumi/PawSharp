@@ -395,7 +395,7 @@ Key rules:
 
 ## Need Help?
 
-- [Full changelog](../../CHANGELOG.md)
+- [Full changelog](../CHANGELOG.md)
 - [FAQ](faq.md)
 - [GitHub Issues](https://github.com/M1tsumi/PawSharp/issues)
 - [Discord](https://discord.gg/6Z8X8cCHXs)

@@ -389,4 +389,4 @@ await Task.Delay(Timeout.Infinite);
 
 ---
 
-**More guides:** [Slash Commands](./slash-commands.md) | [Interactions](./interactions.md) | [Gateway](../guides/gateway.md)
+**More guides:** [Slash Commands](./slash-commands.md) | [Interactions](./slash-commands.md) | [Gateway](../guides/gateway.md)

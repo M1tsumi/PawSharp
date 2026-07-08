@@ -139,6 +139,6 @@ dotnet run
 - [Installation guide](./installation.md) &mdash; detailed package setup and build instructions
 - [Your first bot](./guides/first-bot.md) &mdash; step-by-step walkthrough with commands and events
 - [Gateway events](guides/gateway.md) &mdash; handling Discord's real-time events
-- [Slash commands](slash-commands.md) &mdash; building modern interaction-based commands
+- [Slash commands](guides/slash-commands.md) &mdash; building modern interaction-based commands
 - [API reference](../api/index.md) &mdash; full type and method documentation
 - [FAQ](./faq.md) &mdash; frequently asked questions

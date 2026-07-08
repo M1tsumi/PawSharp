@@ -379,7 +379,7 @@ public sealed class GreetingModule : BaseCommandModule
 - [Installation guide](../installation.md) &mdash; detailed package reference
 - [Getting Started](../getting-started.md) &mdash; architecture and package overview
 - [Gateway Events](../guides/gateway.md) &mdash; handling 60+ Discord events
-- [Slash Commands](../slash-commands.md) &mdash; building modern interactions
+- [Slash Commands](slash-commands.md) &mdash; building modern interactions
 - [Caching](../guides/caching.md) &mdash; optimizing with Redis or in-memory cache
 - [Voice](../guides/voice.md) &mdash; audio streaming and DAVE E2EE
 - [Error Handling](../guides/error-handling.md) &mdash; structured exception handling

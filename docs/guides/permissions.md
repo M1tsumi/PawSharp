@@ -307,4 +307,4 @@ var allowed = Permissions.ViewChannel
 ## Related Guides
 
 - [Slash Commands](./slash-commands.md) — `SetDefaultMemberPermissions`
-- [Moderation Patterns](../guides/advanced.md#moderation) — Kick/ban with logging
+- [Moderation Patterns](extension-system.md#moderation) — Kick/ban with logging

@@ -2,7 +2,7 @@
 
 Message Components turn static messages into interactive UI elements — buttons, select menus, and the newer layout-driven Components v2 types (sections, containers, media galleries, checkboxes, radio buttons, and more).
 
-> **Prerequisites:** [Interaction Handling](./interactions.md), [Slash Commands](./slash-commands.md)
+> **Prerequisites:** [Interaction Handling](./slash-commands.md), [Slash Commands](./slash-commands.md)
 
 ---
 
@@ -491,7 +491,7 @@ await handler.EditResponseAsync(applicationId, interaction.Token,
 
 ## Related Guides
 
-- [Interaction Handling](./interactions.md) — Registering handlers, response types
+- [Interaction Handling](./slash-commands.md) — Registering handlers, response types
 - [Modals](./modals.md) — Modal dialogs with text inputs
 - [Slash Commands](./slash-commands.md) — Command registration and options
 - [Attachments](./attachments.md) — File uploads and attachments

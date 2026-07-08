@@ -2,7 +2,7 @@
 
 Modals are pop-up forms that let you collect structured text input from users. They are triggered by interaction responses — typically from a slash command, button click, or select menu selection.
 
-> **Prerequisites:** [Interaction Handling](./interactions.md), [Components](./components.md)
+> **Prerequisites:** [Interaction Handling](./slash-commands.md), [Components](./components.md)
 
 ---
 
@@ -281,5 +281,5 @@ await handler.RespondEphemeralAsync(interaction.Id, interaction.Token, "Saved!")
 ## Related Guides
 
 - [Components](./components.md) — Buttons, select menus, v2 layout types
-- [Interaction Handling](./interactions.md) — Registering handlers, response types
+- [Interaction Handling](./slash-commands.md) — Registering handlers, response types
 - [Slash Commands](./slash-commands.md) — Command registration
