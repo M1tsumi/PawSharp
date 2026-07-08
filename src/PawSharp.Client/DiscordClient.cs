@@ -55,6 +55,8 @@ namespace PawSharp.Client
         private readonly ConcurrentDictionary<ulong, VoiceState> _voiceStates = new();
         private bool _disposed;
         private static bool _globalExceptionHandlersRegistered;
+        private static UnhandledExceptionEventHandler? _unhandledExceptionHandler;
+        private static EventHandler<UnobservedTaskExceptionEventArgs>? _unobservedTaskExceptionHandler;
 
         public event Func<VoiceState, Task>? OnVoiceDisconnected;
 
@@ -101,7 +103,7 @@ namespace PawSharp.Client
             _interactionHandler = interactionHandler ?? new InteractionHandler(_restClient, loggerFactory?.CreateLogger<InteractionHandler>());
 
             // Wire cache to gateway events automatically
-            _cacheManager = new CacheManager(cache, null);
+            _cacheManager = new CacheManager(cache, loggerFactory?.CreateLogger<CacheManager>());
             _cacheManager.SubscribeToGateway(_gatewayClient);
 
             // Cache CurrentUser from READY event
@@ -324,25 +326,40 @@ namespace PawSharp.Client
             if (_globalExceptionHandlersRegistered) return;
             _globalExceptionHandlersRegistered = true;
 
-            AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+            _unhandledExceptionHandler = (sender, args) =>
             {
                 var ex = args.ExceptionObject as Exception;
                 var message = $"Unhandled exception (terminating: {args.IsTerminating})";
                 logger?.LogCritical(ex, message);
                 onUnhandledException?.Invoke(ex ?? new Exception("Unknown unhandled exception"), message);
             };
+            AppDomain.CurrentDomain.UnhandledException += _unhandledExceptionHandler;
 
-            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            _unobservedTaskExceptionHandler = (sender, args) =>
             {
                 logger?.LogError(args.Exception, "Unobserved task exception");
                 onUnhandledException?.Invoke(args.Exception, "Unobserved task exception");
                 args.SetObserved();
             };
+            TaskScheduler.UnobservedTaskException += _unobservedTaskExceptionHandler;
         }
 
         public static void RemoveGlobalExceptionHandlers()
         {
+            if (!_globalExceptionHandlersRegistered) return;
             _globalExceptionHandlersRegistered = false;
+
+            if (_unhandledExceptionHandler != null)
+            {
+                AppDomain.CurrentDomain.UnhandledException -= _unhandledExceptionHandler;
+                _unhandledExceptionHandler = null;
+            }
+
+            if (_unobservedTaskExceptionHandler != null)
+            {
+                TaskScheduler.UnobservedTaskException -= _unobservedTaskExceptionHandler;
+                _unobservedTaskExceptionHandler = null;
+            }
         }
 
         // ── Typed REST helpers ────────────────────────────────────────────────────

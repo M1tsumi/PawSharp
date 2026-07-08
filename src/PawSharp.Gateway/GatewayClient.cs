@@ -675,7 +675,15 @@ namespace PawSharp.Gateway
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error receiving message from Gateway - attempting reconnection");
-                    await ReconnectAsync().ConfigureAwait(false);
+                    try
+                    {
+                        await ReconnectAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception reconnectEx)
+                    {
+                        _logger.LogError(reconnectEx, "Reconnection attempt failed unexpectedly");
+                        await SetStateAsync(GatewayState.Failed, "Reconnection failed after receive error").ConfigureAwait(false);
+                    }
                 }
             }
         }

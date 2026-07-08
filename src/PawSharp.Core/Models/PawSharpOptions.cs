@@ -151,9 +151,17 @@ public class PawSharpOptions
     public EventDispatchOptions EventDispatch { get; set; } = new EventDispatchOptions();
     
     /// <summary>
-    /// Cache configuration options.
+    /// Client-side cache configuration options.
     /// </summary>
+    /// <remarks>
+    /// This property configures per-guild entity limits used by the client cache manager
+    /// (for example, the maximum number of messages to cache per channel). It is specific
+    /// to <see cref="PawSharpOptions"/> and is separate from <c>PawSharp.Cache.CacheOptions</c>,
+    /// which configures provider-level settings such as TTL and connection options for cache
+    /// providers like Redis.
+    /// </remarks>
     public CacheOptions Cache { get; set; } = new CacheOptions();
+
 
     /// <summary>
     /// REST API configuration options.
@@ -188,8 +196,14 @@ public class PawSharpOptions
     }
 
     /// <summary>
-    /// Cache configuration options.
+    /// Client-side cache configuration options that control per-guild entity limits.
     /// </summary>
+    /// <remarks>
+    /// This class is nested under <see cref="PawSharpOptions"/> and is used by the client
+    /// cache manager to limit how many entities are kept in memory per guild/channel.
+    /// For provider-level cache configuration such as TTL and connection settings, use
+    /// <c>PawSharp.Cache.CacheOptions</c> instead.
+    /// </remarks>
     public class CacheOptions
     {
         /// <summary>
