@@ -27,10 +27,10 @@
     <!-- ── Native AOT support ─────────────────────────────────────────────── -->
     <!-- Enable AOT compatibility analysis -->
     <IsAotCompatible>true</IsAotCompatible>
-    <!-- Enable trimming for AOT -->
-    <PublishTrimmed>true</PublishTrimmed>
-    <!-- Enable trimming analysis -->
-    <TrimMode>link</TrimMode>
+    <!-- Enable trimming for AOT (only during publish, not regular Release builds) -->
+    <PublishTrimmed Condition="'$(DotNetBuildFromSource)' != 'true' And '$(DesignTimeBuild)' != 'true'">true</PublishTrimmed>
+    <!-- TrimMode link is only relevant during publish -->
+    <TrimMode Condition="'$(PublishTrimmed)' == 'true'">link</TrimMode>
     <!-- Suppress AOT warnings during development (remove for production AOT builds) -->
     <NoWarn>$(NoWarn);IL2026;IL2070;IL2072;IL2096</NoWarn>
   </PropertyGroup>
