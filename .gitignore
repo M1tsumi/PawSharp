@@ -147,6 +147,7 @@ PawSharp.Voice.txt
 
 # Arena folder (audit reports and temporary files)
 Arena/
+AUDIT.md
 
 # DocFX build output
 _site/
