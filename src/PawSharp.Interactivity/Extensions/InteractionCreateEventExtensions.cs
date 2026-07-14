@@ -410,6 +410,6 @@ public static class MessageFlagExtensions
     /// <returns>True if the message has Components V2 flag set.</returns>
     public static bool HasComponentsV2(this Message message)
     {
-        return message.Flags.HasValue && (message.Flags.Value & (MessageFlags)64) != 0;
+        return message.Flags.HasValue && (message.Flags.Value & (MessageFlags)IsComponentsV2) != 0;
     }
 }

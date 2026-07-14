@@ -4,6 +4,147 @@ All notable changes to PawSharp are documented here.
 
 ---
 
+## [1.1.0-alpha.5] - 2026-07-08
+
+### Critical Fixes
+
+- **Gateway state race condition** (`PawSharp.Gateway`)
+  - `_currentState` field was read and written across multiple threads without synchronization, causing connect/disconnect to observe stale state. Made `volatile` to ensure JIT/CPU do not cache stale values.
+
+- **Rate limiter token leak** (`PawSharp.Gateway`)
+  - `GatewaySendAsync` released a semaphore token on `OperationCanceledException` (reconnect/disconnect), allowing more than 120 sends per 60-second window. The token is now only released on normal expiry; CTS cancellation during reconnection no longer returns tokens.
+
+- **Double dispatch of voice events** (`PawSharp.Gateway`)
+  - `VOICE_STATE_UPDATE` and `VOICE_SERVER_UPDATE` were dispatched twice — once via `EventDispatcher` and once via raw event delegates with a separate `JsonSerializer.Deserialize` call. Removed the redundant raw-event path; consumers should subscribe via `EventDispatcher.On<T>()`.
+
+- **HasComponentsV2 checks wrong flag bit** (`PawSharp.Interactivity`)
+  - `HasComponentsV2` tested flag bit 64 instead of 32768 (`1 << 15`), causing all Components V2 detection to fail. Now uses the `IsComponentsV2` constant.
+
+- **GetCurrentUserAsync deserializes with wrong JSON options** (`PawSharp.Client`)
+  - `GetCurrentUserAsync` called `ReadFromJsonAsync<User>()` without snake_case options, producing incorrect `User` objects. Now uses `JsonNamingPolicy.SnakeCaseLower` with `JsonNumberHandling.AllowReadingFromString`.
+
+- **DI registration creates duplicate singleton instances** (`PawSharp.Client`)
+  - `SetupPawSharp` registered `IDiscordClient` and `DiscordClient` as separate singletons, so `GetRequiredService<DiscordClient>()` returned a different instance. Now registers `DiscordClient` first and wires `IDiscordClient` to resolve from it.
+
+### High Fixes
+
+- **ShardManager dictionary thread-safety** (`PawSharp.Gateway`)
+  - `_shards`, `_shardStatuses`, and `_stateChangeHandlers` dictionaries were accessed concurrently without synchronization. Added `lock` around all dictionary operations.
+
+- **ReconnectionManager thread-safety** (`PawSharp.Gateway`)
+  - `_reconnectionAttempts` and `_currentBackoffMs` were read/written from multiple threads without synchronization. Protected with `lock` in `Reset()` and `ReconnectAsync()`.
+
+- **WebSocketConnection.Dispose race** (`PawSharp.Gateway`)
+  - `Dispose()` read `_webSocket` on a fire-and-forget task while `ConnectAsync` could swap it concurrently. `Dispose()` now takes a local reference under `_socketLock` before the async close.
+
+- **HandleApiResponseAsync double body read** (`PawSharp.API`)
+  - On deserialization failure, `ReadFromJsonAsync` consumed the stream, then `ReadAsStringAsync` failed. Now buffers the response body via `ReadAsStringAsync` first, then deserializes from the string.
+
+- **CacheGuildMember null user malformed key** (`PawSharp.Cache`)
+  - `CacheGuildMember` with null `User` created key `"guildId:"` causing cross-guild collisions. Now early-returns with a warning.
+
+- **Clear() missing cache dictionaries** (`PawSharp.Cache`)
+  - `MemoryCacheProvider.Clear()` did not clear `_genericCache`, `_lastAccess`, or `_lastAccessString`, causing memory leaks and incorrect LRU eviction after clear.
+
+- **CollectReactionsAsync thread-unsafe Dictionary** (`PawSharp.Interactivity`)
+  - Used `Dictionary<string, int>` mutated from concurrent gateway event threads. Now uses `ConcurrentDictionary` with `AddOrUpdate`.
+
+- **WaitForAllReactionsAsync thread-unsafe List** (`PawSharp.Interactivity`)
+  - Used `List<User>` mutated from concurrent gateway event threads. Now uses `ConcurrentBag<User>` with `ConcurrentDictionary` for deduplication.
+
+- **ShardManager fallback uses wrong value** (`PawSharp.Gateway`)
+  - `CalculateRecommendedShardCountAsync` fallback passed `_options.Shards` (shard count) instead of `_options.ShardCount`. Fixed to use the correct property.
+
+### Medium Fixes
+
+- **ConnectAsync re-entrancy guard** (`PawSharp.Gateway`)
+  - Concurrent calls to `ConnectAsync` could both see `Disconnected` state and create duplicate receive loops. Added `SemaphoreSlim` to ensure only one connection attempt proceeds at a time.
+
+- **AddPawSharp creates bare HttpClient** (`PawSharp.Client`)
+  - The DI path created a plain `HttpClient` without `SocketsHttpHandler` configuration, inconsistent with the builder path. Now configures `ConnectTimeout`, `Expect100ContinueTimeout`, and `PooledConnectionLifetime`.
+
+- **TypeConverterService nullable type handling** (`PawSharp.Commands`)
+  - Nullable type detection found the underlying converter but logged a warning and fell through to error. Now invokes the underlying converter via reflection and wraps the result.
+
+- **InteractionHandler wrong response type for components** (`PawSharp.Interactions`)
+  - Error responses always used `ChannelMessageWithSource` (type 4), which fails for component interactions. Now detects `MESSAGE_COMPONENT` (type 3) interactions and uses `UpdateMessage` (type 7).
+
+- **ChannelExtensions currentPage race condition** (`PawSharp.Interactivity`)
+  - `currentPage` was captured by reference in a closure mutated from multiple threads. Now uses `Interlocked` operations for atomic reads and mutations.
+
+- **OAuth2 FormUrlEncodedContent not disposed** (`PawSharp.API`)
+  - `ExchangeCodeAsync` and `RefreshTokenAsync` created `FormUrlEncodedContent` without `using`, leaking the disposable resource.
+
+- **Missing ValidateSnowflake on guild member methods** (`PawSharp.API`)
+  - `AddGuildMemberAsync` and `ModifyGuildMemberAsync` did not validate snowflake IDs, inconsistent with all other methods.
+
+- **HeartbeatManager non-atomic ack state** (`PawSharp.Gateway`)
+  - `_ackReceived` and `_missedAcks` were updated non-atomically, causing extra missed-ack counts. Now uses `Interlocked.Exchange` for `_missedAcks` and resets it before setting `_ackReceived`.
+
+- **CacheSwapper fallback always re-throws** (`PawSharp.Cache`)
+  - `Add`, `Remove`, and `Clear` catch blocks attempted fallback but always re-threw the original exception. Now returns on successful fallback.
+
+- **CacheSwapper holds lock during I/O** (`PawSharp.Cache`)
+  - `TryFallbackAsync` held `_lock` while calling `IsHealthy()` (network I/O). Now snapshots providers under lock, then releases before health checks.
+
+- **ZlibStreamCompression unbounded buffer** (`PawSharp.Gateway`)
+  - No maximum buffer size protection against malformed streams. Added 4 MB limit with buffer reset on overflow.
+
+- **PerformanceMetrics.Reset non-atomic** (`PawSharp.Core`)
+  - `Reset()` cleared dictionaries and reset counters non-atomically. Now wrapped in `lock`.
+
+- **SetWatchingAsync sends wrong activity type** (`PawSharp.Gateway`)
+  - `SetWatchingAsync` sent type 0 (Playing) instead of type 3 (Watching). Note: `UpdatePresenceAsync` currently only supports types 0 and 1; type 3 support requires API surface changes (proposed separately).
+
+### Low / Style Fixes
+
+- **WaitForReadyAsync reduced polling interval** (`PawSharp.Gateway`)
+  - Polling delay reduced from 100ms to 10ms for lower latency. Full event-driven approach deferred to a future release.
+
+- **EventReplayBuffer count read outside lock** (`PawSharp.Gateway`)
+  - `_events.Count` was read outside the lock block, producing stale counts in logs. Now captured inside the lock.
+
+- **EventDispatcherIntentExtensions Console.WriteLine fallback** (`PawSharp.Gateway`)
+  - Warning output fell back to `Console.WriteLine` when no logger was available. Now uses `System.Diagnostics.Debug.WriteLine` for production-safe output.
+
+- **RedisCacheProvider.ClearAsync not actually async** (`PawSharp.Cache`)
+  - `ClearAsync` was declared `async` but never awaited anything. Removed `async` keyword and returns `Task.CompletedTask`.
+
+- **GatewayClient constructor null validation** (`PawSharp.Gateway`)
+  - Added `ArgumentNullException.ThrowIfNull` for `options` and `logger` parameters.
+
+- **Hard-coded OS string in identify payload** (`PawSharp.Gateway`)
+  - `os = "linux"` was hard-coded regardless of runtime platform. Now uses `RuntimeInformation.OSDescription`.
+
+- **Redundant Dispose after StopAsync** (`PawSharp.Gateway`)
+  - `HandleHelloAsync` called both `StopAsync()` and `Dispose()` on `HeartbeatManager`. Removed redundant `Dispose()` since `StopAsync` already cleans up.
+
+- **Missing #nullable enable on WebSocketConnection** (`PawSharp.Gateway`)
+  - Added `#nullable enable` to match the rest of the codebase.
+
+- **Extension methods missing null validation** (`PawSharp.Gateway`)
+  - `SetPlayingAsync`, `SetWatchingAsync`, `SetListeningAsync`, `SetStreamingAsync`, `SetCompetingAsync` now validate `client` parameter for null.
+
+- **Unused _snowflakeOptions field removed** (`PawSharp.Gateway`)
+  - Static `JsonSerializerOptions` field was declared but never referenced. Removed.
+
+- **URL regex unescaped dot** (`PawSharp.Core`)
+  - `UrlValidator` regex had `[^\s/$.?#].` where `.` matched any character. Fixed to `\.[^\s]*$` for literal dot.
+
+- **GetPollResultsAsync missing null checks** (`PawSharp.Interactivity`)
+  - Added `InteractivityValidation.RequireNotNull` for `message`, `client`, and `options` parameters.
+
+- **GetPollResultsAsync silent exception swallowing** (`PawSharp.Interactivity`)
+  - Generic `catch (Exception)` silently returned empty results with no logging. Now writes to `Debug.WriteLine`.
+
+- **InteractivityValidation.RequireNotEmpty double enumeration** (`PawSharp.Interactivity`)
+  - `RequireNotEmpty` called `collection.Any()` which enumerated the collection, then the caller enumerated again. Now uses `GetEnumerator()` with `MoveNext()` for single-pass validation.
+
+- **ModerationBot example rewritten** (`examples/ModerationBot`)
+  - Example used non-existent `DiscordClient(token, loggerFactory)` constructor and wrong event subscription API. Rewritten to use `PawSharpClientBuilder` and `client.OnMessageCreated()`.
+
+---
+
 ## [1.1.0-alpha.4] - 2026-06-24
 
 ### Critical Fixes

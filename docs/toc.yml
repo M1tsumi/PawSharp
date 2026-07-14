@@ -1,22 +1,93 @@
 - name: Getting Started
-  href: DEVELOPERS_GUIDE.md
-- name: REST API
-  href: REST_API_GUIDE.md
-- name: Gateway & Events
-  href: GATEWAY_GUIDE.md
-- name: Caching
-  href: CACHING_GUIDE.md
-- name: Voice & DAVE E2EE
-  href: VOICE_GUIDE.md
-- name: Patterns & Examples
-  href: PATTERNS_GUIDE.md
-- name: Versioning Policy
-  href: VERSIONING_POLICY.md
-- name: Error Handling
-  href: ERROR_HANDLING.md
-- name: Event Interest Filtering
-  href: EVENT_INTEREST_FILTERING_GUIDE.md
+  items:
+  - name: Installation
+    href: installation.md
+  - name: First Bot
+    href: guides/first-bot.md
+  - name: Configuration
+    href: getting-started.md
+  - name: Authentication
+    href: installation.md
+  - name: Dependency Injection
+    href: getting-started.md
+- name: Guides
+  items:
+  - name: Gateway
+    href: guides/gateway.md
+  - name: Events
+    href: guides/events.md
+  - name: Sending Messages
+    href: guides/sending-messages.md
+  - name: Receiving Messages
+    href: guides/receiving-messages.md
+  - name: Slash Commands
+    href: guides/slash-commands.md
+  - name: Context Menus
+    href: guides/context-menus.md
+  - name: Components
+    href: guides/components.md
+  - name: Modals
+    href: guides/modals.md
+  - name: Embeds
+    href: guides/embeds.md
+  - name: Attachments
+    href: guides/attachments.md
+  - name: Permissions
+    href: guides/permissions.md
+  - name: Threads
+    href: guides/threads.md
+  - name: Webhooks
+    href: guides/webhooks.md
+  - name: Voice
+    href: guides/voice.md
+  - name: Auto Moderation
+    href: guides/auto-moderation.md
+  - name: Scheduled Events
+    href: guides/scheduled-events.md
+  - name: Polls
+    href: guides/polls.md
+  - name: Rate Limits
+    href: guides/rate-limits.md
+  - name: Caching
+    href: guides/caching.md
+  - name: Logging
+    href: guides/logging.md
+  - name: Error Handling
+    href: guides/error-handling.md
+- name: Advanced
+  items:
+  - name: Sharding
+    href: guides/sharding.md
+  - name: Performance
+    href: guides/performance.md
+  - name: Memory Usage
+    href: guides/memory-usage.md
+  - name: Extension System
+    href: guides/extension-system.md
+  - name: REST Pipeline
+    href: guides/rest-pipeline.md
+  - name: Gateway Pipeline
+    href: guides/gateway-pipeline.md
+  - name: Serialization
+    href: guides/serialization.md
+  - name: Benchmarks
+    href: guides/benchmarks.md
+- name: API Reference
+  href: ../api/
+  homepage: ../api/index.md
+- name: Contributing
+  items:
+  - name: Building from Source
+    href: contributing/building-from-source.md
+  - name: Repository Structure
+    href: contributing/repository-structure.md
+  - name: Coding Guidelines
+    href: contributing/coding-guidelines.md
+  - name: Running Tests
+    href: contributing/running-tests.md
+- name: FAQ
+  href: faq.md
 - name: Migration Guide
-  href: MIGRATION.md
-- name: Troubleshooting
-  href: TROUBLESHOOTING.md
+  href: migration.md
+- name: Changelog
+  href: changelog.md

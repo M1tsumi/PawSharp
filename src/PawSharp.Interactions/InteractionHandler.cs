@@ -523,6 +523,12 @@ public class InteractionHandler : IDisposable
             return;
         }
 
+        // For component interactions (type 3 = MESSAGE_COMPONENT), use UpdateMessage (type 7)
+        // instead of ChannelMessageWithSource (type 4) to avoid "interaction has already been acknowledged" errors.
+        var errorResponseType = interaction.Type == 3
+            ? (int)InteractionResponseType.UpdateMessage
+            : (int)InteractionResponseType.ChannelMessageWithSource;
+
         try
         {
             await handler(interaction).ConfigureAwait(false);
@@ -531,12 +537,11 @@ public class InteractionHandler : IDisposable
         {
             _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. API Error: {StatusCode} - {DiscordMessage}", 
                 handlerType, key, ex.StatusCode, ex.DiscordErrorMessage);
-            // Optionally send error response to user
             try
             {
                 await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
                 {
-                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Type = errorResponseType,
                     Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
                 }).ConfigureAwait(false);
             }
@@ -553,7 +558,7 @@ public class InteractionHandler : IDisposable
             {
                 await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
                 {
-                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Type = errorResponseType,
                     Data = new InteractionCallbackData { Content = $"Invalid input: {ex.Message}", Flags = 64 }
                 }).ConfigureAwait(false);
             }
@@ -566,12 +571,11 @@ public class InteractionHandler : IDisposable
         {
             _logger?.LogError(ex, "{HandlerType} handler failed for key '{Key}'. Unexpected error: {MessageType}", 
                 handlerType, key, ex.GetType().Name);
-            // Optionally send error response to user
             try
             {
                 await _restClient.CreateInteractionResponseAsync(interaction.Id, interaction.Token, new InteractionResponse
                 {
-                    Type = (int)InteractionResponseType.ChannelMessageWithSource,
+                    Type = errorResponseType,
                     Data = new InteractionCallbackData { Content = "An error occurred while processing this interaction.", Flags = 64 }
                 }).ConfigureAwait(false);
             }

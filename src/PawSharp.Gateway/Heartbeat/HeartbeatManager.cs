@@ -135,8 +135,8 @@ namespace PawSharp.Gateway.Heartbeat
         /// </summary>
         public async Task ReceiveAckAsync()
         {
+            Interlocked.Exchange(ref _missedAcks, 0);
             _ackReceived = true;
-            _missedAcks = 0;
             _logger?.LogDebug("Heartbeat ACK received - connection healthy");
             if (OnHeartbeatAckReceived is { } ackHandler)
                 await ackHandler().ConfigureAwait(false);
