@@ -103,8 +103,14 @@ namespace PawSharp.Cache.Providers
         }
 
         /// <summary>
-        /// Adds an item to the cache.
+        /// Adds an item to the generic cache as JSON.
         /// </summary>
+        /// <remarks>
+        /// Values are serialized using the shared JSON options and stored as strings.
+        /// Use the typed <c>CacheXxx</c>/<c>GetXxx</c> methods when you need to retrieve
+        /// a strongly-typed entity; this generic store returns a <see cref="JsonElement"/>
+        /// on <see cref="Get"/>.
+        /// </remarks>
         /// <param name="key">The cache key.</param>
         /// <param name="entity">The entity to cache.</param>
         public void Add(string key, object entity)
@@ -114,14 +120,20 @@ namespace PawSharp.Cache.Providers
         }
 
         /// <summary>
-        /// Gets an item from the cache.
+        /// Gets an item from the generic cache.
         /// </summary>
+        /// <remarks>
+        /// Generic cache entries are stored as JSON and deserialized to a
+        /// <see cref="JsonElement"/>. Consumers needing strongly-typed values should use
+        /// the typed <c>CacheXxx</c>/<c>GetXxx</c> methods (for example,
+        /// <see cref="CacheUser"/>/<see cref="GetUser"/>).
+        /// </remarks>
         /// <param name="key">The cache key.</param>
-        /// <returns>The cached entity, or null if not found.</returns>
+        /// <returns>A <see cref="JsonElement"/> representing the cached JSON, or <see langword="null"/> if not found.</returns>
         public object? Get(string key)
         {
             var json = _db.StringGet(key);
-            return json.HasValue ? JsonSerializer.Deserialize<object>((string)json!, _jsonOptions) : null;
+            return json.HasValue ? JsonSerializer.Deserialize<JsonElement>((string)json!, _jsonOptions) : null;
         }
 
         /// <summary>
@@ -993,7 +1005,7 @@ namespace PawSharp.Cache.Providers
             }
         }
 
-        public async Task ClearAsync()
+        public Task ClearAsync()
         {
             var endpoints = _redis.GetEndPoints();
             foreach (var endpoint in endpoints)
@@ -1002,6 +1014,7 @@ namespace PawSharp.Cache.Providers
                 server.FlushDatabase(_options.Database);
             }
             CacheCleared?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
         }
 
         public async Task RemoveChannelAsync(ulong channelId)

@@ -1,24 +1,28 @@
 ﻿<div align="center">
-  <img src="assets/pawsharp-logo.svg" alt="PawSharp Logo" width="180" /><br/><br/>
+ <img src="assets/pawsharp-logo.svg" alt="PawSharp Logo" width="180" /><br/><br/>
 
-  # PawSharp
+ # PawSharp
 
-  **Build Discord bots without fighting your framework.**
+ **Build Discord bots without fighting your framework.**
 
-  [![NuGet][nuget-badge]][nuget]
-  [![Discord API][discord-api-badge]][discord-docs]
-  [![.NET][dotnet-badge]][dotnet-link]
-  [![License][license-badge]][license]
-  [![Build][build-badge]][build]
-  [![Discord][discord-badge]][discord]
+ [![NuGet][nuget-badge]][nuget]
+ [![Discord API][discord-api-badge]][discord-docs]
+ [![.NET][dotnet-badge]][dotnet-link]
+ [![License][license-badge]][license]
+ [![Build][build-badge]][build]
+ [![Docs][docs-badge]][docs]
+ [![Discord][discord-badge]][discord]
 
-  [Docs][docs] &middot; [Examples][examples] &middot; [Changelog][changelog] &middot; [NuGet][nuget] &middot; [Discord][discord]
+ [Docs][docs] &middot; [Examples][examples] &middot; [Changelog][changelog] &middot; [NuGet][nuget] &middot; [Discord][discord]
 
 </div>
 
 ---
 
-We're at **`1.1.0-alpha.4`** - core pieces work, things are still settling.
+## Documentation
+Full API reference, guides, and examples at **[pawsharp.dev](https://M1tsumi.github.io/PawSharp/)**.
+
+We're at **`1.1.0-alpha.5`** - core pieces work, things are still settling.
 
 ## Why PawSharp?
 
@@ -37,7 +41,7 @@ PawSharp is built for modern .NET from the ground up - modular packages, async-f
 ## Quickstart
 
 ```bash
-dotnet add package PawSharp.Client --version 1.1.0-alpha.4
+dotnet add package PawSharp.Client --version 1.1.0-alpha.5
 ```
 
 ```csharp
@@ -45,19 +49,19 @@ using PawSharp.Client;
 using PawSharp.Core.Enums;
 
 var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
-    ?? throw new InvalidOperationException("Set DISCORD_TOKEN before running.");
+ ?? throw new InvalidOperationException("Set DISCORD_TOKEN before running.");
 
 var client = new PawSharpClientBuilder()
-    .WithToken(token)
-    .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
-    .UseConsoleLogging()
-    .Build();
+ .WithToken(token)
+ .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+ .UseConsoleLogging()
+ .Build();
 
 client.OnMessageCreated(async evt =>
 {
-    if (evt.Author?.IsBot == true) return;
-    if (evt.Content == "!ping")
-        await client.SendMessageAsync(evt.ChannelId, "Pong!");
+ if (evt.Author?.IsBot == true) return;
+ if (evt.Content == "!ping")
+ await client.SendMessageAsync(evt.ChannelId, "Pong!");
 });
 
 await client.ConnectAsync();
@@ -131,7 +135,7 @@ Each has its own README.
 - [Patterns & Best Practices][patterns-guide]
 - [Error Handling][error-handling]
 - [Migration Guide][migration]
-- [Troubleshooting][troubleshooting]
+- [FAQ][faq]
 
 ---
 
@@ -160,28 +164,29 @@ MIT. See [LICENSE][license].
 ---
 
 <!-- Reference links -->
-[nuget]:             https://www.nuget.org/packages/PawSharp.Client
-[nuget-badge]:       https://img.shields.io/nuget/vpre/PawSharp.Client?style=flat-square&color=5865F2&label=nuget
+[nuget]: https://www.nuget.org/packages/PawSharp.Client
+[nuget-badge]: https://img.shields.io/nuget/vpre/PawSharp.Client?style=flat-square&color=5865F2&label=nuget
 [discord-api-badge]: https://img.shields.io/badge/Discord%20API-v10-5865F2?style=flat-square
-[discord-docs]:      https://discord.com/developers/docs
-[dotnet-badge]:      https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square
-[dotnet-link]:       https://dotnet.microsoft.com/en-us/download/dotnet/10.0
-[license-badge]:     https://img.shields.io/badge/license-MIT-22c55e?style=flat-square
-[license]:           LICENSE
-[build-badge]:       https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml/badge.svg
-[build]:             https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml
-[docs]:              https://github.com/M1tsumi/PawSharp/tree/main/docs
-[dev-guide]:         docs/DEVELOPERS_GUIDE.md
-[rest-guide]:        docs/REST_API_GUIDE.md
-[gateway-guide]:     docs/GATEWAY_GUIDE.md
-[caching-guide]:     docs/CACHING_GUIDE.md
-[patterns-guide]:    docs/PATTERNS_GUIDE.md
-[voice-guide]:       docs/VOICE_GUIDE.md
-[error-handling]:    docs/ERROR_HANDLING.md
-[migration]:         docs/MIGRATION.md
-[troubleshooting]:   docs/TROUBLESHOOTING.md
-[changelog]:         CHANGELOG.md
-[examples]:          examples/
-[contributing]:      CONTRIBUTING.md
-[discord]:           https://discord.gg/6Z8X8cCHXs
-[discord-badge]:     https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white
+[discord-docs]: https://discord.com/developers/docs
+[dotnet-badge]: https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square
+[dotnet-link]: https://dotnet.microsoft.com/en-us/download/dotnet/10.0
+[license-badge]: https://img.shields.io/badge/license-MIT-22c55e?style=flat-square
+[license]: LICENSE
+[build-badge]: https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml/badge.svg
+[build]: https://github.com/M1tsumi/PawSharp/actions/workflows/ci.yml
+[docs]: https://M1tsumi.github.io/PawSharp/
+[docs-badge]: https://img.shields.io/badge/docs-pawsharp-5865F2?style=flat-square
+[dev-guide]: docs/DEVELOPERS_GUIDE.md
+[rest-guide]: docs/REST_API_GUIDE.md
+[gateway-guide]: docs/GATEWAY_GUIDE.md
+[caching-guide]: docs/CACHING_GUIDE.md
+[patterns-guide]: docs/PATTERNS_GUIDE.md
+[voice-guide]: docs/VOICE_GUIDE.md
+[error-handling]: docs/ERROR_HANDLING.md
+[migration]: docs/MIGRATION.md
+[faq]: docs/faq.md
+[changelog]: CHANGELOG.md
+[examples]: examples/
+[contributing]: CONTRIBUTING.md
+[discord]: https://discord.gg/6Z8X8cCHXs
+[discord-badge]: https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white

@@ -21,15 +21,26 @@ class Program
         string token = Environment.GetEnvironmentVariable("DISCORD_TOKEN")
             ?? throw new InvalidOperationException("DISCORD_TOKEN environment variable is required");
 
-        // Create Discord client
-        var client = new DiscordClient(token, loggerFactory) as IDiscordClient ?? throw new InvalidOperationException("Client is not an IDiscordClient");
+        // Create Discord client using the fluent builder
+        var client = new PawSharpClientBuilder()
+            .WithToken(token)
+            .WithIntents(GatewayIntents.AllNonPrivileged | GatewayIntents.MessageContent)
+            .UseConsoleLogging()
+            .Build();
 
         // Initialize moderation system
         var moderationSystem = new ModerationSystem(client, logger);
 
-        // Subscribe to events
-        client.Gateway.OnMessageCreate += moderationSystem.HandleMessageAsync;
-        client.Gateway.OnGuildMemberAdd += moderationSystem.HandleMemberJoinAsync;
+        // Subscribe to events using the typed event dispatcher
+        using var messageSub = client.OnMessageCreated(async evt =>
+        {
+            await moderationSystem.HandleMessageAsync(evt.Message);
+        });
+
+        using var memberSub = client.OnGuildMemberAdd(async evt =>
+        {
+            await moderationSystem.HandleMemberJoinAsync(evt.Member);
+        });
 
         logger.LogInformation("Starting Moderation Bot...");
 
@@ -119,7 +130,10 @@ public class ModerationSystem
             if (welcomeChannel != null)
             {
                 await _client.Rest.CreateMessageAsync(welcomeChannel.Id,
-                    $"Welcome {member.User?.Mention} to the server! Please read the rules.");
+                    new CreateMessageRequest
+                    {
+                        Content = $"Welcome {member.User?.Mention} to the server! Please read the rules."
+                    });
             }
         }
         catch (Exception ex)
@@ -141,7 +155,8 @@ public class ModerationSystem
         // Check if user has moderator permissions (simplified check)
         if (!await HasModeratorPermissionsAsync(message.Author!.Id, message.GuildId))
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ You don't have permission to use moderation commands.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "You don't have permission to use moderation commands." });
             return;
         }
 
@@ -163,7 +178,8 @@ public class ModerationSystem
                 await ShowWarningsAsync(message, args);
                 break;
             default:
-                await _client.Rest.CreateMessageAsync(message.ChannelId, "Unknown moderation command. Available: warn, mute, kick, ban, warnings");
+                await _client.Rest.CreateMessageAsync(message.ChannelId,
+                    new CreateMessageRequest { Content = "Unknown moderation command. Available: warn, mute, kick, ban, warnings" });
                 break;
         }
     }
@@ -173,7 +189,8 @@ public class ModerationSystem
         var userId = ParseUserId(args);
         if (userId == 0)
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Invalid user mention or ID.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "Invalid user mention or ID." });
             return;
         }
 
@@ -184,11 +201,13 @@ public class ModerationSystem
         {
             // Auto-ban for too many warnings
             await BanUserByIdAsync(message.GuildId, userId, "Too many warnings");
-            await _client.Rest.CreateMessageAsync(message.ChannelId, $"🚫 User <@{userId}> has been banned for reaching {_maxWarnings} warnings.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = $"User <@{userId}> has been banned for reaching {_maxWarnings} warnings." });
         }
         else
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, $"⚠️ User <@{userId}> has been warned. Total warnings: {warnings.Count}/{_maxWarnings}");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = $"User <@{userId}> has been warned. Total warnings: {warnings.Count}/{_maxWarnings}" });
         }
     }
 
@@ -197,14 +216,16 @@ public class ModerationSystem
         var userId = ParseUserId(args);
         if (userId == 0)
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Invalid user mention or ID.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "Invalid user mention or ID." });
             return;
         }
 
         _mutedUsers.Add(userId);
 
         // In a real implementation, you'd modify the user's roles or use Discord's timeout feature
-        await _client.Rest.CreateMessageAsync(message.ChannelId, $"🔇 User <@{userId}> has been muted for {_muteDuration.TotalMinutes} minutes.");
+        await _client.Rest.CreateMessageAsync(message.ChannelId,
+            new CreateMessageRequest { Content = $"User <@{userId}> has been muted for {_muteDuration.TotalMinutes} minutes." });
 
         // Schedule unmute
         _ = Task.Delay(_muteDuration).ContinueWith(_ =>
@@ -219,19 +240,22 @@ public class ModerationSystem
         var userId = ParseUserId(args);
         if (userId == 0)
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Invalid user mention or ID.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "Invalid user mention or ID." });
             return;
         }
 
         try
         {
             await _client.Rest.RemoveGuildMemberAsync(message.GuildId, userId, "Kicked by moderator");
-            await _client.Rest.CreateMessageAsync(message.ChannelId, $"👢 User <@{userId}> has been kicked.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = $"User <@{userId}> has been kicked." });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to kick user {UserId}", userId);
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Failed to kick user. They may not be in the server or I lack permissions.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "Failed to kick user. They may not be in the server or I lack permissions." });
         }
     }
 
@@ -240,17 +264,20 @@ public class ModerationSystem
         var userId = ParseUserId(args);
         if (userId == 0)
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Invalid user mention or ID.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "Invalid user mention or ID." });
             return;
         }
 
         if (await TryBanUserByIdAsync(message.GuildId, userId, "Banned by moderator"))
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, $"🚫 User <@{userId}> has been banned.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = $"User <@{userId}> has been banned." });
         }
         else
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Failed to ban user. They may not be in the server or I lack permissions.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "Failed to ban user. They may not be in the server or I lack permissions." });
         }
     }
 
@@ -273,18 +300,21 @@ public class ModerationSystem
         var userId = ParseUserId(args);
         if (userId == 0)
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, "❌ Invalid user mention or ID.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = "Invalid user mention or ID." });
             return;
         }
 
         if (_userWarnings.TryGetValue(userId, out var warnings))
         {
             var warningList = string.Join("\n", warnings.Select((w, i) => $"{i + 1}. {w}"));
-            await _client.Rest.CreateMessageAsync(message.ChannelId, $"Warnings for <@{userId}>:\n{warningList}");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = $"Warnings for <@{userId}>:\n{warningList}" });
         }
         else
         {
-            await _client.Rest.CreateMessageAsync(message.ChannelId, $"User <@{userId}> has no warnings.");
+            await _client.Rest.CreateMessageAsync(message.ChannelId,
+                new CreateMessageRequest { Content = $"User <@{userId}> has no warnings." });
         }
     }
 
@@ -305,7 +335,7 @@ public class ModerationSystem
 
         // Send warning
         await _client.Rest.CreateMessageAsync(message.ChannelId,
-            $"{message.Author?.Mention} Your message was removed for: {reason}");
+            new CreateMessageRequest { Content = $"{message.Author?.Mention} Your message was removed for: {reason}" });
 
         // Add warning
         await WarnUserAsync(message, $"<@{message.Author!.Id}>");

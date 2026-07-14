@@ -144,7 +144,47 @@ public class CacheManager : IDisposable
             {
                 guild.Name = e.Name;
                 guild.Icon = e.Icon;
+                guild.Splash = e.Splash;
+                guild.DiscoverySplash = e.DiscoverySplash;
+                guild.Banner = e.Banner;
                 guild.OwnerId = e.OwnerId;
+                guild.Region = e.Region;
+                guild.AfkChannelId = e.AfkChannelId;
+                guild.AfkTimeout = e.AfkTimeout;
+                guild.WidgetEnabled = e.WidgetEnabled;
+                guild.WidgetChannelId = e.WidgetChannelId;
+                guild.VerificationLevel = e.VerificationLevel;
+                guild.DefaultMessageNotifications = e.DefaultMessageNotifications;
+                guild.ExplicitContentFilter = e.ExplicitContentFilter;
+                guild.MfaLevel = e.MfaLevel;
+                guild.ApplicationId = e.ApplicationId;
+                guild.SystemChannelId = e.SystemChannelId;
+                guild.SystemChannelFlags = e.SystemChannelFlags;
+                guild.RulesChannelId = e.RulesChannelId;
+                guild.MaxPresences = e.MaxPresences;
+                guild.MaxMembers = e.MaxMembers;
+                guild.VanityUrlCode = e.VanityUrlCode;
+                guild.Description = e.Description;
+                guild.PremiumTier = e.PremiumTier;
+                guild.PremiumSubscriptionCount = e.PremiumSubscriptionCount;
+                guild.PreferredLocale = e.PreferredLocale;
+                guild.PublicUpdatesChannelId = e.PublicUpdatesChannelId;
+                guild.MaxVideoChannelUsers = e.MaxVideoChannelUsers;
+                guild.ApproximateMemberCount = e.ApproximateMemberCount ?? e.MemberCount;
+                guild.ApproximatePresenceCount = e.ApproximatePresenceCount;
+                guild.SafetyAlertsChannelId = e.SafetyAlertsChannelId;
+                guild.HomeHeader = e.HomeHeader;
+                guild.LatestOnboardingQuestionId = e.LatestOnboardingQuestionId;
+
+                if (e.Features != null)
+                    guild.Features = e.Features;
+                if (e.Roles != null)
+                    guild.Roles = e.Roles;
+                if (e.Emojis != null)
+                    guild.Emojis = e.Emojis;
+                if (e.Stickers != null)
+                    guild.Stickers = e.Stickers;
+
                 _cache.CacheGuild(guild);
             }
         }
@@ -270,6 +310,26 @@ public class CacheManager : IDisposable
                     message.EditedTimestamp = e.EditedTimestamp;
                 if (e.Embeds != null)
                     message.Embeds = e.Embeds;
+                if (e.Components != null)
+                    message.Components = e.Components;
+                if (e.Flags.HasValue)
+                    message.Flags = e.Flags;
+                if (e.Attachments != null)
+                    message.Attachments = e.Attachments;
+                if (e.Mentions != null)
+                    message.Mentions = e.Mentions;
+                if (e.MentionRoles != null)
+                    message.MentionRoles = e.MentionRoles;
+                if (e.MentionChannels != null)
+                    message.MentionChannels = e.MentionChannels;
+                if (e.Poll != null)
+                    message.Poll = e.Poll;
+                if (e.Reactions != null)
+                    message.Reactions = e.Reactions;
+                if (e.StickerItems != null)
+                    message.StickerItems = e.StickerItems;
+                if (e.MessageSnapshots != null)
+                    message.MessageSnapshots = e.MessageSnapshots;
 
                 _cache.CacheMessage(message);
             }

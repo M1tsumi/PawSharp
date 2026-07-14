@@ -64,6 +64,7 @@ public class EventReplayBuffer
             SequenceNumber = eventData is GatewayEvent ge ? ge.SequenceNumber : null
         };
 
+        int count;
         lock (_lock)
         {
             if (_events.Count >= _capacity)
@@ -71,10 +72,11 @@ public class EventReplayBuffer
                 _events.Dequeue(); // Remove oldest
             }
             _events.Enqueue(replayEvent);
+            count = _events.Count;
         }
 
         _logger?.LogDebug("Recorded event {EventName} for replay buffer (count: {Count}/{Capacity})", 
-            eventName, _events.Count, _capacity);
+            eventName, count, _capacity);
     }
 
     /// <summary>

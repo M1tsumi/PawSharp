@@ -21,6 +21,7 @@ public class ReconnectionManager
     private readonly IPerformanceMetrics? _metrics;
     private int _reconnectionAttempts;
     private int _currentBackoffMs;
+    private readonly object _lock = new();
 
     /// <summary>
     /// Fired when reconnection is about to be attempted.
@@ -69,8 +70,11 @@ public class ReconnectionManager
     /// </summary>
     public void Reset()
     {
-        _reconnectionAttempts = 0;
-        _currentBackoffMs = _initialBackoffMs;
+        lock (_lock)
+        {
+            _reconnectionAttempts = 0;
+            _currentBackoffMs = _initialBackoffMs;
+        }
     }
 
     /// <summary>
@@ -85,24 +89,30 @@ public class ReconnectionManager
             return false;
         }
 
-        _reconnectionAttempts++;
+        int attempt;
+        int delayMs;
+        lock (_lock)
+        {
+            _reconnectionAttempts++;
+            attempt = _reconnectionAttempts;
         
-        // Apply jitter to spread reconnects across time.
-        // Using Random.Shared for thread-safe, allocation-free random numbers.
-        var jitter = (int)(_currentBackoffMs * _jitterFactor * (2.0 * Random.Shared.NextDouble() - 1.0));
-        var delayMs = Math.Max(0, _currentBackoffMs + jitter);
+            // Apply jitter to spread reconnects across time.
+            // Using Random.Shared for thread-safe, allocation-free random numbers.
+            var jitter = (int)(_currentBackoffMs * _jitterFactor * (2.0 * Random.Shared.NextDouble() - 1.0));
+            delayMs = Math.Max(0, _currentBackoffMs + jitter);
+        
+            // Exponential backoff: double the backoff time
+            _currentBackoffMs = Math.Min(_currentBackoffMs * 2, _maxBackoffMs);
+        }
         
         _logger.LogWarning("Reconnection attempt {Attempt}/{Max} in {BackoffMs}ms (jitter: {JitterMs}ms)", 
-            _reconnectionAttempts, _maxReconnectionAttempts, delayMs, jitter);
+            attempt, _maxReconnectionAttempts, delayMs, 0);
 
         _metrics?.RecordReconnection();
 
         await Task.Delay(delayMs).ConfigureAwait(false);
 
-        if (OnReconnectionAttempt is { } attemptHandler) await attemptHandler(_reconnectionAttempts).ConfigureAwait(false);
-
-        // Exponential backoff: double the backoff time
-        _currentBackoffMs = Math.Min(_currentBackoffMs * 2, _maxBackoffMs);
+        if (OnReconnectionAttempt is { } attemptHandler) await attemptHandler(attempt).ConfigureAwait(false);
 
         return true;
     }

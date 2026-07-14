@@ -1,0 +1,107 @@
+# PawSharp
+
+A modular C# Discord API wrapper for .NET 10. REST, Gateway, caching, commands, interactions, voice with DAVE E2EE.
+
+## Project Structure
+
+### Source Projects (src/)
+
+Each is a separate NuGet package with clear dependencies:
+
+- **PawSharp.Core** — Foundation package. Entities (Guild, Channel, Message, User, Role, Embed), enums (GatewayIntents, Permissions, ChannelType, MessageFlags, etc.), exceptions (DiscordException, DiscordApiException, ValidationException), builders (EmbedBuilder, ComponentBuilder, CommandBuilder), serialization (SnowflakeJsonConverter, source-generated JsonSerializerContext), validation (SnowflakeValidator, ContentValidator, DiscordLimits), metrics (PerformanceMetrics, MemoryMetrics), CDN helpers. No external dependencies beyond Microsoft.Extensions.Logging.Abstractions and Microsoft.Extensions.DependencyInjection.
+
+- **PawSharp.API** — REST client. IDiscordRestClient interface with ~140+ typed endpoints. DiscordRestClient implementation. AdvancedRateLimiter with per-bucket tracking, global rate limit detection, configurable retry. Supports cancellation tokens on all methods. Error handling via HandleApiResponseAsync with optional ThrowOnApiError. OAuth2 token helpers (ExchangeCodeAsync, RefreshTokenAsync, RevokeTokenAsync).
+
+- **PawSharp.Gateway** — WebSocket client. GatewayClient: ConnectAsync, DisconnectAsync, GatewaySendAsync, presence updates, voice state updates. HeartbeatManager with configurable interval, jitter, zombie detection (missed ACK threshold). ReconnectionManager with exponential backoff, jitter, max attempts. EventDispatcher with typed On<T>("EVENT_NAME", handler) returning IDisposable subscription, middleware pipeline, parallel dispatch queue, event replay buffer. ShardManager for multi-shard bots with auto-rebalancing. ZlibStream compression. Rate-limited gateway sends (120/60s window).
+
+- **PawSharp.Cache** — Entity caching. IEntityCache interface with typed (CacheUser/GetUser, CacheGuild/GetGuild, etc.) and generic (Add/Get/Remove) methods. MemoryCacheProvider: concurrent dictionaries, per-entity TTL, LRU eviction, bounds enforcement, cleanup timer. RedisCacheProvider: StackExchange.Redis backend, JSON serialization, typed entity keys (user:{id}, guild:{id}, etc.), per-entity TTL. CacheSwapper: multi-provider with circuit breaker, auto-fallback, health checks. RedisCacheDistributor: cross-instance invalidation via pub/sub. CacheTelemetry: hit/miss tracking, operation timing, eviction events.
+
+- **PawSharp.Client** — Batteries-included facade. DiscordClient: composes REST + Gateway + Cache + Interactions. IDiscordClient interface with typed event subscriptions (OnMessageCreated returns IDisposable), message helpers (SendMessageAsync, ReplyAsync, ForwardMessageAsync with multiple overloads), TryXxx fire-and-forget variants. PawSharpClientBuilder fluent builder: WithToken (auto-prepends "Bot "), WithIntents, WithPresence, UseConsoleLogging, WithSharding. CacheManager subscribes to gateway events to keep cache in sync. DI extensions: SetupPawSharp (builder-based), AddPawSharp (DI-based with cache factory).
+
+- **PawSharp.Commands** — Prefix command framework. Attribute-based: [Command], [Aliases], [Description], [Remaining], [Optional]. Type conversion system with ITypeConverter<T>, auto-discovery via RegisterCommandsAsync. Middleware pipeline. Preconditions: RequirePermission, RequireRole, RequireOwner, RequireGuild, RequireDm, RequireNsfw, RequireBotPermission, RequireChannel, Cooldown. Slash command auto-registration.
+
+- **PawSharp.Interactions** — Interaction routing. InteractionHandler: routes slash commands, components, modals, autocomplete by custom ID. SlashCommandBuilder fluent builder with all option types. ModalBuilder. InteractionResponseBuilder. WebhookVerifier for incoming webhook auth. Interaction extensions: GetOptionValue<T>, ConvertValue<T>.
+
+- **PawSharp.Interactivity** — User interaction helpers. Reaction waiting (WaitForReactionAsync, CollectReactionsAsync), confirmation dialogs, pagination (SendPaginatedMessageAsync), reaction polls (CreatePollAsync, GetPollResultsAsync). Button/modals/select menu waiters via InteractionHandler.
+
+- **PawSharp.Voice** — Voice connections. VoiceClient/VoiceConnection: WebSocket + UDP, Opus codec via Concentus (pure .NET, no native deps), RTP. DAVE E2EE: MLS (RFC 9420) key schedule, HPKE P-256 encryption, BouncyCastle crypto provider.
+
+### Test Projects (tests/)
+
+- **PawSharp.Core.Tests** — 204 tests: entities, builders, validation, serialization, metrics, exceptions, Component V2 builders.
+- **PawSharp.API.Tests** — 106 tests: REST client, error scenarios, rate limit telemetry, cache interaction, endpoint coverage.
+- **PawSharp.Gateway.Tests** — 205 tests: EventDispatcher, HeartbeatManager, ReconnectionManager, ShardManager, EventDispatchQueue, EventReplayBuffer, GatewayEventDispatch, EventFilteringMiddleware, GatewayClient.
+- **PawSharp.Client.Tests** — 29 tests: DiscordClient, CacheManager, DI extensions.
+- **PawSharp.Commands.Tests** — 132 tests: CommandsExtension, type conversion, preconditions, autocomplete, module discovery.
+- **PawSharp.Interactions.Tests** — 100 tests: InteractionHandler, SlashCommandBuilder, InteractionResponseBuilder, ComponentBuilders.
+- **PawSharp.Interactivity.Tests** — 43 tests: reaction waits, polls, pagination, validation.
+- **PawSharp.Cache.Tests** — 59 tests (5 skipped without Redis): MemoryCacheProvider, RedisCacheProvider, CacheSwapper, telemetry, eviction.
+- **PawSharp.Voice.Tests** — 324 tests: DAVE protocol, MLS key schedule, HPKE encryption, voice connection, serialization.
+
+### Key Files
+
+- `src/Directory.Build.props` — Shared build config: Version 1.1.0-alpha.5, LangVersion latest, Nullable enable, ImplicitUsings enable, IsAotCompatible true, PublishTrimmed true (publish only), GenerateDocumentationFile true, SourceLink enabled.
+- `src/Directory.Build.targets` — Source link integration, deterministic builds.
+- `Directory.Packages.props` — Central package management. Key packages: System.Text.Json 9.0, Microsoft.Extensions.* 10.0, StackExchange.Redis 2.8.16, Concentus 2.2.2 (Opus), NAudio 2.2.1, BouncyCastle.Cryptography 2.4.0.
+- `global.json` — SDK 10.0.100, latestMinor rollforward.
+- `docfx.json` — DocFX 2.77 configuration for documentation site (default template, search indexing, favicon).
+- `filterConfig.yml` — DocFX filter excluding internal MLS crypto types from API docs.
+- `.github/workflows/ci.yml` — CI: build + test + docs build + deploy (main only, pages artifact).
+
+### Documentation (docs/)
+
+- `index.md` — Developer documentation homepage with architecture diagram and guide index.
+- `getting-started.md` — Quickstart, architecture overview, package ecosystem.
+- `installation.md` — Requirements, NuGet packages, building from source.
+- `faq.md` — Frequently asked questions.
+- `migration.md` — Migrating from DSharpPlus/Discord.Net, version history.
+- `guides/` — 30 guides covering all features.
+- `contributing/` — Build instructions, repository structure, coding guidelines, test runner setup.
+- `api/` — Auto-generated API reference (6926+ HTML pages from XML comments).
+
+## Key Design Decisions
+
+### Event System
+Three subscription patterns with increasing power:
+1. `client.OnMessageCreated(handler)` — convenience, returns IDisposable
+2. `client.Gateway.Events.On<MessageCreateEvent>("MESSAGE_CREATE", handler)` — type-safe, direct
+3. `client.Gateway.Events.OnRaw("MESSAGE_CREATE", handler)` — raw JSON, maximum flexibility
+
+Event handlers receive typed EventArgs classes (not raw JToken). Events are dispatched through middleware pipeline. Parallel dispatch configurable via EventDispatchOptions. Handler timeouts via EventDispatchOptions.HandlerTimeoutMs.
+
+### Rate Limiting
+AdvancedRateLimiter pre-emptively tracks Discord's X-RateLimit-* headers on responses. Per-bucket semaphores serialize identical-route requests. Global rate limit handled via timestamp tracking. Retry logic on 429 with Retry-After header. Telemetry events emitted for monitoring. Max retries configurable. Wait failures logged at Warning and proceed anyway (fail-open).
+
+### AOT / Trimming
+All JSON serialization uses source-generated `JsonSerializerContext` (PawSharpJsonContext, PawSharpApiJsonContext, PawSharpGatewayJsonContext). No runtime reflection for serialization. `PublishTrimmed` and `TrimMode=link` configured but conditional — only applies during publish, not regular Release builds (previously caused test failures).
+
+### Configuration
+PawSharpOptions POCO with nested options classes:
+- `ReconnectionOptions`: MaxAttempts (10), InitialDelayMs (1000), MaxDelayMs (16000), JitterFactor (0.25)
+- `EventDispatchOptions`: MaxQueueSize (1000), EnableParallelDispatch (false), MaxDegreeOfParallelism, HandlerTimeoutMs
+- `RestApiOptions`: TimeoutSeconds (30), ThrowOnApiError (false), MaxRateLimitRetries
+- `CacheOptions`: Per-guild entity limits (MaxUsers, MaxGuilds, MaxChannels, MaxMessages, MaxMembers, MaxRoles, MaxEmojis)
+- `PresenceOptions`: Status, ActivityName, ActivityType, StreamUrl
+
+### Serialization
+All API models use snake_case JSON via `JsonNamingPolicy.SnakeCaseLower`. Snowflake IDs (ulong) serialized as strings per Discord API convention. Null values omitted (`JsonIgnoreCondition.WhenWritingNull`). Number handling allows string-to-number reading.
+
+### Builder Pattern
+All complex entities use fluent builders returning the builder for chaining. Build() validates constraints (Discord limits like embed field count, component limits) and throws ValidationException. EmbedBuilder, ComponentBuilder, CommandBuilder, SlashCommandBuilder, ModalBuilder.
+
+### Gateway Reconnection
+On disconnect: exponential backoff with jitter. Resume attempts use stored session ID and sequence number. On failure, falls back to fresh identify. Zombie detection via missed heartbeat ACKs (configurable threshold, default 3). Rate limit for gateway commands (120 per 60s window) enforced via SemaphoreSlim.
+
+### Testing Conventions
+xUnit with FluentAssertions for test assertions. Moq for mocking. Redis-dependent tests marked [Fact(Skip = "Redis required")]. Tests use `[Collection("Non-Parallel")]` where thread safety is a concern. Gateway tests use fake/mock WebSocket connections. No integration tests hit live Discord API (all mocked).
+
+### Unusual Patterns
+- **EventInterestAttribute**: Metadata on handler types to verify required GatewayIntents are enabled. Validated before identify payload sent to Discord.
+- **IntentValidationMode**: Configured via PawSharpOptions (Warn by default). Validates handler intents match configured GatewayIntents.
+- **TypedLogger<T>**: Adapter class wrapping non-generic ILogger to satisfy ILogger<T> for internal classes.
+- **CacheSwapper**: Runtime provider failover with circuit breaker pattern. Multiple providers share the same IEntityCache interface.
+- **DistributedCacheProvider**: Decorator pattern wrapping IEntityCache with cross-instance invalidation via Redis pub/sub.
+- **SnowflakeJsonConverter**: Custom STJ converter for Discord snowflakes (ulong serialized as string).
+- **NullableSnowflakeJsonConverter**: Companion converter for nullable snowflakes.
+- **TryXxx methods**: Fire-and-forget variants of all message methods (TryReplyAsync, TrySendMessageAsync) that swallow exceptions.
+- **EmbedTemplates**: Static factory methods for common embed patterns (Success, Error, Info, Warning).

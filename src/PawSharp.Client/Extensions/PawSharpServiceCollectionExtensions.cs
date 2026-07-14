@@ -48,8 +48,8 @@ public static class PawSharpServiceCollectionExtensions
         var builder = new PawSharpClientBuilder().WithToken(token);
         configure?.Invoke(builder);
         var client = builder.Build();
-        services.AddSingleton<IDiscordClient>(client);
-        services.AddSingleton((DiscordClient)client);
+        services.AddSingleton(client);
+        services.AddSingleton<IDiscordClient>(sp => sp.GetRequiredService<DiscordClient>());
         return services;
     }
 
@@ -72,8 +72,8 @@ public static class PawSharpServiceCollectionExtensions
         ApplyOptions(builder, options);
         configure?.Invoke(builder);
         var client = builder.Build();
-        services.AddSingleton<IDiscordClient>(client);
-        services.AddSingleton((DiscordClient)client);
+        services.AddSingleton(client);
+        services.AddSingleton<IDiscordClient>(sp => sp.GetRequiredService<DiscordClient>());
         return services;
     }
 
@@ -131,10 +131,16 @@ public static class PawSharpServiceCollectionExtensions
         // Register options as a singleton so downstream services can inject them
         services.AddSingleton(options);
 
-        // HTTP client for REST
+        // HTTP client for REST — configure with the same SocketsHttpHandler as the builder path
         services.AddSingleton<HttpClient>(_ =>
         {
-            var client = new HttpClient();
+            var handler = new SocketsHttpHandler
+            {
+                ConnectTimeout = TimeSpan.FromSeconds(15),
+                Expect100ContinueTimeout = TimeSpan.FromSeconds(1),
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+            };
+            var client = new HttpClient(handler);
             return client;
         });
 

@@ -209,24 +209,27 @@ public class PerformanceMetrics : IPerformanceMetrics
 
     public void Reset()
     {
-        _apiMetrics.Clear();
-        _cacheMetrics.Clear();
-        _gatewayOpcodes.Clear();
-        _eventMetrics.Clear();
-        _totalApiRequests = 0;
-        _totalApiErrors = 0;
-        _totalCacheHits = 0;
-        _totalCacheMisses = 0;
-        _totalGatewayMessages = 0;
-        _totalApiDurationMs = 0;
-        _totalReconnections = 0;
-        _totalHeartbeatLatencyMs = 0;
-        _heartbeatCount = 0;
-        _totalEventDispatchDurationMs = 0;
-        _eventDispatchCount = 0;
-        _currentQueueDepth = 0;
-        _maxQueueDepth = 0;
-        _uptime.Restart();
+        lock (this)
+        {
+            _apiMetrics.Clear();
+            _cacheMetrics.Clear();
+            _gatewayOpcodes.Clear();
+            _eventMetrics.Clear();
+            _totalApiRequests = 0;
+            _totalApiErrors = 0;
+            _totalCacheHits = 0;
+            _totalCacheMisses = 0;
+            _totalGatewayMessages = 0;
+            _totalApiDurationMs = 0;
+            _totalReconnections = 0;
+            _totalHeartbeatLatencyMs = 0;
+            _heartbeatCount = 0;
+            _totalEventDispatchDurationMs = 0;
+            _eventDispatchCount = 0;
+            _currentQueueDepth = 0;
+            _maxQueueDepth = 0;
+            _uptime.Restart();
+        }
     }
 }
 

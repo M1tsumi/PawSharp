@@ -293,26 +293,31 @@ namespace PawSharp.Cache.Swapping
 
         private async Task TryFallbackAsync(string failedProviderName)
         {
+            // Snapshot providers under lock, then release before doing I/O
+            List<CacheProviderInfo> fallbackProviders;
             lock (_lock)
             {
-                var fallbackProviders = _providers.Values
+                fallbackProviders = _providers.Values
                     .Where(p => p.Name != failedProviderName && !p.IsCircuitOpen)
                     .OrderBy(p => p.Priority)
                     .ToList();
+            }
 
-                foreach (var provider in fallbackProviders)
+            foreach (var provider in fallbackProviders)
+            {
+                try
                 {
-                    try
+                    provider.Provider.IsHealthy();
+                    lock (_lock)
                     {
-                        provider.Provider.IsHealthy();
                         SetActiveProvider(provider.Name);
-                        return;
                     }
-                    catch (Exception)
-                    {
-                        // Try next provider
-                        continue;
-                    }
+                    return;
+                }
+                catch (Exception)
+                {
+                    // Try next provider
+                    continue;
                 }
             }
         }
@@ -369,6 +374,7 @@ namespace PawSharp.Cache.Swapping
                 {
                     var provider = GetProviderOrThrow();
                     provider.Add(key, entity);
+                    return;
                 }
                 throw;
             }
@@ -414,6 +420,7 @@ namespace PawSharp.Cache.Swapping
                 {
                     var provider = GetProviderOrThrow();
                     provider.Remove(key);
+                    return;
                 }
                 throw;
             }
@@ -443,6 +450,7 @@ namespace PawSharp.Cache.Swapping
                 {
                     var provider = GetProviderOrThrow();
                     provider.Clear();
+                    return;
                 }
                 throw;
             }

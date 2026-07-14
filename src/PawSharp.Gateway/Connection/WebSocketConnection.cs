@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Buffers;
 using System.Net.WebSockets;
@@ -35,6 +36,7 @@ namespace PawSharp.Gateway.Connection
     public class WebSocketConnection : IDisposable, IAsyncDisposable
     {
         private ClientWebSocket _webSocket;
+        private readonly object _socketLock = new();
         private ZlibStreamCompression? _compression;
         private readonly bool _useCompression;
         private readonly bool _useArrayPooling;
@@ -78,17 +80,20 @@ namespace PawSharp.Gateway.Connection
             
             // ClientWebSocket cannot be reused after it has been closed. Dispose the
             // old instance and create a fresh one so that reconnection works correctly.
-            if (_webSocket.State != WebSocketState.None)
+            lock (_socketLock)
             {
-                try
+                if (_webSocket.State != WebSocketState.None)
                 {
-                    _webSocket.Dispose();
+                    try
+                    {
+                        _webSocket.Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Already disposed, safe to ignore
+                    }
+                    _webSocket = new ClientWebSocket();
                 }
-                catch (ObjectDisposedException)
-                {
-                    // Already disposed, safe to ignore
-                }
-                _webSocket = new ClientWebSocket();
             }
             
             // Initialize compression context for new connection
@@ -237,18 +242,28 @@ namespace PawSharp.Gateway.Connection
             if (_disposed) return;
             _disposed = true;
 
+            // Take a local reference under the lock so we don't race with ConnectAsync
+            // swapping _webSocket concurrently.
+            ClientWebSocket socket;
+            ZlibStreamCompression? compression;
+            lock (_socketLock)
+            {
+                socket = _webSocket;
+                compression = _compression;
+            }
+
             // Fire-and-forget graceful close to avoid blocking the calling thread.
             // Dispose() must remain synchronous per IDisposable contract.
             _disposeTask = Task.Run(async () =>
             {
                 try
                 {
-                    if (_webSocket.State == WebSocketState.Open ||
-                        _webSocket.State == WebSocketState.CloseReceived ||
-                        _webSocket.State == WebSocketState.CloseSent)
+                    if (socket.State == WebSocketState.Open ||
+                        socket.State == WebSocketState.CloseReceived ||
+                        socket.State == WebSocketState.CloseSent)
                     {
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token).ConfigureAwait(false);
+                        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", cts.Token).ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)
@@ -257,9 +272,9 @@ namespace PawSharp.Gateway.Connection
                 }
                 finally
                 {
-                    try { _webSocket.Dispose(); }
+                    try { socket.Dispose(); }
                     catch (Exception ex) { _logger?.LogDebug(ex, "WebSocket disposal error"); }
-                    try { _compression?.Dispose(); }
+                    try { compression?.Dispose(); }
                     catch (Exception ex) { _logger?.LogDebug(ex, "WebSocket compression disposal error"); }
                 }
             });

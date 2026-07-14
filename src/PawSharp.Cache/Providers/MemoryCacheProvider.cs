@@ -334,6 +334,9 @@ namespace PawSharp.Cache.Providers
             _members.Clear();
             _roles.Clear();
             _emojis.Clear();
+            _genericCache.Clear();
+            _lastAccess.Clear();
+            _lastAccessString.Clear();
             _logger?.LogInformation("Cache cleared. Removed {Count} entities.", total);
             CacheCleared?.Invoke(this, EventArgs.Empty);
         }
@@ -463,16 +466,18 @@ namespace PawSharp.Cache.Providers
 
         public void CacheGuildMember(ulong guildId, GuildMember member)
         {
-            var key = $"{guildId}:{member.User?.Id}";
+            if (member.User == null)
+            {
+                _logger?.LogWarning("Skipping cache of guild member with null User in guild {GuildId}", guildId);
+                return;
+            }
+            var key = $"{guildId}:{member.User.Id}";
             _members[key] = member;
-            _logger?.LogDebug("Cached guild member {UserId} in guild {GuildId}", member.User?.Id, guildId);
+            _logger?.LogDebug("Cached guild member {UserId} in guild {GuildId}", member.User.Id, guildId);
             EnforceEntityCacheBounds(_members, _maxMembers, "Member");
             
             // Also cache the user
-            if (member.User != null)
-            {
-                CacheUser(member.User);
-            }
+            CacheUser(member.User);
         }
 
         public GuildMember? GetGuildMember(ulong guildId, ulong userId)

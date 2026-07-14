@@ -173,7 +173,7 @@ public class HeartbeatManagerTests
     public void OnHeartbeatSent_IsFired()
     {
         var fired = false;
-        var manager = new HeartbeatManager(200, () => Task.CompletedTask);
+        var manager = new HeartbeatManager(100, () => Task.CompletedTask);
         manager.OnHeartbeatSent += () =>
         {
             fired = true;

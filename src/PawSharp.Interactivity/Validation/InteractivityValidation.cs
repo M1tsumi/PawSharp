@@ -35,7 +35,8 @@ public static class InteractivityValidation
     /// <exception cref="ValidationException">Thrown when validation fails.</exception>
     public static void RequireNotEmpty<T>(IEnumerable<T> collection, string paramName)
     {
-        if (!collection.Any())
+        using var enumerator = collection.GetEnumerator();
+        if (!enumerator.MoveNext())
             throw new ValidationException(
                 $"{paramName} cannot be empty. " +
                 $"The collection must contain at least one element.",

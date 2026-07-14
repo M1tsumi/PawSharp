@@ -2,8 +2,14 @@
 namespace PawSharp.Cache;
 
 /// <summary>
-/// Configuration options for cache providers.
+/// Provider-level configuration options for cache providers.
 /// </summary>
+/// <remarks>
+/// This class configures provider-level settings such as maximum cache sizes per entity type,
+/// default expiration, and per-entity TTL overrides. It is used by cache provider implementations
+/// (for example, <c>RedisCacheProvider</c>) and is separate from
+/// <see cref="PawSharp.Core.Models.PawSharpOptions.CacheOptions"/>, which controls client-side per-guild entity limits.
+/// </remarks>
 public class CacheOptions
 {
     /// <summary>

@@ -12,7 +12,6 @@ namespace PawSharp.API.RateLimit;
 public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
 {
     private readonly ConcurrentDictionary<string, RateLimitBucket> _buckets = new();
-    private readonly SemaphoreSlim _globalLimitSemaphore = new(1, 1);
     private DateTimeOffset _globalResetAt = DateTimeOffset.MinValue;
     private readonly Timer? _cleanupTimer;
     private bool _disposed;
@@ -97,7 +96,6 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
         if (_disposed) return;
         _disposed = true;
         _cleanupTimer?.Dispose();
-        _globalLimitSemaphore.Dispose();
     }
 }
 

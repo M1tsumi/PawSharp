@@ -49,6 +49,11 @@ namespace PawSharp.Gateway.Connection
         }
 
         /// <summary>
+        /// Maximum buffer size (4 MB) to prevent memory exhaustion from malformed streams.
+        /// </summary>
+        private const int MaxBufferSize = 4 * 1024 * 1024;
+
+        /// <summary>
         /// Decompresses a chunk of data received from the WebSocket.
         /// Returns null if the chunk doesn't contain a complete message.
         /// </summary>
@@ -65,6 +70,12 @@ namespace PawSharp.Gateway.Connection
                 chunk[^2] != 0xFF || chunk[^1] != 0xFF)
             {
                 // Not a complete message, buffer it
+                if (_buffer.Length + chunk.Length > MaxBufferSize)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Zlib decompression buffer exceeded {MaxBufferSize} bytes — discarding buffer to prevent memory exhaustion");
+                    _buffer.SetLength(0);
+                    _buffer.Position = 0;
+                }
                 _buffer.Write(chunk, 0, chunk.Length);
                 return null;
             }

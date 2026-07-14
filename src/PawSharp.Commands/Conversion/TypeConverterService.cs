@@ -106,8 +106,26 @@ public class TypeConverterService
         var underlyingType = Nullable.GetUnderlyingType(targetType);
         if (underlyingType != null && _converters.TryGetValue(underlyingType, out var underlyingConverterObj))
         {
-            // This is a simplified approach - in a full implementation, we'd need to handle the nullable wrapper
-            _logger?.LogWarning("No direct converter for nullable type {Type}, but found converter for {UnderlyingType}", targetType.Name, underlyingType.Name);
+            // Use reflection to invoke the generic converter for the underlying type
+            var underlyingConverterType = typeof(ITypeConverter<>).MakeGenericType(underlyingType);
+            if (underlyingConverterType.IsInstanceOfType(underlyingConverterObj))
+            {
+                var convertMethod = underlyingConverterType.GetMethod(nameof(ITypeConverter<object>.ConvertAsync));
+                if (convertMethod != null)
+                {
+                    var result = await (dynamic)convertMethod.Invoke(underlyingConverterObj, new object[] { value, context })!;
+                    if (result != null)
+                    {
+                        var isSuccessProp = result.GetType().GetProperty("IsSuccess");
+                        if (isSuccessProp != null && (bool)isSuccessProp.GetValue(result) == true)
+                        {
+                            var convertedValue = result.GetType().GetProperty("Value")?.GetValue(result);
+                            return TypeConverterResult<T>.FromSuccess((T)convertedValue!);
+                        }
+                    }
+                    return TypeConverterResult<T>.FromError($"Conversion to underlying type {underlyingType.Name} failed.");
+                }
+            }
         }
 
         return TypeConverterResult<T>.FromError($"No type converter registered for type {targetType.Name}.");

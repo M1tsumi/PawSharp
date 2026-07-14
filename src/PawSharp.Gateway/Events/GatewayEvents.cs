@@ -141,19 +141,46 @@ public class MessageUpdateEvent : GatewayEvent
     [JsonPropertyName("id")]
     [JsonConverter(typeof(SnowflakeJsonConverter))]
     public ulong Id { get; set; }
-    
+
     [JsonPropertyName("channel_id")]
     public ulong ChannelId { get; set; }
-    
+
     [JsonPropertyName("content")]
     public string? Content { get; set; }
-    
+
     [JsonPropertyName("edited_timestamp")]
     public DateTimeOffset? EditedTimestamp { get; set; }
-    
+
     [JsonPropertyName("embeds")]
     public List<Embed>? Embeds { get; set; }
-    
+
+    [JsonPropertyName("components")]
+    public List<MessageComponent>? Components { get; set; }
+
+    [JsonPropertyName("flags")]
+    public PawSharp.Core.Enums.MessageFlags? Flags { get; set; }
+
+    [JsonPropertyName("attachments")]
+    public List<Attachment>? Attachments { get; set; }
+
+    [JsonPropertyName("mentions")]
+    public List<User>? Mentions { get; set; }
+
+    [JsonPropertyName("mention_roles")]
+    public List<ulong>? MentionRoles { get; set; }
+
+    [JsonPropertyName("mention_channels")]
+    public List<ChannelMention>? MentionChannels { get; set; }
+
+    [JsonPropertyName("reactions")]
+    public List<Reaction>? Reactions { get; set; }
+
+    [JsonPropertyName("sticker_items")]
+    public List<StickerItem>? StickerItems { get; set; }
+
+    [JsonPropertyName("message_snapshots")]
+    public List<MessageSnapshot>? MessageSnapshots { get; set; }
+
     [JsonPropertyName("guild_id")]
     public ulong? GuildId { get; set; }
 
@@ -278,18 +305,128 @@ public class GuildUpdateEvent : GatewayEvent
     [JsonPropertyName("id")]
     [JsonConverter(typeof(SnowflakeJsonConverter))]
     public ulong Id { get; set; }
-    
+
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
-    
+
     [JsonPropertyName("icon")]
     public string? Icon { get; set; }
-    
-    [JsonPropertyName("owner_id")]
-    public ulong OwnerId { get; set; }
-    
+
+    [JsonPropertyName("splash")]
+    public string? Splash { get; set; }
+
+    [JsonPropertyName("discovery_splash")]
+    public string? DiscoverySplash { get; set; }
+
+    [JsonPropertyName("banner")]
+    public string? Banner { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("vanity_url_code")]
+    public string? VanityUrlCode { get; set; }
+
+    [JsonPropertyName("premium_tier")]
+    public int PremiumTier { get; set; }
+
+    [JsonPropertyName("premium_subscription_count")]
+    public int? PremiumSubscriptionCount { get; set; }
+
     [JsonPropertyName("member_count")]
     public int? MemberCount { get; set; }
+
+    [JsonPropertyName("approximate_member_count")]
+    public int? ApproximateMemberCount { get; set; }
+
+    [JsonPropertyName("approximate_presence_count")]
+    public int? ApproximatePresenceCount { get; set; }
+
+    [JsonPropertyName("preferred_locale")]
+    public string PreferredLocale { get; set; } = "en-US";
+
+    [JsonPropertyName("owner_id")]
+    public ulong OwnerId { get; set; }
+
+    [JsonPropertyName("region")]
+    public string? Region { get; set; }
+
+    [JsonPropertyName("afk_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? AfkChannelId { get; set; }
+
+    [JsonPropertyName("afk_timeout")]
+    public int AfkTimeout { get; set; }
+
+    [JsonPropertyName("widget_enabled")]
+    public bool? WidgetEnabled { get; set; }
+
+    [JsonPropertyName("widget_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? WidgetChannelId { get; set; }
+
+    [JsonPropertyName("verification_level")]
+    public VerificationLevel VerificationLevel { get; set; }
+
+    [JsonPropertyName("default_message_notifications")]
+    public DefaultMessageNotificationLevel DefaultMessageNotifications { get; set; }
+
+    [JsonPropertyName("explicit_content_filter")]
+    public ExplicitContentFilterLevel ExplicitContentFilter { get; set; }
+
+    [JsonPropertyName("roles")]
+    public List<Role>? Roles { get; set; }
+
+    [JsonPropertyName("emojis")]
+    public List<Emoji>? Emojis { get; set; }
+
+    [JsonPropertyName("stickers")]
+    public List<Sticker>? Stickers { get; set; }
+
+    [JsonPropertyName("features")]
+    public List<string>? Features { get; set; }
+
+    [JsonPropertyName("mfa_level")]
+    public int MfaLevel { get; set; }
+
+    [JsonPropertyName("application_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? ApplicationId { get; set; }
+
+    [JsonPropertyName("system_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? SystemChannelId { get; set; }
+
+    [JsonPropertyName("system_channel_flags")]
+    public SystemChannelFlags SystemChannelFlags { get; set; }
+
+    [JsonPropertyName("rules_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? RulesChannelId { get; set; }
+
+    [JsonPropertyName("max_presences")]
+    public int? MaxPresences { get; set; }
+
+    [JsonPropertyName("max_members")]
+    public int? MaxMembers { get; set; }
+
+    [JsonPropertyName("public_updates_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? PublicUpdatesChannelId { get; set; }
+
+    [JsonPropertyName("max_video_channel_users")]
+    public int? MaxVideoChannelUsers { get; set; }
+
+    [JsonPropertyName("safety_alerts_channel_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? SafetyAlertsChannelId { get; set; }
+
+    [JsonPropertyName("home_header")]
+    public string? HomeHeader { get; set; }
+
+    [JsonPropertyName("latest_onboarding_question_id")]
+    [JsonConverter(typeof(NullableSnowflakeJsonConverter))]
+    public ulong? LatestOnboardingQuestionId { get; set; }
 }
 
 /// <summary>
